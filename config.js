@@ -9,7 +9,7 @@ const NUM_BUTTONS = 5;
 
 const BUTTON_LABELS = [
   "Button 1",
-  "Button 2",
+  "Info about a random country",
   "Button 3",
   "Button 4",
   "Button 5",
