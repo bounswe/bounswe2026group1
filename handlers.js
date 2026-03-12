@@ -26,7 +26,7 @@ function onButton2Click() {
 }
 
 function onButton3Click() {
-  console.log("Button 3 clicked -- implement me!");
+  window.location.href = 'mertozustun-api.html';
 }
 
 function onButton4Click() {
@@ -41,10 +41,12 @@ function onButton6Click() {
   console.log("Button 6 clicked -- implement me!");
 }
 
+
 function onButton7Click() {
   window.location.href = "mustafa.html";
 }
 
 function onButton8Click() {
   window.location.href = "burak-api.html";
+}
 }
