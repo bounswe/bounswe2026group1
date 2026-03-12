@@ -24,3 +24,15 @@ function onButton4Click() {
 function onButton5Click() {
   console.log("Button 5 clicked -- implement me!");
 }
+
+function onButton6Click() {
+  console.log("Button 6 clicked -- implement me!");
+}
+
+function onButton7Click() {
+  window.location.href = "mustafa.html";
+}
+
+function onButton8Click() {
+  window.location.href = "burak-api.html";
+}
