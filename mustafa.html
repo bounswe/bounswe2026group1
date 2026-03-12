@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trending Movies</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 24px;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+
+    h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    p.subtitle { color: #64748b; margin-bottom: 24px; font-size: 0.9rem; }
+
+    a.back { color: #4f46e5; font-size: 0.9rem; display: inline-block; margin-bottom: 24px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; color: #64748b; font-weight: 600; }
+    td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+    tr:hover td { background: #f1f5f9; }
+
+    #loading { color: #64748b; }
+    #error { color: #ef4444; display: none; }
+  </style>
+</head>
+<body>
+
+  <a class="back" href="index.html">← Back</a>
+  <h1>Trending Movies Today</h1>
+  <p class="subtitle">Data from The Movie Database (TMDB)</p>
+
+  <p id="loading">Loading...</p>
+  <p id="error">Failed to load data.</p>
+
+  <table id="table" style="display:none">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <th>Release Year</th>
+        <th>Rating</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    const API_KEY = "ec9e6ffa9ef75931fb99a1d2637f2549";
+
+    async function loadMovies() {
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/trending/movie/day?api_key=${API_KEY}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("table").style.display = "table";
+        const tbody = document.getElementById("tbody");
+
+        data.results.forEach((movie, i) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${movie.title}</td>
+            <td>${movie.release_date ? movie.release_date.split("-")[0] : "N/A"}</td>
+            <td>⭐ ${movie.vote_average ? movie.vote_average.toFixed(1) : "N/A"}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error").style.display = "block";
+      }
+    }
+
+    loadMovies();
+  </script>
+</body>
+</html>
