@@ -26,7 +26,7 @@ function onButton5Click() {
 }
 
 function onButton6Click() {
-  console.log("Button 5 clicked -- implement me!");
+  console.log("Button 6 clicked -- implement me!");
 }
 
 function onButton7Click() {
@@ -34,9 +34,5 @@ function onButton7Click() {
 }
 
 function onButton8Click() {
-  console.log("Button 5 clicked -- implement me!");
+  window.location.href = "burak-api.html";
 }
-
-
-
-

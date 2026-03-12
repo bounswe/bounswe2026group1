@@ -5,7 +5,11 @@
  * Update BUTTON_LABELS to set the text displayed on each button.
  */
 
+<<<<<<< HEAD
 const NUM_BUTTONS = 8;
+=======
+const NUM_BUTTONS = 8; 
+>>>>>>> origin/feature/stub-app
 
 const BUTTON_LABELS = [
   "Button 1",
