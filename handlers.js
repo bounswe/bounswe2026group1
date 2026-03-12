@@ -3,8 +3,8 @@
  *
  * Each button on the homepage has its own handler function below.
  * Replace the placeholder console.log with your own implementation.
+ 
  */
-
 function onButton1Click() {
   console.log("Button 1 clicked -- implement me!");
 }
