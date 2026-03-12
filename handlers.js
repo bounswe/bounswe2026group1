@@ -124,4 +124,3 @@ function onButton7Click() {
 function onButton8Click() {
   window.location.href = "burak-api.html";
 }
-}
