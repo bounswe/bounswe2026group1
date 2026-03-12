@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Public API Sonucu</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 40px; background: #f8fafc; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        .data-box { background: #e2e8f0; padding: 20px; border-radius: 8px; margin: 20px 0; font-size: 1.2rem; }
+        button { padding: 10px 20px; border: none; border-radius: 8px; background-color: #4f46e5; color: white; cursor: pointer; }
+        button:hover { background-color: #4338ca; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Public API Sonucu</h2>
+        <p><strong>Açıklama:</strong> Bu sayfa, <em>catfact.ninja</em> isimli public API'ye istek atar. Görüntülenen veri, rastgele bir kedi gerçeğini temsil eder.</p>
+        
+        <div class="data-box" id="api-result">API'den veri çekiliyor...</div>
+        
+        <button onclick="window.location.href='index.html'">Ana Sayfaya Dön</button>
+    </div>
+
+    <script>
+        fetch('https://catfact.ninja/fact')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('api-result').innerHTML = `<strong>Kedi Gerçeği:</strong> ${data.fact}`;
+            })
+            .catch(error => {
+                document.getElementById('api-result').innerText = "Veri çekilirken bir hata oluştu.";
+            });
+    </script>
+</body>
+</html>
