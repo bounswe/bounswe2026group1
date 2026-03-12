@@ -16,7 +16,7 @@ const NUM_BUTTONS = 5;
 >>>>>>> origin/feature/stub-app
 
 const BUTTON_LABELS = [
-  "Button 1",
+  "Valorant Agents - Osman Talha",
   "Button 2",
   "Button 3",
   "Button 4",
