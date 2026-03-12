@@ -13,7 +13,7 @@ const BUTTON_LABELS = [
   "Button 3",
   "Button 4",
   "Button 5",
-  "Get Random Dog Image",
+  "Get Random Cat Image",
   "Button 7",
   "Button 8"
 ];

@@ -6,7 +6,7 @@
  */
 
 function onButton6Click() {
-  window.location.href = "dog.html";
+  window.location.href = "cat.html";
 }
 
 function onButton1Click() {
