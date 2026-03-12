@@ -5,6 +5,10 @@
  * Replace the placeholder console.log with your own implementation.
  */
 
+function onButton6Click() {
+  window.location.href = "dog.html";
+}
+
 function onButton1Click() {
   console.log("Button 1 clicked -- implement me!");
 }
@@ -23,4 +27,12 @@ function onButton4Click() {
 
 function onButton5Click() {
   console.log("Button 5 clicked -- implement me!");
+}
+
+function onButton7Click() {
+  console.log("Button 7 clicked -- implement me!");
+}
+
+function onButton8Click() {
+  console.log("Button 8 clicked -- implement me!");
 }

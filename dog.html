@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Dog Image</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f8fafc;
+    }
+    h1 { margin-bottom: 16px; }
+    img {
+      max-width: 480px;
+      max-height: 480px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      display: none;
+    }
+    button {
+      margin-top: 24px;
+      padding: 12px 28px;
+      font-size: 1rem;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <h1>Random Dog</h1>
+  <p id="loading" style="display:none;">Loading...</p>
+  <img id="dog-img" alt="Random dog" />
+  <button onclick="loadDog()">Get Dog</button>
+
+  <script>
+    async function loadDog() {
+      const img = document.getElementById("dog-img");
+      const loading = document.getElementById("loading");
+      img.style.display = "none";
+      loading.style.display = "block";
+      const res = await fetch("https://dog.ceo/api/breeds/image/random");
+      const data = await res.json();
+      img.src = data.message;
+      img.onload = () => { loading.style.display = "none"; img.style.display = "block"; };
+    }
+    loadDog();
+  </script>
+</body>
+</html>
