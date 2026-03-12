@@ -5,6 +5,10 @@
  * Replace the placeholder console.log with your own implementation.
  */
 
+function onButton6Click() {
+  window.location.href = "cat.html";
+}
+
 function onButton1Click() {
   fetch("https://valorant-api.com/v1/agents")
     .then(res => res.json())
@@ -123,4 +127,12 @@ function onButton7Click() {
 
 function onButton8Click() {
   window.location.href = "burak-api.html";
+}
+
+function onButton7Click() {
+  console.log("Button 7 clicked -- implement me!");
+}
+
+function onButton8Click() {
+  console.log("Button 8 clicked -- implement me!");
 }

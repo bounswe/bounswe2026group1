@@ -6,6 +6,15 @@ A starter application with configurable buttons. Each button has a placeholder c
 
 Open `index.html` in any web browser. That's it.
 
+Or if you want to use Docker,
+
+```bash
+docker build -t stub-app .
+docker run -p 8080:80 stub-app
+```
+
+and visit `http://localhost:8080`
+
 ## Configuration
 
 ### Changing the number of buttons
