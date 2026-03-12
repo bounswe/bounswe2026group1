@@ -21,6 +21,19 @@ function onButton4Click() {
   console.log("Button 4 clicked -- implement me!");
 }
 
-function onButton5Click() {
-  console.log("Button 5 clicked -- implement me!");
+async function onButton5Click() {
+  const response = await fetch('https://dog.ceo/api/breeds/image/random');
+  const data = await response.json();
+  
+  window.location.href = `yeldos.html?img=${encodeURIComponent(data.message)}`;
+}
+
+function onButton6Click() {
+  console.log("Button 6 clicked -- implement me!");
+}
+function onButton7Click() {
+  console.log("Button 7 clicked -- implement me!");
+}
+function onButton8Click() {
+  console.log("Button 8 clicked -- implement me!");
 }
