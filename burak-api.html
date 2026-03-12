@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Public API Result</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 40px; background: #f8fafc; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        .data-box { background: #e2e8f0; padding: 20px; border-radius: 8px; margin: 20px 0; font-size: 1.2rem; }
+        button { padding: 10px 20px; border: none; border-radius: 8px; background-color: #4f46e5; color: white; cursor: pointer; }
+        button:hover { background-color: #4338ca; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Public API Result</h2>
+        <p><strong>Description:</strong> This page sends a request to the <em>catfact.ninja</em> public API. The displayed data represents a random cat fact.</p>
+        
+        <div class="data-box" id="api-result">Fetching data from API...</div>
+        
+        <button onclick="window.location.href='index.html'">Return to Home Page</button>
+    </div>
+
+    <script>
+        fetch('https://catfact.ninja/fact')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('api-result').innerHTML = `<strong>Cat Fact:</strong> ${data.fact}`;
+            })
+            .catch(error => {
+                document.getElementById('api-result').innerText = "An error occurred while fetching data.";
+            });
+    </script>
+</body>
+</html>
