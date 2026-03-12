@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Dog Viewer</title>
+</head>
+<body>
+
+    <h1>Here is a random dog image</h1>
+    
+    <p id="loading-text">Loading your doggo...</p>
+    <img id="dog-display" src="" alt="Random Dog" style="display: none;">
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const dogImgUrl = urlParams.get('img');
+
+        if (dogImgUrl) {
+            const imgElement = document.getElementById('dog-display');
+            const loadingText = document.getElementById('loading-text');
+
+            imgElement.src = dogImgUrl;
+            imgElement.style.display = 'block';
+            loadingText.style.display = 'none';
+        } else {
+            document.getElementById('loading-text').innerText = "No image found!";
+        }
+    </script>
+
+</body>
+</html>

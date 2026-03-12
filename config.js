@@ -8,12 +8,12 @@
 const NUM_BUTTONS = 8;
 
 const BUTTON_LABELS = [
-  "Button 1",
-  "Button 2",
+  "Valorant Agents - Osman Talha",
+  "Info about a random country",
   "Button 3",
   "Button 4",
   "Button 5",
-  "Get Random Cat Image",
+  "Button 6",
   "Button 7",
-  "Button 8"
+  "Button 8", 
 ];
