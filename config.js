@@ -9,7 +9,7 @@ const NUM_BUTTONS = 8;
 
 const BUTTON_LABELS = [
   "Valorant Agents - Osman Talha",
-  "Button 2",
+  "Info about a random country",
   "Button 3",
   "Button 4",
   "Button 5",

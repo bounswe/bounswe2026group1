@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Random Country Explorer</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; padding: 40px; background-color: #f8fafc; }
+        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-width: 400px; text-align: center; }
+        img { width: 100%; border-radius: 0.5rem; margin: 1rem 0; border: 1px solid #e2e8f0; }
+        .error { color: #ef4444; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Random Country</h1>
+        
+        <p>This page uses <strong>REST Countries API</strong> to fetch the full database of nations and selects one at random. The displayed data represents the common name, capital city, and national flag of a randomly selected country.</p>
+        
+        <hr>
+        <div id="content">Loading random country...</div>
+        <br>
+        <button onclick="window.location.href='index.html'">Go Back</button>
+    </div>
+
+    <script>
+        // Tüm ülkeleri çekiyoruz
+        fetch('https://restcountries.com/v3.1/all?fields=name,capital,currencies,flags,population,region,languages,currencies')
+            .then(response => {
+                if (!response.ok) throw new Error('Network was not healthy');
+                return response.json();
+            })
+            .then(data => {
+                // Listeden rastgele bir index seçiyoruz
+                console.log("Fetched countries:", data.length);
+                const randomIndex = Math.floor(Math.random() * data.length);
+                const country = data[randomIndex];
+                
+                // Bazı ülkelerin başkenti olmayabilir (Antarktika gibi), kontrol ekliyoruz
+                const capital = country.capital ? country.capital[0] : "No official capital";
+
+                document.getElementById('content').innerHTML = `
+                    <h2 style="color: #4f46e5;">${country.name.common}</h2>
+                    <img src="${country.flags.png}" alt="Flag">
+                    <p><strong>Capital:</strong> ${capital}</p>
+                    <p><strong>Population:</strong> ${country.population.toLocaleString()}</p>
+                    <p><strong>Region:</strong> ${country.region}</p>
+                `;
+            })
+            .catch(err => {
+                console.error("Fetch error:", err);
+                document.getElementById('content').innerHTML = 
+                    `<p class="error">Error loading data. Please check your internet connection or firewall.</p>`;
+            });
+    </script>
+</body>
+</html>
