@@ -21,3 +21,7 @@ function createFallbackHandler(n) {
     console.log("Button " + n + " clicked -- no handler found");
   };
 }
+
+window.onButton3Click = function() {
+    window.location.href = 'mertozustun-api.html';
+};

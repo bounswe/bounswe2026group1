@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><title>Mert's API Feature</title></head>
+<body>
+    <h1>Stock Market Data</h1>
+    <p>This page fetches real-time data from a public API. 
+       The data below represents the current market volume and 
+       price trends for selected tickers.</p>
+
+    <div id="api-output">Loading data...</div>
+
+    <script>
+    // Using CoinGecko - a stable, public crypto-market API
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_vol=true')
+        .then(response => {
+            if (!response.ok) throw new Error('HTTP error ' + response.status);
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('api-output').innerHTML = `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                    <h3>Live Market Data</h3>
+                    <p><strong>API Description:</strong> This API provides real-time exchange rates and 24-hour trading volumes for cryptocurrencies in USD. It is used here to demonstrate live financial data integration.</p>
+                    <hr>
+                    <ul>
+                        <li><strong>Bitcoin:</strong> $${data.bitcoin.usd}</li>
+                        <li><strong>Ethereum:</strong> $${data.ethereum.usd}</li>
+                        <li><strong>24h Vol (BTC):</strong> ${data.bitcoin.usd_24h_vol.toFixed(2)}</li>
+                    </ul>
+                    <details>
+                        <summary>View Raw JSON</summary>
+                        <pre style="font-size: 11px;">${JSON.stringify(data, null, 2)}</pre>
+                    </details>
+                </div>
+            `;
+        })
+        .catch(err => {
+            document.getElementById('api-output').innerHTML = 
+                `<p style="color: red;">Error: ${err.message}. If this persists, try opening the page through a local server (localhost) instead of a file.</p>`;
+        });
+    </script>
+</body>
+</html>
