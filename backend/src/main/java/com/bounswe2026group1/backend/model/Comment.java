@@ -24,10 +24,14 @@ public class Comment {
     @JoinColumn(name = "author_id")
     private RegisteredUser author;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "report_id")
+    private Report report;
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+
 }
