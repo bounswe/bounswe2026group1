@@ -10,8 +10,8 @@ ON CONFLICT DO NOTHING;
 
 -- Reports around Bogazici University, Istanbul
 INSERT INTO reports (user_id, latitude, longitude, description, tag, status, agrees, disagrees, publish_date) VALUES
-    (2, 41.0849, 29.0551, 'Ramp at south entrance is broken.',          'MISSING_RAMP',    'PENDING',  3, 1, NOW()),
-    (2, 41.0851, 29.0560, 'Elevator in main building is out of order.', 'BROKEN_ELEVATOR', 'VERIFIED', 5, 0, NOW()),
+    (2, 41.086194, 29.044722, 'Ramp at south entrance is broken.',          'MISSING_RAMP',    'PENDING',  3, 1, NOW()),
+    (2, 41.085083, 29.045528, 'Elevator in main building is out of order.', 'BROKEN_ELEVATOR', 'VERIFIED', 5, 0, NOW()),
     (3, 41.0840, 29.0545, 'Narrow passage near library.',               'NARROW_PASSAGE',  'PENDING',  1, 2, NOW())
 ON CONFLICT DO NOTHING;
 
