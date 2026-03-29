@@ -10,9 +10,55 @@
       "key": "baseUrl",
       "value": "http://localhost:8080/api",
       "type": "string"
+    },
+    {
+      "key": "authBaseUrl",
+      "value": "http://localhost:8080/auth",
+      "type": "string"
     }
   ],
   "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"StrongPass1!\"\n}"
+            },
+            "url": {
+              "raw": "{{authBaseUrl}}/register",
+              "host": ["{{authBaseUrl}}"],
+              "path": ["register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"StrongPass1!\"\n}"
+            },
+            "url": {
+              "raw": "{{authBaseUrl}}/login",
+              "host": ["{{authBaseUrl}}"],
+              "path": ["login"]
+            }
+          }
+        }
+      ]
+    },
     {
       "name": "Users",
       "item": [
