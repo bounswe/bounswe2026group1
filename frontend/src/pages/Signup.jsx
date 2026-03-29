@@ -1,0 +1,141 @@
+import AuthLeftPanel from '../components/AuthLeftPanel.jsx'
+import AuthFooter from '../components/AuthFooter.jsx'
+import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
+
+function Signup() {
+  return (
+    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar min-h-screen flex flex-col">
+      <main className="flex flex-1">
+        <AuthLeftPanel
+          headline="Make your city accessible for everyone."
+          description="Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence."
+        />
+
+        {/* Right Side */}
+        <section className="w-full md:w-1/2 lg:w-2/5 bg-white flex items-center justify-center p-8 md:p-16">
+          <div className="w-full max-w-[440px] space-y-10">
+            {/* Mobile Branding */}
+            <div className="md:hidden flex justify-center">
+              <span className="text-2xl font-headline font-bold text-[#176a21] italic tracking-tight">
+                Mapcess
+              </span>
+            </div>
+
+            {/* Heading */}
+            <header className="space-y-3">
+              <h1 className="text-4xl font-headline font-extrabold text-[#2d2f2f] tracking-tight">
+                Join Mapcess
+              </h1>
+              <p className="text-[#495f69] font-medium">
+                Create your profile and start improving your community.
+              </p>
+            </header>
+
+            {/* Form */}
+            <form className="space-y-6">
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label
+                    className="block text-sm font-label font-bold text-[#5a5c5c] uppercase tracking-wider"
+                    htmlFor="full_name"
+                  >
+                    Full Name
+                  </label>
+                  <input
+                    className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none"
+                    id="full_name"
+                    placeholder="Alex Rivera"
+                    type="text"
+                    autoComplete="name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    className="block text-sm font-label font-bold text-[#5a5c5c] uppercase tracking-wider"
+                    htmlFor="email"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none"
+                    id="email"
+                    placeholder="alex@example.com"
+                    type="email"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    className="block text-sm font-label font-bold text-[#5a5c5c] uppercase tracking-wider"
+                    htmlFor="password"
+                  >
+                    Password
+                  </label>
+                  <input
+                    className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none"
+                    id="password"
+                    placeholder="••••••••"
+                    type="password"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              {/* Terms */}
+              <div className="flex items-start gap-3 py-2">
+                <input
+                  className="mt-0.5 w-5 h-5 rounded border-none bg-[#e1e3e3] text-[#176a21] focus:ring-[#176a21]/40 cursor-pointer shrink-0"
+                  id="terms"
+                  type="checkbox"
+                />
+                <label className="text-sm text-[#5a5c5c] leading-tight cursor-pointer" htmlFor="terms">
+                  I agree to the{' '}
+                  <a className="text-[#176a21] font-semibold hover:underline" href="#">
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a className="text-[#176a21] font-semibold hover:underline" href="#">
+                    Privacy Policy
+                  </a>
+                  .
+                </label>
+              </div>
+
+              {/* Submit */}
+              <button
+                className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer"
+                type="submit"
+              >
+                Create Account
+              </button>
+            </form>
+
+            {/* OR Divider */}
+            <div className="relative flex items-center">
+              <div className="flex-grow border-t border-[#acadad]/30" />
+              <span className="flex-shrink mx-4 text-xs font-bold tracking-widest text-[#767777] uppercase">
+                or continue with
+              </span>
+              <div className="flex-grow border-t border-[#acadad]/30" />
+            </div>
+
+            <SocialAuthButtons />
+
+            <p className="text-center text-[#5a5c5c] text-sm">
+              Already have an account?{' '}
+              <a className="text-[#176a21] font-bold hover:underline underline-offset-4 ml-1" href="/login">
+                Log in
+              </a>
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <AuthFooter />
+    </div>
+  )
+}
+
+export default Signup
