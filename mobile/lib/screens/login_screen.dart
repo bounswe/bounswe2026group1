@@ -154,17 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    _buildPrimaryButton(),
-                    const SizedBox(height: 24),
-                    _buildDivider('OR CONNECT WITH'),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildGoogleButton()),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildAppleButton()),
-                      ],
-                    ),
+                    _buildPrimaryButton()
                   ],
                 ),
               ),
