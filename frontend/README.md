@@ -1,16 +1,58 @@
-# React + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for bounswe2026group1.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **React 19** — UI
+- **Vite 8** — build tool & dev server
+- **Tailwind CSS v4** — utility-first styling
+- **React Router v7** — client-side routing
+- **TanStack Query v5** — server state management
 
-## React Compiler
+## Getting started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
 
-## Expanding the ESLint configuration
+## Environment
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Copy `.env` and adjust as needed:
+
+```
+VITE_API_URL=http://localhost:8080/api/v1
+```
+
+## Project structure
+
+```
+src/
+  assets/       # static assets
+  components/   # shared UI components
+  hooks/        # custom React hooks
+  pages/        # route-level page components
+  services/     # API helpers (apiFetch)
+  App.jsx       # route definitions
+  main.jsx      # app entry point
+```
+
+## API calls
+
+Use `apiFetch` from `src/services/api.js`:
+
+```js
+import { apiFetch } from '../services/api'
+
+const data = await apiFetch('/posts')
+```
+
+## Available scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
