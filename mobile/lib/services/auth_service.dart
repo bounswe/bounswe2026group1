@@ -22,14 +22,14 @@ class AuthService extends ChangeNotifier {
     final saved = prefs.getString(_tokenKey);
     if (saved != null) {
       _token = saved;
-      _userId = _extractUserId(_token) ?? 1;
+      _userId = _extractUserId(_token) ?? 0;
       notifyListeners();
     }
   }
 
   Future<void> login(String email, String password) async {
     _token = await ApiService().login(email, password);
-    _userId = _extractUserId(_token) ?? 1;
+    _userId = _extractUserId(_token) ?? 0;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, _token!);
     notifyListeners();
@@ -45,7 +45,7 @@ class AuthService extends ChangeNotifier {
 
   /// Decodes the JWT payload and extracts the `id` claim.
   static int? _extractUserId(String? token) {
-    if (token == null || token == mockToken) return 1;
+    if (token == null) return null;
     try {
       final parts = token.split('.');
       if (parts.length != 3) return null;
