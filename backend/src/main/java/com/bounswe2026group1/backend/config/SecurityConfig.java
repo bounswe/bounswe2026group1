@@ -31,6 +31,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/register", "/auth/login").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/reports", "/api/reports/**",
+                                "/api/comments", "/api/comments/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 // Before the UsernamePasswordAuthenticationFilter, we want to run our JwtAuthFilter to check for JWT tokens in the request
