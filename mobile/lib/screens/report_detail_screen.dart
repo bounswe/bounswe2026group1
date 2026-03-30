@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
@@ -339,16 +341,38 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   child: SizedBox(
                     height: 90,
                     width: double.infinity,
-                    child: Stack(
-                      fit: StackFit.expand,
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: LatLng(
+                          report.latitude,
+                          report.longitude,
+                        ),
+                        initialZoom: 15,
+                        interactionOptions: const InteractionOptions(
+                          flags: InteractiveFlag.none,
+                        ),
+                      ),
                       children: [
-                        CustomPaint(painter: _MiniMapPainter()),
-                        const Center(
-                          child: Icon(
-                            Icons.location_on,
-                            color: AppColors.primary,
-                            size: 32,
-                          ),
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName:
+                              'com.bounswe2026group1.mapcess',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: LatLng(
+                                report.latitude,
+                                report.longitude,
+                              ),
+                              child: const Icon(
+                                Icons.location_on,
+                                color: AppColors.primary,
+                                size: 32,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -789,33 +813,3 @@ class _ImagePlaceholderPainter extends CustomPainter {
       old.color != color;
 }
 
-class _MiniMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFFECEDEE),
-    );
-    final block = Paint()..color = const Color(0xFFDFE1E2);
-    final street = Paint()..color = Colors.white;
-    const cell = 18.0;
-    const sw = 3.0;
-    for (double x = 0; x < size.width; x += cell) {
-      for (double y = 0; y < size.height; y += cell) {
-        canvas.drawRect(
-          Rect.fromLTWH(x + sw / 2, y + sw / 2, cell - sw, cell - sw),
-          block,
-        );
-      }
-    }
-    for (double y = 0; y < size.height; y += cell) {
-      canvas.drawRect(Rect.fromLTWH(0, y, size.width, sw), street);
-    }
-    for (double x = 0; x < size.width; x += cell) {
-      canvas.drawRect(Rect.fromLTWH(x, 0, sw, size.height), street);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}

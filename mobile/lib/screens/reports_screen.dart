@@ -32,7 +32,7 @@ class ReportsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'Your Reports',
+                      'Community Reports',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w700,
@@ -42,7 +42,7 @@ class ReportsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Reports you submit will appear here.',
+                      'Community Reports are COMING SOON!',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.onSurfaceVariant,

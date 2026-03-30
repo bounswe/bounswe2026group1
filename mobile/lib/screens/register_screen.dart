@@ -78,16 +78,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    const SizedBox(height: 40),
                     const Center(
                       child: Text(
                         'Mapcess',
@@ -249,6 +250,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
