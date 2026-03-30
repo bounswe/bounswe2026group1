@@ -50,8 +50,8 @@ function Signup() {
         />
 
         {/* Right Side */}
-        <section className="w-full md:w-1/2 lg:w-2/5 bg-white flex items-center justify-center p-8 md:p-16">
-          <div className="w-full max-w-[440px] space-y-10">
+        <section className="w-full md:w-1/2 lg:w-2/5 bg-white flex items-center justify-center px-6 py-8 md:px-16 lg:px-24">
+          <div className="w-full max-w-[440px] space-y-6">
             {/* Mobile Branding */}
             <div className="md:hidden flex justify-center">
               <span className="text-2xl font-headline font-bold text-[#176a21] italic tracking-tight">
@@ -70,7 +70,7 @@ function Signup() {
             </header>
 
             {/* Form */}
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               {/* Error message */}
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
@@ -78,10 +78,10 @@ function Signup() {
                 </p>
               )}
 
-              <div className="space-y-5">
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-label font-bold text-[#5a5c5c] uppercase tracking-wider"
+                    className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
                     htmlFor="full_name"
                   >
                     Full Name
@@ -100,7 +100,7 @@ function Signup() {
 
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-label font-bold text-[#5a5c5c] uppercase tracking-wider"
+                    className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
                     htmlFor="email"
                   >
                     Email Address
@@ -119,7 +119,7 @@ function Signup() {
 
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-label font-bold text-[#5a5c5c] uppercase tracking-wider"
+                    className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
                     htmlFor="password"
                   >
                     Password
@@ -138,7 +138,7 @@ function Signup() {
               </div>
 
               {/* Terms */}
-              <div className="flex items-start gap-3 py-2">
+              <div className="flex items-start gap-3">
                 <input
                   className="mt-0.5 w-5 h-5 rounded border-none bg-[#e1e3e3] text-[#176a21] focus:ring-[#176a21]/40 cursor-pointer shrink-0"
                   id="terms"
@@ -169,14 +169,14 @@ function Signup() {
               </button>
             </form>
 
-            {/* OR Divider */}
-            <div className="relative flex items-center">
+            {/* OR Divider — hidden until social auth is enabled */}
+            {/* <div className="relative flex items-center">
               <div className="flex-grow border-t border-[#acadad]/30" />
               <span className="flex-shrink mx-4 text-xs font-bold tracking-widest text-[#767777] uppercase">
                 or continue with
               </span>
               <div className="flex-grow border-t border-[#acadad]/30" />
-            </div>
+            </div> */}
 
             <SocialAuthButtons />
 

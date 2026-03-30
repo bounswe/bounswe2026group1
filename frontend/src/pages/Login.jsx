@@ -142,14 +142,14 @@ function Login() {
               </button>
             </form>
 
-            {/* OR Divider */}
-            <div className="relative flex items-center">
+            {/* OR Divider — hidden until social auth is enabled */}
+            {/* <div className="relative flex items-center">
               <div className="flex-grow border-t border-[#acadad]/30" />
               <span className="flex-shrink mx-4 text-xs font-bold tracking-widest text-[#767777] uppercase">
                 or continue with
               </span>
               <div className="flex-grow border-t border-[#acadad]/30" />
-            </div>
+            </div> */}
 
             <SocialAuthButtons />
 
