@@ -23,10 +23,14 @@ function Signup() {
     setIsLoading(true)
     try {
       await registerUser({ name, email, password })
+      // The register endpoint returns user data, not a token, so a second
+      // request is needed to obtain the JWT and log the user in immediately.
       const { token } = await loginUser({ email, password })
       login(token)
       navigate('/')
     } catch (err) {
+      // The backend sends a plain-text body for errors, so we inspect the
+      // message string to distinguish a 409 duplicate-email from other failures.
       if (err.message.toLowerCase().includes('already')) {
         setError('An account with this email already exists.')
       } else {

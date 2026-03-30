@@ -25,6 +25,8 @@ function Login() {
       login(token)
       navigate('/')
     } catch (err) {
+      // Always show a generic message regardless of the actual error to avoid
+      // leaking whether the email exists in the system.
       setError('Invalid email or password.')
     } finally {
       setIsLoading(false)

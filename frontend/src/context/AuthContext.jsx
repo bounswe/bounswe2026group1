@@ -3,6 +3,7 @@ import { createContext, useContext, useState } from 'react'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
+  // Lazy initializer so localStorage is read once on mount, not on every render.
   const [token, setToken] = useState(() => localStorage.getItem('token'))
 
   function login(newToken) {
