@@ -1,10 +1,35 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AuthLeftPanel from '../components/AuthLeftPanel.jsx'
 import AuthFooter from '../components/AuthFooter.jsx'
 import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
+import { loginUser } from '../services/authService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const { login } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+    try {
+      const { token } = await loginUser({ email, password })
+      login(token)
+      navigate('/')
+    } catch (err) {
+      setError('Invalid email or password.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar min-h-screen flex flex-col">
@@ -35,7 +60,14 @@ function Login() {
             </header>
 
             {/* Form */}
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              {/* Error message */}
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  {error}
+                </p>
+              )}
+
               {/* Email */}
               <div className="space-y-2">
                 <label
@@ -50,6 +82,9 @@ function Login() {
                   placeholder="name@example.com"
                   type="email"
                   autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </div>
 
@@ -73,6 +108,9 @@ function Login() {
                     placeholder="••••••••"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                   <button
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[#acadad] hover:text-[#2d2f2f] transition-colors"
@@ -89,11 +127,16 @@ function Login() {
 
               {/* Sign In */}
               <button
-                className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
                 type="submit"
+                disabled={isLoading}
               >
-                Sign In
-                <span className="material-symbols-outlined text-xl select-none">arrow_forward</span>
+                {isLoading ? 'Signing in…' : (
+                  <>
+                    Sign In
+                    <span className="material-symbols-outlined text-xl select-none">arrow_forward</span>
+                  </>
+                )}
               </button>
             </form>
 

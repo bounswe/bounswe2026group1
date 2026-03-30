@@ -1,8 +1,42 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AuthLeftPanel from '../components/AuthLeftPanel.jsx'
 import AuthFooter from '../components/AuthFooter.jsx'
 import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
+import { registerUser, loginUser } from '../services/authService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 function Signup() {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [terms, setTerms] = useState(false)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const { login } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+    try {
+      await registerUser({ name, email, password })
+      const { token } = await loginUser({ email, password })
+      login(token)
+      navigate('/')
+    } catch (err) {
+      if (err.message.toLowerCase().includes('already')) {
+        setError('An account with this email already exists.')
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar min-h-screen flex flex-col">
       <main className="flex flex-1">
@@ -32,7 +66,14 @@ function Signup() {
             </header>
 
             {/* Form */}
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              {/* Error message */}
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  {error}
+                </p>
+              )}
+
               <div className="space-y-5">
                 <div className="space-y-2">
                   <label
@@ -47,6 +88,9 @@ function Signup() {
                     placeholder="Alex Rivera"
                     type="text"
                     autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
                   />
                 </div>
 
@@ -63,6 +107,9 @@ function Signup() {
                     placeholder="alex@example.com"
                     type="email"
                     autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                   />
                 </div>
 
@@ -79,6 +126,9 @@ function Signup() {
                     placeholder="••••••••"
                     type="password"
                     autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
               </div>
@@ -89,6 +139,8 @@ function Signup() {
                   className="mt-0.5 w-5 h-5 rounded border-none bg-[#e1e3e3] text-[#176a21] focus:ring-[#176a21]/40 cursor-pointer shrink-0"
                   id="terms"
                   type="checkbox"
+                  checked={terms}
+                  onChange={(e) => setTerms(e.target.checked)}
                 />
                 <label className="text-sm text-[#5a5c5c] leading-tight cursor-pointer" htmlFor="terms">
                   I agree to the{' '}
@@ -105,10 +157,11 @@ function Signup() {
 
               {/* Submit */}
               <button
-                className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer"
+                className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
                 type="submit"
+                disabled={!terms || isLoading}
               >
-                Create Account
+                {isLoading ? 'Creating account…' : 'Create Account'}
               </button>
             </form>
 
