@@ -1,126 +1,188 @@
-import { useEffect } from 'react'
-
 /**
  * ReportPanel
+ * Desktop: fixed right sidebar (500px) alongside the map.
+ * Mobile: full screen overlay.
  * Props:
- *  - report: { id, title, description, status, date, location, verifiedBy }
+ *  - report: { id, title, description, status, date, location, reportedBy, agrees, disagrees, tags, image }
  *  - onClose: () => void
  */
 function ReportPanel({ report, onClose }) {
-  // Close on Escape key
-  useEffect(() => {
-    function handleKey(e) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
   if (!report) return null
 
-  const isVerified = report.status === 'verified'
+  const isValidated = report.status === 'verified'
+  const total = (report.agrees || 0) + (report.disagrees || 0)
+  const consensusPct = total > 0 ? Math.round(((report.agrees || 0) / total) * 100) : 0
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Mobile backdrop */}
       <div
-        className="fixed inset-0 bg-black/20 z-40"
+        className="fixed inset-0 bg-black/20 z-40 lg:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
-      <aside
-        className="fixed top-0 left-0 h-full w-full max-w-sm bg-white z-50 shadow-2xl flex flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Report details"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#e1e3e3]">
-          <div className="flex items-center gap-3">
-            <span
-              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
-                isVerified
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-amber-100 text-amber-700'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">
-                {isVerified ? 'warning' : 'help'}
-              </span>
-              {isVerified ? 'Inaccessible' : 'Unverified'}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-[#acadad] hover:text-[#2d2f2f] transition-colors"
-            aria-label="Close panel"
-          >
-            <span className="material-symbols-outlined text-2xl">close</span>
-          </button>
-        </div>
+      {/* Panel — right sidebar on desktop, full screen on mobile */}
+      <aside className="
+        fixed top-0 right-0 h-full z-50
+        w-full lg:w-[500px]
+        bg-surface-container-low
+        overflow-y-auto
+        border-l border-outline-variant/10
+        flex flex-col
+        custom-scrollbar
+      ">
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-          {/* Title */}
-          <h2 className="text-xl font-extrabold text-[#2d2f2f] leading-tight">
-            {report.title}
-          </h2>
-
-          {/* Meta */}
-          <div className="space-y-2 text-sm text-[#495f69]">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-base text-[#176a21]">location_on</span>
-              <span>{report.location || 'Location not specified'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-base text-[#176a21]">calendar_today</span>
-              <span>{report.date || 'Date unknown'}</span>
-            </div>
-            {isVerified && report.verifiedBy && (
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-base text-[#176a21]">verified_user</span>
-                <span>Verified by {report.verifiedBy}</span>
+        {/* Report Photo */}
+        <div className="p-6">
+          <div className="relative">
+            {report.image ? (
+              <img
+                className="w-full h-64 object-cover rounded-xl shadow-sm"
+                src={report.image}
+                alt={report.title}
+              />
+            ) : (
+              <div className="w-full h-64 bg-surface-container rounded-xl shadow-sm flex items-center justify-center">
+                <span className="material-symbols-outlined text-6xl text-outline-variant">image</span>
               </div>
             )}
+
+            {/* Status badge */}
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
+                isValidated
+                  ? 'bg-primary-container text-on-primary-container'
+                  : 'bg-amber-100 text-amber-800'
+              }`}>
+                {isValidated ? 'Validated' : 'Unverified'}
+              </span>
+            </div>
+
+            {/* Close button — mobile only */}
+            <button
+              onClick={onClose}
+              className="absolute top-4 left-4 lg:hidden w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
+              aria-label="Close panel"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-8 pb-12 flex flex-col gap-8">
+
+          {/* Header */}
+          <div className="flex flex-col gap-4">
+            <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
+              {report.title}
+            </h1>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-on-surface">{report.reportedBy || 'Anonymous'}</p>
+                  <p className="text-xs text-on-surface-variant">{report.date || 'Unknown date'}</p>
+                </div>
+              </div>
+              {report.tags && (
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {report.tags.map(tag => (
+                    <span key={tag} className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-medium rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Description */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[#acadad]">
-              Description
+          <section className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
+              Issue Details
             </h3>
-            <p className="text-sm text-[#2d2f2f] leading-relaxed">
+            <p className="text-on-surface leading-relaxed font-body">
               {report.description || 'No description provided.'}
+            </p>
+          </section>
+
+          {/* Location */}
+          {report.location && (
+            <section className="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/10 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                location_on
+              </span>
+              <p className="text-sm font-medium text-on-surface">{report.location}</p>
+            </section>
+          )}
+
+          {/* Consensus */}
+          <section className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                Community Consensus
+              </h3>
+              <span className="text-xs font-bold text-primary">{consensusPct}% Consensus</span>
+            </div>
+            <div className="bg-surface-container-high h-2.5 w-full rounded-full overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-primary-container to-primary h-full rounded-full transition-all"
+                style={{ width: `${consensusPct}%` }}
+              />
+            </div>
+            <p className="text-sm text-on-surface-variant italic">
+              {report.agrees || 0} people have verified this issue as active.
+            </p>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <button className="flex items-center justify-center gap-2 py-3 bg-primary text-on-primary rounded-xl font-bold active:scale-95 transition-all shadow-sm">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
+                Agree
+              </button>
+              <button className="flex items-center justify-center gap-2 py-3 bg-surface-container-highest text-on-surface rounded-xl font-bold active:scale-95 transition-all">
+                <span className="material-symbols-outlined text-sm">thumb_down</span>
+                Disagree
+              </button>
+            </div>
+          </section>
+
+          {/* Activity Timeline */}
+          <section className="flex flex-col gap-6">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              Recent Activity
+            </h3>
+            <div className="relative pl-6 flex flex-col gap-8">
+              <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-surface-container-highest" />
+              <div className="relative">
+                <div className="absolute -left-[23px] top-1 w-4 h-4 rounded-full bg-primary ring-4 ring-surface-container-low" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-bold text-on-surface">System</p>
+                  <p className="text-sm text-on-surface-variant">
+                    Report submitted and pending community verification.
+                  </p>
+                  <p className="text-xs text-outline mt-1 uppercase font-bold">{report.date || 'Recently'}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Follow Updates */}
+          <div className="pt-4">
+            <button className="w-full py-5 bg-gradient-to-b from-primary to-primary-dim text-on-primary rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                notifications_active
+              </span>
+              Follow Updates
+            </button>
+            <p className="text-center text-xs text-on-surface-variant mt-4 px-6">
+              You will receive notifications for every status change on this report.
             </p>
           </div>
 
-          {/* Media placeholder */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[#acadad]">
-              Attached Media
-            </h3>
-            <div className="w-full aspect-video bg-[#f0f1f1] rounded-xl flex items-center justify-center">
-              <div className="text-center text-[#acadad]">
-                <span className="material-symbols-outlined text-4xl">image</span>
-                <p className="text-xs mt-1">No media attached</p>
-              </div>
-            </div>
-          </div>
         </div>
-
-        {/* Footer — Verify button */}
-        {!isVerified && (
-          <div className="px-6 py-5 border-t border-[#e1e3e3]">
-            <button
-              className="w-full py-3.5 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-bold rounded-full shadow hover:brightness-110 transition-all"
-              onClick={() => alert('Verify action — to be connected to backend')}
-            >
-              Verify Report
-            </button>
-          </div>
-        )}
       </aside>
     </>
   )
