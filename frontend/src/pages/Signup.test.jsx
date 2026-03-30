@@ -233,17 +233,15 @@ describe('Signup page', () => {
     })
 
     it('disables the button and shows loading text while submitting', async () => {
-      let resolve
-      authService.registerUser.mockReturnValue(new Promise((r) => { resolve = r }))
+      // Never-resolving promise keeps the component in the loading state for the
+      // duration of the test, avoiding state updates outside act().
+      authService.registerUser.mockReturnValue(new Promise(() => {}))
       const user = userEvent.setup()
       renderSignup()
 
       await fillAndSubmit(user)
 
-      const loadingBtn = screen.getByRole('button', { name: /creating account/i })
-      expect(loadingBtn).toBeDisabled()
-
-      resolve({ id: 1 })
+      expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled()
     })
   })
 })

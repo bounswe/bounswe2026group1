@@ -206,8 +206,9 @@ describe('Login page', () => {
     })
 
     it('disables the button and shows loading text while submitting', async () => {
-      let resolve
-      authService.loginUser.mockReturnValue(new Promise((r) => { resolve = r }))
+      // Never-resolving promise keeps the component in the loading state for the
+      // duration of the test, avoiding state updates outside act().
+      authService.loginUser.mockReturnValue(new Promise(() => {}))
       const user = userEvent.setup()
       renderLogin()
 
@@ -215,10 +216,7 @@ describe('Login page', () => {
       await user.type(screen.getByLabelText(/^password$/i), 'secret')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-      const loadingBtn = screen.getByRole('button', { name: /signing in/i })
-      expect(loadingBtn).toBeDisabled()
-
-      resolve({ token: 'tok' })
+      expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
     })
   })
 })
