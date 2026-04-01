@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.config;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,6 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -44,9 +46,24 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 // Before the UsernamePasswordAuthenticationFilter, we want to run our JwtAuthFilter to check for JWT tokens in the request
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, e) -> {
+                            log.warn("401 UNAUTHORIZED {} {}: {}", request.getMethod(), sanitizeUri(request.getRequestURI()), e.getMessage());
+                            response.sendError(401, e.getMessage());
+                        })
+                        .accessDeniedHandler((request, response, e) -> {
+                            log.warn("403 FORBIDDEN {} {}: {}", request.getMethod(), sanitizeUri(request.getRequestURI()), e.getMessage());
+                            response.sendError(403, e.getMessage());
+                        })
+                );
 
         return http.build();
+    }
+
+    // Strips CR/LF to prevent log forging via CRLF injection
+    private static String sanitizeUri(String uri) {
+        return uri.replaceAll("[\r\n]", "_");
     }
 
     @Bean
