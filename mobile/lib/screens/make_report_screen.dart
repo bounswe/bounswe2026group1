@@ -1,6 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
@@ -8,10 +14,8 @@ import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'report_success_screen.dart';
 
-// Default location: Mission District, San Francisco
-const double _defaultLat = 37.7599;
-const double _defaultLon = -122.4148;
-const String _defaultAddress = '245 Valencia St, Mission District';
+// Fallback location used before GPS resolves: Mission District, San Francisco
+const LatLng _defaultPin = LatLng(37.7599, -122.4148);
 
 class MakeReportScreen extends StatefulWidget {
   const MakeReportScreen({super.key});
@@ -28,10 +32,121 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   final _picker = ImagePicker();
 
+  // ── Location state ─────────────────────────────────────────────────────────
+  final MapController _mapController = MapController();
+  LatLng _pinLocation = _defaultPin;
+
+  // ── Location search state ──────────────────────────────────────────────────
+  final TextEditingController _locationSearchController = TextEditingController();
+  final FocusNode _locationSearchFocus = FocusNode();
+  List<_Place> _locationResults = [];
+  bool _locationSearchLoading = false;
+  bool _locationSearchActive = false;
+  Timer? _locationDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+
+      final pos = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      setState(() => _pinLocation = latLng);
+      _mapController.move(latLng, 15);
+    } catch (_) {
+      // GPS unavailable — keep default pin
+    }
+  }
+
+  void _movePin(LatLng pos) => setState(() => _pinLocation = pos);
+
   @override
   void dispose() {
     _descController.dispose();
+    _mapController.dispose();
+    _locationSearchController.dispose();
+    _locationSearchFocus.dispose();
+    _locationDebounce?.cancel();
     super.dispose();
+  }
+
+  // ─── Location search ───────────────────────────────────────────────────────
+
+  void _onLocationSearchChanged(String query) {
+    _locationDebounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() => _locationResults = []);
+      return;
+    }
+    _locationDebounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _searchLocation(query),
+    );
+  }
+
+  Future<void> _searchLocation(String query) async {
+    setState(() => _locationSearchLoading = true);
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+        'q': query,
+        'format': 'json',
+        'limit': '5',
+      });
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'Mapcess/1.0 (bounswe2026group1)',
+        'Accept-Language': 'en',
+      });
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        setState(() {
+          _locationResults = list
+              .map((e) => _Place.fromJson(e as Map<String, dynamic>))
+              .toList();
+        });
+      }
+    } catch (_) {
+      // Network error — leave results empty
+    } finally {
+      if (mounted) setState(() => _locationSearchLoading = false);
+    }
+  }
+
+  void _selectLocation(_Place place) {
+    final latLng = LatLng(place.lat, place.lon);
+    setState(() {
+      _pinLocation = latLng;
+      _locationResults = [];
+      _locationSearchActive = false;
+      _locationSearchController.clear();
+    });
+    _locationSearchFocus.unfocus();
+    _mapController.move(latLng, 15);
+  }
+
+  Future<void> _openFullScreenPicker() async {
+    final result = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _LocationPickerScreen(initial: _pinLocation),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _pinLocation = result);
+      _mapController.move(result, 15);
+    }
   }
 
   // ─── Image picking ─────────────────────────────────────────────────────────
@@ -138,8 +253,8 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       final auth = context.read<AuthService>();
       final report = await auth.api.createReport(
         userId: auth.userId,
-        latitude: _defaultLat,
-        longitude: _defaultLon,
+        latitude: _pinLocation.latitude,
+        longitude: _pinLocation.longitude,
         description: desc,
         tag: _selectedTag,
       );
@@ -451,33 +566,86 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
-          // Mini map
+          // Map with floating search bar overlay
           SizedBox(
-            height: 110,
+            height: 220,
             width: double.infinity,
             child: Stack(
-              fit: StackFit.expand,
               children: [
-                CustomPaint(painter: _MiniMapPainter()),
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
-                      shape: BoxShape.circle,
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _pinLocation,
+                    initialZoom: 15,
+                    onTap: (_, latLng) => _movePin(latLng),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.bounswe2026group1.mapcess',
                     ),
-                    child: const Icon(
-                      Icons.location_on,
-                      color: AppColors.primary,
-                      size: 22,
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _pinLocation,
+                          child: const Icon(
+                            Icons.location_on,
+                            color: AppColors.primary,
+                            size: 36,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // Floating search bar
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildLocationSearchBar(),
+                      if (_locationSearchActive && _locationResults.isNotEmpty)
+                        const SizedBox(height: 6),
+                      if (_locationSearchActive && _locationResults.isNotEmpty)
+                        _buildLocationResultsList(),
+                    ],
+                  ),
+                ),
+                // Expand button
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: GestureDetector(
+                    onTap: _openFullScreenPicker,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.fullscreen,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          // Address row
+          // Coordinate row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -490,7 +658,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    _defaultAddress,
+                    'Search or tap the map to set location',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -499,7 +667,8 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   ),
                 ),
                 Text(
-                  '${_defaultLat.toStringAsFixed(4)}, ${_defaultLon.toStringAsFixed(4)}',
+                  '${_pinLocation.latitude.toStringAsFixed(4)}, '
+                  '${_pinLocation.longitude.toStringAsFixed(4)}',
                   style: const TextStyle(
                     fontSize: 10,
                     color: AppColors.onSurfaceVariant,
@@ -509,6 +678,134 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLocationSearchBar() {
+    return Material(
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.white,
+      child: Row(
+        children: [
+          if (_locationSearchActive)
+            IconButton(
+              icon: const Icon(Icons.arrow_back,
+                  color: AppColors.primary, size: 20),
+              onPressed: () {
+                setState(() {
+                  _locationSearchActive = false;
+                  _locationResults = [];
+                  _locationSearchController.clear();
+                });
+                _locationSearchFocus.unfocus();
+              },
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.only(left: 12),
+              child: Icon(Icons.search, color: AppColors.primary, size: 20),
+            ),
+          Expanded(
+            child: TextField(
+              controller: _locationSearchController,
+              focusNode: _locationSearchFocus,
+              onTap: () {
+                if (!_locationSearchActive) {
+                  setState(() => _locationSearchActive = true);
+                }
+              },
+              onChanged: _onLocationSearchChanged,
+              textInputAction: TextInputAction.search,
+              onSubmitted: _searchLocation,
+              style: const TextStyle(fontSize: 13, color: AppColors.onSurface),
+              decoration: const InputDecoration(
+                hintText: 'Search for a place…',
+                hintStyle: TextStyle(
+                  color: AppColors.onSurfaceVariant,
+                  fontSize: 13,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+          if (_locationSearchLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+            )
+          else if (_locationSearchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear,
+                  color: AppColors.onSurfaceVariant, size: 18),
+              onPressed: () {
+                _locationSearchController.clear();
+                setState(() => _locationResults = []);
+              },
+            )
+          else
+            const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationResultsList() {
+    return Material(
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.white,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _locationResults.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 44),
+        itemBuilder: (context, i) {
+          final place = _locationResults[i];
+          return ListTile(
+            dense: true,
+            leading: const Icon(
+              Icons.location_on_outlined,
+              color: AppColors.primary,
+              size: 18,
+            ),
+            title: Text(
+              place.displayName.split(',').first,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              place.displayName,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () => _selectLocation(place),
+          );
+        },
       ),
     );
   }
@@ -738,7 +1035,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     );
   }
 
-  // ─── Bottom bar ────────────────────────────────────────────────────────────
+  // ─── Bottom bar ───────────────────────────────────────────────────────────
 
   Widget _buildBottomBar() {
     return Container(
@@ -825,35 +1122,328 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   }
 }
 
-// ─── Mini map painter ──────────────────────────────────────────────────────────
+// ─── Full-screen location picker ──────────────────────────────────────────────
 
-class _MiniMapPainter extends CustomPainter {
+class _LocationPickerScreen extends StatefulWidget {
+  final LatLng initial;
+  const _LocationPickerScreen({required this.initial});
+
   @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFFECEDEE),
-    );
-    final block = Paint()..color = const Color(0xFFDFE1E2);
-    final street = Paint()..color = Colors.white;
-    const cell = 22.0;
-    const sw = 4.0;
-    for (double x = 0; x < size.width; x += cell) {
-      for (double y = 0; y < size.height; y += cell) {
-        canvas.drawRect(
-          Rect.fromLTWH(x + sw / 2, y + sw / 2, cell - sw, cell - sw),
-          block,
-        );
-      }
-    }
-    for (double y = 0; y < size.height; y += cell) {
-      canvas.drawRect(Rect.fromLTWH(0, y, size.width, sw), street);
-    }
-    for (double x = 0; x < size.width; x += cell) {
-      canvas.drawRect(Rect.fromLTWH(x, 0, sw, size.height), street);
-    }
+  State<_LocationPickerScreen> createState() => _LocationPickerScreenState();
+}
+
+class _LocationPickerScreenState extends State<_LocationPickerScreen> {
+  late LatLng _pin;
+  final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+  List<_Place> _results = [];
+  bool _searchLoading = false;
+  bool _searchActive = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _pin = widget.initial;
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  void dispose() {
+    _mapController.dispose();
+    _searchController.dispose();
+    _searchFocus.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+    _debounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _search(query),
+    );
+  }
+
+  Future<void> _search(String query) async {
+    setState(() => _searchLoading = true);
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+        'q': query,
+        'format': 'json',
+        'limit': '5',
+      });
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'Mapcess/1.0 (bounswe2026group1)',
+        'Accept-Language': 'en',
+      });
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        setState(() {
+          _results = list
+              .map((e) => _Place.fromJson(e as Map<String, dynamic>))
+              .toList();
+        });
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      if (mounted) setState(() => _searchLoading = false);
+    }
+  }
+
+  void _selectPlace(_Place place) {
+    final latLng = LatLng(place.lat, place.lon);
+    setState(() {
+      _pin = latLng;
+      _results = [];
+      _searchActive = false;
+      _searchController.clear();
+    });
+    _searchFocus.unfocus();
+    _mapController.move(latLng, 15);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Full-screen map
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _pin,
+              initialZoom: 15,
+              onTap: (_, latLng) => setState(() => _pin = latLng),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.bounswe2026group1.mapcess',
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _pin,
+                    child: const Icon(
+                      Icons.location_on,
+                      color: AppColors.primary,
+                      size: 40,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Search bar + results
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSearchBar(),
+                  if (_searchActive && _results.isNotEmpty)
+                    const SizedBox(height: 8),
+                  if (_searchActive && _results.isNotEmpty)
+                    _buildResultsList(),
+                ],
+              ),
+            ),
+          ),
+          // Confirm button
+          Positioned(
+            bottom: 32,
+            left: 24,
+            right: 24,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context, _pin),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [AppColors.primary, AppColors.primaryDim],
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.35),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_outline,
+                        color: AppColors.onPrimary, size: 22),
+                    SizedBox(width: 10),
+                    Text(
+                      'Confirm Location',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                        color: AppColors.onPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Material(
+      elevation: 6,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      child: Row(
+        children: [
+          if (_searchActive)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              onPressed: () {
+                setState(() {
+                  _searchActive = false;
+                  _results = [];
+                  _searchController.clear();
+                });
+                _searchFocus.unfocus();
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.close, color: AppColors.primary),
+              onPressed: () => Navigator.pop(context),
+            ),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              onTap: () {
+                if (!_searchActive) setState(() => _searchActive = true);
+              },
+              onChanged: _onChanged,
+              textInputAction: TextInputAction.search,
+              onSubmitted: _search,
+              style: const TextStyle(fontSize: 15, color: AppColors.onSurface),
+              decoration: const InputDecoration(
+                hintText: 'Search for a place…',
+                hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+              ),
+            ),
+          ),
+          if (_searchLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+            )
+          else if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear,
+                  color: AppColors.onSurfaceVariant, size: 20),
+              onPressed: () {
+                _searchController.clear();
+                setState(() => _results = []);
+              },
+            )
+          else
+            const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsList() {
+    return Material(
+      elevation: 6,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _results.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 52),
+        itemBuilder: (context, i) {
+          final place = _results[i];
+          return ListTile(
+            leading: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.location_on_outlined,
+                  color: AppColors.primary, size: 18),
+            ),
+            title: Text(
+              place.displayName.split(',').first,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              place.displayName,
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.onSurfaceVariant),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () => _selectPlace(place),
+          );
+        },
+      ),
+    );
+  }
 }
+
+// ─── Nominatim result model ────────────────────────────────────────────────────
+
+class _Place {
+  final String displayName;
+  final double lat;
+  final double lon;
+
+  const _Place({
+    required this.displayName,
+    required this.lat,
+    required this.lon,
+  });
+
+  factory _Place.fromJson(Map<String, dynamic> json) => _Place(
+    displayName: json['display_name'] as String,
+    lat: double.parse(json['lat'] as String),
+    lon: double.parse(json['lon'] as String),
+  );
+}
+

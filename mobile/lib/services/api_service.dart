@@ -1,13 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import '../models/report_model.dart';
 
-/// Base URL for the backend.
-/// - Android emulator → 10.0.2.2 (host machine's localhost)
-/// - iOS Simulator   → 127.0.0.1 or localhost
-/// - Physical device → replace with your machine's LAN IP (e.g. 192.168.1.x)
-const String _baseUrl = 'http://10.0.2.2:8080';
+/// Injected at build time via --dart-define=API_BASE_URL=https://your-server.com
+/// Falls back to localhost for local development (Android emulator uses 10.0.2.2).
+///
+/// Usage examples:
+///   flutter run --dart-define=API_BASE_URL=https://api.mapcess.com
+///   flutter build apk --dart-define=API_BASE_URL=https://api.mapcess.com
+const _injectedUrl = String.fromEnvironment('API_BASE_URL');
+
+String get _baseUrl {
+  if (_injectedUrl.isNotEmpty) return _injectedUrl;
+  // Local dev fallback: Android emulator cannot reach 'localhost' of the host machine.
+  return 'http://${Platform.isAndroid ? '10.0.2.2' : 'localhost'}:8080';
+}
 
 class ApiService {
   final String? token;
