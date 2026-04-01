@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-primary: #176a21;
+  --color-primary-dim: #025d16;
+  --color-primary-fixed: #9df197;
+  --color-primary-fixed-dim: #90e28a;
+  --color-primary-container: #9df197;
+  --color-on-primary: #d1ffc8;
+  --color-on-primary-fixed: #00460e;
+  --color-on-primary-fixed-variant: #12661e;
+  --color-on-primary-container: #005c15;
+  --color-inverse-primary: #9df197;
+  --color-surface-tint: #176a21;
+
+  --color-secondary: #495f69;
+  --color-secondary-dim: #3e535c;
+  --color-secondary-fixed: #cfe6f2;
+  --color-secondary-fixed-dim: #c1d8e4;
+  --color-secondary-container: #cfe6f2;
+  --color-on-secondary: #e4f5ff;
+  --color-on-secondary-fixed: #2d424c;
+  --color-on-secondary-fixed-variant: #495f69;
+  --color-on-secondary-container: #40555f;
+
+  --color-tertiary: #006573;
+  --color-tertiary-dim: #005864;
+  --color-tertiary-fixed: #50e1f9;
+  --color-tertiary-fixed-dim: #3cd2eb;
+  --color-tertiary-container: #50e1f9;
+  --color-on-tertiary: #daf8ff;
+  --color-on-tertiary-fixed: #003840;
+  --color-on-tertiary-fixed-variant: #005763;
+  --color-on-tertiary-container: #004d58;
+
+  --color-error: #b02500;
+  --color-error-dim: #b92902;
+  --color-error-container: #f95630;
+  --color-on-error: #ffefec;
+  --color-on-error-container: #520c00;
+
+  --color-background: #f6f6f6;
+  --color-on-background: #2d2f2f;
+  --color-surface: #f6f6f6;
+  --color-surface-dim: #d3d5d5;
+  --color-surface-bright: #f6f6f6;
+  --color-surface-variant: #dbdddd;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f0f1f1;
+  --color-surface-container: #e7e8e8;
+  --color-surface-container-high: #e1e3e3;
+  --color-surface-container-highest: #dbdddd;
+  --color-on-surface: #2d2f2f;
+  --color-on-surface-variant: #5a5c5c;
+  --color-inverse-surface: #0c0f0f;
+  --color-inverse-on-surface: #9c9d9d;
+
+  --color-outline: #767777;
+  --color-outline-variant: #acadad;
+
+  /* Fonts */
+  --font-headline: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-label: "Inter", system-ui, sans-serif;
+
+  /* Border radius */
+  --radius-DEFAULT: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+@layer utilities {
+  .primary-gradient {
+    background: linear-gradient(to bottom, #176a21, #025d16);
+  }
+  .cloud-shadow {
+    box-shadow: 0 40px 40px -4px rgba(45, 47, 47, 0.06);
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .font-headline {
+    font-family: var(--font-headline);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .font-label {
+    font-family: var(--font-label);
+  }
+}
