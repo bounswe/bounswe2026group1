@@ -1,0 +1,24 @@
+package com.bounswe2026group1.backend.dto.routing;
+
+import com.bounswe2026group1.backend.model.TravelMode;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RouteResponse {
+
+    private String routeLabel;
+    private double distanceMeters;
+    private double durationSeconds;
+    private TravelMode mode;
+    private Integer accessibilityScore;
+    private String geometry;
+    private List<RouteStepAccessibility> steps;
+}
