@@ -31,6 +31,7 @@ public class RouteService {
                 .durationSeconds(result.getDurationSeconds())
                 .mode(request.getMode())
                 .geometry(result.getGeometry())
+                .steps(result.getSteps())
                 .build();
 
         return List.of(route);

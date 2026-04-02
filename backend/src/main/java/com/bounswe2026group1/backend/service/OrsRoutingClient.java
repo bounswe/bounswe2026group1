@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.routing.RouteStep;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.exception.RoutingException;
 import com.bounswe2026group1.backend.model.Location;
@@ -9,6 +10,9 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
@@ -131,10 +135,13 @@ public class OrsRoutingClient {
             JsonNode geometryNode = firstRoute.path("geometry");
             String geometry = geometryNode.isMissingNode() || geometryNode.isNull() ? null : geometryNode.stringValue();
 
+            List<RouteStep> steps = extractSteps(firstRoute.path("segments"));
+
             return RoutingDirectionsResult.builder()
                     .distanceMeters(distance)
                     .durationSeconds(duration)
                     .geometry(geometry)
+                    .steps(steps)
                     .build();
         } catch (RoutingException e) {
             throw e;
@@ -142,6 +149,26 @@ public class OrsRoutingClient {
             log.error("Failed to parse OpenRouteService response", e);
             throw new RoutingException("Failed to parse OpenRouteService response", e);
         }
+    }
+
+    private List<RouteStep> extractSteps(JsonNode segments) {
+        List<RouteStep> result = new ArrayList<>();
+        if (!segments.isArray()) {
+            return result;
+        }
+        for (JsonNode segment : segments) {
+            JsonNode steps = segment.path("steps");
+            if (!steps.isArray()) {
+                continue;
+            }
+            for (JsonNode step : steps) {
+                result.add(RouteStep.builder()
+                        .instruction(step.path("instruction").stringValue(""))
+                        .maneuverType(step.path("type").stringValue(""))
+                        .build());
+            }
+        }
+        return result;
     }
 
     private void validateLocation(Location location, String role) {

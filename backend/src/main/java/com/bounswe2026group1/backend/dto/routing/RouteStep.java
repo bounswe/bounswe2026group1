@@ -5,16 +5,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RoutingDirectionsResult {
+public class RouteStep {
 
-    private double distanceMeters;
-    private double durationSeconds;
-    private String geometry;
-    private List<RouteStep> steps;
+    private String instruction;
+    private String maneuverType;
 }

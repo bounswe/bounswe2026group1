@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,4 +19,5 @@ public class RouteResponse {
     private double durationSeconds;
     private TravelMode mode;
     private String geometry;
+    private List<RouteStep> steps;
 }
