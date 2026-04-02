@@ -4,7 +4,7 @@ import com.bounswe2026group1.backend.dto.routing.RouteRequest;
 import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.TravelMode;
+import tools.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,65 +14,25 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RouteService {
 
-    private static final double MOST_ACCESSIBLE_DURATION_MULTIPLIER = 1.15;
-    private static final int MOST_ACCESSIBLE_SCORE_BONUS = 15;
-    private static final int SCORE_CAP = 100;
-
-    private final ExternalRoutingService externalRoutingService;
+    private final OrsRoutingClient orsRoutingClient;
+    private final ObstacleAvoidanceService obstacleAvoidanceService;
 
     public List<RouteResponse> getRouteOptions(RouteRequest request) {
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
-        TravelMode mode = request.getMode();
 
-        RoutingDirectionsResult base =
-                mode == TravelMode.WALKING
-                        ? externalRoutingService.fetchDirections(start, end, mode, request.isVisuallyImpaired())
-                        : externalRoutingService.fetchDirections(start, end, mode);
+        ObjectNode avoidPolygons = obstacleAvoidanceService.buildAvoidPolygons();
+        RoutingDirectionsResult result =
+                orsRoutingClient.fetchDirections(start, end, request.getMode(), avoidPolygons);
 
-        RouteResponse fastest =
-                toRouteResponse(
-                        base,
-                        mode,
-                        "Fastest Route",
-                        base.getDurationSeconds(),
-                        base.getAccessibilityScore());
-
-        double accessibleDuration = base.getDurationSeconds() * MOST_ACCESSIBLE_DURATION_MULTIPLIER;
-        Integer accessibleScore = boostAccessibilityScore(base.getAccessibilityScore());
-
-        RouteResponse mostAccessible =
-                toRouteResponse(
-                        base,
-                        mode,
-                        "Most Accessible Route",
-                        accessibleDuration,
-                        accessibleScore);
-
-        return List.of(fastest, mostAccessible);
-    }
-
-    private static Integer boostAccessibilityScore(Integer baseScore) {
-        if (baseScore == null) {
-            return null;
-        }
-        return Math.min(SCORE_CAP, baseScore + MOST_ACCESSIBLE_SCORE_BONUS);
-    }
-
-    private static RouteResponse toRouteResponse(
-            RoutingDirectionsResult result,
-            TravelMode mode,
-            String routeLabel,
-            double durationSeconds,
-            Integer accessibilityScore) {
-        return RouteResponse.builder()
-                .routeLabel(routeLabel)
+        RouteResponse route = RouteResponse.builder()
+                .routeLabel("Recommended Route")
                 .distanceMeters(result.getDistanceMeters())
-                .durationSeconds(durationSeconds)
-                .mode(mode)
-                .accessibilityScore(accessibilityScore)
+                .durationSeconds(result.getDurationSeconds())
+                .mode(request.getMode())
                 .geometry(result.getGeometry())
-                .steps(result.getSteps())
                 .build();
+
+        return List.of(route);
     }
 }
