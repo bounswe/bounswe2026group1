@@ -5,8 +5,15 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 @Entity
 @Table(name = "reports")
+// Positive reports are stored in seperate table but joined to all reports
+// This inheritance
+@Inheritance(strategy = InheritanceType.JOINED)
+// This column is used to distinguish if it is normal report or ramp report
+@DiscriminatorColumn(name = "report_type", discriminatorType = DiscriminatorType.STRING)
+@DiscriminatorValue("DEFAULT_REPORT")
 public class Report {
     @Id         // PK of the table
     @GeneratedValue(strategy = GenerationType.IDENTITY)         // Auto incremented ID
