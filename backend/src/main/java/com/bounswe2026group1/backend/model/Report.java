@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.DiscriminatorFormula;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -10,11 +11,9 @@ import java.util.List;
 @Table(name = "reports",
         // Indexed for faster location based queries
         indexes = @Index(name = "idx_report_location", columnList = "latitude, longitude"))
-// Positive reports are stored in seperate table but joined to all reports
-// This inheritance
-@Inheritance(strategy = InheritanceType.JOINED)
-// This column is used to distinguish if it is normal report or ramp report
-@DiscriminatorColumn(name = "report_type", discriminatorType = DiscriminatorType.STRING)
+// If it has RAMP tag it is also a RampReport table
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorFormula("CASE WHEN tag = 'RAMP' THEN 'RAMP_REPORT' ELSE 'DEFAULT_REPORT' END")
 @DiscriminatorValue("DEFAULT_REPORT")
 public class Report {
     @Id // PK of the table

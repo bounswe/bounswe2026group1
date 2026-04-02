@@ -9,7 +9,6 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "ramp_reports")
 @DiscriminatorValue("RAMP_REPORT")
 public class RampReport extends Report {
 
