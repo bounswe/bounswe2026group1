@@ -31,18 +31,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Paths under public routing API (with/without trailing slash, subpaths). */
-    private static final String[] ROUTES_API_PUBLIC = {"/api/routes", "/api/routes/**"};
-
-    /**
-     * Public routing API: skip the entire Spring Security filter chain (including JWT) so anonymous
-     * requests (e.g. Postman) are not blocked with 403. Covers trailing slash and subpaths.
-     */
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return web -> web.ignoring().requestMatchers(ROUTES_API_PUBLIC);
-    }
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -52,12 +40,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(ROUTES_API_PUBLIC).permitAll()
                         .requestMatchers("/auth/register", "/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET,
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
-                                "/api/comments", "/api/comments/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                                "/api/comments", "/api/comments/**")
+                        .permitAll()
+                        .anyRequest().authenticated())
+                // Before the UsernamePasswordAuthenticationFilter, we want to run our
+                // JwtAuthFilter to check for JWT tokens in the request
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
