@@ -30,24 +30,25 @@ function AppleIcon() {
 }
 
 function SocialAuthButtons() {
-  return (
-    <div className="grid grid-cols-2 gap-4">
-      <button
-        className="flex items-center justify-center gap-3 py-4 bg-[#f0f1f1] rounded-xl hover:bg-[#e7e8e8] transition-colors active:scale-95 duration-200 cursor-pointer"
-        type="button"
-      >
-        <GoogleIcon />
-        <span className="font-semibold text-[#2d2f2f] text-sm">Google</span>
-      </button>
-      <button
-        className="flex items-center justify-center gap-3 py-4 bg-[#f0f1f1] rounded-xl hover:bg-[#e7e8e8] transition-colors active:scale-95 duration-200 cursor-pointer"
-        type="button"
-      >
-        <AppleIcon />
-        <span className="font-semibold text-[#2d2f2f] text-sm">Apple</span>
-      </button>
-    </div>
-  )
+  return null
+  // return (
+  //   <div className="grid grid-cols-2 gap-4">
+  //     <button
+  //       className="flex items-center justify-center gap-3 py-4 bg-[#f0f1f1] rounded-xl hover:bg-[#e7e8e8] transition-colors active:scale-95 duration-200 cursor-pointer"
+  //       type="button"
+  //     >
+  //       <GoogleIcon />
+  //       <span className="font-semibold text-[#2d2f2f] text-sm">Google</span>
+  //     </button>
+  //     <button
+  //       className="flex items-center justify-center gap-3 py-4 bg-[#f0f1f1] rounded-xl hover:bg-[#e7e8e8] transition-colors active:scale-95 duration-200 cursor-pointer"
+  //       type="button"
+  //     >
+  //       <AppleIcon />
+  //       <span className="font-semibold text-[#2d2f2f] text-sm">Apple</span>
+  //     </button>
+  //   </div>
+  // )
 }
 
 export default SocialAuthButtons
