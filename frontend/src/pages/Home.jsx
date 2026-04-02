@@ -197,21 +197,6 @@ function Home() {
             </button>
           </div>
 
-          {/* Legend chips */}
-          <div className="absolute bottom-10 left-10 z-[1000] flex gap-2">
-            <div className="bg-secondary-container text-on-secondary-container px-4 py-2 rounded-full shadow text-xs font-bold flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-              Safety
-            </div>
-            <div className="bg-white text-on-surface px-4 py-2 rounded-full shadow text-xs font-medium flex items-center gap-2 border border-outline-variant/20">
-              <span className="w-2 h-2 rounded-full bg-secondary inline-block" />
-              Infrastructure
-            </div>
-            <div className="bg-white text-on-surface px-4 py-2 rounded-full shadow text-xs font-medium flex items-center gap-2 border border-outline-variant/20">
-              <span className="w-2 h-2 rounded-full bg-error inline-block" />
-              Urgent
-            </div>
-          </div>
         </main>
 
         {/* Report Panel sidebar */}
