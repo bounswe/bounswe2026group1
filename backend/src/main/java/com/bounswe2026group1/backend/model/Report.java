@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "reports")
+@Table(name = "reports",
+        // Indexed for faster location based queries
+        indexes = @Index(name = "idx_report_location", columnList = "latitude, longitude"))
 // Positive reports are stored in seperate table but joined to all reports
 // This inheritance
 @Inheritance(strategy = InheritanceType.JOINED)
@@ -15,12 +17,12 @@ import java.util.List;
 @DiscriminatorColumn(name = "report_type", discriminatorType = DiscriminatorType.STRING)
 @DiscriminatorValue("DEFAULT_REPORT")
 public class Report {
-    @Id         // PK of the table
-    @GeneratedValue(strategy = GenerationType.IDENTITY)         // Auto incremented ID
+    @Id // PK of the table
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto incremented ID
     private Long reportId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)         // A report cannot exist without a user.
+    @JoinColumn(name = "user_id", nullable = false) // A report cannot exist without a user.
     private RegisteredUser createdBy;
 
     @Embedded
@@ -48,7 +50,8 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Media> mediaList = new ArrayList<>();
 
-    public Report() {}
+    public Report() {
+    }
 
     public Report(RegisteredUser createdBy, Location location, String description, Tag tag) {
         this.createdBy = createdBy;
@@ -61,24 +64,69 @@ public class Report {
         this.publishDate = LocalDateTime.now();
     }
 
-    public void incrementAgrees() { this.agrees++; }
-    public void incrementDisagrees() { this.disagrees++; }
+    public void incrementAgrees() {
+        this.agrees++;
+    }
+
+    public void incrementDisagrees() {
+        this.disagrees++;
+    }
 
     // GETTERS & SETTERS
-    public Long getReportId() { return reportId; }
-    public RegisteredUser getCreatedBy() { return createdBy; }
-    public Location getLocation() { return location; }
-    public String getDescription() { return description; }
-    public Tag getTag() { return tag; }
-    public ReportStatus getStatus() { return status; }
-    public int getAgrees() { return agrees; }
-    public int getDisagrees() { return disagrees; }
-    public LocalDateTime getPublishDate() { return publishDate; }
-    public List<Media> getMediaList() { return mediaList; }
-    public List<Comment> getComments() { return comments; }
+    public Long getReportId() {
+        return reportId;
+    }
 
-    public void setStatus(ReportStatus status) { this.status = status; }
-    public void setDescription(String description) { this.description = description; }
-    public void setTag(Tag tag) { this.tag = tag; }
+    public RegisteredUser getCreatedBy() {
+        return createdBy;
+    }
+
+    public Location getLocation() {
+        return location;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public Tag getTag() {
+        return tag;
+    }
+
+    public ReportStatus getStatus() {
+        return status;
+    }
+
+    public int getAgrees() {
+        return agrees;
+    }
+
+    public int getDisagrees() {
+        return disagrees;
+    }
+
+    public LocalDateTime getPublishDate() {
+        return publishDate;
+    }
+
+    public List<Media> getMediaList() {
+        return mediaList;
+    }
+
+    public List<Comment> getComments() {
+        return comments;
+    }
+
+    public void setStatus(ReportStatus status) {
+        this.status = status;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setTag(Tag tag) {
+        this.tag = tag;
+    }
 
 }

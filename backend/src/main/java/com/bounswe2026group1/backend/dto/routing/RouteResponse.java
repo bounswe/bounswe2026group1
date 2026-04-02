@@ -20,4 +20,5 @@ public class RouteResponse {
     private TravelMode mode;
     private String geometry;
     private List<RouteStep> steps;
+    private boolean hasObstacles;
 }
