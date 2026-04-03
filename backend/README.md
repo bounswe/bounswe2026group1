@@ -19,7 +19,6 @@ Spring Boot 4.0 / Java 21 / PostgreSQL
    POSTGRES_USER=your_username
    POSTGRES_PASSWORD=your_password
    ```
-
 2. Start the database:
    ```bash
    docker compose up -d
@@ -42,4 +41,42 @@ The app will be available at `http://localhost:8080`.
 
 ```bash
 ./mvnw test
+```
+
+
+## Common Issues 
+1. `mvnw` Permission Denied
+- **Cause:** File not executable
+- **Fix:**
+```bash
+  chmod +x mvnw
+```
+
+2. JAVA_HOME Not Defined
+- **Cause:** Java not installed
+- **Fix:**
+```bash
+  sudo apt install openjdk-21-jdk
+```
+  Add to `~/.zshrc`:
+```bash
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+  export PATH=$JAVA_HOME/bin:$PATH
+```
+
+3. `.env` Not Loaded by Spring
+- **Cause:** Spring `file:.env[.properties]` import not resolving correctly
+- **Fix:** Export variables manually before running:
+```bash
+  export $(cat .env | xargs) && ./mvnw spring-boot:run
+```
+
+4. `WeakKeyException` — JWT Secret Too Short
+- **Cause:** `JWT_SECRET_KEY` minimum is 256 bits
+- **Fix:** Generate a secure key and update `.env`:
+```bash
+  openssl rand -base64 32
+```
+```properties
+  JWT_SECRET_KEY=
 ```

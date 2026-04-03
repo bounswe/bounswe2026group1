@@ -6,6 +6,7 @@ import com.bounswe2026group1.backend.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -53,4 +54,17 @@ public class ReportController {
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
     }
+
+    @PostMapping("/{id}/verify")
+    public ResponseEntity<ReportResponse> verifyReport(@PathVariable Long id,
+                                                       @AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(reportService.verifyReport(id, email));
+    }
+
+    @PostMapping("/{id}/unverify")
+    public ResponseEntity<ReportResponse> unverifyReport(@PathVariable Long id,
+                                                         @AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(reportService.unverifyReport(id, email));
+    }
+
 }
