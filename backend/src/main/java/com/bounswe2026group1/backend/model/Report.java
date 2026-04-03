@@ -63,13 +63,11 @@ public class Report {
         this.publishDate = LocalDateTime.now();
     }
 
-    public void incrementAgrees() {
-        this.agrees++;
-    }
+    public void incrementAgrees() { this.agrees++; }
+    public void decrementAgrees() { if (this.agrees > 0) this.agrees--; }
 
-    public void incrementDisagrees() {
-        this.disagrees++;
-    }
+    public void incrementDisagrees() { this.disagrees++; }
+    public void decrementDisagrees() { if (this.disagrees > 0) this.disagrees--; }
 
     // GETTERS & SETTERS
     public Long getReportId() {
