@@ -178,6 +178,7 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
               <button
                 onClick={() => handleVote('agree')}
                 disabled={voting}
+                aria-label="Agree"
                 className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${
                   userVote === 'agree'
                     ? 'bg-primary text-on-primary'
@@ -190,6 +191,7 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
               <button
                 onClick={() => handleVote('disagree')}
                 disabled={voting}
+                aria-label="Disagree"
                 className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60 ${
                   userVote === 'disagree'
                     ? 'bg-error text-white'
