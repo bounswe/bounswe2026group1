@@ -17,6 +17,16 @@ public class RoutingException extends RuntimeException {
         this.status = status;
     }
 
+    /** Defaults to 500 INTERNAL_SERVER_ERROR when no specific HTTP status applies. */
+    public RoutingException(String message) {
+        this(HttpStatus.INTERNAL_SERVER_ERROR, message);
+    }
+
+    /** Defaults to 500 INTERNAL_SERVER_ERROR when no specific HTTP status applies. */
+    public RoutingException(String message, Throwable cause) {
+        this(HttpStatus.INTERNAL_SERVER_ERROR, message, cause);
+    }
+
     public HttpStatus getStatus() {
         return status;
     }

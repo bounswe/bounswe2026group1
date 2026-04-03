@@ -5,9 +5,10 @@ import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.ReportStatus;
+import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
+import com.bounswe2026group1.backend.repository.MediaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final RegisteredUserRepository registeredUserRepository;
+    private final MediaRepository mediaRepository;
 
     // Fetched from application.properties
     @Value("${app.report.verification.threshold:5}")
@@ -101,5 +103,19 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         return ReportResponse.fromEntity(saved);
+      
+    public void addMediaToReport(Long reportId, String mediaUrl) {
+        // Try to find report by sent reportId, if not throw a NoSuchElement exception
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
+
+        // Creates the Media entity
+        Media media = new Media();
+        // Foreign key relation
+        media.setReport(report);
+        // Saves the actual public URL which is sent by MediaController
+        media.setFilePath(mediaUrl);
+        // Saves the created Media entity to the database
+        mediaRepository.save(media);
     }
 }

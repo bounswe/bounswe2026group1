@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
  * One turn-by-turn step from the directions provider with optional OSM-aligned accessibility hints.
  */
@@ -18,5 +16,4 @@ public class RouteStep {
 
     private String instruction;
     private String maneuverType;
-    private List<String> matchedOsmTagHints;
 }

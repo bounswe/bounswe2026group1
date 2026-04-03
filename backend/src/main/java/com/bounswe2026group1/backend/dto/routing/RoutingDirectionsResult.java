@@ -18,6 +18,5 @@ public class RoutingDirectionsResult {
     private double durationSeconds;
     private String geometry;
     private List<RouteStep> steps;
-    /** Route nodes decoded as [lat, lon] points. */
     private List<Location> nodeCoordinates;
 }

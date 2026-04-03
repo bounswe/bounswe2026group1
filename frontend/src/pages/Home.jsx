@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
 
 const MOCK_REPORTS = [
@@ -14,6 +17,8 @@ const MOCK_REPORTS = [
     disagrees: 7,
     tags: ['Elevator', 'Metro'],
     image: null,
+    lat: 41.0833,
+    lng: 29.0535,
   },
   {
     id: 2,
@@ -27,6 +32,8 @@ const MOCK_REPORTS = [
     disagrees: 2,
     tags: ['Pavement', 'Safety Hazard'],
     image: null,
+    lat: 41.0435,
+    lng: 29.0044,
   },
   {
     id: 3,
@@ -40,80 +47,167 @@ const MOCK_REPORTS = [
     disagrees: 1,
     tags: ['Construction', 'Blocked Path'],
     image: null,
+    lat: 41.0862,
+    lng: 29.0480,
   },
 ]
 
+function makeMarkerIcon(status) {
+  const borderColor = status === 'verified' ? '#176a21' : '#f59e0b'
+  const iconColor = status === 'verified' ? '#176a21' : '#d97706'
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width:40px;height:40px;
+        background:white;
+        border-radius:50%;
+        border:2.5px solid ${borderColor};
+        box-shadow:0 4px 12px rgba(0,0,0,0.15);
+        display:flex;align-items:center;justify-content:center;
+        cursor:pointer;
+      ">
+        <span class="material-symbols-outlined" style="
+          font-size:20px;
+          color:${iconColor};
+          font-variation-settings:'FILL' 1;
+          line-height:1;
+        ">warning</span>
+      </div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -24],
+  })
+}
+
+function ZoomControls() {
+  const map = useMap()
+  return (
+    <div className="absolute right-10 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[1000]">
+      <button
+        onClick={() => map.zoomIn()}
+        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        aria-label="Zoom in"
+      >
+        <span className="material-symbols-outlined">add</span>
+      </button>
+      <button
+        onClick={() => map.zoomOut()}
+        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        aria-label="Zoom out"
+      >
+        <span className="material-symbols-outlined">remove</span>
+      </button>
+      <button
+        onClick={() => map.locate({ setView: true, maxZoom: 16 })}
+        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors mt-2"
+        aria-label="My location"
+      >
+        <span className="material-symbols-outlined">my_location</span>
+      </button>
+    </div>
+  )
+}
+
 function Home() {
   const [selectedReport, setSelectedReport] = useState(null)
+  const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
 
   return (
-    <main className="flex h-screen overflow-hidden bg-background font-body">
+    <div className="flex flex-col h-screen overflow-hidden bg-background font-body">
+      <Navbar />
 
-      {/* Map — takes remaining space, shrinks when panel opens */}
-      <section className="relative flex-1 bg-surface-container">
-
-        {/* Map grid placeholder */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: 'linear-gradient(#176a21 1px, transparent 1px), linear-gradient(90deg, #176a21 1px, transparent 1px)',
-            backgroundSize: '60px 60px',
-          }}
-        />
-
-        {/* Center label */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-on-surface-variant font-bold text-lg select-none">
-            Map View — Click a pin to view report
-          </p>
-        </div>
-
-        {/* Mock pins */}
-        {MOCK_REPORTS.map((report, i) => (
-          <button
-            key={report.id}
-            onClick={() => setSelectedReport(report)}
-            className="absolute z-10 flex flex-col items-center group"
-            style={{
-              left: `${20 + i * 22}%`,
-              top: `${30 + (i % 2) * 20}%`,
-            }}
-            aria-label={`Open report: ${report.title}`}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Map area */}
+        <main className="relative flex-1">
+          <MapContainer
+            center={[41.0683, 29.0505]}
+            zoom={14}
+            zoomControl={false}
+            className="w-full h-full"
+            style={{ height: '100%', width: '100%' }}
           >
-            <div className={`p-3 rounded-full shadow-lg ring-4 ring-white/30 active:scale-90 transition-transform ${
-              report.status === 'verified' ? 'bg-primary text-on-primary' : 'bg-amber-400 text-white'
-            }`}>
-              <span className="material-symbols-outlined">warning</span>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {MOCK_REPORTS.map((report) => (
+              <Marker
+                key={report.id}
+                position={[report.lat, report.lng]}
+                icon={makeMarkerIcon(report.status)}
+                eventHandlers={{ click: () => setSelectedReport(report) }}
+              />
+            ))}
+            <ZoomControls />
+          </MapContainer>
+
+          {/* Floating search bar */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 z-[1000] pointer-events-none">
+            <div className="flex items-center bg-white/80 backdrop-blur-md rounded-2xl px-6 py-3 gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
+              <span className="material-symbols-outlined text-primary">location_on</span>
+              <div className="flex-1">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
+                <input
+                  type="text"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  className="bg-transparent border-none p-0 w-full text-on-surface font-headline font-semibold focus:ring-0 text-sm outline-none"
+                />
+              </div>
+              <div className="h-8 w-px bg-outline-variant/30" />
+              <button className="p-2 hover:bg-primary/10 rounded-lg transition-colors" aria-label="Filter">
+                <span className="material-symbols-outlined text-secondary">tune</span>
+              </button>
             </div>
-            <div className="mt-2 px-3 py-1 bg-white rounded-full text-xs font-bold shadow-sm border border-outline-variant/20 max-w-[120px] truncate">
-              {report.title}
+          </div>
+
+          {/* Community Pulse card + FAB */}
+          <div className="absolute bottom-10 right-10 z-[1000] flex flex-col items-end gap-4">
+            <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
+                <span className="material-symbols-outlined text-primary">analytics</span>
+              </div>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary-container/40 flex-shrink-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary">trending_up</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold">3 Active Reports</p>
+                    <p className="text-[10px] text-secondary">Within 500m of your location</p>
+                  </div>
+                </div>
+                <div className="bg-primary/5 rounded-2xl p-4">
+                  <div className="flex justify-between text-[10px] font-bold mb-2">
+                    <span>City Resolution Rate</span>
+                    <span className="text-primary">84%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: '84%' }} />
+                  </div>
+                </div>
+              </div>
             </div>
-          </button>
-        ))}
 
-        {/* Map zoom controls */}
-        <div className="absolute bottom-8 left-8 flex flex-col gap-2">
-          <button className="w-12 h-12 bg-surface-container-lowest rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-bright transition-colors text-on-surface">
-            <span className="material-symbols-outlined">add</span>
-          </button>
-          <button className="w-12 h-12 bg-surface-container-lowest rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-bright transition-colors text-on-surface">
-            <span className="material-symbols-outlined">remove</span>
-          </button>
-          <button className="w-12 h-12 bg-surface-container-lowest rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-bright transition-colors text-on-surface mt-2">
-            <span className="material-symbols-outlined">my_location</span>
-          </button>
-        </div>
-      </section>
+            <button className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
+              Report an Issue
+            </button>
+          </div>
 
-      {/* Report Panel — right sidebar */}
-      {selectedReport && (
-        <ReportPanel
-          report={selectedReport}
-          onClose={() => setSelectedReport(null)}
-        />
-      )}
+        </main>
 
-    </main>
+        {/* Report Panel sidebar */}
+        {selectedReport && (
+          <ReportPanel
+            report={selectedReport}
+            onClose={() => setSelectedReport(null)}
+          />
+        )}
+      </div>
+    </div>
   )
 }
 
