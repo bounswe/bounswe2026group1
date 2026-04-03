@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.Location;
+import com.bounswe2026group1.backend.model.RampReport;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.Tag;
@@ -20,13 +21,17 @@ public class ObstacleService {
 
     private static final Set<Tag> OBSTACLE_TAGS = Set.of(
             Tag.MISSING_RAMP, Tag.BROKEN_ELEVATOR, Tag.NARROW_PASSAGE,
-            Tag.WET_FLOOR, Tag.CONSTRUCTION, Tag.OTHER
-    );
+            Tag.WET_FLOOR, Tag.CONSTRUCTION, Tag.OTHER);
 
-    /** ~10 m buffer around a reported obstacle → 20×20 m square (degrees, approximate at mid-latitudes). */
+    /**
+     * ~10 m buffer around a reported obstacle → 20×20 m square (degrees,
+     * approximate at mid-latitudes).
+     */
     private static final double AVOID_BUFFER_DEGREES = 0.00009;
 
-    /** A report must be within this many metres of the path to count as "on route". */
+    /**
+     * A report must be within this many metres of the path to count as "on route".
+     */
     private static final double PATH_BUFFER_METERS = 5.0;
 
     private static final double METERS_PER_DEGREE = 111_000.0;
@@ -43,7 +48,8 @@ public class ObstacleService {
      *         or null if none exist
      */
     public ObjectNode buildAvoidPolygons() {
-        List<Report> obstacles = reportRepository.findByTagInAndStatusNot(List.copyOf(OBSTACLE_TAGS), ReportStatus.REJECTED);
+        List<Report> obstacles = reportRepository.findByTagInAndStatusNot(List.copyOf(OBSTACLE_TAGS),
+                ReportStatus.REJECTED);
         if (obstacles.isEmpty()) {
             return null;
         }
@@ -51,7 +57,8 @@ public class ObstacleService {
         ArrayNode multiPolygonCoordinates = objectMapper.createArrayNode();
         for (Report report : obstacles) {
             Location loc = report.getLocation();
-            if (loc == null) continue;
+            if (loc == null)
+                continue;
             ArrayNode polygon = objectMapper.createArrayNode();
             polygon.add(squareRingAround(loc.getLongitude(), loc.getLatitude()));
             multiPolygonCoordinates.add(polygon);
@@ -68,11 +75,51 @@ public class ObstacleService {
     }
 
     // -------------------------------------------------------------------------
+    // Ramp routing: find closest ramp report
+    // -------------------------------------------------------------------------
+
+    public RampReport findClosestRampInBoundingBox(Location start, Location end) {
+        // ~1 km padding roughly matches 0.01 degrees in latitude/longitude
+        double bufferDeg = 0.01;
+        double minLat = Math.min(start.getLatitude(), end.getLatitude()) - bufferDeg;
+        double maxLat = Math.max(start.getLatitude(), end.getLatitude()) + bufferDeg;
+        double minLon = Math.min(start.getLongitude(), end.getLongitude()) - bufferDeg;
+        double maxLon = Math.max(start.getLongitude(), end.getLongitude()) + bufferDeg;
+
+        List<Report> candidates = reportRepository.findActiveReportsInBoundingBox(
+                minLat, maxLat, minLon, maxLon, ReportStatus.VERIFIED);
+
+        RampReport closestRamp = null;
+        double minDistance = Double.MAX_VALUE;
+
+        for (Report report : candidates) {
+            if (report instanceof RampReport) {
+                RampReport ramp = (RampReport) report;
+                Location entry = ramp.getEntryPoint();
+                if (entry == null)
+                    continue;
+
+                double dLat = entry.getLatitude() - start.getLatitude();
+                double dLon = entry.getLongitude() - start.getLongitude();
+                double distSq = dLat * dLat + dLon * dLon; // straight-line logic
+
+                if (distSq < minDistance) {
+                    minDistance = distSq;
+                    closestRamp = ramp;
+                }
+            }
+        }
+
+        return closestRamp;
+    }
+
+    // -------------------------------------------------------------------------
     // Fastest route check: finds negative reports intersecting a decoded path
     // -------------------------------------------------------------------------
 
     /**
-     * Returns all active negative reports that lie within {@value PATH_BUFFER_METERS} m
+     * Returns all active negative reports that lie within
+     * {@value PATH_BUFFER_METERS} m
      * of any segment of the given decoded path.
      */
     public List<Report> findObstaclesOnPath(List<Location> pathPoints) {

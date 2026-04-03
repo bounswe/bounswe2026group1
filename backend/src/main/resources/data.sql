@@ -15,6 +15,10 @@ INSERT INTO reports (user_id, latitude, longitude, description, tag, status, agr
     (3, 41.0840,   29.0545,   'Narrow passage near library.',               'NARROW_PASSAGE',  'PENDING',  1, 2, NOW())
 ON CONFLICT DO NOTHING;
 
+INSERT INTO reports (user_id, latitude, longitude, description, tag, status, agrees, disagrees, publish_date, entry_latitude, entry_longitude, exit_latitude, exit_longitude) VALUES
+    (1, 41.085693, 29.044523, 'There is actually a ramp in north campus.','RAMP','VERIFIED', 1, 2, NOW(), 41.085700, 29.044550, 41.085650, 29.044500)
+ON CONFLICT DO NOTHING;
+
 INSERT INTO comments (content, author_id, report_id, created_at) VALUES
     ('I confirmed this, the ramp has been broken for weeks.', 2, 1, NOW()),
     ('Please fix this ASAP, it affects many students.',       3, 1, NOW()),
