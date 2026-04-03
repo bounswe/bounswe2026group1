@@ -5,6 +5,7 @@ import com.bounswe2026group1.backend.model.RampReport;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.repository.RampReportRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
@@ -36,7 +37,11 @@ public class ObstacleService {
 
     private static final double METERS_PER_DEGREE = 111_000.0;
 
+    /** Statuses considered active — reports we act on. REJECTED reports are ignored. */
+    private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.PENDING, ReportStatus.VERIFIED);
+
     private final ReportRepository reportRepository;
+    private final RampReportRepository rampReportRepository;
     private final ObjectMapper objectMapper;
 
     // -------------------------------------------------------------------------
@@ -48,8 +53,8 @@ public class ObstacleService {
      *         or null if none exist
      */
     public ObjectNode buildAvoidPolygons() {
-        List<Report> obstacles = reportRepository.findByTagInAndStatusNot(List.copyOf(OBSTACLE_TAGS),
-                ReportStatus.REJECTED);
+        // Fetch only PENDING and VERIFIED obstacle reports — REJECTED reports are ignored.
+        List<Report> obstacles = reportRepository.findByTagInAndStatusIn(List.copyOf(OBSTACLE_TAGS), ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
             return null;
         }
@@ -86,27 +91,25 @@ public class ObstacleService {
         double minLon = Math.min(start.getLongitude(), end.getLongitude()) - bufferDeg;
         double maxLon = Math.max(start.getLongitude(), end.getLongitude()) + bufferDeg;
 
-        List<Report> candidates = reportRepository.findActiveReportsInBoundingBox(
-                minLat, maxLat, minLon, maxLon, ReportStatus.VERIFIED);
+        // Fetch only PENDING and VERIFIED ramp reports — REJECTED reports are ignored.
+        List<RampReport> candidates = rampReportRepository.findRampsInBoundingBoxWithStatuses(
+                minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
         RampReport closestRamp = null;
         double minDistance = Double.MAX_VALUE;
 
-        for (Report report : candidates) {
-            if (report instanceof RampReport) {
-                RampReport ramp = (RampReport) report;
-                Location entry = ramp.getEntryPoint();
-                if (entry == null)
-                    continue;
+        for (RampReport ramp : candidates) {
+            Location entry = ramp.getEntryPoint();
+            if (entry == null)
+                continue;
 
-                double dLat = entry.getLatitude() - start.getLatitude();
-                double dLon = entry.getLongitude() - start.getLongitude();
-                double distSq = dLat * dLat + dLon * dLon; // straight-line logic
+            double dLat = entry.getLatitude() - start.getLatitude();
+            double dLon = entry.getLongitude() - start.getLongitude();
+            double distSq = dLat * dLat + dLon * dLon;
 
-                if (distSq < minDistance) {
-                    minDistance = distSq;
-                    closestRamp = ramp;
-                }
+            if (distSq < minDistance) {
+                minDistance = distSq;
+                closestRamp = ramp;
             }
         }
 
@@ -133,8 +136,9 @@ public class ObstacleService {
         double minLon = pathPoints.stream().mapToDouble(Location::getLongitude).min().orElseThrow() - bufferDeg;
         double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
 
-        List<Report> candidates = reportRepository.findActiveReportsInBoundingBox(
-                minLat, maxLat, minLon, maxLon, ReportStatus.REJECTED);
+        // Fetch only PENDING and VERIFIED reports in the path bounding box — REJECTED reports are ignored.
+        List<Report> candidates = reportRepository.findReportsInBoundingBoxWithStatuses(
+                minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
         return candidates.stream()
                 .filter(r -> OBSTACLE_TAGS.contains(r.getTag()))
