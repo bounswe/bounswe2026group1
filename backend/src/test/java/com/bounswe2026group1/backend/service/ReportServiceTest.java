@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -137,4 +138,52 @@ class ReportServiceTest {
         assertFalse(result);
         verify(reportRepository, never()).deleteById(any());
     }
+
+    @Test
+    void verifyReport_reachesThreshold_changesStatusToVerified() {
+        // Arrange
+        ReflectionTestUtils.setField(testReport, "agrees", 4); // 4 agrees + 1 new agree = 5 (Threshold)
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // Act
+        ReportResponse result = reportService.verifyReport(1L);
+
+        // Assert
+        assertEquals(5, testReport.getAgrees());
+        assertEquals(ReportStatus.VERIFIED, testReport.getStatus());
+        verify(reportRepository).save(testReport);
+    }
+
+    @Test
+    void verifyReport_belowThreshold_statusRemainsPending() {
+        ReflectionTestUtils.setField(testReport, "agrees", 1); // 1 agree + 1 new agree = 2 (Below threshold)
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        ReportResponse result = reportService.verifyReport(1L);
+
+        assertEquals(2, testReport.getAgrees());
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(reportRepository).save(testReport);
+    }
+
+    @Test
+    void unverifyReport_incrementsDisagrees() {
+        ReflectionTestUtils.setField(testReport, "disagrees", 0);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        ReportResponse result = reportService.unverifyReport(1L);
+
+        assertEquals(1, testReport.getDisagrees());
+        assertEquals(ReportStatus.PENDING, testReport.getStatus()); // Unverifying should not change status
+        verify(reportRepository).save(testReport);
+    }
+
 }

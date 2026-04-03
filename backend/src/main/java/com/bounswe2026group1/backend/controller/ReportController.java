@@ -53,4 +53,17 @@ public class ReportController {
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
     }
+
+    @PostMapping("/{id}/verify")
+    public ResponseEntity<ReportResponse> verifyReport(@PathVariable Long id) {
+        ReportResponse updatedReport = reportService.verifyReport(id);
+        return ResponseEntity.ok(updatedReport);
+    }
+
+    @PostMapping("/{id}/unverify")
+    public ResponseEntity<ReportResponse> unverifyReport(@PathVariable Long id) {
+        ReportResponse updatedReport = reportService.unverifyReport(id);
+        return ResponseEntity.ok(updatedReport);
+    }
+
 }
