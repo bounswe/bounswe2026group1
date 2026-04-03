@@ -21,17 +21,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
 
-    /**
-     * Public route API is excluded from JWT processing (must align with {@code SecurityConfig}).
-     */
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
-        return path.equals("/api/routes")
-                || path.equals("/api/routes/")
-                || path.startsWith("/api/routes/");
-    }
-
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,

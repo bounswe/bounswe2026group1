@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.dto.routing;
 
+import com.bounswe2026group1.backend.model.Location;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,7 +17,7 @@ public class RoutingDirectionsResult {
     private double distanceMeters;
     private double durationSeconds;
     private String geometry;
-    private List<RouteStepAccessibility> steps;
-    /** Set for {@code foot-walking} routes after accessibility scoring; {@code null} for other travel modes. */
-    private Integer accessibilityScore;
+    private List<RouteStep> steps;
+    /** Route nodes decoded as [lat, lon] points. */
+    private List<Location> nodeCoordinates;
 }

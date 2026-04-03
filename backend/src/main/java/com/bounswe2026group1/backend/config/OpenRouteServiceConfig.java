@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -47,9 +48,11 @@ public class OpenRouteServiceConfig {
                             }
                         }
                     } catch (IOException e) {
-                        throw new RoutingException("Failed to read OpenRouteService error response", e);
+                        throw new RoutingException(
+                                HttpStatus.BAD_GATEWAY, "Failed to read OpenRouteService error response", e);
                     }
                     throw new RoutingException(
+                            HttpStatus.BAD_GATEWAY,
                             "OpenRouteService HTTP %s: %s".formatted(response.getStatusCode(), snippet));
                 })
                 .body(String.class);

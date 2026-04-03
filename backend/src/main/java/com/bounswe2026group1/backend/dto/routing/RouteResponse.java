@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.dto.routing;
 
+import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.TravelMode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,7 +19,7 @@ public class RouteResponse {
     private double distanceMeters;
     private double durationSeconds;
     private TravelMode mode;
-    private Integer accessibilityScore;
     private String geometry;
-    private List<RouteStepAccessibility> steps;
+    private List<RouteStep> steps;
+    private List<Location> nodeCoordinates;
 }

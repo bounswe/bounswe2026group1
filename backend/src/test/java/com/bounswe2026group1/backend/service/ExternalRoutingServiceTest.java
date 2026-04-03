@@ -20,11 +20,10 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -42,9 +41,6 @@ class ExternalRoutingServiceTest {
     @Mock
     private ReportRepository reportRepository;
 
-    @Mock
-    private AccessibilityFilterService accessibilityFilterService;
-
     private JsonMapper objectMapper;
     private ExternalRoutingService service;
 
@@ -52,7 +48,7 @@ class ExternalRoutingServiceTest {
     void setUp() {
         objectMapper = JsonMapper.builder().build();
         service = new ExternalRoutingService(
-                objectMapper, orsHttpClient, reportRepository, accessibilityFilterService, "test-api-key");
+                objectMapper, orsHttpClient, reportRepository, "test-api-key");
     }
 
     @Test
@@ -63,7 +59,6 @@ class ExternalRoutingServiceTest {
                 .thenReturn(minimalOrsSuccessJson());
 
         RoutingDirectionsResult out = service.fetchDirections(START, END, TravelMode.WHEELCHAIR);
-        org.junit.jupiter.api.Assertions.assertNull(out.getAccessibilityScore());
 
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(orsHttpClient).postDirections(eq("wheelchair"), bodyCaptor.capture());
@@ -79,14 +74,10 @@ class ExternalRoutingServiceTest {
     void fetchDirections_walking_usesFootWalkingProfileAndExtraInfo() throws Exception {
         when(reportRepository.findByTagInAndStatusNot(anyList(), eq(ReportStatus.REJECTED)))
                 .thenReturn(List.of());
-        when(reportRepository.findActiveReportsInBoundingBox(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(ReportStatus.REJECTED)))
-                .thenReturn(List.of());
-        when(accessibilityFilterService.calculateAccessibilityScore(any(), anyBoolean(), any())).thenReturn(77);
         when(orsHttpClient.postDirections(eq("foot-walking"), org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(minimalOrsSuccessJson());
 
         RoutingDirectionsResult out = service.fetchDirections(START, END, TravelMode.WALKING);
-        org.junit.jupiter.api.Assertions.assertEquals(77, out.getAccessibilityScore());
 
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(orsHttpClient).postDirections(eq("foot-walking"), bodyCaptor.capture());
@@ -105,9 +96,6 @@ class ExternalRoutingServiceTest {
         when(obstacle.getLocation()).thenReturn(new Location(41.012, 28.98));
         when(reportRepository.findByTagInAndStatusNot(anyList(), eq(ReportStatus.REJECTED)))
                 .thenReturn(List.of(obstacle));
-        when(reportRepository.findActiveReportsInBoundingBox(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(ReportStatus.REJECTED)))
-                .thenReturn(List.of());
-        when(accessibilityFilterService.calculateAccessibilityScore(any(), anyBoolean(), any())).thenReturn(70);
         when(orsHttpClient.postDirections(eq("foot-walking"), org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(minimalOrsSuccessJson());
 
@@ -124,6 +112,22 @@ class ExternalRoutingServiceTest {
     }
 
     @Test
+    void fetchDirections_withWaypoints_includesIntermediateCoordinates() throws Exception {
+        when(reportRepository.findByTagInAndStatusNot(anyList(), eq(ReportStatus.REJECTED)))
+                .thenReturn(List.of());
+        when(orsHttpClient.postDirections(eq("wheelchair"), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(minimalOrsSuccessJson());
+        List<Location> waypoints = List.of(new Location(41.010, 28.981), new Location(41.009, 28.982));
+
+        service.fetchDirections(START, END, TravelMode.WHEELCHAIR, waypoints);
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(orsHttpClient).postDirections(eq("wheelchair"), bodyCaptor.capture());
+        JsonNode coords = objectMapper.readTree(bodyCaptor.getValue()).path("coordinates");
+        assertEquals(4, coords.size());
+    }
+
+    @Test
     void fetchDirections_invalidCoordinates_throwsRoutingException() {
         Location bad = new Location(95.0, 28.0);
         assertThrows(RoutingException.class, () -> service.fetchDirections(bad, END, TravelMode.WALKING));
@@ -132,7 +136,7 @@ class ExternalRoutingServiceTest {
     @Test
     void fetchDirections_blankApiKey_throwsRoutingException() {
         ExternalRoutingService noKeyService =
-                new ExternalRoutingService(objectMapper, orsHttpClient, reportRepository, accessibilityFilterService, "   ");
+                new ExternalRoutingService(objectMapper, orsHttpClient, reportRepository, "   ");
 
         assertThrows(RoutingException.class, () -> noKeyService.fetchDirections(START, END, TravelMode.WALKING));
     }
@@ -156,9 +160,6 @@ class ExternalRoutingServiceTest {
     void fetchDirections_parsesSummaryGeometryAndSteps() {
         when(reportRepository.findByTagInAndStatusNot(anyList(), eq(ReportStatus.REJECTED)))
                 .thenReturn(List.of());
-        when(reportRepository.findActiveReportsInBoundingBox(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(ReportStatus.REJECTED)))
-                .thenReturn(List.of());
-        when(accessibilityFilterService.calculateAccessibilityScore(any(), anyBoolean(), any())).thenReturn(88);
         String json = """
                 {
                   "routes": [{
@@ -182,7 +183,33 @@ class ExternalRoutingServiceTest {
         assertEquals("encoded", result.getGeometry());
         assertEquals(1, result.getSteps().size());
         assertEquals("Turn left", result.getSteps().getFirst().getInstruction());
-        assertEquals(88, result.getAccessibilityScore());
+    }
+
+    @Test
+    void fetchDirections_parsesGeoJsonLineStringGeometryIntoNodes() {
+        when(reportRepository.findByTagInAndStatusNot(anyList(), eq(ReportStatus.REJECTED)))
+                .thenReturn(List.of());
+        String json = """
+                {
+                  "routes": [{
+                    "summary": { "distance": 100, "duration": 60 },
+                    "geometry": {
+                      "type": "LineString",
+                      "coordinates": [[28.979, 41.015], [28.980, 41.008]]
+                    },
+                    "segments": []
+                  }]
+                }
+                """;
+        when(orsHttpClient.postDirections(eq("foot-walking"), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(json);
+
+        RoutingDirectionsResult result = service.fetchDirections(START, END, TravelMode.WALKING);
+
+        assertEquals(2, result.getNodeCoordinates().size());
+        assertEquals(41.015, result.getNodeCoordinates().getFirst().getLatitude(), 1e-6);
+        assertEquals(28.979, result.getNodeCoordinates().getFirst().getLongitude(), 1e-6);
+        assertTrue(result.getGeometry().contains("LineString"));
     }
 
     private static String minimalOrsSuccessJson() {

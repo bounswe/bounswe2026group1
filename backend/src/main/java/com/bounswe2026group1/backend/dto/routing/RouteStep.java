@@ -7,11 +7,14 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * One turn-by-turn step from the directions provider with optional OSM-aligned accessibility hints.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RouteStepAccessibility {
+public class RouteStep {
 
     private String instruction;
     private String maneuverType;

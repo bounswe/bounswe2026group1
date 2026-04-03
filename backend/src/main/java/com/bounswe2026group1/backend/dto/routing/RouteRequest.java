@@ -15,5 +15,4 @@ public class RouteRequest {
     private double endLat;
     private double endLon;
     private TravelMode mode;
-    private boolean visuallyImpaired;
 }

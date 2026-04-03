@@ -3,10 +3,8 @@ package com.bounswe2026group1.backend.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -31,17 +29,11 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Paths under public routing API (with/without trailing slash, subpaths). */
-    private static final String[] ROUTES_API_PUBLIC = {"/api/routes", "/api/routes/**"};
-
-    /**
-     * Public routing API: skip the entire Spring Security filter chain (including JWT) so anonymous
-     * requests (e.g. Postman) are not blocked with 403. Covers trailing slash and subpaths.
-     */
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return web -> web.ignoring().requestMatchers(ROUTES_API_PUBLIC);
-    }
+    /** Anonymous access: routing API and auth endpoints. */
+    private static final String[] ROUTING_AND_AUTH_PUBLIC = {
+            "/api/routes", "/api/routes/**",
+            "/auth/register", "/auth/login",
+    };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -50,8 +42,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(ROUTES_API_PUBLIC).permitAll()
-                        .requestMatchers("/auth/register", "/auth/login").permitAll()
+                        .requestMatchers(ROUTING_AND_AUTH_PUBLIC).permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
