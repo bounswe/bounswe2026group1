@@ -15,6 +15,8 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
   const { token } = useAuth()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
+  const [userVote, setUserVote] = useState(null) // 'agree' | 'disagree' | null
+
   if (!report) return null
 
   const isValidated = report.status === 'verified'
@@ -33,6 +35,7 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
         ? await agreeReport(report.id, token)
         : await disagreeReport(report.id, token)
       onVoteUpdate(mapReport(updated))
+      setUserVote(prev => prev === type ? null : type)
     } catch (err) {
       setVoteError('Failed to submit vote. Please try again.')
     } finally {
@@ -175,17 +178,25 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
               <button
                 onClick={() => handleVote('agree')}
                 disabled={voting}
-                className="flex items-center justify-center gap-2 py-3 bg-primary text-on-primary rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60"
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${
+                  userVote === 'agree'
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface-container-highest text-on-surface'
+                }`}
               >
-                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'agree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_up</span>
                 {voting ? '...' : 'Agree'}
               </button>
               <button
                 onClick={() => handleVote('disagree')}
                 disabled={voting}
-                className="flex items-center justify-center gap-2 py-3 bg-surface-container-highest text-on-surface rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60"
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60 ${
+                  userVote === 'disagree'
+                    ? 'bg-error text-white'
+                    : 'bg-surface-container-highest text-on-surface'
+                }`}
               >
-                <span className="material-symbols-outlined text-sm">thumb_down</span>
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'disagree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_down</span>
                 {voting ? '...' : 'Disagree'}
               </button>
             </div>
