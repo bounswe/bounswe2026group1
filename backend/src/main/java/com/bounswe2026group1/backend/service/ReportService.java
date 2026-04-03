@@ -103,7 +103,8 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         return ReportResponse.fromEntity(saved);
-      
+    }
+
     public void addMediaToReport(Long reportId, String mediaUrl) {
         // Try to find report by sent reportId, if not throw a NoSuchElement exception
         Report report = reportRepository.findById(reportId)
