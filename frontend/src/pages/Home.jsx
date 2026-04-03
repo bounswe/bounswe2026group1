@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
+import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import { getReports, mapReport } from '../services/reportService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useNavigate } from 'react-router-dom'
 
 function makeMarkerIcon(status) {
   const borderColor = status === 'verified' ? '#176a21' : '#f59e0b'
@@ -62,12 +65,39 @@ function ZoomControls() {
   )
 }
 
+const pinIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:36px;height:36px;
+    background:#176a21;
+    border-radius:50% 50% 50% 0;
+    transform:rotate(-45deg);
+    border:3px solid white;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  "></div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+})
+
+function MapClickHandler({ active, onPick }) {
+  useMapEvents({
+    click(e) {
+      if (active) onPick(e.latlng)
+    },
+  })
+  return null
+}
+
 function Home() {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [reports, setReports] = useState([])
   const [selectedReport, setSelectedReport] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showCreatePanel, setShowCreatePanel] = useState(false)
+  const [newReportPin, setNewReportPin] = useState(null)
 
   useEffect(() => {
     async function fetchReports() {
@@ -110,6 +140,10 @@ function Home() {
                 eventHandlers={{ click: () => setSelectedReport(report) }}
               />
             ))}
+            {newReportPin && (
+              <Marker position={newReportPin} icon={pinIcon} />
+            )}
+            <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
             <ZoomControls />
           </MapContainer>
 
@@ -126,6 +160,16 @@ function Home() {
                   {error}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Pin drop hint */}
+          {showCreatePanel && !newReportPin && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">location_on</span>
+                Click on the map to set report location
+              </div>
             </div>
           )}
 
@@ -178,7 +222,10 @@ function Home() {
               </div>
             </div>
 
-            <button className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide">
+            <button
+              onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
+              className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
+            >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
               Report an Issue
             </button>
@@ -198,6 +245,15 @@ function Home() {
           />
         )}
       </div>
+
+      {/* Create Report Panel */}
+      {showCreatePanel && (
+        <CreateReportPanel
+          position={newReportPin}
+          onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
+          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null) }}
+        />
+      )}
     </div>
   )
 }

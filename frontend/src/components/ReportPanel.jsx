@@ -15,7 +15,6 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
   const { token } = useAuth()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
-
   if (!report) return null
 
   const isValidated = report.status === 'verified'
