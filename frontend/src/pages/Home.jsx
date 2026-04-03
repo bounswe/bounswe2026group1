@@ -1,55 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ReportPanel from '../components/ReportPanel.jsx'
-
-const MOCK_REPORTS = [
-  {
-    id: 1,
-    title: 'Elevator out of service',
-    description: 'The elevator at Boğaziçi metro stop has been out of service for 3 days. Wheelchair users cannot access the platform.',
-    status: 'verified',
-    date: 'Reported 2h ago',
-    location: 'Boğaziçi / Hisarüstü Metro Station',
-    reportedBy: 'Tyrion L.',
-    agrees: 84,
-    disagrees: 7,
-    tags: ['Elevator', 'Metro'],
-    image: null,
-  },
-  {
-    id: 2,
-    title: 'Broken pavement blocking sidewalk',
-    description: 'Large sections of pavement are lifted and broken, making it impossible for wheelchair users to pass.',
-    status: 'unverified',
-    date: 'Reported 5h ago',
-    location: 'Beşiktaş, Ihlamur Caddesi',
-    reportedBy: 'Ceren K.',
-    agrees: 12,
-    disagrees: 2,
-    tags: ['Pavement', 'Safety Hazard'],
-    image: null,
-  },
-  {
-    id: 3,
-    title: 'Construction debris on sidewalk',
-    description: 'The sidewalk is completely blocked by construction waste, making wheelchair passage impossible.',
-    status: 'unverified',
-    date: 'Reported 1d ago',
-    location: 'Hisarüstü, Boğaziçi University entrance',
-    reportedBy: 'Eftelya S.',
-    agrees: 5,
-    disagrees: 1,
-    tags: ['Construction', 'Blocked Path'],
-    image: null,
-  },
-]
+import { getReports, mapReport } from '../services/reportService.js'
 
 function Home() {
+  const [reports, setReports] = useState([])
   const [selectedReport, setSelectedReport] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function fetchReports() {
+      try {
+        const data = await getReports()
+        setReports(data.map(mapReport))
+      } catch (err) {
+        setError('Failed to load reports.')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchReports()
+  }, [])
 
   return (
     <main className="flex h-screen overflow-hidden bg-background font-body">
 
-      {/* Map — takes remaining space, shrinks when panel opens */}
+      {/* Map */}
       <section className="relative flex-1 bg-surface-container">
 
         {/* Map grid placeholder */}
@@ -63,20 +40,31 @@ function Home() {
 
         {/* Center label */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-on-surface-variant font-bold text-lg select-none">
-            Map View — Click a pin to view report
-          </p>
+          {loading && (
+            <p className="text-on-surface-variant font-bold text-lg select-none">Loading reports...</p>
+          )}
+          {error && (
+            <p className="text-error font-bold text-lg select-none">{error}</p>
+          )}
+          {!loading && !error && reports.length === 0 && (
+            <p className="text-on-surface-variant font-bold text-lg select-none">No reports found.</p>
+          )}
+          {!loading && !error && reports.length > 0 && (
+            <p className="text-on-surface-variant font-bold text-lg select-none">
+              Map View — Click a pin to view report
+            </p>
+          )}
         </div>
 
-        {/* Mock pins */}
-        {MOCK_REPORTS.map((report, i) => (
+        {/* Report pins */}
+        {reports.map((report, i) => (
           <button
             key={report.id}
             onClick={() => setSelectedReport(report)}
             className="absolute z-10 flex flex-col items-center group"
             style={{
-              left: `${20 + i * 22}%`,
-              top: `${30 + (i % 2) * 20}%`,
+              left: `${15 + (i % 5) * 16}%`,
+              top: `${20 + Math.floor(i / 5) * 20}%`,
             }}
             aria-label={`Open report: ${report.title}`}
           >
@@ -91,7 +79,7 @@ function Home() {
           </button>
         ))}
 
-        {/* Map zoom controls */}
+        {/* Zoom controls */}
         <div className="absolute bottom-8 left-8 flex flex-col gap-2">
           <button className="w-12 h-12 bg-surface-container-lowest rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-bright transition-colors text-on-surface">
             <span className="material-symbols-outlined">add</span>
@@ -105,11 +93,15 @@ function Home() {
         </div>
       </section>
 
-      {/* Report Panel — right sidebar */}
+      {/* Report Panel */}
       {selectedReport && (
         <ReportPanel
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
+          onVoteUpdate={(updatedReport) => {
+            setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r))
+            setSelectedReport(updatedReport)
+          }}
         />
       )}
 

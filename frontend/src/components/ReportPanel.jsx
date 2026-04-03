@@ -1,17 +1,45 @@
+import { useState } from 'react'
+import { agreeReport, disagreeReport, mapReport } from '../services/reportService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+
 /**
  * ReportPanel
  * Desktop: fixed right sidebar (500px) alongside the map.
  * Mobile: full screen overlay.
  * Props:
- *  - report: { id, title, description, status, date, location, reportedBy, agrees, disagrees, tags, image }
+ *  - report: mapped report object
  *  - onClose: () => void
+ *  - onVoteUpdate: (updatedReport) => void
  */
-function ReportPanel({ report, onClose }) {
+function ReportPanel({ report, onClose, onVoteUpdate }) {
+  const { token } = useAuth()
+  const [voting, setVoting] = useState(false)
+  const [voteError, setVoteError] = useState('')
+
   if (!report) return null
 
   const isValidated = report.status === 'verified'
   const total = (report.agrees || 0) + (report.disagrees || 0)
   const consensusPct = total > 0 ? Math.round(((report.agrees || 0) / total) * 100) : 0
+
+  async function handleVote(type) {
+    if (!token) {
+      setVoteError('You must be logged in to vote.')
+      return
+    }
+    setVoting(true)
+    setVoteError('')
+    try {
+      const updated = type === 'agree'
+        ? await agreeReport(report.id, token)
+        : await disagreeReport(report.id, token)
+      onVoteUpdate(mapReport(updated))
+    } catch (err) {
+      setVoteError('Failed to submit vote. Please try again.')
+    } finally {
+      setVoting(false)
+    }
+  }
 
   return (
     <>
@@ -22,7 +50,7 @@ function ReportPanel({ report, onClose }) {
         aria-hidden="true"
       />
 
-      {/* Panel — right sidebar on desktop, full screen on mobile */}
+      {/* Panel */}
       <aside className="
         fixed top-0 right-0 h-full z-50
         w-full lg:w-[500px]
@@ -30,7 +58,6 @@ function ReportPanel({ report, onClose }) {
         overflow-y-auto
         border-l border-outline-variant/10
         flex flex-col
-        custom-scrollbar
       ">
 
         {/* Report Photo */}
@@ -49,7 +76,7 @@ function ReportPanel({ report, onClose }) {
             )}
 
             {/* Status badge */}
-            <div className="absolute top-4 right-4 flex items-center gap-2">
+            <div className="absolute top-4 right-4">
               <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
                 isValidated
                   ? 'bg-primary-container text-on-primary-container'
@@ -84,8 +111,8 @@ function ReportPanel({ report, onClose }) {
                   <span className="material-symbols-outlined text-on-surface-variant">person</span>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-on-surface">{report.reportedBy || 'Anonymous'}</p>
-                  <p className="text-xs text-on-surface-variant">{report.date || 'Unknown date'}</p>
+                  <p className="text-sm font-bold text-on-surface">{report.reportedBy}</p>
+                  <p className="text-xs text-on-surface-variant">{report.date}</p>
                 </div>
               </div>
               {report.tags && (
@@ -137,14 +164,30 @@ function ReportPanel({ report, onClose }) {
             <p className="text-sm text-on-surface-variant italic">
               {report.agrees || 0} people have verified this issue as active.
             </p>
+
+            {/* Vote error */}
+            {voteError && (
+              <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">
+                {voteError}
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-3 mt-2">
-              <button className="flex items-center justify-center gap-2 py-3 bg-primary text-on-primary rounded-xl font-bold active:scale-95 transition-all shadow-sm">
+              <button
+                onClick={() => handleVote('agree')}
+                disabled={voting}
+                className="flex items-center justify-center gap-2 py-3 bg-primary text-on-primary rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60"
+              >
                 <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
-                Agree
+                {voting ? '...' : 'Agree'}
               </button>
-              <button className="flex items-center justify-center gap-2 py-3 bg-surface-container-highest text-on-surface rounded-xl font-bold active:scale-95 transition-all">
+              <button
+                onClick={() => handleVote('disagree')}
+                disabled={voting}
+                className="flex items-center justify-center gap-2 py-3 bg-surface-container-highest text-on-surface rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60"
+              >
                 <span className="material-symbols-outlined text-sm">thumb_down</span>
-                Disagree
+                {voting ? '...' : 'Disagree'}
               </button>
             </div>
           </section>
@@ -163,7 +206,7 @@ function ReportPanel({ report, onClose }) {
                   <p className="text-sm text-on-surface-variant">
                     Report submitted and pending community verification.
                   </p>
-                  <p className="text-xs text-outline mt-1 uppercase font-bold">{report.date || 'Recently'}</p>
+                  <p className="text-xs text-outline mt-1 uppercase font-bold">{report.date}</p>
                 </div>
               </div>
             </div>
