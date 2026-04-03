@@ -20,6 +20,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RouteService {
 
+    /** Average walking speed in m/s — used to estimate ramp traversal duration. */
+    private static final double WALKING_SPEED_MS = 1.4;
+
     private final OrsRoutingClient orsRoutingClient;
     private final ObstacleService obstacleService;
 
@@ -86,11 +89,20 @@ public class RouteService {
         // 4. Ramp-assisted Route — multi-leg through nearest ramp entry/exit
         RampReport ramp = obstacleService.findClosestRampInBoundingBox(start, end);
         if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
-            RoutingDirectionsResult leg1 = fetchOrNull(start, ramp.getEntryPoint(), TravelMode.WHEELCHAIR, avoidPolygons);
-            RoutingDirectionsResult leg2 = fetchOrNull(ramp.getEntryPoint(), ramp.getExitPoint(), TravelMode.WALKING, null);
-            RoutingDirectionsResult leg3 = fetchOrNull(ramp.getExitPoint(), end, TravelMode.WHEELCHAIR, avoidPolygons);
+            // Orient ramp: entry = endpoint closer to start, exit = endpoint closer to end
+            Location rampA = ramp.getEntryPoint();
+            Location rampB = ramp.getExitPoint();
+            double distAToStart = haversineMeters(rampA, start);
+            double distBToStart = haversineMeters(rampB, start);
+            Location rampEntry = distAToStart <= distBToStart ? rampA : rampB;
+            Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
 
-            if (leg1 != null && leg2 != null && leg3 != null) {
+            RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
+            // Leg 2 is the ramp itself — too short for ORS routing, modelled as a straight-line walk.
+            RoutingDirectionsResult leg2 = straightLineLeg(rampEntry, rampExit);
+            RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
+
+            if (leg1 != null && leg3 != null) {
                 double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
                 double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
 
@@ -103,8 +115,8 @@ public class RouteService {
 
                 List<RouteStep> combinedSteps = new ArrayList<>();
                 if (leg1.getSteps() != null) combinedSteps.addAll(leg1.getSteps());
-                combinedSteps.add(RouteStep.builder().instruction("Take the ramp").maneuverType("ramp").build());
-                if (leg2.getSteps() != null) combinedSteps.addAll(leg2.getSteps());
+                // leg2 steps already contain "Take the ramp" from straightLineLeg
+                combinedSteps.addAll(leg2.getSteps());
                 combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
                 if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
 
@@ -118,11 +130,39 @@ public class RouteService {
                         .hasObstacles(false)
                         .build());
             } else {
-                log.warn("Ramp-assisted route skipped; one or more legs returned null.");
+                log.warn("Ramp-assisted route skipped; leg 1 or leg 3 returned null.");
             }
         }
 
         return routes;
+    }
+
+    /**
+     * Builds a straight-line leg between two nearby points (e.g. ramp entry → exit)
+     * without calling ORS. Distance is haversine; duration is estimated at walking speed.
+     */
+    private static RoutingDirectionsResult straightLineLeg(Location from, Location to) {
+        double distanceMeters = haversineMeters(from, to);
+        double durationSeconds = distanceMeters / WALKING_SPEED_MS;
+        String geometry = PolylineEncoder.encode(List.of(from, to));
+        return RoutingDirectionsResult.builder()
+                .distanceMeters(distanceMeters)
+                .durationSeconds(durationSeconds)
+                .geometry(geometry)
+                .steps(List.of(RouteStep.builder().instruction("Take the ramp").maneuverType("ramp").build()))
+                .build();
+    }
+
+    private static double haversineMeters(Location a, Location b) {
+        final double R = 6_371_000.0;
+        double dLat = Math.toRadians(b.getLatitude() - a.getLatitude());
+        double dLon = Math.toRadians(b.getLongitude() - a.getLongitude());
+        double sinDLat = Math.sin(dLat / 2);
+        double sinDLon = Math.sin(dLon / 2);
+        double h = sinDLat * sinDLat
+                + Math.cos(Math.toRadians(a.getLatitude())) * Math.cos(Math.toRadians(b.getLatitude()))
+                * sinDLon * sinDLon;
+        return 2 * R * Math.asin(Math.sqrt(h));
     }
 
     private RoutingDirectionsResult fetchOrNull(Location start, Location end, TravelMode mode, ObjectNode polygons) {
