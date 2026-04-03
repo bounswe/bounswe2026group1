@@ -45,14 +45,14 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
     <>
       {/* Mobile backdrop */}
       <div
-        className="fixed inset-0 bg-black/20 z-40 lg:hidden"
+        className="fixed inset-0 bg-black/20 z-[1100] lg:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
       <aside className="
-        fixed top-0 right-0 h-full z-50
+        fixed top-0 right-0 h-full z-[1200]
         w-full lg:w-[500px]
         bg-surface-container-low
         overflow-y-auto
