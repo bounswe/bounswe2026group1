@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Service
@@ -68,9 +69,9 @@ public class ReportService {
         return true;
     }
     public void addMediaToReport(Long reportId, String mediaUrl) {
-        // Try to find report by sent reportId, if not throw a Runtime exception
+        // Try to find report by sent reportId, if not throw a NoSuchElement exception
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new RuntimeException("Report not found with id: " + reportId));
+                .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
 
         // Creates the Media entity
         Media media = new Media();
