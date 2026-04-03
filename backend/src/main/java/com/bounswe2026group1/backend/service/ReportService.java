@@ -3,12 +3,15 @@ package com.bounswe2026group1.backend.service;
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.model.Location;
+import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.Media;
+import com.bounswe2026group1.backend.model.ReportVerification;
+import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.repository.MediaRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
-import com.bounswe2026group1.backend.repository.MediaRepository;
+import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final RegisteredUserRepository registeredUserRepository;
     private final MediaRepository mediaRepository;
+    private final ReportVerificationRepository verificationRepository;
 
     // Fetched from application.properties
     @Value("${app.report.verification.threshold:5}")
@@ -77,29 +81,73 @@ public class ReportService {
     }
 
     @Transactional
-    public ReportResponse verifyReport(Long id) {
+    public ReportResponse verifyReport(Long id, String email) {
+        RegisteredUser user = registeredUserRepository.findByEmail(email)
+                .orElseThrow(() -> new NoSuchElementException("User not found: " + email));
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + id));
 
-        report.incrementAgrees();       // Called from Report.java
+        var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
-        // Check if the new agree count hits the threshold and the Report is already verified
+        if (existing.isPresent()) {
+            if (existing.get().getVoteType() == VoteType.AGREE) {
+                // Toggle off: remove the vote
+                report.decrementAgrees();
+                verificationRepository.delete(existing.get());
+            } else {
+                // Switch from DISAGREE to AGREE
+                report.decrementDisagrees();
+                report.incrementAgrees();
+                existing.get().setVoteType(VoteType.AGREE);
+                verificationRepository.save(existing.get());
+            }
+        } else {
+            // First vote
+            report.incrementAgrees();
+            verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
+        }
+
         if (report.getAgrees() >= verificationThreshold && report.getStatus() != ReportStatus.VERIFIED) {
             report.setStatus(ReportStatus.VERIFIED);
         }
+        if (report.getAgrees() < verificationThreshold && report.getStatus() == ReportStatus.VERIFIED) {
+            report.setStatus(ReportStatus.PENDING);
+        }
 
-        // Save to the DB
         Report saved = reportRepository.save(report);
         return ReportResponse.fromEntity(saved);
     }
 
     @Transactional
-    public ReportResponse unverifyReport(Long id) {
+    public ReportResponse unverifyReport(Long id, String email) {
+        RegisteredUser user = registeredUserRepository.findByEmail(email)
+                .orElseThrow(() -> new NoSuchElementException("User not found: " + email));
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + id));
 
-        report.incrementDisagrees();        // Call from the Report.java
+        var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
+        if (existing.isPresent()) {
+            if (existing.get().getVoteType() == VoteType.DISAGREE) {
+                // Toggle off: remove the vote
+                report.decrementDisagrees();
+                verificationRepository.delete(existing.get());
+            } else {
+                // Switch from AGREE to DISAGREE
+                report.decrementAgrees();
+                report.incrementDisagrees();
+                existing.get().setVoteType(VoteType.DISAGREE);
+                verificationRepository.save(existing.get());
+            }
+        } else {
+            // First vote
+            report.incrementDisagrees();
+            verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
+        }
+
+        if (report.getAgrees() < verificationThreshold && report.getStatus() == ReportStatus.VERIFIED) {
+            report.setStatus(ReportStatus.PENDING);
+        }
 
         Report saved = reportRepository.save(report);
         return ReportResponse.fromEntity(saved);

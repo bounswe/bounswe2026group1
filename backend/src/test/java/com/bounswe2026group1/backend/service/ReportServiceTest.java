@@ -3,8 +3,10 @@ package com.bounswe2026group1.backend.service;
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.model.*;
+import com.bounswe2026group1.backend.model.VoteType;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
+import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,6 +31,9 @@ class ReportServiceTest {
 
     @Mock
     private RegisteredUserRepository registeredUserRepository;
+
+    @Mock
+    private ReportVerificationRepository verificationRepository;
 
     @InjectMocks
     private ReportService reportService;
@@ -141,17 +147,17 @@ class ReportServiceTest {
 
     @Test
     void verifyReport_reachesThreshold_changesStatusToVerified() {
-        // Arrange
         ReflectionTestUtils.setField(testReport, "agrees", 4); // 4 agrees + 1 new agree = 5 (Threshold)
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
 
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
         when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        // Act
-        ReportResponse result = reportService.verifyReport(1L);
+        reportService.verifyReport(1L, "user@test.com");
 
-        // Assert
         assertEquals(5, testReport.getAgrees());
         assertEquals(ReportStatus.VERIFIED, testReport.getStatus());
         verify(reportRepository).save(testReport);
@@ -161,11 +167,14 @@ class ReportServiceTest {
     void verifyReport_belowThreshold_statusRemainsPending() {
         ReflectionTestUtils.setField(testReport, "agrees", 1); // 1 agree + 1 new agree = 2 (Below threshold)
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
 
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
         when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        ReportResponse result = reportService.verifyReport(1L);
+        reportService.verifyReport(1L, "user@test.com");
 
         assertEquals(2, testReport.getAgrees());
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
@@ -173,17 +182,75 @@ class ReportServiceTest {
     }
 
     @Test
-    void unverifyReport_incrementsDisagrees() {
-        ReflectionTestUtils.setField(testReport, "disagrees", 0);
+    void verifyReport_toggleOff_removesAgree() {
+        ReflectionTestUtils.setField(testReport, "agrees", 1);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+        ReportVerification existing = new ReportVerification(testUser, testReport, VoteType.AGREE);
 
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.of(existing));
         when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        ReportResponse result = reportService.unverifyReport(1L);
+        reportService.verifyReport(1L, "user@test.com");
+
+        assertEquals(0, testReport.getAgrees());
+        verify(verificationRepository).delete(existing);
+    }
+
+    @Test
+    void unverifyReport_incrementsDisagrees() {
+        ReflectionTestUtils.setField(testReport, "disagrees", 0);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.unverifyReport(1L, "user@test.com");
 
         assertEquals(1, testReport.getDisagrees());
-        assertEquals(ReportStatus.PENDING, testReport.getStatus()); // Unverifying should not change status
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
         verify(reportRepository).save(testReport);
+    }
+
+    @Test
+    void unverifyReport_revertsVerifiedStatusToPending() {
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
+        ReflectionTestUtils.setField(testReport, "status", ReportStatus.VERIFIED);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.unverifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+    }
+
+    @Test
+    void verifyReport_nonExistingId_throwsNoSuchElementException() {
+        testUser.setEmail("user@test.com");
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reportService.verifyReport(99L, "user@test.com"));
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void unverifyReport_nonExistingId_throwsNoSuchElementException() {
+        testUser.setEmail("user@test.com");
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reportService.unverifyReport(99L, "user@test.com"));
+        verify(reportRepository, never()).save(any());
     }
 
 }
