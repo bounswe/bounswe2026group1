@@ -217,6 +217,76 @@
       ]
     },
     {
+      "name": "Routes",
+      "item": [
+        {
+          "name": "Get Route Options",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startLat\": 41.085520,\n  \"startLon\": 29.044523,\n  \"endLat\": 41.086452,\n  \"endLon\": 29.044751,\n  \"mode\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/routes",
+              "host": ["{{baseUrl}}"],
+              "path": ["routes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ramp Reports",
+      "item": [
+        {
+          "name": "Create Ramp Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"latitude\": 41.0082,\n  \"longitude\": 28.9784,\n  \"description\": \"There is a ramp at the entrance of the building.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reports/ramp",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "ramp"]
+            }
+          }
+        },
+        {
+          "name": "Get All Ramp Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/ramp",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "ramp"]
+            }
+          }
+        },
+        {
+          "name": "Get Ramp Report by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/ramp/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "ramp", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Comments",
       "item": [
         {
