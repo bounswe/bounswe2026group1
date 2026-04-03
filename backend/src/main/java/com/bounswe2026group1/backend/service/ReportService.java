@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import com.bounswe2026group1.backend.model.ReportStatus;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Service
@@ -76,7 +77,7 @@ public class ReportService {
     @Transactional
     public ReportResponse verifyReport(Long id) {
         Report report = reportRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Report not found with id: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + id));
 
         report.incrementAgrees();       // Called from Report.java
 
@@ -93,7 +94,7 @@ public class ReportService {
     @Transactional
     public ReportResponse unverifyReport(Long id) {
         Report report = reportRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Report not found with id: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + id));
 
         report.incrementDisagrees();        // Call from the Report.java
 
