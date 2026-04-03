@@ -86,10 +86,10 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
               </span>
             </div>
 
-            {/* Close button — mobile only */}
+            {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 lg:hidden w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
+              className="absolute top-4 left-4 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
               aria-label="Close panel"
             >
               <span className="material-symbols-outlined text-base">close</span>
