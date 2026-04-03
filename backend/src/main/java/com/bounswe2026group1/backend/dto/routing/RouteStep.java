@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * One turn-by-turn step from the directions provider with optional OSM-aligned accessibility hints.
+ */
 @Data
 @Builder
 @NoArgsConstructor

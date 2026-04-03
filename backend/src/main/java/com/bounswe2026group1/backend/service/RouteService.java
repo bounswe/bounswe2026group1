@@ -83,19 +83,16 @@ public class RouteService {
                     .build());
         }
 
-        // 4. Ramp-assisted Route - multi-leg
+        // 4. Ramp-assisted Route — multi-leg through nearest ramp entry/exit
         RampReport ramp = obstacleService.findClosestRampInBoundingBox(start, end);
         if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
-            RoutingDirectionsResult leg1 = fetchOrNull(start, ramp.getEntryPoint(), TravelMode.WHEELCHAIR,
-                    avoidPolygons);
-            RoutingDirectionsResult leg2 = fetchOrNull(ramp.getEntryPoint(), ramp.getExitPoint(), TravelMode.WALKING,
-                    null);
+            RoutingDirectionsResult leg1 = fetchOrNull(start, ramp.getEntryPoint(), TravelMode.WHEELCHAIR, avoidPolygons);
+            RoutingDirectionsResult leg2 = fetchOrNull(ramp.getEntryPoint(), ramp.getExitPoint(), TravelMode.WALKING, null);
             RoutingDirectionsResult leg3 = fetchOrNull(ramp.getExitPoint(), end, TravelMode.WHEELCHAIR, avoidPolygons);
 
             if (leg1 != null && leg2 != null && leg3 != null) {
                 double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
-                double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds()
-                        + leg3.getDurationSeconds();
+                double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
 
                 List<Location> combinedPath = new ArrayList<>();
                 combinedPath.addAll(PolylineDecoder.decode(leg1.getGeometry()));
@@ -105,20 +102,11 @@ public class RouteService {
                 String combinedGeometry = PolylineEncoder.encode(combinedPath);
 
                 List<RouteStep> combinedSteps = new ArrayList<>();
-                if (leg1.getSteps() != null)
-                    combinedSteps.addAll(leg1.getSteps());
-                combinedSteps.add(RouteStep.builder()
-                        .instruction("Take the ramp")
-                        .maneuverType("ramp")
-                        .build());
-                if (leg2.getSteps() != null)
-                    combinedSteps.addAll(leg2.getSteps());
-                combinedSteps.add(RouteStep.builder()
-                        .instruction("Exit the ramp")
-                        .maneuverType("ramp_exit")
-                        .build());
-                if (leg3.getSteps() != null)
-                    combinedSteps.addAll(leg3.getSteps());
+                if (leg1.getSteps() != null) combinedSteps.addAll(leg1.getSteps());
+                combinedSteps.add(RouteStep.builder().instruction("Take the ramp").maneuverType("ramp").build());
+                if (leg2.getSteps() != null) combinedSteps.addAll(leg2.getSteps());
+                combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
+                if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
 
                 routes.add(RouteResponse.builder()
                         .routeLabel("Ramp-Assisted Route")
