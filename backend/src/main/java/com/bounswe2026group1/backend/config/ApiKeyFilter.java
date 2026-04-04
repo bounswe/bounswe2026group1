@@ -27,14 +27,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             return;
         }
 
-        String providedApiKey = request.getHeader("Mapcess-Key");
-
-        if (expectedApiKey == null || !expectedApiKey.equals(providedApiKey)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Missing or Invalid API Key");
-            return; // Stop further processing if API key is invalid
-        }
-
+        // TODO: Re-enable API key validation after MVP
         filterChain.doFilter(request, response);
     }
 }
