@@ -29,7 +29,6 @@ class MediaControllerTest {
     @MockitoBean private ReportService  reportService;
     @MockitoBean private JwtUtil jwtUtil;
 
-    // application-test.properties dosyasından sahte anahtarı içeri alıyoruz
     @Value("${app.api.key}")
     private String validApiKey;
 
