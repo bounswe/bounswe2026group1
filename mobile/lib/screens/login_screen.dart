@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
-import 'home_screen.dart';
+import 'main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } on ApiException catch (e) {
       if (mounted) _showError(e.userMessage);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
-import 'home_screen.dart';
+import 'main_shell.dart';
 import 'report_detail_screen.dart';
 
 class ReportSuccessScreen extends StatefulWidget {
@@ -351,7 +351,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
           GestureDetector(
             onTap: () => Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              MaterialPageRoute(builder: (_) => const MainShell()),
               (r) => false,
             ),
             child: Container(
