@@ -18,6 +18,12 @@ Spring Boot 4.0 / Java 21 / PostgreSQL
    POSTGRES_DB=bounswedb
    POSTGRES_USER=your_username
    POSTGRES_PASSWORD=your_password
+   JWT_SECRET_KEY=your_jwt_secret_key
+   AWS_BUCKET_NAME=your_aws_bucket_name
+   AWS_REGION=your_aws_region
+   AWS_ACCESS_KEY=your_aws_access_key
+   AWS_SECRET_KEY=your_aws_secret_key
+   ORS_API_KEY=your_openrouteservice_key
    ```
 2. Start the database:
    ```bash
