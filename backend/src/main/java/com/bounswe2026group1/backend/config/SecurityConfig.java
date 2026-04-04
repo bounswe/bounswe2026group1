@@ -23,6 +23,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final ApiKeyFilter apiKeyFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -49,7 +50,9 @@ public class SecurityConfig {
                                 "/api/comments", "/api/comments/**")
                         .permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                // Add api key filter before JWT
+                .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtAuthFilter, ApiKeyFilter.class);
 
         return http.build();
     }
@@ -57,7 +60,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:[*]"));
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:[*]",
+                "http://10.0.2.2:[*]",      // Android Emulator
+                "http://192.168.*:[*]"      // Local phones on the same network
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
