@@ -96,19 +96,22 @@ class _MainShellState extends State<MainShell>
       ProfileScreen(onTabSwitch: _switchTab),
     ];
 
-    // Reports & Profile screens sit under the overlay top bar, so their
-    // SafeArea must account for the bar's content height (68 px) in addition
-    // to the system status-bar inset.
+    // Reports & Profile screens sit under the overlay top bar and above the
+    // bottom nav, so their SafeArea must account for both bar heights in
+    // addition to system insets.
     const double topBarContentHeight = 68.0;
+    const double bottomNavHeight = 88.0;
     final mq = MediaQuery.of(context);
 
-    // Wrap non-home pages so their SafeArea starts below the top bar.
+    // Wrap non-home pages so their SafeArea starts below the top bar and
+    // ends above the bottom nav bar.
     Widget wrapPage(int i) {
       if (i == 0) return pages[i];
       return MediaQuery(
         data: mq.copyWith(
           padding: mq.padding.copyWith(
             top: mq.padding.top + topBarContentHeight,
+            bottom: mq.padding.bottom + bottomNavHeight,
           ),
         ),
         child: pages[i],

@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../models/report_model.dart';
 import 'login_screen.dart';
+import 'report_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -102,53 +103,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F4),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context),
-            Expanded(
-              child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    )
-                  : auth.isAuthenticated
-                      ? _buildAuthenticatedView()
-                      : _buildGuestView(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Top Bar ────────────────────────────────────────────────────────────────
-
-  Widget _buildTopBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.onSurface),
-            onPressed: () {},
-          ),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'Mapcess',
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.onSurface),
-            onPressed: () {},
-          ),
-        ],
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
+            : auth.isAuthenticated
+                ? _buildAuthenticatedView()
+                : _buildGuestView(),
       ),
     );
   }
@@ -291,17 +252,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: AppColors.onSurface,
                 ),
               ),
-              GestureDetector(
-                onTap: () => widget.onTabSwitch?.call(1),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
             ],
           ),
 
@@ -322,7 +272,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             )
           else
-            ..._userReports.take(5).map((report) => _buildReportItem(report)),
+            ...(_userReports.toList()
+                  ..sort((a, b) {
+                    try {
+                      return DateTime.parse(b.publishDate)
+                          .compareTo(DateTime.parse(a.publishDate));
+                    } catch (_) {
+                      return 0;
+                    }
+                  }))
+                .take(5)
+                .map((report) => _buildReportItem(report)),
         ],
       ),
     );
@@ -429,7 +389,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final desc = report.description.length > 40
         ? '${report.description.substring(0, 40)}…'
         : report.description;
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ReportDetailScreen(report: report)),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -502,6 +467,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
