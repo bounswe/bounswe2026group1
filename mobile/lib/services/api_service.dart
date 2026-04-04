@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import '../models/report_model.dart';
 
@@ -15,7 +15,8 @@ const _injectedUrl = String.fromEnvironment('API_BASE_URL');
 String get _baseUrl {
   if (_injectedUrl.isNotEmpty) return _injectedUrl;
   // Local dev fallback: Android emulator cannot reach 'localhost' of the host machine.
-  return 'http://${Platform.isAndroid ? '10.0.2.2' : 'localhost'}:8080';
+  final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  return 'http://${isAndroid ? '10.0.2.2' : 'localhost'}:8080';
 }
 
 class ApiService {
@@ -71,6 +72,29 @@ class ApiService {
       return data['name'] as String?;
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>?> getUserById(int userId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/users/$userId'), headers: _headers)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<List<ReportModel>> getReportsByUser(int userId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/reports/user/$userId'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list
+          .map((e) => ReportModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
   }
 
   // ─── Reports ───────────────────────────────────────────────────────────────
