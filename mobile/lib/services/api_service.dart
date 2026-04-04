@@ -8,9 +8,10 @@ import '../models/report_model.dart';
 /// Falls back to localhost for local development (Android emulator uses 10.0.2.2).
 ///
 /// Usage examples:
-///   flutter run --dart-define=API_BASE_URL=https://api.mapcess.com
-///   flutter build apk --dart-define=API_BASE_URL=https://api.mapcess.com
+///   flutter run --dart-define=API_BASE_URL=https://api.mapcess.com --dart-define=API_KEY=your-key
+///   flutter build apk --dart-define=API_BASE_URL=https://api.mapcess.com --dart-define=API_KEY=your-key
 const _injectedUrl = String.fromEnvironment('API_BASE_URL');
+const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
 
 String get _baseUrl {
   if (_injectedUrl.isNotEmpty) return _injectedUrl;
@@ -27,6 +28,7 @@ class ApiService {
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'Mapcess-Key': _apiKey,
     if (token != null) 'Authorization': 'Bearer $token',
   };
 
@@ -36,7 +38,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/auth/register'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _headers,
           body: jsonEncode({'name': name, 'email': email, 'password': password}),
         )
         .timeout(const Duration(seconds: 6));
@@ -49,7 +51,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/auth/login'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _headers,
           body: jsonEncode({'email': email, 'password': password}),
         )
         .timeout(const Duration(seconds: 6));

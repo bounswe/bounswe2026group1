@@ -57,11 +57,13 @@ describe('Login page', () => {
       expect(screen.getByRole('link', { name: /forgot password/i })).toBeInTheDocument()
     })
 
-    it('renders Google and Apple social auth buttons', () => {
-      renderLogin()
-      expect(screen.getByRole('button', { name: /google/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /apple/i })).toBeInTheDocument()
-    })
+    // Commented out: Google/Apple OAuth buttons removed from the app.
+    // See: https://github.com/bounswe/bounswe2026group1/issues/133
+    // it('renders Google and Apple social auth buttons', () => {
+    //   renderLogin()
+    //   expect(screen.getByRole('button', { name: /google/i })).toBeInTheDocument()
+    //   expect(screen.getByRole('button', { name: /apple/i })).toBeInTheDocument()
+    // })
 
     it('renders a link to the signup page', () => {
       renderLogin()
