@@ -7,9 +7,38 @@ on:
     paths:
       - 'backend/**'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/bounswe2026group1-backend
+
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest
+
   deploy:
     runs-on: ubuntu-latest
+    needs: build-and-push
 
     steps:
       - name: Deploy to Droplet
@@ -18,8 +47,9 @@ jobs:
           host: ${{ secrets.DROPLET_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 5m
           script: |
-            cd ~/bounswe2026group1
-            git pull origin main
-            cd backend
-            docker compose up --build -d
+            cd ~/bounswe2026group1/backend
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d
