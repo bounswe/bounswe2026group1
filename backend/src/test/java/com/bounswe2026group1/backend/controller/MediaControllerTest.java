@@ -6,8 +6,8 @@ import com.bounswe2026group1.backend.util.JwtUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,9 +25,13 @@ class MediaControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
-    @MockitoBean private S3MediaService s3MediaService;  // @MockBean removed in Spring Boot 4.x
+    @MockitoBean private S3MediaService s3MediaService;
     @MockitoBean private ReportService  reportService;
     @MockitoBean private JwtUtil jwtUtil;
+
+    // application-test.properties dosyasından sahte anahtarı içeri alıyoruz
+    @Value("${app.api.key}")
+    private String validApiKey;
 
     private static final String UPLOAD_URL = "/api/reports/{id}/media";
     private static final String RETURNED_URL = "https://test-bucket.s3.amazonaws.com/uuid_photo.jpg";
@@ -43,7 +47,8 @@ class MediaControllerTest {
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
         doNothing().when(reportService).addMediaToReport(eq(1L), eq(RETURNED_URL));
 
-        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.mediaUrl").value(RETURNED_URL));
     }
@@ -57,7 +62,8 @@ class MediaControllerTest {
 
         when(s3MediaService.uploadFile(any())).thenReturn(expectedUrl);
 
-        mockMvc.perform(multipart(UPLOAD_URL, 5L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 5L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.mediaUrl").value(expectedUrl));
     }
@@ -70,7 +76,8 @@ class MediaControllerTest {
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
 
-        mockMvc.perform(multipart(UPLOAD_URL, 42L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 42L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated());
 
         verify(reportService, times(1)).addMediaToReport(42L, RETURNED_URL);
@@ -87,7 +94,8 @@ class MediaControllerTest {
         when(s3MediaService.uploadFile(any()))
                 .thenThrow(new IllegalArgumentException("Invalid file type."));
 
-        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isBadRequest());
     }
 
@@ -100,7 +108,8 @@ class MediaControllerTest {
         when(s3MediaService.uploadFile(any()))
                 .thenThrow(new IllegalArgumentException("Invalid file type."));
 
-        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isBadRequest());
     }
 
@@ -116,7 +125,8 @@ class MediaControllerTest {
         doThrow(new NoSuchElementException("Report not found with id: 99"))
                 .when(reportService).addMediaToReport(eq(99L), any());
 
-        mockMvc.perform(multipart(UPLOAD_URL, 99L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 99L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isNotFound());
     }
 
@@ -131,7 +141,8 @@ class MediaControllerTest {
         when(s3MediaService.uploadFile(any()))
                 .thenThrow(new RuntimeException("Failed to upload to S3"));
 
-        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
+                        .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isInternalServerError());
     }
 }
