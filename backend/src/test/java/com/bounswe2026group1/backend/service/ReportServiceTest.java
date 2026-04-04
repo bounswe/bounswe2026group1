@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,7 +62,7 @@ class ReportServiceTest {
     void getAll_returnsAllReports() {
         when(reportRepository.findAll()).thenReturn(List.of(testReport));
 
-        List<ReportResponse> result = reportService.getAll();
+        List<ReportResponse> result = reportService.getAll(null);
 
         assertEquals(1, result.size());
         assertEquals("Broken ramp", result.get(0).getDescription());
@@ -69,10 +70,24 @@ class ReportServiceTest {
     }
 
     @Test
+    void getAll_withAuthenticatedUser_returnsUserVote() {
+        testUser.setEmail("user@test.com");
+        ReportVerification verification = new ReportVerification(testUser, testReport, VoteType.AGREE);
+        when(reportRepository.findAll()).thenReturn(List.of(testReport));
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(verificationRepository.findByUserIdAndReportReportId(eq(1L), any())).thenReturn(Optional.of(verification));
+
+        List<ReportResponse> result = reportService.getAll("user@test.com");
+
+        assertEquals(1, result.size());
+        assertEquals(VoteType.AGREE, result.get(0).getUserVote());
+    }
+
+    @Test
     void getById_existingId_returnsReport() {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
 
-        Optional<ReportResponse> result = reportService.getById(1L);
+        Optional<ReportResponse> result = reportService.getById(1L, null);
 
         assertTrue(result.isPresent());
         assertEquals("Broken ramp", result.get().getDescription());
@@ -82,7 +97,7 @@ class ReportServiceTest {
     void getById_nonExistingId_returnsEmpty() {
         when(reportRepository.findById(99L)).thenReturn(Optional.empty());
 
-        Optional<ReportResponse> result = reportService.getById(99L);
+        Optional<ReportResponse> result = reportService.getById(99L, null);
 
         assertTrue(result.isEmpty());
     }

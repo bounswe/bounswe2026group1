@@ -35,21 +35,37 @@ public class ReportService {
     @Value("${app.report.verification.threshold:5}")
     private int verificationThreshold;
 
-    public List<ReportResponse> getAll() {
+    public List<ReportResponse> getAll(String email) {
+        Long userId = resolveUserId(email);
         return reportRepository.findAll().stream()
-                .map(ReportResponse::fromEntity)
+                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId())))
                 .toList();
     }
 
-    public Optional<ReportResponse> getById(Long id) {
+    public Optional<ReportResponse> getById(Long id, String email) {
+        Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(ReportResponse::fromEntity);
+                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId())));
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
         return reportRepository.findByCreatedById(userId).stream()
                 .map(ReportResponse::fromEntity)
                 .toList();
+    }
+
+    private Long resolveUserId(String email) {
+        if (email == null) return null;
+        return registeredUserRepository.findByEmail(email)
+                .map(RegisteredUser::getId)
+                .orElse(null);
+    }
+
+    private VoteType resolveUserVote(Long userId, Long reportId) {
+        if (userId == null) return null;
+        return verificationRepository.findByUserIdAndReportReportId(userId, reportId)
+                .map(ReportVerification::getVoteType)
+                .orElse(null);
     }
 
     public ReportResponse create(CreateReportRequest request) {
@@ -115,7 +131,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
-        return ReportResponse.fromEntity(saved);
+        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
     @Transactional
@@ -150,7 +166,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
-        return ReportResponse.fromEntity(saved);
+        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
     public void addMediaToReport(Long reportId, String mediaUrl) {
