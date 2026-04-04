@@ -157,6 +157,55 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  Future<void> verifyReport(int id) async {
+    final response = await http
+        .post(Uri.parse('$_baseUrl/api/reports/$id/verify'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> unverifyReport(int id) async {
+    final response = await http
+        .post(Uri.parse('$_baseUrl/api/reports/$id/unverify'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Comments ──────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getComments(int reportId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/comments/report/$reportId'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list.cast<Map<String, dynamic>>();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> addComment({
+    required int reportId,
+    required int userId,
+    required String content,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/comments'),
+          headers: _headers,
+          body: jsonEncode({
+            'content': content,
+            'author': {'id': userId},
+            'report': {'reportId': reportId},
+          }),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 201) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   String _extractMessage(http.Response response) {
