@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -17,6 +18,7 @@ public class OpenApiConfig {
         final String apiKeySchemeName = "mapcessKey";
 
         return new OpenAPI()
+                .addServersItem(new Server().url("https://api.mapcess.live"))
                 .info(new Info()
                         .title("bounswe2026group1 API")
                         .description("REST API documentation for bounswe2026group1 backend")
