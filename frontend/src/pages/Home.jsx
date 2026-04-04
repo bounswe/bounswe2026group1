@@ -54,7 +54,7 @@ function makeMarkerIcon(status) {
 function ZoomControls() {
   const map = useMap()
   return (
-    <div className="absolute right-10 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[1000]">
+    <div className="absolute right-10 top-1/3 -translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
         className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
