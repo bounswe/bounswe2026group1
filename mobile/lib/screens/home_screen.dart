@@ -10,12 +10,12 @@ import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import 'report_detail_screen.dart';
-import 'reports_screen.dart';
-import 'profile_screen.dart';
 import 'make_report_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final void Function(int)? onTabSwitch;
+
+  const HomeScreen({super.key, this.onTabSwitch});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -295,13 +295,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           // ── Report FAB ────────────────────────────────────────────────────
           _buildReportFAB(),
-          // ── Bottom nav ────────────────────────────────────────────────────
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildBottomNav(context),
-          ),
         ],
       ),
     );
@@ -469,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildReportFAB() {
     return Positioned(
-      bottom: 96,
+      bottom: 120,
       left: 20,
       right: 20,
       child: GestureDetector(
@@ -515,83 +508,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ─── Bottom nav ────────────────────────────────────────────────────────────
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.88),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 32,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(icon: Icons.map, label: 'Home', active: true, onTap: () {}),
-          _buildNavItem(
-            icon: Icons.assignment_outlined,
-            label: 'Reports',
-            active: false,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReportsScreen()),
-            ),
-          ),
-          _buildNavItem(
-            icon: Icons.person_outline,
-            label: 'Profile',
-            active: false,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: active ? Colors.white : AppColors.secondary, size: 22),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
-                color: active ? Colors.white : AppColors.secondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── Loading chip ──────────────────────────────────────────────────────────────
