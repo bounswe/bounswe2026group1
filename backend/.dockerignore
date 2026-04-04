@@ -1,0 +1,36 @@
+# Maven outputs
+target/
+!.mvn/wrapper/maven-wrapper.jar
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+
+# IDE specific files
+.idea/
+*.iml
+*.class
+.project
+.classpath
+.settings/
+.vscode/
+
+# Environment Variables (CRITICAL FOR SECURITY)
+# Never commit or include .env files in your docker image
+.env
+.env.*
+*.properties
+
+# OS generated files and logs
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.log
+
+# Misc
+postman/
+node_modules/

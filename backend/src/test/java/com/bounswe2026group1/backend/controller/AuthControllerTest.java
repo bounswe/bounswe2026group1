@@ -5,13 +5,14 @@ import com.bounswe2026group1.backend.dto.LoginResponse;
 import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -33,10 +34,11 @@ class AuthControllerTest {
     @MockitoBean
     private RegisteredUserService registeredUserService;
 
-    // JwtUtil must be mocked because JwtAuthFilter (a @Component filter) depends on it
-    // and is loaded when the Security configuration starts.
     @MockitoBean
     private JwtUtil jwtUtil;
+
+    @Value("${app.api.key}")
+    private String validApiKey;
 
     private RegisterRequest validRegisterRequest;
     private LoginRequest validLoginRequest;
@@ -61,6 +63,7 @@ class AuthControllerTest {
         Mockito.when(registeredUserService.registerUser(any(RegisterRequest.class))).thenReturn(expectedResponse);
 
         mockMvc.perform(post("/auth/register")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
                 .andExpect(status().isCreated())
@@ -71,13 +74,13 @@ class AuthControllerTest {
 
     @Test
     void register_Returns400_WhenValidationFails() throws Exception {
-        // Name missing, Email in invalid format
         RegisterRequest invalidRequest = new RegisterRequest();
         invalidRequest.setName(""); // @NotBlank will fail
         invalidRequest.setEmail("not-an-email"); // @Email will fail
         invalidRequest.setPassword("StrongP@ss1");
 
         mockMvc.perform(post("/auth/register")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
@@ -89,6 +92,7 @@ class AuthControllerTest {
                 .thenThrow(new IllegalArgumentException("Email is already in use."));
 
         mockMvc.perform(post("/auth/register")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
                 .andExpect(status().isConflict())
@@ -101,6 +105,7 @@ class AuthControllerTest {
                 .thenThrow(new IllegalArgumentException("Password must be at least 8 characters long"));
 
         mockMvc.perform(post("/auth/register")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
                 .andExpect(status().isBadRequest())
@@ -115,6 +120,7 @@ class AuthControllerTest {
         Mockito.when(registeredUserService.loginUser(any(LoginRequest.class))).thenReturn(expectedResponse);
 
         mockMvc.perform(post("/auth/login")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validLoginRequest)))
                 .andExpect(status().isOk())
@@ -128,6 +134,7 @@ class AuthControllerTest {
         invalidLogin.setPassword("");
 
         mockMvc.perform(post("/auth/login")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidLogin)))
                 .andExpect(status().isBadRequest());
@@ -139,6 +146,7 @@ class AuthControllerTest {
                 .thenThrow(new BadCredentialsException("Invalid email or password"));
 
         mockMvc.perform(post("/auth/login")
+                        .header("Mapcess-Key", validApiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validLoginRequest)))
                 .andExpect(status().isUnauthorized())

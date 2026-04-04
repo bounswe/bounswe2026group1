@@ -33,7 +33,7 @@ public class ObstacleService {
     /**
      * A report must be within this many metres of the path to count as "on route".
      */
-    private static final double PATH_BUFFER_METERS = 5.0;
+    private static final double PATH_BUFFER_METERS = 10.0;
 
     private static final double METERS_PER_DEGREE = 111_000.0;
 
