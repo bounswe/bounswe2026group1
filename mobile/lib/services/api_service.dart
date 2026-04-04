@@ -10,7 +10,7 @@ import '../models/report_model.dart';
 /// Usage examples:
 ///   flutter run --dart-define=API_BASE_URL=https://api.mapcess.com --dart-define=API_KEY=your-key
 ///   flutter build apk --dart-define=API_BASE_URL=https://api.mapcess.com --dart-define=API_KEY=your-key
-const _injectedUrl = String.fromEnvironment('API_BASE_URL');
+const _injectedUrl = String.fromEnvironment('https://api.mapcess.live/swagger-ui/index.html#/');
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
 
 String get _baseUrl {
