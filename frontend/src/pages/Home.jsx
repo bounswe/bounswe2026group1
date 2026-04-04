@@ -1,56 +1,27 @@
-import { useState } from 'react'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { useState, useEffect } from 'react'
+import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
+import CreateReportPanel from '../components/CreateReportPanel.jsx'
+import { getReports, mapReport } from '../services/reportService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useNavigate } from 'react-router-dom'
 
-const MOCK_REPORTS = [
-  {
-    id: 1,
-    title: 'Elevator out of service',
-    description: 'The elevator at Boğaziçi metro stop has been out of service for 3 days. Wheelchair users cannot access the platform.',
-    status: 'verified',
-    date: 'Reported 2h ago',
-    location: 'Boğaziçi / Hisarüstü Metro Station',
-    reportedBy: 'Tyrion L.',
-    agrees: 84,
-    disagrees: 7,
-    tags: ['Elevator', 'Metro'],
-    image: null,
-    lat: 41.0833,
-    lng: 29.0535,
-  },
-  {
-    id: 2,
-    title: 'Broken pavement blocking sidewalk',
-    description: 'Large sections of pavement are lifted and broken, making it impossible for wheelchair users to pass.',
-    status: 'unverified',
-    date: 'Reported 5h ago',
-    location: 'Beşiktaş, Ihlamur Caddesi',
-    reportedBy: 'Ceren K.',
-    agrees: 12,
-    disagrees: 2,
-    tags: ['Pavement', 'Safety Hazard'],
-    image: null,
-    lat: 41.0435,
-    lng: 29.0044,
-  },
-  {
-    id: 3,
-    title: 'Construction debris on sidewalk',
-    description: 'The sidewalk is completely blocked by construction waste, making wheelchair passage impossible.',
-    status: 'unverified',
-    date: 'Reported 1d ago',
-    location: 'Hisarüstü, Boğaziçi University entrance',
-    reportedBy: 'Eftelya S.',
-    agrees: 5,
-    disagrees: 1,
-    tags: ['Construction', 'Blocked Path'],
-    image: null,
-    lat: 41.0862,
-    lng: 29.0480,
-  },
-]
+function decodePolyline(encoded) {
+  const coords = []
+  let index = 0, lat = 0, lng = 0
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lat += result & 1 ? ~(result >> 1) : result >> 1
+    shift = 0; result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lng += result & 1 ? ~(result >> 1) : result >> 1
+    coords.push([lat / 1e5, lng / 1e5])
+  }
+  return coords
+}
 
 function makeMarkerIcon(status) {
   const borderColor = status === 'verified' ? '#176a21' : '#f59e0b'
@@ -109,9 +80,124 @@ function ZoomControls() {
   )
 }
 
+const pinIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:36px;height:36px;
+    background:#176a21;
+    border-radius:50% 50% 50% 0;
+    transform:rotate(-45deg);
+    border:3px solid white;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  "></div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+})
+
+function MapClickHandler({ active, onPick }) {
+  useMapEvents({
+    click(e) {
+      if (active) onPick(e.latlng)
+    },
+  })
+  return null
+}
+
+function RouteClickHandler({ onRightClick }) {
+  useMapEvents({
+    contextmenu(e) {
+      L.DomEvent.preventDefault(e.originalEvent)
+      onRightClick(e.latlng)
+    },
+  })
+  return null
+}
+
+function GeolocateOnLoad() {
+  const map = useMap()
+  useEffect(() => {
+    map.locate({ setView: true, maxZoom: 16 })
+  }, [map])
+  return null
+}
+
 function Home() {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const [reports, setReports] = useState([])
   const [selectedReport, setSelectedReport] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showCreatePanel, setShowCreatePanel] = useState(false)
+  const [newReportPin, setNewReportPin] = useState(null)
+  const [routeOrigin, setRouteOrigin] = useState(null)
+  const [routeDest, setRouteDest] = useState(null)
+  const [routePolyline, setRoutePolyline] = useState(null)
+  const [routeInfo, setRouteInfo] = useState(null)
+  const [routeError, setRouteError] = useState('')
+
+  async function handleRouteRightClick(latlng) {
+    if (!routeOrigin) {
+      setRouteOrigin(latlng)
+      setRouteDest(null)
+      setRoutePolyline(null)
+      setRouteInfo(null)
+      setRouteError('')
+      return
+    }
+    setRouteDest(latlng)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startLat: routeOrigin.lat,
+          startLon: routeOrigin.lng,
+          endLat: latlng.lat,
+          endLon: latlng.lng,
+          mode: null,
+        }),
+      })
+      if (!res.ok) throw new Error('Routing failed')
+      const routes = await res.json()
+      if (!routes.length) throw new Error('No routes returned')
+      setRoutePolyline(routes.map(r => ({
+        coords: decodePolyline(r.geometry),
+        hasObstacles: r.hasObstacles,
+        label: r.routeLabel,
+        distance: r.distanceMeters,
+        duration: r.durationSeconds,
+      })))
+      setRouteInfo({ distance: routes[0].distanceMeters, duration: routes[0].durationSeconds, label: routes[0].routeLabel })
+      setRouteError('')
+    } catch (err) {
+      setRouteError('Could not fetch route. Please try again.')
+    }
+  }
+
+  function resetRoute() {
+    setRouteOrigin(null)
+    setRouteDest(null)
+    setRoutePolyline(null)
+    setRouteInfo(null)
+    setRouteError('')
+  }
+
+  useEffect(() => {
+    async function fetchReports() {
+      try {
+        const data = await getReports()
+        setReports(data.map(mapReport))
+      } catch (err) {
+        setError('Failed to load reports.')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchReports()
+  }, [])
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background font-body">
@@ -122,7 +208,7 @@ function Home() {
         <main className="relative flex-1">
           <MapContainer
             center={[41.0683, 29.0505]}
-            zoom={14}
+            zoom={16}
             zoomControl={false}
             className="w-full h-full"
             style={{ height: '100%', width: '100%' }}
@@ -131,16 +217,99 @@ function Home() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
-            {MOCK_REPORTS.map((report) => (
+            {reports.map((report) => (
               <Marker
                 key={report.id}
-                position={[report.lat, report.lng]}
+                position={[report.latitude, report.longitude]}
                 icon={makeMarkerIcon(report.status)}
                 eventHandlers={{ click: () => setSelectedReport(report) }}
               />
             ))}
+            {newReportPin && (
+              <Marker position={newReportPin} icon={pinIcon} />
+            )}
+            <GeolocateOnLoad />
+            <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
+            <RouteClickHandler onRightClick={handleRouteRightClick} />
+            {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
+            {routeDest && <Marker position={routeDest} icon={pinIcon} />}
+            {routePolyline && routePolyline.map((r, i) => (
+              <Polyline
+                key={i}
+                positions={r.coords}
+                pathOptions={{ color: r.hasObstacles ? '#dc2626' : '#176a21', weight: 5, opacity: 0.8 }}
+              />
+            ))}
             <ZoomControls />
           </MapContainer>
+
+          {/* Loading / error overlay */}
+          {(loading || error) && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[500]">
+              {loading && (
+                <p className="text-on-surface-variant font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                  Loading reports...
+                </p>
+              )}
+              {error && (
+                <p className="text-error font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                  {error}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Pin drop hint */}
+          {showCreatePanel && !newReportPin && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">location_on</span>
+                Click on the map to set report location
+              </div>
+            </div>
+          )}
+
+          {/* Route hints / info */}
+          {routeOrigin && !routePolyline && !routeError && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">route</span>
+                Right-click destination to get route
+              </div>
+            </div>
+          )}
+          {routeError && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000]">
+              <div className="bg-error text-white px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">error</span>
+                {routeError}
+                <button onClick={resetRoute} className="ml-2 underline text-xs">Dismiss</button>
+              </div>
+            </div>
+          )}
+          {routeInfo && (
+            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-[1000]">
+              <div className="bg-white/90 backdrop-blur-md rounded-2xl px-6 py-4 shadow-lg flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">directions_walk</span>
+                  <div>
+                    <p className="text-xs text-secondary font-bold uppercase tracking-wider">Distance</p>
+                    <p className="font-bold text-on-surface">{(routeInfo.distance / 1000).toFixed(2)} km</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">schedule</span>
+                  <div>
+                    <p className="text-xs text-secondary font-bold uppercase tracking-wider">Duration</p>
+                    <p className="font-bold text-on-surface">{Math.ceil(routeInfo.duration / 60)} min</p>
+                  </div>
+                </div>
+                <button onClick={resetRoute} className="ml-4 text-secondary hover:text-error transition-colors" aria-label="Clear route">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Floating search bar */}
           <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 z-[1000] pointer-events-none">
@@ -175,7 +344,7 @@ function Home() {
                     <span className="material-symbols-outlined text-primary">trending_up</span>
                   </div>
                   <div>
-                    <p className="text-xs font-bold">3 Active Reports</p>
+                    <p className="text-xs font-bold">{reports.length} Active Reports</p>
                     <p className="text-[10px] text-secondary">Within 500m of your location</p>
                   </div>
                 </div>
@@ -191,7 +360,10 @@ function Home() {
               </div>
             </div>
 
-            <button className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide">
+            <button
+              onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
+              className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
+            >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
               Report an Issue
             </button>
@@ -204,9 +376,22 @@ function Home() {
           <ReportPanel
             report={selectedReport}
             onClose={() => setSelectedReport(null)}
+            onVoteUpdate={(updatedReport) => {
+              setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r))
+              setSelectedReport(updatedReport)
+            }}
           />
         )}
       </div>
+
+      {/* Create Report Panel */}
+      {showCreatePanel && (
+        <CreateReportPanel
+          position={newReportPin}
+          onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
+          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null) }}
+        />
+      )}
     </div>
   )
 }
