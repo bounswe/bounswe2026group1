@@ -32,6 +32,11 @@ public class CommentController {
         return commentService.getByAuthor(authorId);
     }
 
+    @GetMapping("/report/{reportId}")
+    public List<Comment> getByReport(@PathVariable Long reportId) {
+        return commentService.getByReport(reportId);
+    }
+
     @PostMapping
     public Comment create(@RequestBody Comment comment) {
         return commentService.create(comment);
