@@ -88,6 +88,14 @@ function MapClickHandler({ active, onPick }) {
   return null
 }
 
+function GeolocateOnLoad() {
+  const map = useMap()
+  useEffect(() => {
+    map.locate({ setView: true, maxZoom: 16 })
+  }, [map])
+  return null
+}
+
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
@@ -123,7 +131,7 @@ function Home() {
         <main className="relative flex-1">
           <MapContainer
             center={[41.0683, 29.0505]}
-            zoom={14}
+            zoom={16}
             zoomControl={false}
             className="w-full h-full"
             style={{ height: '100%', width: '100%' }}
@@ -143,6 +151,7 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
+            <GeolocateOnLoad />
             <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
             <ZoomControls />
           </MapContainer>
