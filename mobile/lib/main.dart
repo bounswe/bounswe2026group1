@@ -152,12 +152,15 @@ class _MainShellState extends State<MainShell>
             top: 0,
             left: 0,
             right: 0,
-            child: AnimatedOpacity(
-              opacity: _current != 0 ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 220),
-              child: SafeArea(
-                bottom: false,
-                child: _buildSharedTopBar(),
+            child: IgnorePointer(
+              ignoring: _current == 0,
+              child: AnimatedOpacity(
+                opacity: _current != 0 ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 220),
+                child: SafeArea(
+                  bottom: false,
+                  child: _buildSharedTopBar(),
+                ),
               ),
             ),
           ),

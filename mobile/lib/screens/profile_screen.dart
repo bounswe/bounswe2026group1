@@ -104,6 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            _buildTopBar(context),
             Expanded(
               child: _loading
                   ? const Center(
@@ -115,6 +116,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Top Bar ────────────────────────────────────────────────────────────────
+
+  Widget _buildTopBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.onSurface),
+            onPressed: () {},
+          ),
+          const Expanded(
+            child: Center(
+              child: Text(
+                'Mapcess',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: AppColors.onSurface),
+            onPressed: () {},
+          ),
+        ],
       ),
     );
   }

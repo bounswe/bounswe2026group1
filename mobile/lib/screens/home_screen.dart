@@ -462,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildReportFAB() {
     return Positioned(
-      bottom: 15,
+      bottom: 120,
       left: 20,
       right: 20,
       child: GestureDetector(
