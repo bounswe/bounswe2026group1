@@ -72,15 +72,17 @@ class ReportServiceTest {
     @Test
     void getAll_withAuthenticatedUser_returnsUserVote() {
         testUser.setEmail("user@test.com");
-        ReportVerification verification = new ReportVerification(testUser, testReport, VoteType.AGREE);
         when(reportRepository.findAll()).thenReturn(List.of(testReport));
         when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
-        when(verificationRepository.findByUserIdAndReportReportId(eq(1L), any())).thenReturn(Optional.of(verification));
+        when(verificationRepository.findVotesByUserIdAndReportIds(eq(1L), any()))
+                .thenReturn(List.<Object[]>of(new Object[]{testReport.getReportId(), VoteType.AGREE}));
 
         List<ReportResponse> result = reportService.getAll("user@test.com");
 
         assertEquals(1, result.size());
         assertEquals(VoteType.AGREE, result.get(0).getUserVote());
+        // Verify batch query is used exactly once (no N+1)
+        verify(verificationRepository).findVotesByUserIdAndReportIds(eq(1L), any());
     }
 
     @Test

@@ -18,9 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import com.bounswe2026group1.backend.model.ReportStatus;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,8 +40,10 @@ public class ReportService {
 
     public List<ReportResponse> getAll(String email) {
         Long userId = resolveUserId(email);
-        return reportRepository.findAll().stream()
-                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId())))
+        List<Report> reports = reportRepository.findAll();
+        Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
+        return reports.stream()
+                .map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId())))
                 .toList();
     }
 
@@ -66,6 +71,15 @@ public class ReportService {
         return verificationRepository.findByUserIdAndReportReportId(userId, reportId)
                 .map(ReportVerification::getVoteType)
                 .orElse(null);
+    }
+
+    private Map<Long, VoteType> resolveUserVotes(Long userId, List<Report> reports) {
+        if (userId == null || reports.isEmpty()) return Collections.emptyMap();
+        List<Long> reportIds = reports.stream().map(Report::getReportId).toList();
+        return verificationRepository.findVotesByUserIdAndReportIds(userId, reportIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (VoteType) row[1]));
     }
 
     public ReportResponse create(CreateReportRequest request) {
