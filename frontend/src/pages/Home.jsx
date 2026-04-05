@@ -145,7 +145,7 @@ function Home() {
                 key={report.id}
                 position={[report.latitude, report.longitude]}
                 icon={makeMarkerIcon(report.status)}
-                eventHandlers={{ click: () => setSelectedReport(report) }}
+                eventHandlers={{ click: () => { setShowCreatePanel(false); setNewReportPin(null); setSelectedReport(report) } }}
               />
             ))}
             {newReportPin && (
@@ -174,7 +174,7 @@ function Home() {
 
           {/* Pin drop hint */}
           {showCreatePanel && !newReportPin && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
               <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">location_on</span>
                 Click on the map to set report location
