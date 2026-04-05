@@ -1189,7 +1189,9 @@ class _CommentData {
 
   String get timeAgo {
     try {
-      final dt = DateTime.parse(createdAt);
+      final dt = DateTime.parse(
+        createdAt.endsWith('Z') ? createdAt : '${createdAt}Z',
+      ).toLocal();
       final diff = DateTime.now().difference(dt);
       if (diff.inMinutes < 1) return 'just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
