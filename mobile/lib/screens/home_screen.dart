@@ -660,10 +660,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildFloatingSearchBar(),
                   if (_searchResults.isNotEmpty ||
-                      (_searchActive && _editingStart && _userLocation != null))
+                      (_searchActive && _editingStart))
                     const SizedBox(height: 8),
                   if (_searchResults.isNotEmpty ||
-                      (_searchActive && _editingStart && _userLocation != null))
+                      (_searchActive && _editingStart))
                     _buildSearchResultsList(),
                 ],
               ),
@@ -964,10 +964,103 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Current location handler ──────────────────────────────────────────────
+
+  Future<void> _requestAndUseCurrentLocation() async {
+    if (_userLocation != null) {
+      setState(() {
+        _searchActive = false;
+        _searchResults = [];
+        _searchController.clear();
+        _routeStart = null;
+        _routeStartLabel = 'Current Location';
+        _editingStart = false;
+      });
+      _searchFocus.unfocus();
+      if (_routeEnd != null) _fetchRoute(_routeEnd!);
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Location Access Required',
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontWeight: FontWeight.w700,
+              color: AppColors.onSurface,
+            ),
+          ),
+          content: const Text(
+            'Location permission is permanently denied. '
+            'Please enable it in Settings to use your current location.',
+            style: TextStyle(color: AppColors.onSurfaceVariant),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.outline)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Geolocator.openAppSettings();
+              },
+              child: const Text(
+                'Open Settings',
+                style: TextStyle(
+                    color: AppColors.primary, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (permission == LocationPermission.denied) return;
+
+    // Permission granted — fetch position
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      final loc = LatLng(pos.latitude, pos.longitude);
+      setState(() {
+        _userLocation = loc;
+        _searchActive = false;
+        _searchResults = [];
+        _searchController.clear();
+        _routeStart = null;
+        _routeStartLabel = 'Current Location';
+        _editingStart = false;
+      });
+      _searchFocus.unfocus();
+      _mapController.move(loc, 15);
+      if (_routeEnd != null) _fetchRoute(_routeEnd!);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not get your location. Try again.')),
+      );
+    }
+  }
+
   // ── Search results ────────────────────────────────────────────────────────
 
   Widget _buildSearchResultsList() {
-    final showCurrentLocation = _searchActive && _editingStart && _userLocation != null;
+    final showCurrentLocation = _searchActive && _editingStart;
     final totalItems = _searchResults.length + (showCurrentLocation ? 1 : 0);
     return Material(
       elevation: 6,
@@ -1006,25 +1099,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: AppColors.onSurface,
                 ),
               ),
-              subtitle: const Text(
-                'Use your GPS location',
-                style: TextStyle(
+              subtitle: Text(
+                _userLocation != null
+                    ? 'Use your GPS location'
+                    : 'Tap to enable location',
+                style: const TextStyle(
                   fontSize: 11,
                   color: AppColors.onSurfaceVariant,
                 ),
               ),
-              onTap: () {
-                setState(() {
-                  _searchActive = false;
-                  _searchResults = [];
-                  _searchController.clear();
-                  _routeStart = null;
-                  _routeStartLabel = 'Current Location';
-                  _editingStart = false;
-                });
-                _searchFocus.unfocus();
-                if (_routeEnd != null) _fetchRoute(_routeEnd!);
-              },
+              onTap: _requestAndUseCurrentLocation,
             );
           }
           final place = _searchResults[showCurrentLocation ? i - 1 : i];
