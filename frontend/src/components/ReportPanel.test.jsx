@@ -23,12 +23,25 @@ const MOCK_REPORT = {
   longitude: 29.0505,
 }
 
-function renderPanel({ report = MOCK_REPORT, token = null, onClose = vi.fn(), onVoteUpdate = vi.fn() } = {}) {
+function renderPanel({
+  report = MOCK_REPORT,
+  token = null,
+  userVote = null,
+  onClose = vi.fn(),
+  onVoteUpdate = vi.fn(),
+  onVoteChange = vi.fn(),
+} = {}) {
   if (token) localStorage.setItem('token', token)
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <ReportPanel report={report} onClose={onClose} onVoteUpdate={onVoteUpdate} />
+        <ReportPanel
+          report={report}
+          userVote={userVote}
+          onClose={onClose}
+          onVoteUpdate={onVoteUpdate}
+          onVoteChange={onVoteChange}
+        />
       </AuthProvider>
     </MemoryRouter>
   )
@@ -100,44 +113,71 @@ describe('ReportPanel', () => {
   // ─── Vote button colors ───────────────────────────────────────────────────────
 
   describe('vote button colors', () => {
-    it('agree button starts with gray background', () => {
+    it('agree button starts with gray background when userVote is null', () => {
       renderPanel()
-      const agreeBtn = screen.getByRole('button', { name: 'Agree' })
-      expect(agreeBtn.className).toContain('bg-surface-container-highest')
+      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-surface-container-highest')
     })
 
-    it('disagree button starts with gray background', () => {
+    it('disagree button starts with gray background when userVote is null', () => {
       renderPanel()
-      const disagreeBtn = screen.getByRole('button', { name: 'Disagree' })
-      expect(disagreeBtn.className).toContain('bg-surface-container-highest')
+      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-surface-container-highest')
     })
 
-    it('agree button turns green after clicking agree', async () => {
-      // Use a valid-looking JWT with id claim
+    it('agree button is green when userVote prop is agree', () => {
+      renderPanel({ userVote: 'agree' })
+      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-primary')
+      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-surface-container-highest')
+    })
+
+    it('disagree button is red when userVote prop is disagree', () => {
+      renderPanel({ userVote: 'disagree' })
+      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-error')
+      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-surface-container-highest')
+    })
+
+    it('calls onVoteChange with agree when agree vote is cast', async () => {
       const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const onVoteChange = vi.fn()
       reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 4 })
       reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 4 })
       const user = userEvent.setup()
-      renderPanel({ token: fakeToken })
+      renderPanel({ token: fakeToken, onVoteChange })
 
       await user.click(screen.getByRole('button', { name: 'Agree' }))
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-primary')
+        expect(onVoteChange).toHaveBeenCalledWith('agree')
       })
     })
 
-    it('disagree button turns red after clicking disagree', async () => {
+    it('calls onVoteChange with disagree when disagree vote is cast', async () => {
       const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const onVoteChange = vi.fn()
       reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 2 })
       reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 2 })
       const user = userEvent.setup()
-      renderPanel({ token: fakeToken })
+      renderPanel({ token: fakeToken, onVoteChange })
 
       await user.click(screen.getByRole('button', { name: 'Disagree' }))
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-error')
+        expect(onVoteChange).toHaveBeenCalledWith('disagree')
+      })
+    })
+
+    it('calls onVoteChange with null when toggling off an existing agree vote', async () => {
+      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const onVoteChange = vi.fn()
+      // agrees goes from 3 → 2 (toggle off), so delta is negative → null
+      reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 2 })
+      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 2 })
+      const user = userEvent.setup()
+      renderPanel({ token: fakeToken, userVote: 'agree', onVoteChange })
+
+      await user.click(screen.getByRole('button', { name: 'Agree' }))
+
+      await waitFor(() => {
+        expect(onVoteChange).toHaveBeenCalledWith(null)
       })
     })
   })
