@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Searched place pin ────────────────────────────────────────────────────
   LatLng? _searchedPin;
+  String _searchedPinLabel = '';
 
   // ── User location ─────────────────────────────────────────────────────────
   LatLng? _userLocation;
@@ -178,7 +179,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _fetchRoute(loc);
       }
     } else {
-      setState(() => _searchedPin = loc);
+      setState(() {
+        _searchedPin = loc;
+        _searchedPinLabel = shortName;
+      });
       _mapController.move(loc, 15);
     }
   }
@@ -196,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchActive = false;
       _searchResults = [];
       _searchController.clear();
-      if (!_routeMode) _searchedPin = null;
+      if (!_routeMode) { _searchedPin = null; _searchedPinLabel = ''; }
     });
     _searchFocus.unfocus();
   }
@@ -204,6 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Route logic ───────────────────────────────────────────────────────────
 
   void _enterRouteMode() {
+    final prefillEnd = _searchedPin;
+    final prefillEndLabel = _searchedPinLabel;
     setState(() {
       _routeMode = true;
       _routes = [];
@@ -211,11 +217,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _routeStart = null;
       _routeStartLabel =
           _userLocation != null ? 'Current Location' : 'Set starting point';
-      _routeEnd = null;
-      _routeEndLabel = '';
+      _routeEnd = prefillEnd;
+      _routeEndLabel = prefillEndLabel;
+      _searchedPin = null;
+      _searchedPinLabel = '';
       _editingStart = false;
       _routePanelExpanded = true;
     });
+    // Auto-fetch if we have a destination ready
+    if (prefillEnd != null) _fetchRoute(prefillEnd);
   }
 
   void _cancelRoute() {
