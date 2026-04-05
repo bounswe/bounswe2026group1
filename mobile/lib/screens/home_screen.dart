@@ -36,6 +36,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _searchLoading = false;
   Timer? _debounce;
 
+  // ── Searched place pin ────────────────────────────────────────────────────
+  LatLng? _searchedPin;
+
   // ── User location ─────────────────────────────────────────────────────────
   LatLng? _userLocation;
   StreamSubscription<Position>? _locationStream;
@@ -175,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _fetchRoute(loc);
       }
     } else {
+      setState(() => _searchedPin = loc);
       _mapController.move(loc, 15);
     }
   }
@@ -192,6 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchActive = false;
       _searchResults = [];
       _searchController.clear();
+      if (!_routeMode) _searchedPin = null;
     });
     _searchFocus.unfocus();
   }
@@ -513,6 +518,123 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                // Normal search pin
+                if (!_routeMode && _searchedPin != null)
+                  Marker(
+                    point: _searchedPin!,
+                    width: 36,
+                    height: 44,
+                    alignment: Alignment.bottomCenter,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.place,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        Container(
+                          width: 2.5,
+                          height: 10,
+                          color: AppColors.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                // Route start pin
+                if (_routeMode && _routes.isNotEmpty)
+                  Marker(
+                    point: _routeStart ?? _userLocation!,
+                    width: 36,
+                    height: 44,
+                    alignment: Alignment.bottomCenter,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2E7D32),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.trip_origin,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                        ),
+                        Container(
+                          width: 2.5,
+                          height: 10,
+                          color: const Color(0xFF2E7D32),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Route end pin
+                if (_routeMode && _routeEnd != null)
+                  Marker(
+                    point: _routeEnd!,
+                    width: 36,
+                    height: 44,
+                    alignment: Alignment.bottomCenter,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.flag,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                        ),
+                        Container(
+                          width: 2.5,
+                          height: 10,
+                          color: const Color(0xFFE53935),
+                        ),
+                      ],
                     ),
                   ),
               ]),
