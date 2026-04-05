@@ -131,6 +131,7 @@ function Home() {
   const [error, setError] = useState('')
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
+  const [userVotes, setUserVotes] = useState({})
   const [routeOrigin, setRouteOrigin] = useState(null)
   const [routeDest, setRouteDest] = useState(null)
   const [routePolyline, setRoutePolyline] = useState(null)
@@ -374,7 +375,10 @@ function Home() {
         {/* Report Panel sidebar */}
         {selectedReport && (
           <ReportPanel
+            key={selectedReport.id}
             report={selectedReport}
+            userVote={userVotes[selectedReport.id] ?? null}
+            onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
             onClose={() => setSelectedReport(null)}
             onVoteUpdate={(updatedReport) => {
               setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r))
