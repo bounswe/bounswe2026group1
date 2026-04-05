@@ -527,9 +527,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildFloatingSearchBar(),
-                  if (_searchActive && _searchResults.isNotEmpty)
+                  if (_searchResults.isNotEmpty ||
+                      (_searchActive && _editingStart && _userLocation != null))
                     const SizedBox(height: 8),
-                  if (_searchActive && _searchResults.isNotEmpty)
+                  if (_searchResults.isNotEmpty ||
+                      (_searchActive && _editingStart && _userLocation != null))
                     _buildSearchResultsList(),
                 ],
               ),
@@ -833,6 +835,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Search results ────────────────────────────────────────────────────────
 
   Widget _buildSearchResultsList() {
+    final showCurrentLocation = _searchActive && _editingStart && _userLocation != null;
+    final totalItems = _searchResults.length + (showCurrentLocation ? 1 : 0);
     return Material(
       elevation: 6,
       shadowColor: Colors.black26,
@@ -842,11 +846,56 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: _searchResults.length,
+        itemCount: totalItems,
         separatorBuilder: (_, __) =>
             const Divider(height: 1, indent: 52),
         itemBuilder: (context, i) {
-          final place = _searchResults[i];
+          // First row: current location shortcut
+          if (showCurrentLocation && i == 0) {
+            return ListTile(
+              leading: Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  color: Color(0x261A73E8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.my_location,
+                  color: Color(0xFF1A73E8),
+                  size: 18,
+                ),
+              ),
+              title: const Text(
+                'Current Location',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              subtitle: const Text(
+                'Use your GPS location',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              onTap: () {
+                setState(() {
+                  _searchActive = false;
+                  _searchResults = [];
+                  _searchController.clear();
+                  _routeStart = null;
+                  _routeStartLabel = 'Current Location';
+                  _editingStart = false;
+                });
+                _searchFocus.unfocus();
+                if (_routeEnd != null) _fetchRoute(_routeEnd!);
+              },
+            );
+          }
+          final place = _searchResults[showCurrentLocation ? i - 1 : i];
           return ListTile(
             leading: Container(
               width: 34,
