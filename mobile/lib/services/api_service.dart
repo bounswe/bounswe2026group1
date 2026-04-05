@@ -1,24 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import '../models/report_model.dart';
 
-/// Injected at build time via --dart-define=API_BASE_URL=https://your-server.com
-/// Falls back to localhost for local development (Android emulator uses 10.0.2.2).
-///
-/// Usage examples:
-///   flutter run --dart-define=API_BASE_URL=https://api.mapcess.com --dart-define=API_KEY=your-key
-///   flutter build apk --dart-define=API_BASE_URL=https://api.mapcess.com --dart-define=API_KEY=your-key
-const _injectedUrl = String.fromEnvironment('https://api.mapcess.live');
+const _baseUrl = 'https://api.mapcess.live';
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
-
-String get _baseUrl {
-  if (_injectedUrl.isNotEmpty) return _injectedUrl;
-  // Local dev fallback: Android emulator cannot reach 'localhost' of the host machine.
-  final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-  return 'http://${isAndroid ? '10.0.2.2' : 'localhost'}:8080';
-}
 
 class ApiService {
   final String? token;
