@@ -159,6 +159,35 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  // ─── Routes ────────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getRoutes({
+    required double startLat,
+    required double startLon,
+    required double endLat,
+    required double endLon,
+    String mode = 'WALKING',
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/routes'),
+          headers: _headers,
+          body: jsonEncode({
+            'startLat': startLat,
+            'startLon': startLon,
+            'endLat': endLat,
+            'endLon': endLon,
+            'mode': mode,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   // ─── Comments ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getComments(int reportId) async {
