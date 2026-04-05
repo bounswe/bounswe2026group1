@@ -18,9 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import com.bounswe2026group1.backend.model.ReportStatus;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,21 +38,48 @@ public class ReportService {
     @Value("${app.report.verification.threshold:5}")
     private int verificationThreshold;
 
-    public List<ReportResponse> getAll() {
-        return reportRepository.findAll().stream()
-                .map(ReportResponse::fromEntity)
+    public List<ReportResponse> getAll(String email) {
+        Long userId = resolveUserId(email);
+        List<Report> reports = reportRepository.findAll();
+        Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
+        return reports.stream()
+                .map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId())))
                 .toList();
     }
 
-    public Optional<ReportResponse> getById(Long id) {
+    public Optional<ReportResponse> getById(Long id, String email) {
+        Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(ReportResponse::fromEntity);
+                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId())));
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
         return reportRepository.findByCreatedById(userId).stream()
                 .map(ReportResponse::fromEntity)
                 .toList();
+    }
+
+    private Long resolveUserId(String email) {
+        if (email == null) return null;
+        return registeredUserRepository.findByEmail(email)
+                .map(RegisteredUser::getId)
+                .orElse(null);
+    }
+
+    private VoteType resolveUserVote(Long userId, Long reportId) {
+        if (userId == null) return null;
+        return verificationRepository.findByUserIdAndReportReportId(userId, reportId)
+                .map(ReportVerification::getVoteType)
+                .orElse(null);
+    }
+
+    private Map<Long, VoteType> resolveUserVotes(Long userId, List<Report> reports) {
+        if (userId == null || reports.isEmpty()) return Collections.emptyMap();
+        List<Long> reportIds = reports.stream().map(Report::getReportId).toList();
+        return verificationRepository.findVotesByUserIdAndReportIds(userId, reportIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (VoteType) row[1]));
     }
 
     public ReportResponse create(CreateReportRequest request) {
@@ -115,7 +145,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
-        return ReportResponse.fromEntity(saved);
+        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
     @Transactional
@@ -150,7 +180,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
-        return ReportResponse.fromEntity(saved);
+        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
     public void addMediaToReport(Long reportId, String mediaUrl) {
