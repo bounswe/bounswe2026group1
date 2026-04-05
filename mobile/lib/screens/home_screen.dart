@@ -71,9 +71,18 @@ class _HomeScreenState extends State<HomeScreen> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) return;
 
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+      // Try high accuracy first; fall back to low if it times out
+      Position? pos;
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        ).timeout(const Duration(seconds: 8));
+      } catch (_) {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+        ).timeout(const Duration(seconds: 6));
+      }
+
       if (!mounted) return;
       final loc = LatLng(pos.latitude, pos.longitude);
       setState(() => _userLocation = loc);
@@ -82,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Keep location dot updated
       _locationStream = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium,
           distanceFilter: 10,
         ),
       ).listen((p) {
@@ -190,18 +199,13 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Route logic ───────────────────────────────────────────────────────────
 
   void _enterRouteMode() {
-    if (_userLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Waiting for your location…')),
-      );
-      return;
-    }
     setState(() {
       _routeMode = true;
       _routes = [];
       _routeError = null;
       _routeStart = null;
-      _routeStartLabel = 'Current Location';
+      _routeStartLabel =
+          _userLocation != null ? 'Current Location' : 'Set starting point';
       _routeEnd = null;
       _routeEndLabel = '';
       _editingStart = false;
@@ -271,7 +275,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchRoute(LatLng destination) async {
     final start = _routeStart ?? _userLocation;
     if (start == null) {
-      setState(() => _routeError = 'Could not get your location.');
+      setState(() {
+        _routeLoading = false;
+        _routeError = 'No starting point set. Tap "From" to choose one.';
+      });
       return;
     }
     setState(() {
