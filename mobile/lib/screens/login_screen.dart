@@ -212,8 +212,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildGuestButton() {
     return GestureDetector(
-      onTap: () {
-        context.read<AuthService>().loginAsGuest();
+      onTap: () async {
+        await context.read<AuthService>().loginAsGuest();
+        if (!context.mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const MainShell()),

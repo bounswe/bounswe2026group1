@@ -38,8 +38,12 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void loginAsGuest() {
+  Future<void> loginAsGuest() async {
+    _token = null;
+    _userId = 0;
     _isGuest = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
     notifyListeners();
   }
 
