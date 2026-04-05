@@ -156,6 +156,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 22),
                     _buildPrimaryButton(),
+                    const SizedBox(height: 12),
+                    _buildGuestButton(),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -203,6 +205,37 @@ class _LoginScreenState extends State<LoginScreen> {
             vertical: 16,
           ),
           suffixIcon: suffix,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestButton() {
+    return GestureDetector(
+      onTap: () {
+        context.read<AuthService>().loginAsGuest();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainShell()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.surfaceContainerHigh),
+        ),
+        child: const Text(
+          'Continue as Guest',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
       ),
     );

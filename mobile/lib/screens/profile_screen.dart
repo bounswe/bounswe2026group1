@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../models/report_model.dart';
 import 'login_screen.dart';
+import 'register_screen.dart';
 import 'report_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -602,31 +603,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 14),
 
           // Register link
-          Center(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
-                children: [
-                  const TextSpan(text: "Don't have an account? "),
-                  WidgetSpan(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      ),
-                      child: const Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Don't have an account? ",
+                style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
               ),
-            ),
+              GestureDetector(
+                onTap: () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                ),
+                child: const Text(
+                  'Sign Up',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

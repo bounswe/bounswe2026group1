@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
+import 'login_screen.dart';
+import '../main.dart' show MainShell;
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -79,6 +81,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
     final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
     setState(() => _commentSubmitting = true);
     try {
       await auth.api.addComment(
@@ -99,7 +105,52 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Sign In Required',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: const Text(
+          'You need to log in to use this feature.',
+          style: TextStyle(color: AppColors.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (r) => false,
+              );
+            },
+            child: const Text(
+              'Sign In',
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _vote(String vote) async {
+    if (!context.read<AuthService>().isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
     if (_voteLoading || _myVote == vote) return;
     setState(() => _voteLoading = true);
     try {
@@ -169,7 +220,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: _buildBottomSection(context),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: _buildFollowButton(),
+                ),
+                _buildBottomNav(context),
+              ],
+            ),
           ),
         ],
       ),
@@ -182,8 +242,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return SafeArea(
       bottom: false,
       child: Container(
-        color: AppColors.surface.withOpacity(0.92),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F7F4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
         child: Row(
           children: [
             IconButton(
@@ -191,19 +260,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               onPressed: () => Navigator.pop(context),
             ),
             const Expanded(
-              child: Text(
-                'Mapcess',
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 24,
-                  color: AppColors.primary,
-                  letterSpacing: -0.5,
+              child: Center(
+                child: Text(
+                  'Mapcess',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.search, color: AppColors.onSurfaceVariant),
+              icon: const Icon(Icons.search, color: AppColors.onSurface),
               onPressed: () {},
             ),
           ],
@@ -966,91 +1036,93 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  // ─── Bottom section (Follow + nav) ──────────────────────────────────────────
+  // ─── Follow button ──────────────────────────────────────────────────────────
 
-  Widget _buildBottomSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.92),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.22),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_active_outlined,
-                    color: AppColors.onPrimary,
-                    size: 20,
-                  ),
-                  SizedBox(width: 10),
-                  Text(
-                    'Follow Updates',
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: AppColors.onPrimary,
-                    ),
-                  ),
-                ],
+  Widget _buildFollowButton() {
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.22),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notifications_active_outlined, color: AppColors.onPrimary, size: 20),
+            SizedBox(width: 10),
+            Text(
+              'Follow Updates',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: AppColors.onPrimary,
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _buildBottomNav(context),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  // ─── Bottom nav ─────────────────────────────────────────────────────────────
+
   Widget _buildBottomNav(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+    return Hero(
+      tag: 'app_bottom_nav',
+      flightShuttleBuilder: (ctx, anim, dir, from, toCtx) =>
+          (toCtx.widget as Hero).child,
+      child: Material(
+        type: MaterialType.transparency,
+        child: _buildNavContent(context),
+      ),
+    );
+  }
+
+  Widget _buildNavContent(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.88),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 32,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(
-            Icons.map_outlined,
-            'Home',
-            false,
-            () => Navigator.popUntil(context, (r) => r.isFirst),
-          ),
-          _navItem(Icons.assignment, 'Reports', true, () {}),
-          _navItem(Icons.person_outline, 'Profile', false, () {}),
+          _navItem(Icons.map, Icons.map_outlined, 'Home', false,
+              () => Navigator.popUntil(context, (r) => r.isFirst)),
+          _navItem(Icons.assignment, Icons.assignment_outlined, 'Reports', true, () {}),
+          _navItem(Icons.person, Icons.person_outline, 'Profile', false,
+              () => Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MainShell(initialTab: 2)),
+                    (r) => false,
+                  )),
         ],
       ),
     );
   }
 
   Widget _navItem(
-    IconData icon,
+    IconData activeIcon,
+    IconData inactiveIcon,
     String label,
     bool active,
     VoidCallback onTap,
@@ -1061,15 +1133,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFDCF5DC) : Colors.transparent,
+          color: active ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              icon,
-              color: active ? AppColors.primary : AppColors.secondary,
+              active ? activeIcon : inactiveIcon,
+              color: active ? Colors.white : AppColors.secondary,
               size: 22,
             ),
             const SizedBox(height: 3),
@@ -1079,7 +1151,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
-                color: active ? AppColors.primary : AppColors.secondary,
+                color: active ? Colors.white : AppColors.secondary,
               ),
             ),
           ],

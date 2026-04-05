@@ -11,6 +11,7 @@ import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import 'report_detail_screen.dart';
 import 'make_report_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -458,6 +459,47 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Sign In Required',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: const Text(
+          'You need to log in to use this feature.',
+          style: TextStyle(color: AppColors.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (r) => false,
+              );
+            },
+            child: const Text(
+              'Sign In',
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Report FAB ────────────────────────────────────────────────────────────
 
   Widget _buildReportFAB() {
@@ -466,10 +508,16 @@ class _HomeScreenState extends State<HomeScreen> {
       left: 20,
       right: 20,
       child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MakeReportScreen()),
-        ),
+        onTap: () {
+          if (!context.read<AuthService>().isAuthenticated) {
+            _showLoginRequiredDialog();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MakeReportScreen()),
+          );
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
