@@ -43,7 +43,8 @@ class MapcessApp extends StatelessWidget {
 // the new page in from the left; lower-index transitions slide from the right.
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  final int initialTab;
+  const MainShell({super.key, this.initialTab = 0});
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -51,7 +52,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell>
     with SingleTickerProviderStateMixin {
-  int _current = 0;
+  late int _current;
   int _previous = 0;
   bool _animating = false;
   double _slideOffset = 0.0;
@@ -61,6 +62,8 @@ class _MainShellState extends State<MainShell>
   @override
   void initState() {
     super.initState();
+    _current = widget.initialTab;
+    _previous = widget.initialTab;
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 260),
@@ -179,6 +182,72 @@ class _MainShellState extends State<MainShell>
     );
   }
 
+  void _showSettingsMenu(BuildContext context) {
+    final auth = context.read<AuthService>();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (auth.isAuthenticated)
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Log Out',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await auth.logout();
+                  if (context.mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (r) => false,
+                    );
+                  }
+                },
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.login, color: AppColors.primary),
+                title: const Text(
+                  'Sign In',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (r) => false,
+                  );
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSharedTopBar() {
     return Container(
       decoration: BoxDecoration(
@@ -213,7 +282,7 @@ class _MainShellState extends State<MainShell>
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppColors.onSurface),
-            onPressed: () {},
+            onPressed: () => _showSettingsMenu(context),
           ),
         ],
       ),
@@ -221,6 +290,18 @@ class _MainShellState extends State<MainShell>
   }
 
   Widget _buildBottomNav() {
+    return Hero(
+      tag: 'app_bottom_nav',
+      flightShuttleBuilder: (ctx, anim, dir, from, toCtx) =>
+          (toCtx.widget as Hero).child,
+      child: Material(
+        type: MaterialType.transparency,
+        child: _buildNavContent(),
+      ),
+    );
+  }
+
+  Widget _buildNavContent() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
