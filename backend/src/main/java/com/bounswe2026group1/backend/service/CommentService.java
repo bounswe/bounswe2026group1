@@ -26,6 +26,10 @@ public class CommentService {
         return commentRepository.findByAuthorId(id);
     }
 
+    public List<Comment> getByReport(Long reportId) {
+        return commentRepository.findByReportReportId(reportId);
+    }
+
     public Comment create(Comment comment) {
         return commentRepository.save(comment);
     }

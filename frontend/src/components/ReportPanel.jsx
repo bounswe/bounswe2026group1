@@ -11,11 +11,10 @@ import { useAuth } from '../context/AuthContext.jsx'
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
-function ReportPanel({ report, onClose, onVoteUpdate }) {
+function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
   const { token } = useAuth()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
-  const [userVote, setUserVote] = useState(null) // 'agree' | 'disagree' | null
 
   if (!report) return null
 
@@ -31,11 +30,18 @@ function ReportPanel({ report, onClose, onVoteUpdate }) {
     setVoting(true)
     setVoteError('')
     try {
+      const prevAgrees = report.agrees
+      const prevDisagrees = report.disagrees
       const updated = type === 'agree'
         ? await agreeReport(report.id, token)
         : await disagreeReport(report.id, token)
-      onVoteUpdate(mapReport(updated))
-      setUserVote(prev => prev === type ? null : type)
+      const mappedUpdated = mapReport(updated)
+      onVoteUpdate(mappedUpdated)
+      if (type === 'agree') {
+        onVoteChange(mappedUpdated.agrees > prevAgrees ? 'agree' : null)
+      } else {
+        onVoteChange(mappedUpdated.disagrees > prevDisagrees ? 'disagree' : null)
+      }
     } catch (err) {
       setVoteError('Failed to submit vote. Please try again.')
     } finally {

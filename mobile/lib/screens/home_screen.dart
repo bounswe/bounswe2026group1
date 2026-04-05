@@ -10,12 +10,13 @@ import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import 'report_detail_screen.dart';
-import 'reports_screen.dart';
-import 'profile_screen.dart';
 import 'make_report_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final void Function(int)? onTabSwitch;
+
+  const HomeScreen({super.key, this.onTabSwitch});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -295,13 +296,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           // ── Report FAB ────────────────────────────────────────────────────
           _buildReportFAB(),
-          // ── Bottom nav ────────────────────────────────────────────────────
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildBottomNav(context),
-          ),
         ],
       ),
     );
@@ -465,18 +459,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Sign In Required',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: const Text(
+          'You need to log in to use this feature.',
+          style: TextStyle(color: AppColors.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (r) => false,
+              );
+            },
+            child: const Text(
+              'Sign In',
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Report FAB ────────────────────────────────────────────────────────────
 
   Widget _buildReportFAB() {
     return Positioned(
-      bottom: 96,
+      bottom: 120,
       left: 20,
       right: 20,
       child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MakeReportScreen()),
-        ),
+        onTap: () {
+          if (!context.read<AuthService>().isAuthenticated) {
+            _showLoginRequiredDialog();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MakeReportScreen()),
+          );
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
@@ -515,83 +556,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ─── Bottom nav ────────────────────────────────────────────────────────────
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.88),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 32,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(icon: Icons.map, label: 'Home', active: true, onTap: () {}),
-          _buildNavItem(
-            icon: Icons.assignment_outlined,
-            label: 'Reports',
-            active: false,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReportsScreen()),
-            ),
-          ),
-          _buildNavItem(
-            icon: Icons.person_outline,
-            label: 'Profile',
-            active: false,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: active ? Colors.white : AppColors.secondary, size: 22),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
-                color: active ? Colors.white : AppColors.secondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── Loading chip ──────────────────────────────────────────────────────────────

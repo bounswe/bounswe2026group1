@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mapcess/main.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import 'home_screen.dart';
@@ -351,7 +352,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
           GestureDetector(
             onTap: () => Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              MaterialPageRoute(builder: (_) => const MainShell()),
               (r) => false,
             ),
             child: Container(

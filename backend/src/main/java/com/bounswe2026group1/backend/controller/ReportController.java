@@ -19,13 +19,14 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping
-    public List<ReportResponse> getAll() {
-        return reportService.getAll();
+    public List<ReportResponse> getAll(@AuthenticationPrincipal String email) {
+        return reportService.getAll(email);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ReportResponse> getById(@PathVariable Long id) {
-        return reportService.getById(id)
+    public ResponseEntity<ReportResponse> getById(@PathVariable Long id,
+                                                   @AuthenticationPrincipal String email) {
+        return reportService.getById(id, email)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
