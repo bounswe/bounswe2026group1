@@ -89,19 +89,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     } else if (event.eventType == 'MEDIA_ADDED') {
       // Re-fetch the full report to get updated mediaUrls.
       _refreshReport();
-  }
-
-  Future<void> _refreshReport() async {
-    try {
-      final fresh = await context.read<AuthService>().api.getReport(report.reportId);
-      if (!mounted) return;
-      setState(() {
-        _agrees = fresh.agrees;
-        _disagrees = fresh.disagrees;
-        _myVote = fresh.userVote?.toLowerCase();
-      });
-    } catch (_) {
-      // Non-fatal — stale data from the list is still shown.
     }
   }
 
