@@ -175,11 +175,13 @@ function Home() {
   }
 
   async function handleSearchSubmit(e) {
+    if (e.key === 'Escape') { setSearchSuggestions([]); e.target.blur(); return }
     if (e.key !== 'Enter') return
     const query = searchValue.trim()
     if (!query) return
     setSearchError('')
     setSearchSuggestions([])
+    e.target.blur()
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`
@@ -378,6 +380,7 @@ function Home() {
                   value={searchValue}
                   onChange={handleSearchChange}
                   onKeyDown={handleSearchSubmit}
+                  onFocus={() => setSearchValue('')}
                   onBlur={() => setTimeout(() => setSearchSuggestions([]), 150)}
                   placeholder="Search location..."
                   className="bg-transparent border-none p-0 w-full text-on-surface font-headline font-semibold focus:ring-0 text-sm outline-none"
