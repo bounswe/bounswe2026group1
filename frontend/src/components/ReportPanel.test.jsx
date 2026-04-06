@@ -51,8 +51,8 @@ describe('ReportPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    reportService.getCommentsByReport.mockResolvedValue([])
   })
-
   // ─── Rendering ───────────────────────────────────────────────────────────────
 
   describe('rendering', () => {
