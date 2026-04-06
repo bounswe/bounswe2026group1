@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 
 const AuthContext = createContext(null)
 
@@ -33,6 +33,15 @@ export function AuthProvider({ children }) {
   })
 
   const userId = token ? (parseJwt(token).id ?? null) : null
+
+  useEffect(() => {
+    function handleExpired() {
+      localStorage.removeItem('token')
+      setToken(null)
+    }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
+  }, [])
 
   function login(newToken) {
     localStorage.setItem('token', newToken)

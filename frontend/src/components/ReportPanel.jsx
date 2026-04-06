@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { agreeReport, disagreeReport, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -13,8 +14,15 @@ import { useAuth } from '../context/AuthContext.jsx'
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
   const { token } = useAuth()
+  const navigate = useNavigate()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
+
+  useEffect(() => {
+    function handleExpired() { navigate('/login') }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
+  }, [navigate])
 
   if (!report) return null
 
@@ -24,7 +32,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
   async function handleVote(type) {
     if (!token) {
-      setVoteError('You must be logged in to vote.')
+      navigate('/login')
       return
     }
     setVoting(true)
