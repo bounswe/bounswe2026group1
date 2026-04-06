@@ -98,7 +98,7 @@ class ReportModel {
   final int disagrees;
   final String publishDate;
   final List<String> mediaUrls;
-  /// The authenticated user's current vote: 'AGREE', 'DISAGREE', or null.
+  /// 'AGREE', 'DISAGREE', or null — the authenticated user's current vote.
   final String? userVote;
 
   const ReportModel({
