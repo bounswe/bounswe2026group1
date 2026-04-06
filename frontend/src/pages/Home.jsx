@@ -4,6 +4,7 @@ import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
+import RoutePanel from '../components/RoutePanel.jsx'
 import { getReports, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
@@ -103,15 +104,6 @@ function MapClickHandler({ active, onPick }) {
   return null
 }
 
-function RouteClickHandler({ onRightClick }) {
-  useMapEvents({
-    contextmenu(e) {
-      L.DomEvent.preventDefault(e.originalEvent)
-      onRightClick(e.latlng)
-    },
-  })
-  return null
-}
 
 function GeolocateOnLoad() {
   const map = useMap()
@@ -132,56 +124,70 @@ function Home() {
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
   const [userVotes, setUserVotes] = useState({})
+  const [routeMode, setRouteMode] = useState(false)
   const [routeOrigin, setRouteOrigin] = useState(null)
   const [routeDest, setRouteDest] = useState(null)
-  const [routePolyline, setRoutePolyline] = useState(null)
-  const [routeInfo, setRouteInfo] = useState(null)
+  const [routes, setRoutes] = useState(null)
+  const [activeRouteIndex, setActiveRouteIndex] = useState(0)
+  const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
 
-  async function handleRouteRightClick(latlng) {
+  async function handleRouteMapClick(latlng) {
+    if (!routeMode) return
     if (!routeOrigin) {
       setRouteOrigin(latlng)
       setRouteDest(null)
-      setRoutePolyline(null)
-      setRouteInfo(null)
+      setRoutes(null)
       setRouteError('')
       return
     }
-    setRouteDest(latlng)
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          startLat: routeOrigin.lat,
-          startLon: routeOrigin.lng,
-          endLat: latlng.lat,
-          endLon: latlng.lng,
-          mode: null,
-        }),
-      })
-      if (!res.ok) throw new Error('Routing failed')
-      const routes = await res.json()
-      if (!routes.length) throw new Error('No routes returned')
-      setRoutePolyline(routes.map(r => ({
-        coords: decodePolyline(r.geometry),
-        hasObstacles: r.hasObstacles,
-        label: r.routeLabel,
-        distance: r.distanceMeters,
-        duration: r.durationSeconds,
-      })))
-      setRouteInfo({ distance: routes[0].distanceMeters, duration: routes[0].durationSeconds, label: routes[0].routeLabel })
+    if (!routeDest) {
+      setRouteDest(latlng)
+      setRouteLoading(true)
       setRouteError('')
-    } catch (err) {
-      setRouteError('Could not fetch route. Please try again.')
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startLat: routeOrigin.lat,
+            startLon: routeOrigin.lng,
+            endLat: latlng.lat,
+            endLon: latlng.lng,
+            mode: null,
+          }),
+        })
+        if (!res.ok) throw new Error('Routing failed')
+        const data = await res.json()
+        if (!data.length) throw new Error('No routes returned')
+        setRoutes(data.map(r => ({
+          coords: decodePolyline(r.geometry),
+          hasObstacles: r.hasObstacles,
+          label: r.routeLabel,
+          distance: r.distanceMeters,
+          duration: r.durationSeconds,
+        })))
+        setActiveRouteIndex(0)
+      } catch (err) {
+        const msg = err?.message || ''
+        if (msg.toLowerCase().includes('route could not be found') || msg.toLowerCase().includes('unable to find')) {
+          setRouteError('No walkable path found between these points. Try clicking on a road or footpath.')
+        } else {
+          setRouteError('Could not fetch route. Please try again.')
+        }
+      } finally {
+        setRouteLoading(false)
+      }
     }
   }
 
   function resetRoute() {
+    setRouteMode(false)
     setRouteOrigin(null)
     setRouteDest(null)
-    setRoutePolyline(null)
-    setRouteInfo(null)
+    setRoutes(null)
+    setActiveRouteIndex(0)
+    setRouteLoading(false)
     setRouteError('')
   }
 
@@ -205,6 +211,20 @@ function Home() {
       <Navbar />
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Route Panel — left sidebar */}
+        {routeMode && (
+          <RoutePanel
+            routeOrigin={routeOrigin}
+            routeDest={routeDest}
+            routes={routes}
+            activeRouteIndex={activeRouteIndex}
+            routeError={routeError}
+            loading={routeLoading}
+            onSelectRoute={setActiveRouteIndex}
+            onReset={resetRoute}
+          />
+        )}
+
         {/* Map area */}
         <main className="relative flex-1">
           <MapContainer
@@ -230,15 +250,25 @@ function Home() {
               <Marker position={newReportPin} icon={pinIcon} />
             )}
             <GeolocateOnLoad />
-            <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
-            <RouteClickHandler onRightClick={handleRouteRightClick} />
+            <MapClickHandler
+              active={showCreatePanel || routeMode}
+              onPick={(latlng) => {
+                if (routeMode) handleRouteMapClick(latlng)
+                else setNewReportPin(latlng)
+              }}
+            />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
             {routeDest && <Marker position={routeDest} icon={pinIcon} />}
-            {routePolyline && routePolyline.map((r, i) => (
+            {routes && routes.map((r, i) => (
               <Polyline
                 key={i}
                 positions={r.coords}
-                pathOptions={{ color: r.hasObstacles ? '#dc2626' : '#176a21', weight: 5, opacity: 0.8 }}
+                pathOptions={{
+                  color: ['#176a21', '#2563eb', '#dc2626', '#d97706'][i] ,
+                  weight: i === activeRouteIndex ? 7 : 4,
+                  opacity: i === activeRouteIndex ? 1 : 0.4,
+                }}
+                eventHandlers={{ click: () => setActiveRouteIndex(i) }}
               />
             ))}
             <ZoomControls />
@@ -270,44 +300,20 @@ function Home() {
             </div>
           )}
 
-          {/* Route hints / info */}
-          {routeOrigin && !routePolyline && !routeError && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+          {/* Route mode click hint */}
+          {routeMode && !routeOrigin && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
               <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">route</span>
-                Right-click destination to get route
+                Click on the map to set your starting point
               </div>
             </div>
           )}
-          {routeError && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000]">
-              <div className="bg-error text-white px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">error</span>
-                {routeError}
-                <button onClick={resetRoute} className="ml-2 underline text-xs">Dismiss</button>
-              </div>
-            </div>
-          )}
-          {routeInfo && (
-            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-[1000]">
-              <div className="bg-white/90 backdrop-blur-md rounded-2xl px-6 py-4 shadow-lg flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">directions_walk</span>
-                  <div>
-                    <p className="text-xs text-secondary font-bold uppercase tracking-wider">Distance</p>
-                    <p className="font-bold text-on-surface">{(routeInfo.distance / 1000).toFixed(2)} km</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">schedule</span>
-                  <div>
-                    <p className="text-xs text-secondary font-bold uppercase tracking-wider">Duration</p>
-                    <p className="font-bold text-on-surface">{Math.ceil(routeInfo.duration / 60)} min</p>
-                  </div>
-                </div>
-                <button onClick={resetRoute} className="ml-4 text-secondary hover:text-error transition-colors" aria-label="Clear route">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
+          {routeMode && routeOrigin && !routeDest && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">route</span>
+                Now click your destination
               </div>
             </div>
           )}
@@ -361,6 +367,15 @@ function Home() {
               </div>
             </div>
 
+            <button
+              onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
+              className={`h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
+                routeMode ? 'bg-secondary text-on-secondary' : 'bg-white/90 text-on-surface border border-outline-variant/20'
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
+              Get Routes
+            </button>
             <button
               onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
               className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
