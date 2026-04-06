@@ -18,20 +18,41 @@ export async function getReportById(id) {
 
 /**
  * Submit an agree vote on a report.
- * PUT /api/reports/{id}
  */
-// TODO: backend should expose /agree and /disagree endpoints; using /verify and /unverify for now
 export async function agreeReport(id, token) {
-  return apiFetch(`/api/reports/${id}/verify`, {
+  return apiFetch(`/api/reports/${id}/agree`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
+/**
+ * Submit a disagree vote on a report.
+ */
 export async function disagreeReport(id, token) {
-  return apiFetch(`/api/reports/${id}/unverify`, {
+  return apiFetch(`/api/reports/${id}/disagree`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+/**
+ * Fetch comments for a specific report.
+ * GET /api/comments/report/{reportId}
+ */
+export async function getCommentsByReport(reportId) {
+  return apiFetch(`/api/comments/report/${reportId}`)
+}
+
+/**
+ * Post a new comment on a report.
+ * POST /api/comments
+ */
+export async function createComment(reportId, content, token) {
+  return apiFetch('/api/comments', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content, report: { id: reportId } }),
   })
 }
 
