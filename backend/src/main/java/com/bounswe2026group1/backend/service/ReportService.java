@@ -93,6 +93,7 @@ public class ReportService {
         Report report = new Report(user, location, request.getDescription(), request.getTag());
 
         Report saved = reportRepository.save(report);
+        publicSseService.broadcastReportCreated(saved);
         return ReportResponse.fromEntity(saved);
     }
 
@@ -110,6 +111,7 @@ public class ReportService {
     public boolean delete(Long id) {
         if (!reportRepository.existsById(id)) return false;
         reportRepository.deleteById(id);
+        publicSseService.broadcastReportDeleted(id);
         return true;
     }
 

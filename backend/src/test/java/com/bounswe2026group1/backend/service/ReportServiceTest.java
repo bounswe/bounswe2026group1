@@ -123,6 +123,7 @@ class ReportServiceTest {
         assertEquals(Tag.MISSING_RAMP, result.getTag());
         assertEquals(ReportStatus.PENDING, result.getStatus());
         verify(reportRepository).save(any(Report.class));
+        verify(publicSseService).broadcastReportCreated(testReport);
     }
 
     @Test
@@ -157,6 +158,7 @@ class ReportServiceTest {
 
         assertTrue(result);
         verify(reportRepository).deleteById(1L);
+        verify(publicSseService).broadcastReportDeleted(1L);
     }
 
     @Test
