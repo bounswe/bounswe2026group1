@@ -9,6 +9,7 @@ import { getReports, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import Toast from '../components/Toast.jsx'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -170,6 +171,7 @@ function Home() {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
+  const [toast, setToast] = useState(null)
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -635,7 +637,14 @@ function Home() {
         <CreateReportPanel
           position={newReportPin}
           onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
-          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null) }}
+          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null); console.log('toast set'); setToast({ message: 'Report submitted successfully!', type: 'success' }) }}
+        />
+      )}
+    {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
         />
       )}
     </div>
