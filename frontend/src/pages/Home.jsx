@@ -131,6 +131,7 @@ function Home() {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
+  const [routeNotice, setRouteNotice] = useState('')
 
   async function handleRouteMapClick(latlng) {
     if (!routeMode) return
@@ -145,6 +146,7 @@ function Home() {
       setRouteDest(latlng)
       setRouteLoading(true)
       setRouteError('')
+      setRouteNotice('')
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
           method: 'POST',
@@ -160,14 +162,22 @@ function Home() {
         if (!res.ok) throw new Error('Routing failed')
         const data = await res.json()
         if (!data.length) throw new Error('No routes returned')
-        setRoutes(data.map(r => ({
+        const mapped = data.map(r => ({
           coords: decodePolyline(r.geometry),
           hasObstacles: r.hasObstacles,
           label: r.routeLabel,
           distance: r.distanceMeters,
           duration: r.durationSeconds,
-        })))
+        }))
+        setRoutes(mapped)
         setActiveRouteIndex(0)
+        const fastestHasObstacles = mapped[0]?.hasObstacles
+        const hasAccessible = mapped.some(r => r.label === 'Accessible Route')
+        const hasWheelchair = mapped.some(r => r.label === 'Wheelchair Route')
+        const missing = []
+        if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
+        if (!hasWheelchair) missing.push('wheelchair')
+        if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
       } catch (err) {
         const msg = err?.message || ''
         if (msg.toLowerCase().includes('route could not be found') || msg.toLowerCase().includes('unable to find')) {
@@ -189,6 +199,7 @@ function Home() {
     setActiveRouteIndex(0)
     setRouteLoading(false)
     setRouteError('')
+    setRouteNotice('')
   }
 
   useEffect(() => {
@@ -315,6 +326,17 @@ function Home() {
                 <span className="material-symbols-outlined text-base">route</span>
                 Now click your destination
               </div>
+            </div>
+          )}
+
+          {/* Route notice toast */}
+          {routeNotice && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-2xl shadow-lg max-w-sm text-sm font-semibold">
+              <span className="material-symbols-outlined text-amber-600 text-base flex-shrink-0">warning</span>
+              <span>{routeNotice}</span>
+              <button onClick={() => setRouteNotice('')} className="ml-1 text-amber-600 hover:text-amber-800" aria-label="Dismiss">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
             </div>
           )}
 
