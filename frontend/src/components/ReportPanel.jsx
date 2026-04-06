@@ -33,17 +33,9 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
       .finally(() => setCommentsLoading(false))
   }, [report?.id])
 
-  useEffect(() => {
-    function handleExpired() { navigate('/login') }
-    window.addEventListener('auth:expired', handleExpired)
-    return () => window.removeEventListener('auth:expired', handleExpired)
-  }, [navigate])
+  
 
-  useEffect(() => {
-    function handleExpired() { navigate('/login') }
-    window.addEventListener('auth:expired', handleExpired)
-    return () => window.removeEventListener('auth:expired', handleExpired)
-  }, [navigate])
+  
 
   if (!report) return null
 
