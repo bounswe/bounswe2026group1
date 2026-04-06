@@ -136,6 +136,21 @@ function Home() {
   const [routeError, setRouteError] = useState('')
   const [routeNotice, setRouteNotice] = useState('')
   const [userLocation, setUserLocation] = useState(null)
+  const [routeOriginLabel, setRouteOriginLabel] = useState('')
+  const [routeDestLabel, setRouteDestLabel] = useState('')
+
+  async function reverseGeocode(latlng) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latlng.lat}&lon=${latlng.lng}&format=json`
+      )
+      const data = await res.json()
+      const parts = data.display_name?.split(',') ?? []
+      return parts.slice(0, 2).join(',').trim() || `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`
+    } catch {
+      return `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`
+    }
+  }
 
   async function fetchRoutes(origin, dest) {
     setRouteLoading(true)
@@ -190,11 +205,13 @@ function Home() {
       setRoutes(null)
       setRouteError('')
       setRouteNotice('')
+      reverseGeocode(latlng).then(setRouteOriginLabel)
       if (routeDest) await fetchRoutes(latlng, routeDest)
       return
     }
     if (!routeDest) {
       setRouteDest(latlng)
+      reverseGeocode(latlng).then(setRouteDestLabel)
       await fetchRoutes(routeOrigin, latlng)
     }
   }
@@ -203,6 +220,8 @@ function Home() {
     setRouteMode(false)
     setRouteOrigin(null)
     setRouteDest(null)
+    setRouteOriginLabel('')
+    setRouteDestLabel('')
     setRoutes(null)
     setActiveRouteIndex(0)
     setRouteLoading(false)
@@ -235,28 +254,49 @@ function Home() {
           <RoutePanel
             routeOrigin={routeOrigin}
             routeDest={routeDest}
+            routeOriginLabel={routeOriginLabel}
+            routeDestLabel={routeDestLabel}
             routes={routes}
             activeRouteIndex={activeRouteIndex}
             routeError={routeError}
             loading={routeLoading}
             userLocation={userLocation}
-            onUseMyLocation={() => {
+            onUseMyLocation={async () => {
               if (userLocation) {
                 setRouteOrigin(userLocation)
-                setRouteDest(null)
                 setRoutes(null)
                 setRouteError('')
                 setRouteNotice('')
+                reverseGeocode(userLocation).then(setRouteOriginLabel)
+                if (routeDest) await fetchRoutes(userLocation, routeDest)
               }
+            }}
+            onPickOrigin={async (latlng, label) => {
+              setRouteOrigin(latlng)
+              setRouteOriginLabel(label || '')
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+              if (routeDest) await fetchRoutes(latlng, routeDest)
+            }}
+            onPickDest={async (latlng, label) => {
+              setRouteDest(latlng)
+              setRouteDestLabel(label || '')
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+              if (routeOrigin) await fetchRoutes(routeOrigin, latlng)
             }}
             onClearOrigin={() => {
               setRouteOrigin(null)
+              setRouteOriginLabel('')
               setRoutes(null)
               setRouteError('')
               setRouteNotice('')
             }}
             onClearDest={() => {
               setRouteDest(null)
+              setRouteDestLabel('')
               setRoutes(null)
               setRouteError('')
               setRouteNotice('')
@@ -267,6 +307,8 @@ function Home() {
               const newDest = routeOrigin
               setRouteOrigin(newOrigin)
               setRouteDest(newDest)
+              setRouteOriginLabel(routeDestLabel)
+              setRouteDestLabel(routeOriginLabel)
               setRoutes(null)
               await fetchRoutes(newOrigin, newDest)
             }}

@@ -1,20 +1,30 @@
+import { useState, useRef, useEffect } from 'react'
+
 /**
  * RoutePanel
  * Left sidebar shown when route mode is active.
  * Props:
- *  - routeMode: bool
  *  - routeOrigin: {lat, lng} | null
  *  - routeDest: {lat, lng} | null
  *  - routes: Array<{coords, label, distance, duration, hasObstacles}> | null
  *  - activeRouteIndex: number
  *  - routeError: string
  *  - loading: bool
+ *  - userLocation: {lat, lng} | null
+ *  - onUseMyLocation: () => void
+ *  - onSwap: () => void
+ *  - onClearOrigin: () => void
+ *  - onClearDest: () => void
+ *  - onPickOrigin: ({lat, lng}) => void
+ *  - onPickDest: ({lat, lng}) => void
  *  - onSelectRoute: (index) => void
  *  - onReset: () => void
  */
 function RoutePanel({
   routeOrigin,
   routeDest,
+  routeOriginLabel,
+  routeDestLabel,
   routes,
   activeRouteIndex,
   routeError,
@@ -24,14 +34,23 @@ function RoutePanel({
   onSwap,
   onClearOrigin,
   onClearDest,
+  onPickOrigin,
+  onPickDest,
   onSelectRoute,
   onReset,
 }) {
+  const [originQuery, setOriginQuery] = useState('')
+  const [destQuery, setDestQuery] = useState('')
+  const [originSuggestions, setOriginSuggestions] = useState([])
+  const [destSuggestions, setDestSuggestions] = useState([])
+  const originDebounce = useRef(null)
+  const destDebounce = useRef(null)
+
   function routeColor(route) {
-    if (route.label?.includes('Accessible')) return '#1565C0'  // deep blue
-    if (route.label?.includes('Wheelchair')) return '#6A1B9A'  // deep purple
-    if (route.label?.includes('Ramp'))       return '#00695C'  // deep teal
-    return route.hasObstacles ? '#E65100' : '#2E7D32'          // orange or green
+    if (route.label?.includes('Accessible')) return '#1565C0'
+    if (route.label?.includes('Wheelchair')) return '#6A1B9A'
+    if (route.label?.includes('Ramp'))       return '#00695C'
+    return route.hasObstacles ? '#E65100' : '#2E7D32'
   }
 
   function formatDistance(m) {
@@ -42,6 +61,56 @@ function RoutePanel({
     const mins = Math.ceil(s / 60)
     return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} min`
   }
+
+  async function fetchSuggestions(query, setSuggestions) {
+    if (!query.trim()) { setSuggestions([]); return }
+    const viewbox = userLocation
+      ? `${userLocation.lng - 0.05},${userLocation.lat - 0.05},${userLocation.lng + 0.05},${userLocation.lat + 0.05}`
+      : null
+    const params = new URLSearchParams({
+      q: query, format: 'json', limit: '5', addressdetails: '1',
+      ...(viewbox ? { viewbox, bounded: '0' } : {}),
+    })
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
+      const data = await res.json()
+      setSuggestions(data)
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  function handleOriginChange(e) {
+    const val = e.target.value
+    setOriginQuery(val)
+    clearTimeout(originDebounce.current)
+    originDebounce.current = setTimeout(() => fetchSuggestions(val, setOriginSuggestions), 400)
+  }
+
+  function handleDestChange(e) {
+    const val = e.target.value
+    setDestQuery(val)
+    clearTimeout(destDebounce.current)
+    destDebounce.current = setTimeout(() => fetchSuggestions(val, setDestSuggestions), 400)
+  }
+
+  function selectOrigin(place) {
+    const label = place.display_name.split(',').slice(0, 2).join(',').trim()
+    setOriginQuery(label)
+    setOriginSuggestions([])
+    onPickOrigin({ lat: parseFloat(place.lat), lng: parseFloat(place.lon) }, label)
+  }
+
+  function selectDest(place) {
+    const label = place.display_name.split(',').slice(0, 2).join(',').trim()
+    setDestQuery(label)
+    setDestSuggestions([])
+    onPickDest({ lat: parseFloat(place.lat), lng: parseFloat(place.lon) }, label)
+  }
+
+  // Clear search inputs when points are cleared externally
+  useEffect(() => { if (!routeOrigin) setOriginQuery('') }, [routeOrigin])
+  useEffect(() => { if (!routeDest) setDestQuery('') }, [routeDest])
 
   const step = !routeOrigin ? 1 : !routeDest ? 2 : 3
 
@@ -71,32 +140,60 @@ function RoutePanel({
 
         {/* Steps */}
         <div className="flex flex-col gap-2">
-          {/* Origin */}
-          <div
-            onClick={routeOrigin ? onClearOrigin : undefined}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
-              step === 1 ? 'border-primary bg-primary/5' : routeOrigin ? 'border-primary/30 bg-primary/5 cursor-pointer hover:border-error/40 hover:bg-error/5' : 'border-outline-variant/20 bg-surface-container'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              routeOrigin ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
-            }`}>
-              <span className="material-symbols-outlined text-sm">trip_origin</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">From</p>
-              <p className="text-sm font-semibold text-on-surface">
-                {routeOrigin
-                  ? `${routeOrigin.lat.toFixed(4)}, ${routeOrigin.lng.toFixed(4)}`
-                  : 'Click on the map'}
-              </p>
-            </div>
-            {routeOrigin && (
-              <span className="material-symbols-outlined text-sm text-on-surface-variant opacity-50">edit</span>
-            )}
-          </div>
 
-          {/* Use my location shortcut — only when origin not yet set */}
+          {/* Origin */}
+          {routeOrigin ? (
+            <div
+              onClick={onClearOrigin}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-primary/30 bg-primary/5 cursor-pointer hover:border-error/40 hover:bg-error/5 transition-all"
+            >
+              <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-sm">trip_origin</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">From</p>
+                <p className="text-sm font-semibold text-on-surface truncate">
+                  {routeOriginLabel || `${routeOrigin.lat.toFixed(4)}, ${routeOrigin.lng.toFixed(4)}`}
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant opacity-50 flex-shrink-0">edit</span>
+            </div>
+          ) : (
+            <div className={`flex flex-col gap-2 px-4 py-3 rounded-xl border-2 transition-all ${step === 1 ? 'border-primary bg-primary/5' : 'border-outline-variant/20 bg-surface-container'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center flex-shrink-0">
+                  <span className="material-symbols-outlined text-sm">trip_origin</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">From</p>
+                  <input
+                    type="text"
+                    value={originQuery}
+                    onChange={handleOriginChange}
+                    placeholder="Search or click map…"
+                    className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/50 outline-none"
+                  />
+                </div>
+              </div>
+              {originSuggestions.length > 0 && (
+                <ul className="mt-1 -mx-1 flex flex-col divide-y divide-outline-variant/10">
+                  {originSuggestions.map((s) => (
+                    <li key={s.place_id}>
+                      <button
+                        onMouseDown={() => selectOrigin(s)}
+                        className="w-full text-left px-2 py-2 flex items-center gap-2 hover:bg-primary/5 rounded-lg transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant flex-shrink-0">location_on</span>
+                        <span className="text-xs text-on-surface truncate">{s.display_name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Use my location — only when origin not yet set */}
           {!routeOrigin && (
             <button
               onClick={onUseMyLocation}
@@ -116,7 +213,7 @@ function RoutePanel({
             </button>
           )}
 
-          {/* Swap button — between the two cards, only when both are set */}
+          {/* Swap button */}
           {routeOrigin && routeDest && (
             <div className="flex justify-center -my-1">
               <button
@@ -130,29 +227,59 @@ function RoutePanel({
           )}
 
           {/* Dest */}
-          <div
-            onClick={routeDest ? onClearDest : undefined}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
-              step === 2 ? 'border-primary bg-primary/5' : routeDest ? 'border-primary/30 bg-primary/5 cursor-pointer hover:border-error/40 hover:bg-error/5' : 'border-outline-variant/20 bg-surface-container'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              routeDest ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
-            }`}>
-              <span className="material-symbols-outlined text-sm">location_on</span>
+          {routeDest ? (
+            <div
+              onClick={onClearDest}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-primary/30 bg-primary/5 cursor-pointer hover:border-error/40 hover:bg-error/5 transition-all"
+            >
+              <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-sm">location_on</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">To</p>
+                <p className="text-sm font-semibold text-on-surface truncate">
+                  {routeDestLabel || `${routeDest.lat.toFixed(4)}, ${routeDest.lng.toFixed(4)}`}
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant opacity-50 flex-shrink-0">edit</span>
             </div>
-            <div className="flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">To</p>
-              <p className="text-sm font-semibold text-on-surface">
-                {routeDest
-                  ? `${routeDest.lat.toFixed(4)}, ${routeDest.lng.toFixed(4)}`
-                  : routeOrigin ? 'Click on the map' : 'Set origin first'}
-              </p>
+          ) : (
+            <div className={`flex flex-col gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
+              step === 2 ? 'border-primary bg-primary/5' : 'border-outline-variant/20 bg-surface-container'
+            } ${!routeOrigin ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center flex-shrink-0">
+                  <span className="material-symbols-outlined text-sm">location_on</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">To</p>
+                  <input
+                    type="text"
+                    value={destQuery}
+                    onChange={handleDestChange}
+                    placeholder={routeOrigin ? 'Search or click map…' : 'Set origin first'}
+                    disabled={!routeOrigin}
+                    className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/50 outline-none disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              {destSuggestions.length > 0 && (
+                <ul className="mt-1 -mx-1 flex flex-col divide-y divide-outline-variant/10">
+                  {destSuggestions.map((s) => (
+                    <li key={s.place_id}>
+                      <button
+                        onMouseDown={() => selectDest(s)}
+                        className="w-full text-left px-2 py-2 flex items-center gap-2 hover:bg-primary/5 rounded-lg transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant flex-shrink-0">location_on</span>
+                        <span className="text-xs text-on-surface truncate">{s.display_name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {routeDest && (
-              <span className="material-symbols-outlined text-sm text-on-surface-variant opacity-50">edit</span>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Loading */}
@@ -232,7 +359,7 @@ function RoutePanel({
         {!routeOrigin && !loading && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <span className="material-symbols-outlined text-5xl text-primary/30">route</span>
-            <p className="text-sm text-on-surface-variant">Click anywhere on the map to set your starting point</p>
+            <p className="text-sm text-on-surface-variant">Search above or click the map to set your starting point</p>
           </div>
         )}
 
