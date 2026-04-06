@@ -71,8 +71,7 @@ public class SecurityConfig {
                             log.warn("403 FORBIDDEN {} {}: {}", request.getMethod(), sanitizeUri(request.getRequestURI()), e.getMessage());
                             response.sendError(403, e.getMessage());
                         })
-                )
-                .addFilterAfter(jwtAuthFilter, ApiKeyFilter.class);
+                );
         return http.build();
     }
 
