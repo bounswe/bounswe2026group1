@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,7 +7,9 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
+import '../models/sse_event.dart';
 import '../services/auth_service.dart';
+import '../services/sse_service.dart';
 import 'login_screen.dart';
 import '../main.dart' show MainShell;
 
@@ -42,6 +45,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String? _myVote; // 'agree' | 'disagree' | null
   bool _voteLoading = false;
 
+  // ── Live status (may differ from widget.report.status via SSE) ─────────────
+  ReportStatus? _liveStatus;
+  ReportStatus get _currentStatus => _liveStatus ?? report.status;
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  StreamSubscription<SseEvent>? _sseSub;
+
   // ── Comment state ──────────────────────────────────────────────────────────
   List<_CommentData> _comments = [];
   bool _commentsLoading = false;
@@ -54,9 +64,32 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     super.initState();
     _agrees = report.agrees;
     _disagrees = report.disagrees;
+    // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
+    _myVote = report.userVote?.toLowerCase();
     if (report.username == null) _loadUsername();
     _loadComments();
     if (_hasVideo) _initVideo();
+    // Fetch fresh report so userVote / counts reflect server state.
+    _refreshReport();
+    // Subscribe to real-time updates.
+    _sseSub = context.read<SseService>().events.listen(_onSseEvent);
+  }
+
+  void _onSseEvent(SseEvent event) {
+    if (!mounted || event.reportId != report.reportId) return;
+
+    if (event.eventType == 'REPORT_UPDATED') {
+      setState(() {
+        if (event.agrees != null) _agrees = event.agrees!;
+        if (event.disagrees != null) _disagrees = event.disagrees!;
+        if (event.status != null) {
+          _liveStatus = ReportStatus.fromJson(event.status!);
+        }
+      });
+    } else if (event.eventType == 'MEDIA_ADDED') {
+      // Re-fetch the full report to get updated mediaUrls.
+      _refreshReport();
+    }
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
@@ -122,9 +155,25 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   @override
   void dispose() {
+    _sseSub?.cancel();
     _videoController?.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshReport() async {
+    try {
+      final fresh = await context.read<AuthService>().api.getReport(report.reportId);
+      if (!mounted) return;
+      setState(() {
+        _agrees = fresh.agrees;
+        _disagrees = fresh.disagrees;
+        _myVote = fresh.userVote?.toLowerCase();
+        if (fresh.status != report.status) _liveStatus = fresh.status;
+      });
+    } catch (_) {
+      // Non-fatal — stale data from the list is still shown.
+    }
   }
 
   Future<void> _loadUsername() async {
@@ -402,9 +451,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: report.status.color.withOpacity(0.15),
+              color: _currentStatus.color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: report.status.color.withOpacity(0.4)),
+              border: Border.all(color: _currentStatus.color.withOpacity(0.4)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -413,18 +462,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: report.status.color,
+                    color: _currentStatus.color,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  report.status.label,
+                  _currentStatus.label,
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: report.status.color,
+                    color: _currentStatus.color,
                   ),
                 ),
               ],
@@ -959,7 +1008,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           const SizedBox(height: 12),
           _infoRow(Icons.tag, 'Report ID', '#${report.reportId}'),
           _infoRow(Icons.category_outlined, 'Category', report.tag.label),
-          _infoRow(Icons.circle_outlined, 'Status', report.status.label),
+          _infoRow(Icons.circle_outlined, 'Status', _currentStatus.label),
           _infoRow(
             Icons.schedule_outlined,
             'Reported',

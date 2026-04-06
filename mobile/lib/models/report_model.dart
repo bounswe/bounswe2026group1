@@ -98,6 +98,8 @@ class ReportModel {
   final int disagrees;
   final String publishDate;
   final List<String> mediaUrls;
+  /// The authenticated user's current vote: 'AGREE', 'DISAGREE', or null.
+  final String? userVote;
 
   const ReportModel({
     required this.reportId,
@@ -112,6 +114,7 @@ class ReportModel {
     required this.disagrees,
     required this.publishDate,
     required this.mediaUrls,
+    this.userVote,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
@@ -129,6 +132,31 @@ class ReportModel {
       publishDate: json['publishDate'] as String? ?? '',
       mediaUrls:
           (json['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
+      userVote: json['userVote'] as String?,
+    );
+  }
+
+  ReportModel copyWith({
+    int? agrees,
+    int? disagrees,
+    ReportStatus? status,
+    List<String>? mediaUrls,
+    String? userVote,
+  }) {
+    return ReportModel(
+      reportId: reportId,
+      userId: userId,
+      username: username,
+      latitude: latitude,
+      longitude: longitude,
+      description: description,
+      tag: tag,
+      status: status ?? this.status,
+      agrees: agrees ?? this.agrees,
+      disagrees: disagrees ?? this.disagrees,
+      publishDate: publishDate,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
+      userVote: userVote ?? this.userVote,
     );
   }
 
