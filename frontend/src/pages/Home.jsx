@@ -105,11 +105,14 @@ function MapClickHandler({ active, onPick }) {
 }
 
 
-function GeolocateOnLoad() {
+function GeolocateOnLoad({ onLocation }) {
   const map = useMap()
   useEffect(() => {
+    function handleLocation(e) { onLocation(e.latlng) }
+    map.on('locationfound', handleLocation)
     map.locate({ setView: true, maxZoom: 16 })
-  }, [map])
+    return () => { map.off('locationfound', handleLocation) }
+  }, [map, onLocation])
   return null
 }
 
@@ -132,6 +135,7 @@ function Home() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
   const [routeNotice, setRouteNotice] = useState('')
+  const [userLocation, setUserLocation] = useState(null)
 
   async function handleRouteMapClick(latlng) {
     if (!routeMode) return
@@ -232,6 +236,16 @@ function Home() {
             activeRouteIndex={activeRouteIndex}
             routeError={routeError}
             loading={routeLoading}
+            userLocation={userLocation}
+            onUseMyLocation={() => {
+              if (userLocation) {
+                setRouteOrigin(userLocation)
+                setRouteDest(null)
+                setRoutes(null)
+                setRouteError('')
+                setRouteNotice('')
+              }
+            }}
             onSelectRoute={setActiveRouteIndex}
             onReset={resetRoute}
           />
@@ -261,7 +275,7 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
-            <GeolocateOnLoad />
+            <GeolocateOnLoad onLocation={setUserLocation} />
             <MapClickHandler
               active={showCreatePanel || routeMode}
               onPick={(latlng) => {

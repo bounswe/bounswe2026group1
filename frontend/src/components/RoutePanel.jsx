@@ -19,6 +19,8 @@ function RoutePanel({
   activeRouteIndex,
   routeError,
   loading,
+  userLocation,
+  onUseMyLocation,
   onSelectRoute,
   onReset,
 }) {
@@ -84,6 +86,26 @@ function RoutePanel({
               </p>
             </div>
           </div>
+
+          {/* Use my location shortcut — only when origin not yet set */}
+          {!routeOrigin && (
+            <button
+              onClick={onUseMyLocation}
+              disabled={!userLocation}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-colors text-left ${
+                userLocation
+                  ? 'bg-primary/5 border-primary/20 hover:bg-primary/10'
+                  : 'bg-surface-container border-outline-variant/20 opacity-50 cursor-not-allowed'
+              }`}
+            >
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${userLocation ? 'bg-primary/10' : 'bg-surface-container-high'}`}>
+                <span className={`material-symbols-outlined text-sm ${userLocation ? 'text-primary' : 'text-on-surface-variant'}`}>my_location</span>
+              </div>
+              <span className={`text-sm font-semibold ${userLocation ? 'text-primary' : 'text-on-surface-variant'}`}>
+                {userLocation ? 'Use my current location' : 'Location not available'}
+              </span>
+            </button>
+          )}
 
           {/* Dest */}
           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
