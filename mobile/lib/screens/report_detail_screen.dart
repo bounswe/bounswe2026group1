@@ -804,7 +804,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   _voteCount(Icons.thumb_up, _agrees, AppColors.primary),
                   const SizedBox(height: 4),
-                  _voteCount(Icons.thumb_down, _disagrees, AppColors.outline),
+                  _voteCount(Icons.thumb_down, _disagrees, const Color(0xFFB02500)),
                 ],
               ),
             ],
@@ -831,6 +831,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       : Icons.thumb_down_outlined,
                   label: 'Disagree',
                   active: _myVote == 'disagree',
+                  activeColor: const Color(0xFFB02500),
+                  activeTextColor: const Color(0xFFFFCDD2),
                   loading: _voteLoading && _myVote != 'disagree',
                   onTap: () => _vote('disagree'),
                 ),
@@ -913,18 +915,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     required bool active,
     required bool loading,
     required VoidCallback onTap,
+    Color activeColor = AppColors.primary,
+    Color activeTextColor = AppColors.onPrimary,
   }) {
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary : AppColors.surfaceContainerHigh,
+          color: active ? activeColor : AppColors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(999),
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.28),
+                    color: activeColor.withOpacity(0.28),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -938,7 +942,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: active ? AppColors.onPrimary : AppColors.onSurface,
+                    color: active ? activeTextColor : AppColors.onSurface,
                   ),
                 ),
               )
@@ -947,7 +951,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   Icon(
                     icon,
-                    color: active ? AppColors.onPrimary : AppColors.onSurface,
+                    color: active ? activeTextColor : AppColors.onSurface,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -955,7 +959,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     label,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: active ? AppColors.onPrimary : AppColors.onSurface,
+                      color: active ? activeTextColor : AppColors.onSurface,
                       fontSize: 14,
                     ),
                   ),
