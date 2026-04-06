@@ -140,7 +140,9 @@ class ReportModel {
   /// Human-readable time elapsed since publishDate.
   String get timeAgo {
     try {
-      final dt = DateTime.parse(publishDate);
+      final dt = DateTime.parse(
+        publishDate.endsWith('Z') ? publishDate : '${publishDate}Z',
+      ).toLocal();
       final diff = DateTime.now().difference(dt);
       if (diff.inMinutes < 1) return 'just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';

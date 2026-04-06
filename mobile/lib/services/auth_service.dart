@@ -8,10 +8,12 @@ const _tokenKey = 'auth_token';
 class AuthService extends ChangeNotifier {
   String? _token;
   int _userId = 0;
+  bool _isGuest = false;
 
   String? get token => _token;
   int get userId => _userId;
   bool get isAuthenticated => _token != null;
+  bool get isGuest => _isGuest;
 
   /// Authenticated API client.
   ApiService get api => ApiService(token: _token);
@@ -30,14 +32,25 @@ class AuthService extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     _token = await ApiService().login(email, password);
     _userId = _extractUserId(_token) ?? 0;
+    _isGuest = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, _token!);
+    notifyListeners();
+  }
+
+  Future<void> loginAsGuest() async {
+    _token = null;
+    _userId = 0;
+    _isGuest = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
     notifyListeners();
   }
 
   Future<void> logout() async {
     _token = null;
     _userId = 0;
+    _isGuest = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     notifyListeners();

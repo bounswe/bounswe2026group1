@@ -13,21 +13,38 @@ import java.util.List;
 
 @Repository
 public interface ReportRepository extends JpaRepository<Report, Long> {
+
     List<Report> findByCreatedById(Long userId);
+
     List<Report> findByStatus(ReportStatus status);
 
-    List<Report> findByTagInAndStatusNot(Collection<Tag> tags, ReportStatus status);
-
+    /**
+     * Returns reports whose tag is in {@code tags} and whose status is in {@code statuses}.
+     * Pass the statuses you want (e.g. PENDING, VERIFIED) — not the ones to exclude.
+     */
     @Query("""
             SELECT r FROM Report r
-            WHERE r.status <> :excluded
-            AND r.location.latitude BETWEEN :minLat AND :maxLat
+            WHERE r.tag IN :tags
+            AND r.status IN :statuses
+            """)
+    List<Report> findByTagInAndStatusIn(
+            @Param("tags") Collection<Tag> tags,
+            @Param("statuses") Collection<ReportStatus> statuses);
+
+    /**
+     * Returns reports within the bounding box whose status is in {@code statuses}.
+     * Pass the statuses you want (e.g. PENDING, VERIFIED) — not the ones to exclude.
+     */
+    @Query("""
+            SELECT r FROM Report r
+            WHERE r.status IN :statuses
+            AND r.location.latitude  BETWEEN :minLat AND :maxLat
             AND r.location.longitude BETWEEN :minLon AND :maxLon
             """)
-    List<Report> findActiveReportsInBoundingBox(
+    List<Report> findReportsInBoundingBoxWithStatuses(
             @Param("minLat") double minLat,
             @Param("maxLat") double maxLat,
             @Param("minLon") double minLon,
             @Param("maxLon") double maxLon,
-            @Param("excluded") ReportStatus excluded);
+            @Param("statuses") Collection<ReportStatus> statuses);
 }

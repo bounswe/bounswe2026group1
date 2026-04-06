@@ -4,6 +4,7 @@ import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.VoteType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,8 +27,13 @@ public class ReportResponse {
     private int disagrees;
     private LocalDateTime publishDate;
     private List<String> mediaUrls;
+    private VoteType userVote;
 
     public static ReportResponse fromEntity(Report report) {
+        return fromEntity(report, null);
+    }
+
+    public static ReportResponse fromEntity(Report report, VoteType userVote) {
         ReportResponse response = new ReportResponse();
         response.setReportId(report.getReportId());
         response.setUserId(report.getCreatedBy().getId());
@@ -44,6 +50,7 @@ public class ReportResponse {
                         .map(Media::getFilePath)
                         .toList()
         );
+        response.setUserVote(userVote);
         return response;
     }
 }

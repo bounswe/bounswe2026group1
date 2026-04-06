@@ -1,22 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import '../models/report_model.dart';
 
-/// Injected at build time via --dart-define=API_BASE_URL=https://your-server.com
-/// Falls back to localhost for local development (Android emulator uses 10.0.2.2).
-///
-/// Usage examples:
-///   flutter run --dart-define=API_BASE_URL=https://api.mapcess.com
-///   flutter build apk --dart-define=API_BASE_URL=https://api.mapcess.com
-const _injectedUrl = String.fromEnvironment('API_BASE_URL');
-
-String get _baseUrl {
-  if (_injectedUrl.isNotEmpty) return _injectedUrl;
-  // Local dev fallback: Android emulator cannot reach 'localhost' of the host machine.
-  return 'http://${Platform.isAndroid ? '10.0.2.2' : 'localhost'}:8080';
-}
+const _baseUrl = 'https://api.mapcess.live';
+const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
 
 class ApiService {
   final String? token;
@@ -26,6 +14,7 @@ class ApiService {
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'Mapcess-Key': _apiKey,
     if (token != null) 'Authorization': 'Bearer $token',
   };
 
@@ -35,7 +24,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/auth/register'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _headers,
           body: jsonEncode({'name': name, 'email': email, 'password': password}),
         )
         .timeout(const Duration(seconds: 6));
@@ -48,7 +37,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/auth/login'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _headers,
           body: jsonEncode({'email': email, 'password': password}),
         )
         .timeout(const Duration(seconds: 6));
@@ -71,6 +60,29 @@ class ApiService {
       return data['name'] as String?;
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>?> getUserById(int userId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/users/$userId'), headers: _headers)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<List<ReportModel>> getReportsByUser(int userId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/reports/user/$userId'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list
+          .map((e) => ReportModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
   }
 
   // ─── Reports ───────────────────────────────────────────────────────────────
@@ -128,6 +140,84 @@ class ApiService {
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> verifyReport(int id) async {
+    final response = await http
+        .post(Uri.parse('$_baseUrl/api/reports/$id/verify'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> unverifyReport(int id) async {
+    final response = await http
+        .post(Uri.parse('$_baseUrl/api/reports/$id/unverify'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Routes ────────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getRoutes({
+    required double startLat,
+    required double startLon,
+    required double endLat,
+    required double endLon,
+    String mode = 'WALKING',
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/routes'),
+          headers: _headers,
+          body: jsonEncode({
+            'startLat': startLat,
+            'startLon': startLon,
+            'endLat': endLat,
+            'endLon': endLon,
+            'mode': mode,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Comments ──────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getComments(int reportId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/comments/report/$reportId'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list.cast<Map<String, dynamic>>();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> addComment({
+    required int reportId,
+    required int userId,
+    required String content,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/comments'),
+          headers: _headers,
+          body: jsonEncode({
+            'content': content,
+            'author': {'id': userId},
+            'report': {'reportId': reportId},
+          }),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 201) return;
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 

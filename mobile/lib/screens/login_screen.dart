@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
-import 'home_screen.dart';
+import '../main.dart' show MainShell;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } on ApiException catch (e) {
       if (mounted) _showError(e.userMessage);
@@ -156,6 +156,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 22),
                     _buildPrimaryButton(),
+                    const SizedBox(height: 12),
+                    _buildGuestButton(),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -203,6 +205,38 @@ class _LoginScreenState extends State<LoginScreen> {
             vertical: 16,
           ),
           suffixIcon: suffix,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestButton() {
+    return GestureDetector(
+      onTap: () async {
+        await context.read<AuthService>().loginAsGuest();
+        if (!context.mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainShell()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.surfaceContainerHigh),
+        ),
+        child: const Text(
+          'Continue as Guest',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
       ),
     );

@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
-import 'home_screen.dart';
+import '../main.dart' show MainShell;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -52,7 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } on ApiException catch (e) {
       if (mounted) _showError(e.userMessage);
