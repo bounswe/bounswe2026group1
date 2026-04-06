@@ -9,7 +9,7 @@ export async function apiFetch(path, options = {}) {
   })
 
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       window.dispatchEvent(new CustomEvent('auth:expired'))
     }
     const error = await res.json().catch(() => ({ message: res.statusText }))
