@@ -30,8 +30,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   bool get _hasVideo {
     if (report.mediaUrls.isEmpty) return false;
-    final url = report.mediaUrls.first.toLowerCase();
-    return url.endsWith('.mp4') || url.endsWith('.mov');
+    // Strip query params (e.g. S3 pre-signed URLs) before checking extension
+    final path = (Uri.tryParse(report.mediaUrls.first)?.path ?? report.mediaUrls.first).toLowerCase();
+    return path.endsWith('.mp4') || path.endsWith('.mov') ||
+           path.endsWith('.avi') || path.endsWith('.mkv') || path.endsWith('.webm');
   }
 
   // ── Vote state ─────────────────────────────────────────────────────────────
@@ -58,22 +60,33 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
-  /// global endpoint → regional endpoint). Resolve any redirect first so
-  /// AVPlayer receives the final URL directly.
+  /// global endpoint → regional endpoint via 307). Resolve all redirects first
+  /// so AVPlayer receives the final URL directly.
   Future<String> _resolveVideoUrl(String url) async {
     try {
       final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 5);
-      final request = await client.headUrl(Uri.parse(url));
-      request.followRedirects = false;
-      final response = await request.close();
-      await response.drain<void>();
-      client.close();
-      final location = response.headers.value(HttpHeaders.locationHeader);
-      if ((response.statusCode == 301 || response.statusCode == 302) &&
-          location != null) {
-        return location;
+        ..connectionTimeout = const Duration(seconds: 8);
+      String current = url;
+      for (int i = 0; i < 5; i++) {
+        final request = await client.getUrl(Uri.parse(current));
+        request.followRedirects = false;
+        // AVPlayer User-Agent equivalent to avoid WAF blocks
+        request.headers.set(HttpHeaders.userAgentHeader, 'AppleCoreMedia/1.0.0.19E258 (iPhone; U; CPU OS 15_4 like Mac OS X; en_us)');
+        final response = await request.close();
+        
+        final status = response.statusCode;
+        if (status == 301 || status == 302 || status == 307 || status == 308) {
+          final location = response.headers.value(HttpHeaders.locationHeader);
+          await response.drain<void>();
+          if (location != null) {
+            current = Uri.parse(current).resolve(location).toString();
+            continue;
+          }
+        }
+        break;
       }
+      client.close(force: true);
+      return current;
     } catch (_) {}
     return url;
   }
@@ -84,10 +97,22 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ? await _resolveVideoUrl(rawUrl)
         : rawUrl;
 
+    final path = Uri.tryParse(resolvedUrl)?.path.toLowerCase() ?? '';
+    final formatHint = path.endsWith('.m3u8') ? VideoFormat.hls : null;
+
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(resolvedUrl),
+      formatHint: formatHint,
+      httpHeaders: {
+        'User-Agent': 'AppleCoreMedia/1.0.0.19E258 (iPhone; U; CPU OS 15_4 like Mac OS X; en_us)',
+      },
     );
-    await controller.initialize();
+    try {
+      await controller.initialize();
+    } catch (_) {
+      controller.dispose();
+      return;
+    }
     if (!mounted) { controller.dispose(); return; }
     setState(() {
       _videoController = controller;

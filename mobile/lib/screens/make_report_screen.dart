@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -29,6 +30,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   ReportTag _selectedTag = ReportTag.other;
   File? _selectedMedia;
   bool _isVideo = false;
+  bool _converting = false;
   bool _submitting = false;
 
   final _picker = ImagePicker();
@@ -171,13 +173,36 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Future<void> _pickVideo(ImageSource source) async {
     try {
       final picked = await _picker.pickVideo(source: source);
-      if (picked != null) {
-        setState(() {
-          _selectedMedia = File(picked.path);
-          _isVideo = true;
-        });
+      if (picked == null) return;
+
+      // Show placeholder immediately so the user sees feedback
+      setState(() {
+        _isVideo = true;
+        _converting = true;
+        _selectedMedia = null;
+      });
+
+      try {
+        final info = await VideoCompress.compressVideo(
+          picked.path,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+          includeAudio: true,
+        );
+        if (info?.file != null && mounted) {
+          setState(() => _selectedMedia = info!.file!);
+        } else if (mounted) {
+          // Fallback: use original file as-is
+          setState(() => _selectedMedia = File(picked.path));
+        }
+      } catch (_) {
+        if (mounted) setState(() => _selectedMedia = File(picked.path));
+      } finally {
+        if (mounted) setState(() => _converting = false);
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() { _isVideo = false; _converting = false; });
+    }
   }
 
   void _showMediaOptions() {
@@ -484,7 +509,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   Widget _buildImageSection() {
     return GestureDetector(
-      onTap: _showMediaOptions,
+      onTap: _converting ? null : _showMediaOptions,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: AspectRatio(
@@ -497,12 +522,31 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     if (_isVideo)
                       Container(
                         color: Colors.black87,
-                        child: const Center(
-                          child: Icon(
-                            Icons.play_circle_fill,
-                            color: Colors.white,
-                            size: 56,
-                          ),
+                        child: Center(
+                          child: _converting
+                              ? const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Converting video...',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Icon(
+                                  Icons.play_circle_fill,
+                                  color: Colors.white,
+                                  size: 56,
+                                ),
                         ),
                       )
                     else
@@ -551,7 +595,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _isVideo ? 'Video added' : 'Tap to change',
+                                    _converting ? 'Converting...' : (_isVideo ? 'Video added' : 'Tap to change'),
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -562,7 +606,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () => setState(() {
+                              onTap: _converting ? null : () => setState(() {
                                 _selectedMedia = null;
                                 _isVideo = false;
                               }),
@@ -1136,7 +1180,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: _submitting ? null : _submit,
+              onTap: (_submitting || _converting) ? null : _submit,
               child: Container(
                 height: 56,
                 decoration: BoxDecoration(
