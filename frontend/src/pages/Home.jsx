@@ -174,9 +174,10 @@ function Home() {
         const fastestHasObstacles = mapped[0]?.hasObstacles
         const hasAccessible = mapped.some(r => r.label === 'Accessible Route')
         const hasWheelchair = mapped.some(r => r.label === 'Wheelchair Route')
+        const hasRamp = mapped.some(r => r.label?.includes('Ramp'))
         const missing = []
         if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
-        if (!hasWheelchair) missing.push('wheelchair')
+        if (!hasWheelchair && !hasRamp) missing.push('wheelchair')
         if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
       } catch (err) {
         const msg = err?.message || ''
