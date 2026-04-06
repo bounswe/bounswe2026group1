@@ -1008,6 +1008,8 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Category selector ─────────────────────────────────────────────────────
 
   Widget _buildCategorySelector() {
+    final negative = ReportTag.values.where((t) => !t.isPositive).toList();
+    final positive = ReportTag.values.where((t) => t.isPositive).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1024,9 +1026,41 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ReportTag.values
-              .map((tag) => _buildTagChip(tag))
-              .toList(),
+          children: negative.map((tag) => _buildTagChip(tag)).toList(),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF176a21).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, size: 11, color: Color(0xFF176a21)),
+                  SizedBox(width: 4),
+                  Text(
+                    'ACCESSIBILITY FEATURE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: Color(0xFF176a21),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: positive.map((tag) => _buildTagChip(tag)).toList(),
         ),
       ],
     );
@@ -1034,14 +1068,23 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   Widget _buildTagChip(ReportTag tag) {
     final selected = _selectedTag == tag;
+    final unselectedBg = tag.isPositive
+        ? const Color(0xFF176a21).withOpacity(0.1)
+        : const Color(0xFFCFE6F2);
+    final unselectedFg = tag.isPositive
+        ? const Color(0xFF176a21)
+        : const Color(0xFF40555F);
     return GestureDetector(
       onTap: () => setState(() => _selectedTag = tag),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? tag.color : const Color(0xFFCFE6F2),
+          color: selected ? tag.color : unselectedBg,
           borderRadius: BorderRadius.circular(999),
+          border: tag.isPositive && !selected
+              ? Border.all(color: const Color(0xFF176a21).withOpacity(0.35))
+              : null,
           boxShadow: selected
               ? [
                   BoxShadow(
@@ -1058,7 +1101,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             Icon(
               tag.icon,
               size: 16,
-              color: selected ? Colors.white : const Color(0xFF40555F),
+              color: selected ? Colors.white : unselectedFg,
             ),
             const SizedBox(width: 6),
             Text(
@@ -1066,7 +1109,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0xFF40555F),
+                color: selected ? Colors.white : unselectedFg,
               ),
             ),
           ],
@@ -1078,6 +1121,56 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Impact card ───────────────────────────────────────────────────────────
 
   Widget _buildImpactCard() {
+    if (_selectedTag.isPositive) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF176a21).withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF176a21).withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFF176a21).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.accessible, color: Color(0xFF176a21), size: 24),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ACCESSIBILITY FEATURE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                      color: Color(0xFF176a21),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'You\'re reporting something that helps people get around. Thank you!',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF176a21),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
