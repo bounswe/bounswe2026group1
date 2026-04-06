@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
@@ -121,12 +121,24 @@ function GeolocateOnLoad() {
   return null
 }
 
+function MapFlyTo({ target }) {
+  const map = useMap()
+  useEffect(() => {
+    if (target) map.flyTo([target.lat, target.lon], 15)
+  }, [target, map])
+  return null
+}
+
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [reports, setReports] = useState([])
   const [selectedReport, setSelectedReport] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
+  const [searchTarget, setSearchTarget] = useState(null)
+  const [searchError, setSearchError] = useState('')
+  const [searchSuggestions, setSearchSuggestions] = useState([])
+  const searchDebounce = useRef(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreatePanel, setShowCreatePanel] = useState(false)
@@ -137,6 +149,48 @@ function Home() {
   const [routePolyline, setRoutePolyline] = useState(null)
   const [routeInfo, setRouteInfo] = useState(null)
   const [routeError, setRouteError] = useState('')
+
+  function handleSearchChange(e) {
+    const query = e.target.value
+    setSearchValue(query)
+    setSearchError('')
+    clearTimeout(searchDebounce.current)
+    if (query.trim().length < 2) { setSearchSuggestions([]); return }
+    searchDebounce.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`
+        )
+        setSearchSuggestions(await res.json())
+      } catch {
+        setSearchSuggestions([])
+      }
+    }, 400)
+  }
+
+  function handleSuggestionSelect(suggestion) {
+    setSearchValue(suggestion.display_name)
+    setSearchSuggestions([])
+    setSearchTarget({ lat: parseFloat(suggestion.lat), lon: parseFloat(suggestion.lon) })
+  }
+
+  async function handleSearchSubmit(e) {
+    if (e.key !== 'Enter') return
+    const query = searchValue.trim()
+    if (!query) return
+    setSearchError('')
+    setSearchSuggestions([])
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`
+      )
+      const results = await res.json()
+      if (!results.length) { setSearchError('No results found.'); return }
+      setSearchTarget({ lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) })
+    } catch {
+      setSearchError('Search failed. Please try again.')
+    }
+  }
 
   async function handleRouteRightClick(latlng) {
     if (!routeOrigin) {
@@ -230,6 +284,7 @@ function Home() {
               <Marker position={newReportPin} icon={pinIcon} />
             )}
             <GeolocateOnLoad />
+            <MapFlyTo target={searchTarget} />
             <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
             <RouteClickHandler onRightClick={handleRouteRightClick} />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
@@ -321,7 +376,10 @@ function Home() {
                 <input
                   type="text"
                   value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleSearchSubmit}
+                  onBlur={() => setTimeout(() => setSearchSuggestions([]), 150)}
+                  placeholder="Search location..."
                   className="bg-transparent border-none p-0 w-full text-on-surface font-headline font-semibold focus:ring-0 text-sm outline-none"
                 />
               </div>
@@ -330,6 +388,24 @@ function Home() {
                 <span className="material-symbols-outlined text-secondary">tune</span>
               </button>
             </div>
+            {searchSuggestions.length > 0 && (
+              <ul className="mt-1 bg-white rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
+                {searchSuggestions.map((s) => (
+                  <li key={s.place_id}>
+                    <button
+                      onMouseDown={() => handleSuggestionSelect(s)}
+                      className="w-full text-left px-5 py-3 text-sm text-on-surface hover:bg-primary/5 flex items-center gap-3"
+                    >
+                      <span className="material-symbols-outlined text-base text-primary flex-shrink-0">location_on</span>
+                      <span className="truncate">{s.display_name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {searchError && (
+              <p className="mt-2 text-xs text-error bg-white/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
+            )}
           </div>
 
           {/* Community Pulse card + FAB */}
