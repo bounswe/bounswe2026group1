@@ -85,6 +85,7 @@ public class ReportService {
                         row -> (VoteType) row[1]));
     }
 
+    @Transactional
     public ReportResponse create(CreateReportRequest request) {
         RegisteredUser user = registeredUserRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + request.getUserId()));
@@ -93,6 +94,7 @@ public class ReportService {
         Report report = new Report(user, location, request.getDescription(), request.getTag());
 
         Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(saved));
         return ReportResponse.fromEntity(saved);
     }
 
@@ -107,9 +109,11 @@ public class ReportService {
         });
     }
 
+    @Transactional
     public boolean delete(Long id) {
         if (!reportRepository.existsById(id)) return false;
         reportRepository.deleteById(id);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportDeleted(id));
         return true;
     }
 

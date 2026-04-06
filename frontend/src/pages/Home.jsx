@@ -8,7 +8,7 @@ import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
-import { useReports, reportKeys } from '../hooks/useReports.js'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -25,9 +25,9 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status) {
-  const borderColor = status === 'verified' ? '#176a21' : '#f59e0b'
-  const iconColor = status === 'verified' ? '#176a21' : '#d97706'
+function makeMarkerIcon(status, tag) {
+  const cfg = REPORT_TAGS[tag] ?? { icon: 'warning', color: '#767777' }
+  const borderColor = status === 'verified' ? '#176a21' : cfg.color
   return L.divIcon({
     className: '',
     html: `
@@ -42,10 +42,10 @@ function makeMarkerIcon(status) {
       ">
         <span class="material-symbols-outlined" style="
           font-size:20px;
-          color:${iconColor};
+          color:${borderColor};
           font-variation-settings:'FILL' 1;
           line-height:1;
-        ">warning</span>
+        ">${cfg.icon}</span>
       </div>`,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
@@ -411,7 +411,7 @@ function Home() {
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status)}
+                icon={makeMarkerIcon(report.status, report.tags[0])}
                 eventHandlers={{ click: () => setSelectedReport(report) }}
               />
             ))}

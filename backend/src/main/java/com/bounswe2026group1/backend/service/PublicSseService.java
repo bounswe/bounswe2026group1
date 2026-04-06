@@ -92,6 +92,36 @@ public class PublicSseService {
         return emitter;
     }
 
+    public void broadcastReportCreated(Report report) {
+        PublicSseEvent event = new PublicSseEvent(
+                "REPORT_CREATED",
+                report.getReportId(),
+                "create",
+                report.getAgrees(),
+                report.getDisagrees(),
+                report.getStatus().name(),
+                null,
+                null,
+                Instant.now()
+        );
+        sendToAll("report-created", event);
+    }
+
+    public void broadcastReportDeleted(Long reportId) {
+        PublicSseEvent event = new PublicSseEvent(
+                "REPORT_DELETED",
+                reportId,
+                "delete",
+                null,
+                null,
+                null,
+                null,
+                null,
+                Instant.now()
+        );
+        sendToAll("report-deleted", event);
+    }
+
     public void broadcastReportUpdated(Report report, String operation) {
         PublicSseEvent event = new PublicSseEvent(
                 "REPORT_UPDATED",
