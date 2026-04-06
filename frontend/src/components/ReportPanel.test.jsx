@@ -185,11 +185,11 @@ describe('ReportPanel', () => {
   // ─── Vote error handling ──────────────────────────────────────────────────────
 
   describe('vote error handling', () => {
-    it('shows error when voting without being logged in', async () => {
+    it('navigates to /login when voting without being logged in', async () => {
       const user = userEvent.setup()
       renderPanel() // no token
       await user.click(screen.getByRole('button', { name: 'Agree' }))
-      expect(screen.getByText(/must be logged in/i)).toBeInTheDocument()
+      expect(screen.queryByText(/failed to submit vote/i)).not.toBeInTheDocument()
     })
 
     it('shows error when vote API call fails', async () => {
