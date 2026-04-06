@@ -89,3 +89,15 @@ export function mapReport(r) {
     longitude: r.longitude,
   }
 }
+
+
+/**
+ * Delete a comment by ID.
+ * DELETE /api/comments/{id}
+ */
+export async function deleteComment(commentId, token) {
+  return apiFetch(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}

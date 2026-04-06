@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment } from '../services/reportService.js'
+import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment, deleteComment } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
 /**
@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext.jsx'
  *  - onVoteUpdate: (updatedReport) => void
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
-  const { token, isAuthenticated } = useAuth()
+  const { token, isAuthenticated, userId } = useAuth()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
   const [comments, setComments] = useState([])
@@ -22,7 +22,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
   const [newComment, setNewComment] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
 
-  // Fetch comments when report changes
   useEffect(() => {
     if (!report) return
     setCommentsLoading(true)
@@ -79,6 +78,15 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
     }
   }
 
+  async function handleDeleteComment(commentId) {
+    try {
+      await deleteComment(commentId, token)
+      setComments(prev => prev.filter(c => c.id !== commentId))
+    } catch (err) {
+      console.error('Failed to delete comment', err)
+    }
+  }
+
   function formatDate(iso) {
     try {
       return new Date(iso).toLocaleDateString('en-GB', {
@@ -91,14 +99,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
   return (
     <>
-      {/* Mobile backdrop */}
       <div
         className="fixed inset-0 bg-black/20 z-[1100] lg:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
       <aside className="
         fixed top-0 right-0 h-full z-[1200]
         w-full lg:w-[500px]
@@ -108,7 +114,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
         flex flex-col
       ">
 
-        {/* Report Photo */}
         <div className="p-6">
           <div className="relative">
             {report.image ? (
@@ -123,7 +128,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               </div>
             )}
 
-            {/* Status badge */}
             <div className="absolute top-4 right-4">
               <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
                 isValidated
@@ -134,7 +138,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               </span>
             </div>
 
-            {/* Close button */}
             <button
               onClick={onClose}
               className="absolute top-4 left-4 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
@@ -145,7 +148,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
           </div>
         </div>
 
-        {/* Content */}
         <div className="px-8 pb-12 flex flex-col gap-8">
 
           {/* Header */}
@@ -255,7 +257,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               Comments {!commentsLoading && `(${comments.length})`}
             </h3>
 
-            {/* Comment input — registered users only */}
             {isAuthenticated ? (
               <div className="flex flex-col gap-2">
                 <textarea
@@ -279,7 +280,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               </p>
             )}
 
-            {/* Comments list */}
             {commentsLoading ? (
               <p className="text-sm text-on-surface-variant italic">Loading comments...</p>
             ) : comments.length === 0 ? (
@@ -291,10 +291,21 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                     <div className="w-8 h-8 rounded-full bg-surface-container-high flex-shrink-0 flex items-center justify-center">
                       <span className="material-symbols-outlined text-sm text-on-surface-variant">person</span>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-on-surface">{comment.author?.name || 'Anonymous'}</p>
-                        <p className="text-xs text-outline">{formatDate(comment.createdAt)}</p>
+                    <div className="flex flex-col gap-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-on-surface">{comment.author?.name || 'Anonymous'}</p>
+                          <p className="text-xs text-outline">{formatDate(comment.createdAt)}</p>
+                        </div>
+                        {userId && comment.author?.id == userId && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="text-outline hover:text-error transition-colors"
+                            aria-label="Delete comment"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        )}
                       </div>
                       <p className="text-sm text-on-surface-variant leading-relaxed">{comment.content}</p>
                     </div>
