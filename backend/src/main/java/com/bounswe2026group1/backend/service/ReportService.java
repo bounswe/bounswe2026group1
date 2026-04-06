@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.bounswe2026group1.backend.model.ReportStatus;
 
 import java.util.Collections;
@@ -33,6 +35,7 @@ public class ReportService {
     private final RegisteredUserRepository registeredUserRepository;
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
+    private final PublicSseService publicSseService;
 
     // Fetched from application.properties
     @Value("${app.report.verification.threshold:5}")
@@ -82,6 +85,7 @@ public class ReportService {
                         row -> (VoteType) row[1]));
     }
 
+    @Transactional
     public ReportResponse create(CreateReportRequest request) {
         RegisteredUser user = registeredUserRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + request.getUserId()));
@@ -90,6 +94,7 @@ public class ReportService {
         Report report = new Report(user, location, request.getDescription(), request.getTag());
 
         Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(saved));
         return ReportResponse.fromEntity(saved);
     }
 
@@ -104,9 +109,11 @@ public class ReportService {
         });
     }
 
+    @Transactional
     public boolean delete(Long id) {
         if (!reportRepository.existsById(id)) return false;
         reportRepository.deleteById(id);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportDeleted(id));
         return true;
     }
 
@@ -145,6 +152,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "verify"));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -180,6 +188,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "unverify"));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -195,6 +204,21 @@ public class ReportService {
         // Saves the actual public URL which is sent by MediaController
         media.setFilePath(mediaUrl);
         // Saves the created Media entity to the database
-        mediaRepository.save(media);
+        Media savedMedia = mediaRepository.save(media);
+        broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
+    }
+
+    private void broadcastAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 }
