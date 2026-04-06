@@ -92,3 +92,36 @@
     font-family: var(--font-label);
   }
 }
+
+@layer base {
+  .dark {
+    --color-primary: #9df197;
+    --color-primary-dim: #90e28a;
+    --color-primary-container: #12661e;
+    --color-on-primary: #00460e;
+    --color-on-primary-container: #9df197;
+    --color-secondary: #b3cad5;
+    --color-secondary-container: #2d424c;
+    --color-on-secondary: #1e333c;
+    --color-on-secondary-container: #cfe6f2;
+    --color-error: #ffb4a2;
+    --color-error-container: #7a1400;
+    --color-on-error: #690300;
+    --color-on-error-container: #ffb4a2;
+    --color-background: #191c1c;
+    --color-on-background: #e1e3e3;
+    --color-surface: #191c1c;
+    --color-surface-dim: #191c1c;
+    --color-surface-bright: #3a3d3d;
+    --color-surface-variant: #3a3d3d;
+    --color-surface-container-lowest: #0f1212;
+    --color-surface-container-low: #222525;
+    --color-surface-container: #282b2b;
+    --color-surface-container-high: #333636;
+    --color-surface-container-highest: #3a3d3d;
+    --color-on-surface: #e1e3e3;
+    --color-on-surface-variant: #acadad;
+    --color-outline: #8f9090;
+    --color-outline-variant: #3a3d3d;
+  }
+}
