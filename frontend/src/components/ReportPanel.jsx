@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment, deleteComment } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -15,6 +16,7 @@ import { useAuth } from '../context/AuthContext.jsx'
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
   const { token, isAuthenticated, userId } = useAuth()
+  const navigate = useNavigate()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
   const [comments, setComments] = useState([])
@@ -31,6 +33,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
       .finally(() => setCommentsLoading(false))
   }, [report?.id])
 
+  useEffect(() => {
+    function handleExpired() { navigate('/login') }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
+  }, [navigate])
+
   if (!report) return null
 
   const isValidated = report.status === 'verified'
@@ -39,7 +47,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
   async function handleVote(type) {
     if (!token) {
-      setVoteError('You must be logged in to vote.')
+      navigate('/login')
       return
     }
     setVoting(true)
