@@ -54,9 +54,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     super.initState();
     _agrees = report.agrees;
     _disagrees = report.disagrees;
+    // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
+    _myVote = report.userVote?.toLowerCase();
     if (report.username == null) _loadUsername();
     _loadComments();
     if (_hasVideo) _initVideo();
+    // Fetch fresh report so userVote / counts reflect server state.
+    _refreshReport();
+  }
+
+  Future<void> _refreshReport() async {
+    try {
+      final fresh = await context.read<AuthService>().api.getReport(report.reportId);
+      if (!mounted) return;
+      setState(() {
+        _agrees = fresh.agrees;
+        _disagrees = fresh.disagrees;
+        _myVote = fresh.userVote?.toLowerCase();
+      });
+    } catch (_) {
+      // Non-fatal — stale data from the list is still shown.
+    }
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
@@ -228,23 +246,35 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       _showLoginRequiredDialog();
       return;
     }
-    if (_voteLoading || _myVote == vote) return;
+    if (_voteLoading) return;
     setState(() => _voteLoading = true);
     try {
       final api = context.read<AuthService>().api;
       if (vote == 'agree') {
+        // /verify toggles: null→AGREE, DISAGREE→AGREE, AGREE→null
         await api.verifyReport(report.reportId);
         setState(() {
           if (_myVote == 'disagree') _disagrees--;
-          _agrees++;
-          _myVote = 'agree';
+          if (_myVote == 'agree') {
+            _agrees--;
+            _myVote = null;
+          } else {
+            _agrees++;
+            _myVote = 'agree';
+          }
         });
       } else {
+        // /unverify toggles: null→DISAGREE, AGREE→DISAGREE, DISAGREE→null
         await api.unverifyReport(report.reportId);
         setState(() {
           if (_myVote == 'agree') _agrees--;
-          _disagrees++;
-          _myVote = 'disagree';
+          if (_myVote == 'disagree') {
+            _disagrees--;
+            _myVote = null;
+          } else {
+            _disagrees++;
+            _myVote = 'disagree';
+          }
         });
       }
     } catch (e) {
@@ -774,7 +804,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   _voteCount(Icons.thumb_up, _agrees, AppColors.primary),
                   const SizedBox(height: 4),
-                  _voteCount(Icons.thumb_down, _disagrees, AppColors.outline),
+                  _voteCount(Icons.thumb_down, _disagrees, const Color(0xFFB02500)),
                 ],
               ),
             ],
@@ -800,7 +830,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ? Icons.thumb_down_rounded
                       : Icons.thumb_down_outlined,
                   label: 'Disagree',
-                  active: false,
+                  active: _myVote == 'disagree',
+                  activeColor: const Color(0xFFB02500),
+                  activeTextColor: const Color(0xFFFFCDD2),
                   loading: _voteLoading && _myVote != 'disagree',
                   onTap: () => _vote('disagree'),
                 ),
@@ -883,18 +915,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     required bool active,
     required bool loading,
     required VoidCallback onTap,
+    Color activeColor = AppColors.primary,
+    Color activeTextColor = AppColors.onPrimary,
   }) {
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary : AppColors.surfaceContainerHigh,
+          color: active ? activeColor : AppColors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(999),
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.28),
+                    color: activeColor.withOpacity(0.28),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -908,7 +942,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: active ? AppColors.onPrimary : AppColors.onSurface,
+                    color: active ? activeTextColor : AppColors.onSurface,
                   ),
                 ),
               )
@@ -917,7 +951,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   Icon(
                     icon,
-                    color: active ? AppColors.onPrimary : AppColors.onSurface,
+                    color: active ? activeTextColor : AppColors.onSurface,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -925,7 +959,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     label,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: active ? AppColors.onPrimary : AppColors.onSurface,
+                      color: active ? activeTextColor : AppColors.onSurface,
                       fontSize: 14,
                     ),
                   ),
