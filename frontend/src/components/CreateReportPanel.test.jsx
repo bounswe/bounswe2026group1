@@ -79,6 +79,7 @@ describe('CreateReportPanel', () => {
 
     it('shows error when submitting without a category', async () => {
       const user = userEvent.setup()
+      localStorage.setItem('token', FAKE_TOKEN)
       render(
         <MemoryRouter>
           <AuthProvider>
@@ -90,13 +91,13 @@ describe('CreateReportPanel', () => {
           </AuthProvider>
         </MemoryRouter>
       )
-      localStorage.setItem('token', FAKE_TOKEN)
       await user.click(screen.getByRole('button', { name: /submit report/i }))
       expect(screen.getByText(/select a category/i)).toBeInTheDocument()
     })
 
     it('shows error when submitting without a description', async () => {
       const user = userEvent.setup()
+      localStorage.setItem('token', FAKE_TOKEN)
       render(
         <MemoryRouter>
           <AuthProvider>
@@ -108,7 +109,6 @@ describe('CreateReportPanel', () => {
           </AuthProvider>
         </MemoryRouter>
       )
-      localStorage.setItem('token', FAKE_TOKEN)
       await user.click(screen.getByRole('button', { name: /construction/i }))
       await user.click(screen.getByRole('button', { name: /submit report/i }))
       expect(screen.getByText(/provide a description/i)).toBeInTheDocument()
