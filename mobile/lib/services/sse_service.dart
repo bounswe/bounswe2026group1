@@ -66,6 +66,8 @@ class SseService extends ChangeNotifier with WidgetsBindingObserver {
   void disconnect() {
     _reconnectTimer?.cancel();
     _fallbackTimer?.cancel();
+    _fallbackTimer = null;
+    _disconnectedAt = null;
     _sub?.cancel();
     _sub = null;
     _client?.close(force: true);
