@@ -98,6 +98,7 @@ public class OrsRoutingClient {
         root.put("units", "m");
         root.put("instructions", true);
         root.put("geometry", true);
+        root.put("geometry_format", "encodedpolyline");
         root.put("preference", "recommended");
 
         if (avoidPolygons != null) {

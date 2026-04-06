@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { apiFetch } from '../services/api.js'
 import { mapReport } from '../services/reportService.js'
@@ -14,6 +15,7 @@ const TAGS = [
 
 function CreateReportPanel({ position, onClose, onCreated }) {
   const { token, userId } = useAuth()
+  const navigate = useNavigate()
   const [tag, setTag] = useState('')
   const [description, setDescription] = useState('')
   const [imageFile, setImageFile] = useState(null)
@@ -38,6 +40,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   }
 
   async function handleSubmit() {
+    if (!token) { onClose(); navigate('/login'); return }
     if (!position) return setError('Click on the map to set a location.')
     if (!tag) return setError('Please select a category.')
     if (!description.trim()) return setError('Please provide a description.')

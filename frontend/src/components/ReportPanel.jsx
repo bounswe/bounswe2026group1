@@ -39,6 +39,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
     return () => window.removeEventListener('auth:expired', handleExpired)
   }, [navigate])
 
+  useEffect(() => {
+    function handleExpired() { navigate('/login') }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
+  }, [navigate])
+
   if (!report) return null
 
   const isValidated = report.status === 'verified'
