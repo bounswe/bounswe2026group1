@@ -50,7 +50,7 @@ jobs:
           command_timeout: 5m
           script: |
             cd ~/bounswe2026group1
-            git pull origin main
+            git fetch origin main && git reset --hard origin/main
             cd backend
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment } from '../services/reportService.js'
+import { useNavigate } from 'react-router-dom'
+import { agreeReport, disagreeReport, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
 /**
  * ReportPanel
@@ -8,29 +10,20 @@ import { useAuth } from '../context/AuthContext.jsx'
  * Mobile: full screen overlay.
  * Props:
  *  - report: mapped report object
- *  - userVote: 'agree' | 'disagree' | null
- *  - onVoteChange: (type) => void
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
-  const { token, isAuthenticated } = useAuth()
+  const { token } = useAuth()
+  const navigate = useNavigate()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
-  const [comments, setComments] = useState([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
-  const [newComment, setNewComment] = useState('')
-  const [submittingComment, setSubmittingComment] = useState(false)
 
-  // Fetch comments when report changes
   useEffect(() => {
-    if (!report) return
-    setCommentsLoading(true)
-    getCommentsByReport(report.id)
-      .then(data => setComments(data || []))
-      .catch(() => setComments([]))
-      .finally(() => setCommentsLoading(false))
-  }, [report?.id])
+    function handleExpired() { navigate('/login') }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
+  }, [navigate])
 
   if (!report) return null
 
@@ -40,7 +33,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
   async function handleVote(type) {
     if (!token) {
-      setVoteError('You must be logged in to vote.')
+      navigate('/login')
       return
     }
     setVoting(true)
@@ -62,30 +55,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
       setVoteError('Failed to submit vote. Please try again.')
     } finally {
       setVoting(false)
-    }
-  }
-
-  async function handleCommentSubmit() {
-    if (!newComment.trim()) return
-    setSubmittingComment(true)
-    try {
-      const created = await createComment(report.id, newComment.trim(), token)
-      setComments(prev => [created, ...prev])
-      setNewComment('')
-    } catch (err) {
-      console.error('Failed to submit comment', err)
-    } finally {
-      setSubmittingComment(false)
-    }
-  }
-
-  function formatDate(iso) {
-    try {
-      return new Date(iso).toLocaleDateString('en-GB', {
-        day: 'numeric', month: 'short', year: 'numeric'
-      })
-    } catch {
-      return iso
     }
   }
 
@@ -163,13 +132,21 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                   <p className="text-xs text-on-surface-variant">{report.date}</p>
                 </div>
               </div>
-              {report.tags && (
+              {report.tags && report.tags.length > 0 && (
                 <div className="flex gap-2 flex-wrap justify-end">
-                  {report.tags.map(tag => (
-                    <span key={tag} className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-medium rounded-full">
-                      {tag}
-                    </span>
-                  ))}
+                  {report.tags.map(tag => {
+                    const cfg = REPORT_TAGS[tag] ?? { label: tag, icon: 'warning', color: '#767777' }
+                    return (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
+                        style={{ backgroundColor: cfg.color }}
+                      >
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: '14px' }}>{cfg.icon}</span>
+                        {cfg.label}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -213,6 +190,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               {report.agrees || 0} people have verified this issue as active.
             </p>
 
+            {/* Vote error */}
             {voteError && (
               <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">
                 {voteError}
@@ -247,61 +225,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                 {voting ? '...' : 'Disagree'}
               </button>
             </div>
-          </section>
-
-          {/* Comments Section */}
-          <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              Comments {!commentsLoading && `(${comments.length})`}
-            </h3>
-
-            {/* Comment input — registered users only */}
-            {isAuthenticated ? (
-              <div className="flex flex-col gap-2">
-                <textarea
-                  className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                  rows={3}
-                  placeholder="Add a comment..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                />
-                <button
-                  onClick={handleCommentSubmit}
-                  disabled={submittingComment || !newComment.trim()}
-                  className="self-end px-6 py-2 bg-primary text-on-primary rounded-full text-sm font-bold active:scale-95 transition-all disabled:opacity-50"
-                >
-                  {submittingComment ? 'Posting...' : 'Post'}
-                </button>
-              </div>
-            ) : (
-              <p className="text-sm text-on-surface-variant bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/10">
-                <a href="/login" className="font-bold text-primary hover:underline">Log in</a> to leave a comment.
-              </p>
-            )}
-
-            {/* Comments list */}
-            {commentsLoading ? (
-              <p className="text-sm text-on-surface-variant italic">Loading comments...</p>
-            ) : comments.length === 0 ? (
-              <p className="text-sm text-on-surface-variant italic">No comments yet.</p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {comments.map(comment => (
-                  <div key={comment.id} className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-surface-container-high flex-shrink-0 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-sm text-on-surface-variant">person</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-on-surface">{comment.author?.name || 'Anonymous'}</p>
-                        <p className="text-xs text-outline">{formatDate(comment.createdAt)}</p>
-                      </div>
-                      <p className="text-sm text-on-surface-variant leading-relaxed">{comment.content}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
 
           {/* Activity Timeline */}

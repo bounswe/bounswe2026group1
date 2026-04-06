@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -27,7 +28,9 @@ class MakeReportScreen extends StatefulWidget {
 class _MakeReportScreenState extends State<MakeReportScreen> {
   final _descController = TextEditingController();
   ReportTag _selectedTag = ReportTag.other;
-  File? _selectedImage;
+  File? _selectedMedia;
+  bool _isVideo = false;
+  bool _converting = false;
   bool _submitting = false;
 
   final _picker = ImagePicker();
@@ -149,7 +152,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     }
   }
 
-  // ─── Image picking ─────────────────────────────────────────────────────────
+  // ─── Media picking ─────────────────────────────────────────────────────────
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -158,13 +161,51 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         imageQuality: 80,
         maxWidth: 1080,
       );
-      if (picked != null) setState(() => _selectedImage = File(picked.path));
+      if (picked != null) {
+        setState(() {
+          _selectedMedia = File(picked.path);
+          _isVideo = false;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pickVideo(ImageSource source) async {
+    try {
+      final picked = await _picker.pickVideo(source: source);
+      if (picked == null) return;
+
+      // Show placeholder immediately so the user sees feedback
+      setState(() {
+        _isVideo = true;
+        _converting = true;
+        _selectedMedia = null;
+      });
+
+      try {
+        final info = await VideoCompress.compressVideo(
+          picked.path,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+          includeAudio: true,
+        );
+        if (info?.file != null && mounted) {
+          setState(() => _selectedMedia = info!.file!);
+        } else if (mounted) {
+          // Fallback: use original file as-is
+          setState(() => _selectedMedia = File(picked.path));
+        }
+      } catch (_) {
+        if (mounted) setState(() => _selectedMedia = File(picked.path));
+      } finally {
+        if (mounted) setState(() => _converting = false);
+      }
     } catch (_) {
-      // Permission denied or unavailable — ignore silently
+      if (mounted) setState(() { _isVideo = false; _converting = false; });
     }
   }
 
-  void _showImageOptions() {
+  void _showMediaOptions() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -197,19 +238,38 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
             _sheetOption(
               icon: Icons.photo_library_outlined,
-              label: 'Choose from Gallery',
+              label: 'Choose Photo from Gallery',
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
               },
             ),
-            if (_selectedImage != null)
+            _sheetOption(
+              icon: Icons.videocam_outlined,
+              label: 'Record Video',
+              onTap: () {
+                Navigator.pop(context);
+                _pickVideo(ImageSource.camera);
+              },
+            ),
+            _sheetOption(
+              icon: Icons.video_library_outlined,
+              label: 'Choose Video from Gallery',
+              onTap: () {
+                Navigator.pop(context);
+                _pickVideo(ImageSource.gallery);
+              },
+            ),
+            if (_selectedMedia != null)
               _sheetOption(
                 icon: Icons.delete_outline,
-                label: 'Remove Photo',
+                label: 'Remove Media',
                 color: const Color(0xFFB02500),
                 onTap: () {
-                  setState(() => _selectedImage = null);
+                  setState(() {
+                    _selectedMedia = null;
+                    _isVideo = false;
+                  });
                   Navigator.pop(context);
                 },
               ),
@@ -258,6 +318,24 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         description: desc,
         tag: _selectedTag,
       );
+
+      // Upload media if selected
+      if (_selectedMedia != null) {
+        try {
+          await auth.api.uploadMedia(report.reportId, _selectedMedia!);
+        } catch (e) {
+          // Media upload failed — report was created; show warning but continue
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Report posted, but media upload failed: $e'),
+                duration: const Duration(seconds: 6),
+              ),
+            );
+          }
+        }
+      }
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -427,20 +505,52 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     ),
   );
 
-  // ─── Image section ─────────────────────────────────────────────────────────
+  // ─── Media section ─────────────────────────────────────────────────────────
 
   Widget _buildImageSection() {
     return GestureDetector(
-      onTap: _showImageOptions,
+      onTap: _converting ? null : _showMediaOptions,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: _selectedImage != null
+          child: _selectedMedia != null
               ? Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(_selectedImage!, fit: BoxFit.cover),
+                    // Preview: video thumbnail placeholder or image
+                    if (_isVideo)
+                      Container(
+                        color: Colors.black87,
+                        child: Center(
+                          child: _converting
+                              ? const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Converting video...',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Icon(
+                                  Icons.play_circle_fill,
+                                  color: Colors.white,
+                                  size: 56,
+                                ),
+                        ),
+                      )
+                    else
+                      Image.file(_selectedMedia!, fit: BoxFit.cover),
                     // Bottom overlay
                     Positioned(
                       bottom: 0,
@@ -473,22 +583,37 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                 color: Colors.white.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(999),
                               ),
-                              child: const Text(
-                                'Tap to change',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.onSurface,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isVideo
+                                        ? Icons.videocam_outlined
+                                        : Icons.photo_outlined,
+                                    size: 12,
+                                    color: AppColors.onSurface,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _converting ? 'Converting...' : (_isVideo ? 'Video added' : 'Tap to change'),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.onSurface,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedImage = null),
+                              onTap: _converting ? null : () => setState(() {
+                                _selectedMedia = null;
+                                _isVideo = false;
+                              }),
                               child: Container(
                                 width: 34,
                                 height: 34,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
@@ -524,14 +649,14 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                           ],
                         ),
                         child: const Icon(
-                          Icons.add_a_photo_outlined,
+                          Icons.perm_media_outlined,
                           color: AppColors.primary,
                           size: 26,
                         ),
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Add a Photo',
+                        'Add Photo or Video',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontWeight: FontWeight.w700,
@@ -541,7 +666,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Camera or gallery',
+                        'Photo, MP4 or MOV',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.onSurfaceVariant,
@@ -883,6 +1008,8 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Category selector ─────────────────────────────────────────────────────
 
   Widget _buildCategorySelector() {
+    final negative = ReportTag.values.where((t) => !t.isPositive).toList();
+    final positive = ReportTag.values.where((t) => t.isPositive).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -899,9 +1026,41 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ReportTag.values
-              .map((tag) => _buildTagChip(tag))
-              .toList(),
+          children: negative.map((tag) => _buildTagChip(tag)).toList(),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF176a21).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, size: 11, color: Color(0xFF176a21)),
+                  SizedBox(width: 4),
+                  Text(
+                    'ACCESSIBILITY FEATURE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: Color(0xFF176a21),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: positive.map((tag) => _buildTagChip(tag)).toList(),
         ),
       ],
     );
@@ -909,14 +1068,23 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   Widget _buildTagChip(ReportTag tag) {
     final selected = _selectedTag == tag;
+    final unselectedBg = tag.isPositive
+        ? const Color(0xFF176a21).withOpacity(0.1)
+        : const Color(0xFFCFE6F2);
+    final unselectedFg = tag.isPositive
+        ? const Color(0xFF176a21)
+        : const Color(0xFF40555F);
     return GestureDetector(
       onTap: () => setState(() => _selectedTag = tag),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? tag.color : const Color(0xFFCFE6F2),
+          color: selected ? tag.color : unselectedBg,
           borderRadius: BorderRadius.circular(999),
+          border: tag.isPositive && !selected
+              ? Border.all(color: const Color(0xFF176a21).withOpacity(0.35))
+              : null,
           boxShadow: selected
               ? [
                   BoxShadow(
@@ -933,7 +1101,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             Icon(
               tag.icon,
               size: 16,
-              color: selected ? Colors.white : const Color(0xFF40555F),
+              color: selected ? Colors.white : unselectedFg,
             ),
             const SizedBox(width: 6),
             Text(
@@ -941,7 +1109,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0xFF40555F),
+                color: selected ? Colors.white : unselectedFg,
               ),
             ),
           ],
@@ -953,6 +1121,56 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Impact card ───────────────────────────────────────────────────────────
 
   Widget _buildImpactCard() {
+    if (_selectedTag.isPositive) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF176a21).withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF176a21).withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFF176a21).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.accessible, color: Color(0xFF176a21), size: 24),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ACCESSIBILITY FEATURE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                      color: Color(0xFF176a21),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'You\'re reporting something that helps people get around. Thank you!',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF176a21),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1055,7 +1273,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: _submitting ? null : _submit,
+              onTap: (_submitting || _converting) ? null : _submit,
               child: Container(
                 height: 56,
                 decoration: BoxDecoration(

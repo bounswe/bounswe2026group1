@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
@@ -22,6 +24,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   String? _fetchedUsername;
 
+  // ── Video player ───────────────────────────────────────────────────────────
+  VideoPlayerController? _videoController;
+  bool _videoReady = false;
+
+  bool get _hasVideo {
+    if (report.mediaUrls.isEmpty) return false;
+    // Strip query params (e.g. S3 pre-signed URLs) before checking extension
+    final path = (Uri.tryParse(report.mediaUrls.first)?.path ?? report.mediaUrls.first).toLowerCase();
+    return path.endsWith('.mp4') || path.endsWith('.mov') ||
+           path.endsWith('.avi') || path.endsWith('.mkv') || path.endsWith('.webm');
+  }
+
   // ── Vote state ─────────────────────────────────────────────────────────────
   late int _agrees;
   late int _disagrees;
@@ -40,12 +54,93 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     super.initState();
     _agrees = report.agrees;
     _disagrees = report.disagrees;
+    // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
+    _myVote = report.userVote?.toLowerCase();
     if (report.username == null) _loadUsername();
     _loadComments();
+    if (_hasVideo) _initVideo();
+    // Fetch fresh report so userVote / counts reflect server state.
+    _refreshReport();
+  }
+
+  Future<void> _refreshReport() async {
+    try {
+      final fresh = await context.read<AuthService>().api.getReport(report.reportId);
+      if (!mounted) return;
+      setState(() {
+        _agrees = fresh.agrees;
+        _disagrees = fresh.disagrees;
+        _myVote = fresh.userVote?.toLowerCase();
+      });
+    } catch (_) {
+      // Non-fatal — stale data from the list is still shown.
+    }
+  }
+
+  /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
+  /// global endpoint → regional endpoint via 307). Resolve all redirects first
+  /// so AVPlayer receives the final URL directly.
+  Future<String> _resolveVideoUrl(String url) async {
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 8);
+      String current = url;
+      for (int i = 0; i < 5; i++) {
+        final request = await client.getUrl(Uri.parse(current));
+        request.followRedirects = false;
+        // AVPlayer User-Agent equivalent to avoid WAF blocks
+        request.headers.set(HttpHeaders.userAgentHeader, 'AppleCoreMedia/1.0.0.19E258 (iPhone; U; CPU OS 15_4 like Mac OS X; en_us)');
+        final response = await request.close();
+        
+        final status = response.statusCode;
+        if (status == 301 || status == 302 || status == 307 || status == 308) {
+          final location = response.headers.value(HttpHeaders.locationHeader);
+          await response.drain<void>();
+          if (location != null) {
+            current = Uri.parse(current).resolve(location).toString();
+            continue;
+          }
+        }
+        break;
+      }
+      client.close(force: true);
+      return current;
+    } catch (_) {}
+    return url;
+  }
+
+  Future<void> _initVideo() async {
+    final rawUrl = report.mediaUrls.first;
+    final resolvedUrl = Platform.isIOS
+        ? await _resolveVideoUrl(rawUrl)
+        : rawUrl;
+
+    final path = Uri.tryParse(resolvedUrl)?.path.toLowerCase() ?? '';
+    final formatHint = path.endsWith('.m3u8') ? VideoFormat.hls : null;
+
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(resolvedUrl),
+      formatHint: formatHint,
+      httpHeaders: {
+        'User-Agent': 'AppleCoreMedia/1.0.0.19E258 (iPhone; U; CPU OS 15_4 like Mac OS X; en_us)',
+      },
+    );
+    try {
+      await controller.initialize();
+    } catch (_) {
+      controller.dispose();
+      return;
+    }
+    if (!mounted) { controller.dispose(); return; }
+    setState(() {
+      _videoController = controller;
+      _videoReady = true;
+    });
   }
 
   @override
   void dispose() {
+    _videoController?.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -151,23 +246,35 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       _showLoginRequiredDialog();
       return;
     }
-    if (_voteLoading || _myVote == vote) return;
+    if (_voteLoading) return;
     setState(() => _voteLoading = true);
     try {
       final api = context.read<AuthService>().api;
       if (vote == 'agree') {
+        // /verify toggles: null→AGREE, DISAGREE→AGREE, AGREE→null
         await api.verifyReport(report.reportId);
         setState(() {
           if (_myVote == 'disagree') _disagrees--;
-          _agrees++;
-          _myVote = 'agree';
+          if (_myVote == 'agree') {
+            _agrees--;
+            _myVote = null;
+          } else {
+            _agrees++;
+            _myVote = 'agree';
+          }
         });
       } else {
+        // /unverify toggles: null→DISAGREE, AGREE→DISAGREE, DISAGREE→null
         await api.unverifyReport(report.reportId);
         setState(() {
           if (_myVote == 'agree') _agrees--;
-          _disagrees++;
-          _myVote = 'disagree';
+          if (_myVote == 'disagree') {
+            _disagrees--;
+            _myVote = null;
+          } else {
+            _disagrees++;
+            _myVote = 'disagree';
+          }
         });
       }
     } catch (e) {
@@ -284,20 +391,38 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   // ─── Hero image / placeholder ───────────────────────────────────────────────
 
+  void _openFullscreen() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (ctx, _, __) => _FullscreenMediaPage(
+          imageUrl: _hasVideo ? null : report.mediaUrls.firstOrNull,
+          videoController: _hasVideo ? _videoController : null,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeroSection() {
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: SizedBox(
-            width: double.infinity,
-            height: 240,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
             child: report.mediaUrls.isNotEmpty
-                ? Image.network(
-                    report.mediaUrls.first,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => _heroPlaceholder(),
-                  )
+                ? _hasVideo
+                    ? _buildVideoPlayer()
+                    : GestureDetector(
+                        onTap: _openFullscreen,
+                        child: Image.network(
+                          report.mediaUrls.first,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stack) =>
+                              _heroPlaceholder(),
+                        ),
+                      )
                 : _heroPlaceholder(),
           ),
         ),
@@ -355,6 +480,69 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVideoPlayer() {
+    if (!_videoReady || _videoController == null) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => setState(() {
+        _videoController!.value.isPlaying
+            ? _videoController!.pause()
+            : _videoController!.play();
+      }),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _videoController!.value.size.width,
+              height: _videoController!.value.size.height,
+              child: VideoPlayer(_videoController!),
+            ),
+          ),
+          // Play/pause overlay
+          ValueListenableBuilder(
+            valueListenable: _videoController!,
+            builder: (_, value, __) => AnimatedOpacity(
+              opacity: value.isPlaying ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                color: Colors.black45,
+                child: const Center(
+                  child: Icon(Icons.play_circle_fill,
+                      color: Colors.white, size: 56),
+                ),
+              ),
+            ),
+          ),
+          // Fullscreen button
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _openFullscreen,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.fullscreen,
+                    color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -616,7 +804,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   _voteCount(Icons.thumb_up, _agrees, AppColors.primary),
                   const SizedBox(height: 4),
-                  _voteCount(Icons.thumb_down, _disagrees, AppColors.outline),
+                  _voteCount(Icons.thumb_down, _disagrees, const Color(0xFFB02500)),
                 ],
               ),
             ],
@@ -642,7 +830,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ? Icons.thumb_down_rounded
                       : Icons.thumb_down_outlined,
                   label: 'Disagree',
-                  active: false,
+                  active: _myVote == 'disagree',
+                  activeColor: const Color(0xFFB02500),
+                  activeTextColor: const Color(0xFFFFCDD2),
                   loading: _voteLoading && _myVote != 'disagree',
                   onTap: () => _vote('disagree'),
                 ),
@@ -725,18 +915,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     required bool active,
     required bool loading,
     required VoidCallback onTap,
+    Color activeColor = AppColors.primary,
+    Color activeTextColor = AppColors.onPrimary,
   }) {
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary : AppColors.surfaceContainerHigh,
+          color: active ? activeColor : AppColors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(999),
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.28),
+                    color: activeColor.withOpacity(0.28),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -750,7 +942,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: active ? AppColors.onPrimary : AppColors.onSurface,
+                    color: active ? activeTextColor : AppColors.onSurface,
                   ),
                 ),
               )
@@ -759,7 +951,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   Icon(
                     icon,
-                    color: active ? AppColors.onPrimary : AppColors.onSurface,
+                    color: active ? activeTextColor : AppColors.onSurface,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -767,7 +959,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     label,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: active ? AppColors.onPrimary : AppColors.onSurface,
+                      color: active ? activeTextColor : AppColors.onSurface,
                       fontSize: 14,
                     ),
                   ),
@@ -1236,4 +1428,59 @@ class _ImagePlaceholderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ImagePlaceholderPainter old) =>
       old.color != color;
+}
+
+// ─── Fullscreen media page ────────────────────────────────────────────────────
+
+class _FullscreenMediaPage extends StatelessWidget {
+  final String? imageUrl;
+  final VideoPlayerController? videoController;
+
+  const _FullscreenMediaPage({this.imageUrl, this.videoController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: imageUrl != null
+                ? InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Image.network(
+                      imageUrl!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white54,
+                        size: 64,
+                      ),
+                    ),
+                  )
+                : videoController != null
+                    ? AspectRatio(
+                        aspectRatio: videoController!.value.aspectRatio,
+                        child: VideoPlayer(videoController!),
+                      )
+                    : const SizedBox.shrink(),
+          ),
+          // Close button
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import { apiFetch } from './api.js'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
 /**
  * Fetch all reports from the backend.
@@ -60,18 +61,9 @@ export async function createComment(reportId, content, token) {
  * Map API ReportResponse fields to ReportPanel prop shape.
  */
 export function mapReport(r) {
-  const tagLabels = {
-    MISSING_RAMP: 'Missing Ramp',
-    BROKEN_ELEVATOR: 'Broken Elevator',
-    NARROW_PASSAGE: 'Narrow Passage',
-    WET_FLOOR: 'Wet Floor',
-    CONSTRUCTION: 'Construction',
-    OTHER: 'Other',
-  }
-
   return {
     id: r.reportId,
-    title: tagLabels[r.tag] || r.tag,
+    title: REPORT_TAGS[r.tag]?.label || r.tag,
     description: r.description,
     status: r.status === 'VERIFIED' ? 'verified' : 'unverified',
     date: r.publishDate
@@ -83,7 +75,7 @@ export function mapReport(r) {
     reportedBy: `User #${r.userId}`,
     agrees: r.agrees,
     disagrees: r.disagrees,
-    tags: [tagLabels[r.tag] || r.tag],
+    tags: r.tag ? [r.tag] : [],
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     latitude: r.latitude,
     longitude: r.longitude,
