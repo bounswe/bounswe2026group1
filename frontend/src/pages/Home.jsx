@@ -248,9 +248,10 @@ function Home() {
     <div className="flex flex-col h-screen overflow-hidden bg-background font-body">
       <Navbar />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Route Panel — left sidebar */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Route Panel — left sidebar overlay (does not resize the map) */}
         {routeMode && (
+          <div className="absolute top-0 left-0 h-full z-[1000] pointer-events-auto">
           <RoutePanel
             routeOrigin={routeOrigin}
             routeDest={routeDest}
@@ -315,6 +316,7 @@ function Home() {
             onSelectRoute={setActiveRouteIndex}
             onReset={resetRoute}
           />
+          </div>
         )}
 
         {/* Map area */}
