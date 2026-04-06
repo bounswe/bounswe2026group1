@@ -282,38 +282,49 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       return;
     }
     if (_voteLoading) return;
-    setState(() => _voteLoading = true);
+
+    final previousVote = _myVote;
+    final previousAgrees = _agrees;
+    final previousDisagrees = _disagrees;
+
+    setState(() {
+      _voteLoading = true;
+      if (vote == 'agree') {
+        if (_myVote == 'disagree') _disagrees--;
+        if (_myVote == 'agree') {
+          _agrees--;
+          _myVote = null;
+        } else {
+          _agrees++;
+          _myVote = 'agree';
+        }
+      } else {
+        if (_myVote == 'agree') _agrees--;
+        if (_myVote == 'disagree') {
+          _disagrees--;
+          _myVote = null;
+        } else {
+          _disagrees++;
+          _myVote = 'disagree';
+        }
+      }
+    });
+
     try {
       final api = context.read<AuthService>().api;
       if (vote == 'agree') {
-        // /verify toggles: null→AGREE, DISAGREE→AGREE, AGREE→null
         await api.verifyReport(report.reportId);
-        setState(() {
-          if (_myVote == 'disagree') _disagrees--;
-          if (_myVote == 'agree') {
-            _agrees--;
-            _myVote = null;
-          } else {
-            _agrees++;
-            _myVote = 'agree';
-          }
-        });
       } else {
-        // /unverify toggles: null→DISAGREE, AGREE→DISAGREE, DISAGREE→null
         await api.unverifyReport(report.reportId);
-        setState(() {
-          if (_myVote == 'agree') _agrees--;
-          if (_myVote == 'disagree') {
-            _disagrees--;
-            _myVote = null;
-          } else {
-            _disagrees++;
-            _myVote = 'disagree';
-          }
-        });
       }
+      await _refreshReport();
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _myVote = previousVote;
+          _agrees = previousAgrees;
+          _disagrees = previousDisagrees;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Vote failed: ${e.toString()}')),
         );
@@ -467,9 +478,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: report.status.color.withOpacity(0.15),
+              color: _currentStatus.color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: report.status.color.withOpacity(0.4)),
+              border: Border.all(color: _currentStatus.color.withOpacity(0.4)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -478,18 +489,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: report.status.color,
+                    color: _currentStatus.color,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  report.status.label,
+                  _currentStatus.label,
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: report.status.color,
+                    color: _currentStatus.color,
                   ),
                 ),
               ],
@@ -1028,7 +1039,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           const SizedBox(height: 12),
           _infoRow(Icons.tag, 'Report ID', '#${report.reportId}'),
           _infoRow(Icons.category_outlined, 'Category', report.tag.label),
-          _infoRow(Icons.circle_outlined, 'Status', report.status.label),
+          _infoRow(Icons.circle_outlined, 'Status', _currentStatus.label),
           _infoRow(
             Icons.schedule_outlined,
             'Reported',
