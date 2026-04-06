@@ -22,7 +22,12 @@ function RoutePanel({
   onSelectRoute,
   onReset,
 }) {
-  const ROUTE_COLORS = ['#176a21', '#2563eb', '#dc2626', '#d97706']
+  function routeColor(route) {
+    if (route.label?.includes('Accessible')) return '#1565C0'  // deep blue
+    if (route.label?.includes('Wheelchair')) return '#6A1B9A'  // deep purple
+    if (route.label?.includes('Ramp'))       return '#00695C'  // deep teal
+    return route.hasObstacles ? '#E65100' : '#2E7D32'          // orange or green
+  }
 
   function formatDistance(m) {
     return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`
@@ -144,7 +149,7 @@ function RoutePanel({
                   <div className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ background: ROUTE_COLORS[i] }}
+                      style={{ background: routeColor(route) }}
                     />
                     <p className="text-sm font-bold text-on-surface">{route.label}</p>
                   </div>

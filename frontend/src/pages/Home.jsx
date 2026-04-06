@@ -270,18 +270,25 @@ function Home() {
             />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
             {routeDest && <Marker position={routeDest} icon={pinIcon} />}
-            {routes && routes.map((r, i) => (
-              <Polyline
-                key={i}
-                positions={r.coords}
-                pathOptions={{
-                  color: ['#176a21', '#2563eb', '#dc2626', '#d97706'][i] ,
-                  weight: i === activeRouteIndex ? 7 : 4,
-                  opacity: i === activeRouteIndex ? 1 : 0.4,
-                }}
-                eventHandlers={{ click: () => setActiveRouteIndex(i) }}
-              />
-            ))}
+            {routes && routes.map((r, i) => {
+              let color
+              if (r.label?.includes('Accessible')) color = '#1565C0'
+              else if (r.label?.includes('Wheelchair')) color = '#6A1B9A'
+              else if (r.label?.includes('Ramp')) color = '#00695C'
+              else color = r.hasObstacles ? '#E65100' : '#2E7D32'
+              return (
+                <Polyline
+                  key={i}
+                  positions={r.coords}
+                  pathOptions={{
+                    color,
+                    weight: i === activeRouteIndex ? 7 : 4,
+                    opacity: i === activeRouteIndex ? 1 : 0.4,
+                  }}
+                  eventHandlers={{ click: () => setActiveRouteIndex(i) }}
+                />
+              )
+            })}
             <ZoomControls />
           </MapContainer>
 
