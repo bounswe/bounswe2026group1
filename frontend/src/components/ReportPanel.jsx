@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agreeReport, disagreeReport, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
 /**
  * ReportPanel
@@ -131,13 +132,21 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                   <p className="text-xs text-on-surface-variant">{report.date}</p>
                 </div>
               </div>
-              {report.tags && (
+              {report.tags && report.tags.length > 0 && (
                 <div className="flex gap-2 flex-wrap justify-end">
-                  {report.tags.map(tag => (
-                    <span key={tag} className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-medium rounded-full">
-                      {tag}
-                    </span>
-                  ))}
+                  {report.tags.map(tag => {
+                    const cfg = REPORT_TAGS[tag] ?? { label: tag, icon: 'warning', color: '#767777' }
+                    return (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
+                        style={{ backgroundColor: cfg.color }}
+                      >
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: '14px' }}>{cfg.icon}</span>
+                        {cfg.label}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
             </div>
