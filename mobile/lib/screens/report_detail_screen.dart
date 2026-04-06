@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
@@ -21,6 +23,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   ReportModel get report => widget.report;
 
   String? _fetchedUsername;
+
+  // ── Video player ───────────────────────────────────────────────────────────
+  VideoPlayerController? _videoController;
+  bool _videoReady = false;
+
+  bool get _hasVideo {
+    if (report.mediaUrls.isEmpty) return false;
+    final url = report.mediaUrls.first.toLowerCase();
+    return url.endsWith('.mp4') || url.endsWith('.mov');
+  }
 
   // ── Vote state ─────────────────────────────────────────────────────────────
   late int _agrees;
@@ -42,10 +54,50 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _disagrees = report.disagrees;
     if (report.username == null) _loadUsername();
     _loadComments();
+    if (_hasVideo) _initVideo();
+  }
+
+  /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
+  /// global endpoint → regional endpoint). Resolve any redirect first so
+  /// AVPlayer receives the final URL directly.
+  Future<String> _resolveVideoUrl(String url) async {
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 5);
+      final request = await client.headUrl(Uri.parse(url));
+      request.followRedirects = false;
+      final response = await request.close();
+      await response.drain<void>();
+      client.close();
+      final location = response.headers.value(HttpHeaders.locationHeader);
+      if ((response.statusCode == 301 || response.statusCode == 302) &&
+          location != null) {
+        return location;
+      }
+    } catch (_) {}
+    return url;
+  }
+
+  Future<void> _initVideo() async {
+    final rawUrl = report.mediaUrls.first;
+    final resolvedUrl = Platform.isIOS
+        ? await _resolveVideoUrl(rawUrl)
+        : rawUrl;
+
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(resolvedUrl),
+    );
+    await controller.initialize();
+    if (!mounted) { controller.dispose(); return; }
+    setState(() {
+      _videoController = controller;
+      _videoReady = true;
+    });
   }
 
   @override
   void dispose() {
+    _videoController?.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -284,20 +336,38 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   // ─── Hero image / placeholder ───────────────────────────────────────────────
 
+  void _openFullscreen() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (ctx, _, __) => _FullscreenMediaPage(
+          imageUrl: _hasVideo ? null : report.mediaUrls.firstOrNull,
+          videoController: _hasVideo ? _videoController : null,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeroSection() {
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: SizedBox(
-            width: double.infinity,
-            height: 240,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
             child: report.mediaUrls.isNotEmpty
-                ? Image.network(
-                    report.mediaUrls.first,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => _heroPlaceholder(),
-                  )
+                ? _hasVideo
+                    ? _buildVideoPlayer()
+                    : GestureDetector(
+                        onTap: _openFullscreen,
+                        child: Image.network(
+                          report.mediaUrls.first,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stack) =>
+                              _heroPlaceholder(),
+                        ),
+                      )
                 : _heroPlaceholder(),
           ),
         ),
@@ -355,6 +425,69 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVideoPlayer() {
+    if (!_videoReady || _videoController == null) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => setState(() {
+        _videoController!.value.isPlaying
+            ? _videoController!.pause()
+            : _videoController!.play();
+      }),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _videoController!.value.size.width,
+              height: _videoController!.value.size.height,
+              child: VideoPlayer(_videoController!),
+            ),
+          ),
+          // Play/pause overlay
+          ValueListenableBuilder(
+            valueListenable: _videoController!,
+            builder: (_, value, __) => AnimatedOpacity(
+              opacity: value.isPlaying ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                color: Colors.black45,
+                child: const Center(
+                  child: Icon(Icons.play_circle_fill,
+                      color: Colors.white, size: 56),
+                ),
+              ),
+            ),
+          ),
+          // Fullscreen button
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _openFullscreen,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.fullscreen,
+                    color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1236,4 +1369,59 @@ class _ImagePlaceholderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ImagePlaceholderPainter old) =>
       old.color != color;
+}
+
+// ─── Fullscreen media page ────────────────────────────────────────────────────
+
+class _FullscreenMediaPage extends StatelessWidget {
+  final String? imageUrl;
+  final VideoPlayerController? videoController;
+
+  const _FullscreenMediaPage({this.imageUrl, this.videoController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: imageUrl != null
+                ? InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Image.network(
+                      imageUrl!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white54,
+                        size: 64,
+                      ),
+                    ),
+                  )
+                : videoController != null
+                    ? AspectRatio(
+                        aspectRatio: videoController!.value.aspectRatio,
+                        child: VideoPlayer(videoController!),
+                      )
+                    : const SizedBox.shrink(),
+          ),
+          // Close button
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

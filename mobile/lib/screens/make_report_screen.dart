@@ -27,7 +27,8 @@ class MakeReportScreen extends StatefulWidget {
 class _MakeReportScreenState extends State<MakeReportScreen> {
   final _descController = TextEditingController();
   ReportTag _selectedTag = ReportTag.other;
-  File? _selectedImage;
+  File? _selectedMedia;
+  bool _isVideo = false;
   bool _submitting = false;
 
   final _picker = ImagePicker();
@@ -149,7 +150,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     }
   }
 
-  // ─── Image picking ─────────────────────────────────────────────────────────
+  // ─── Media picking ─────────────────────────────────────────────────────────
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -158,13 +159,28 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         imageQuality: 80,
         maxWidth: 1080,
       );
-      if (picked != null) setState(() => _selectedImage = File(picked.path));
-    } catch (_) {
-      // Permission denied or unavailable — ignore silently
-    }
+      if (picked != null) {
+        setState(() {
+          _selectedMedia = File(picked.path);
+          _isVideo = false;
+        });
+      }
+    } catch (_) {}
   }
 
-  void _showImageOptions() {
+  Future<void> _pickVideo(ImageSource source) async {
+    try {
+      final picked = await _picker.pickVideo(source: source);
+      if (picked != null) {
+        setState(() {
+          _selectedMedia = File(picked.path);
+          _isVideo = true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _showMediaOptions() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -197,19 +213,38 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
             _sheetOption(
               icon: Icons.photo_library_outlined,
-              label: 'Choose from Gallery',
+              label: 'Choose Photo from Gallery',
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
               },
             ),
-            if (_selectedImage != null)
+            _sheetOption(
+              icon: Icons.videocam_outlined,
+              label: 'Record Video',
+              onTap: () {
+                Navigator.pop(context);
+                _pickVideo(ImageSource.camera);
+              },
+            ),
+            _sheetOption(
+              icon: Icons.video_library_outlined,
+              label: 'Choose Video from Gallery',
+              onTap: () {
+                Navigator.pop(context);
+                _pickVideo(ImageSource.gallery);
+              },
+            ),
+            if (_selectedMedia != null)
               _sheetOption(
                 icon: Icons.delete_outline,
-                label: 'Remove Photo',
+                label: 'Remove Media',
                 color: const Color(0xFFB02500),
                 onTap: () {
-                  setState(() => _selectedImage = null);
+                  setState(() {
+                    _selectedMedia = null;
+                    _isVideo = false;
+                  });
                   Navigator.pop(context);
                 },
               ),
@@ -258,6 +293,24 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         description: desc,
         tag: _selectedTag,
       );
+
+      // Upload media if selected
+      if (_selectedMedia != null) {
+        try {
+          await auth.api.uploadMedia(report.reportId, _selectedMedia!);
+        } catch (e) {
+          // Media upload failed — report was created; show warning but continue
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Report posted, but media upload failed: $e'),
+                duration: const Duration(seconds: 6),
+              ),
+            );
+          }
+        }
+      }
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -427,20 +480,33 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     ),
   );
 
-  // ─── Image section ─────────────────────────────────────────────────────────
+  // ─── Media section ─────────────────────────────────────────────────────────
 
   Widget _buildImageSection() {
     return GestureDetector(
-      onTap: _showImageOptions,
+      onTap: _showMediaOptions,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: _selectedImage != null
+          child: _selectedMedia != null
               ? Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(_selectedImage!, fit: BoxFit.cover),
+                    // Preview: video thumbnail placeholder or image
+                    if (_isVideo)
+                      Container(
+                        color: Colors.black87,
+                        child: const Center(
+                          child: Icon(
+                            Icons.play_circle_fill,
+                            color: Colors.white,
+                            size: 56,
+                          ),
+                        ),
+                      )
+                    else
+                      Image.file(_selectedMedia!, fit: BoxFit.cover),
                     // Bottom overlay
                     Positioned(
                       bottom: 0,
@@ -473,22 +539,37 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                 color: Colors.white.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(999),
                               ),
-                              child: const Text(
-                                'Tap to change',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.onSurface,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isVideo
+                                        ? Icons.videocam_outlined
+                                        : Icons.photo_outlined,
+                                    size: 12,
+                                    color: AppColors.onSurface,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isVideo ? 'Video added' : 'Tap to change',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.onSurface,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedImage = null),
+                              onTap: () => setState(() {
+                                _selectedMedia = null;
+                                _isVideo = false;
+                              }),
                               child: Container(
                                 width: 34,
                                 height: 34,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
@@ -524,14 +605,14 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                           ],
                         ),
                         child: const Icon(
-                          Icons.add_a_photo_outlined,
+                          Icons.perm_media_outlined,
                           color: AppColors.primary,
                           size: 26,
                         ),
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Add a Photo',
+                        'Add Photo or Video',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontWeight: FontWeight.w700,
@@ -541,7 +622,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Camera or gallery',
+                        'Photo, MP4 or MOV',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.onSurfaceVariant,
