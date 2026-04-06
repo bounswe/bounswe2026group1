@@ -187,9 +187,10 @@ function Home() {
     if (!routeMode) return
     if (!routeOrigin) {
       setRouteOrigin(latlng)
-      setRouteDest(null)
       setRoutes(null)
       setRouteError('')
+      setRouteNotice('')
+      if (routeDest) await fetchRoutes(latlng, routeDest)
       return
     }
     if (!routeDest) {
@@ -247,6 +248,18 @@ function Home() {
                 setRouteError('')
                 setRouteNotice('')
               }
+            }}
+            onClearOrigin={() => {
+              setRouteOrigin(null)
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+            }}
+            onClearDest={() => {
+              setRouteDest(null)
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
             }}
             onSwap={async () => {
               if (!routeOrigin || !routeDest) return

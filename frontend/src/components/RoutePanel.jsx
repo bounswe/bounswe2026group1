@@ -22,6 +22,8 @@ function RoutePanel({
   userLocation,
   onUseMyLocation,
   onSwap,
+  onClearOrigin,
+  onClearDest,
   onSelectRoute,
   onReset,
 }) {
@@ -70,15 +72,18 @@ function RoutePanel({
         {/* Steps */}
         <div className="flex flex-col gap-2">
           {/* Origin */}
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
-            step === 1 ? 'border-primary bg-primary/5' : routeOrigin ? 'border-primary/30 bg-primary/5' : 'border-outline-variant/20 bg-surface-container'
-          }`}>
+          <div
+            onClick={routeOrigin ? onClearOrigin : undefined}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
+              step === 1 ? 'border-primary bg-primary/5' : routeOrigin ? 'border-primary/30 bg-primary/5 cursor-pointer hover:border-error/40 hover:bg-error/5' : 'border-outline-variant/20 bg-surface-container'
+            }`}
+          >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
               routeOrigin ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
             }`}>
               <span className="material-symbols-outlined text-sm">trip_origin</span>
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">From</p>
               <p className="text-sm font-semibold text-on-surface">
                 {routeOrigin
@@ -86,6 +91,9 @@ function RoutePanel({
                   : 'Click on the map'}
               </p>
             </div>
+            {routeOrigin && (
+              <span className="material-symbols-outlined text-sm text-on-surface-variant opacity-50">edit</span>
+            )}
           </div>
 
           {/* Use my location shortcut — only when origin not yet set */}
@@ -122,15 +130,18 @@ function RoutePanel({
           )}
 
           {/* Dest */}
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
-            step === 2 ? 'border-primary bg-primary/5' : routeDest ? 'border-primary/30 bg-primary/5' : 'border-outline-variant/20 bg-surface-container'
-          }`}>
+          <div
+            onClick={routeDest ? onClearDest : undefined}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
+              step === 2 ? 'border-primary bg-primary/5' : routeDest ? 'border-primary/30 bg-primary/5 cursor-pointer hover:border-error/40 hover:bg-error/5' : 'border-outline-variant/20 bg-surface-container'
+            }`}
+          >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
               routeDest ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
             }`}>
               <span className="material-symbols-outlined text-sm">location_on</span>
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">To</p>
               <p className="text-sm font-semibold text-on-surface">
                 {routeDest
@@ -138,6 +149,9 @@ function RoutePanel({
                   : routeOrigin ? 'Click on the map' : 'Set origin first'}
               </p>
             </div>
+            {routeDest && (
+              <span className="material-symbols-outlined text-sm text-on-surface-variant opacity-50">edit</span>
+            )}
           </div>
         </div>
 
