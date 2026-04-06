@@ -49,6 +49,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(ROUTING_AND_AUTH_PUBLIC).permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET,
+                        "/api/sse/public/**")
+                    .permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
                                 "/api/comments", "/api/comments/**")
