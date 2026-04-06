@@ -12,6 +12,8 @@ import '../services/auth_service.dart';
 import 'report_detail_screen.dart';
 import 'make_report_screen.dart';
 import 'login_screen.dart';
+import '../models/sse_event.dart';
+import '../services/sse_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -24,9 +26,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final MapController _mapController = MapController();
+  List<ReportModel> _reports = [];
   List<Marker> _markers = [];
   bool _loading = true;
   String? _errorMessage;
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  StreamSubscription<SseEvent>? _sseSub;
+  bool _wasConnected = false;
 
   // ── Search state ──────────────────────────────────────────────────────────
   bool _searchActive = false;
@@ -64,6 +71,85 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _initLocation();
     _loadReports();
+    _initSse();
+  }
+
+  void _initSse() {
+    final sse = context.read<SseService>();
+    _wasConnected = sse.connected;
+    sse.addListener(_onSseConnectivity);
+    _sseSub = sse.events.listen(_onSseEvent);
+  }
+
+  void _onSseConnectivity() {
+    final sse = context.read<SseService>();
+    final connected = sse.connected;
+
+    // Reconnected after a gap → full refresh to catch missed events
+    if (connected && !_wasConnected) _loadReports();
+    _wasConnected = connected;
+
+    // Fallback threshold exceeded → force reload
+    if (sse.needsFullRefresh) {
+      sse.clearFullRefreshFlag();
+      _loadReports();
+    }
+  }
+
+  void _onSseEvent(SseEvent event) {
+    if (event.eventType == 'REPORT_CREATED') {
+      _silentRefresh();
+      return;
+    }
+
+    if (event.eventType == 'REPORT_DELETED') {
+      setState(() {
+        _reports = _reports.where((r) => r.reportId != event.reportId).toList();
+        _markers = _buildMarkers(_reports);
+      });
+      return;
+    }
+
+    final idx = _reports.indexWhere((r) => r.reportId == event.reportId);
+    if (idx < 0) return;
+
+    final old = _reports[idx];
+    ReportModel updated;
+
+    if (event.eventType == 'REPORT_UPDATED') {
+      updated = old.copyWith(
+        agrees: event.agrees,
+        disagrees: event.disagrees,
+        status: event.status != null
+            ? ReportStatus.fromJson(event.status!)
+            : null,
+      );
+    } else if (event.eventType == 'MEDIA_ADDED') {
+      if (event.mediaUrl == null || old.mediaUrls.contains(event.mediaUrl)) {
+        return;
+      }
+      updated = old.copyWith(
+        mediaUrls: [...old.mediaUrls, event.mediaUrl!],
+      );
+    } else {
+      return;
+    }
+
+    setState(() {
+      _reports = List.of(_reports)..[idx] = updated;
+      _markers = _buildMarkers(_reports);
+    });
+  }
+
+  Future<void> _silentRefresh() async {
+    try {
+      final reports = await context.read<AuthService>().api.getReports();
+      if (!mounted) return;
+      setState(() {
+        _reports = reports;
+        _markers = _buildMarkers(reports);
+      });
+    } catch (_) {}
   }
 
   Future<void> _initLocation() async {
@@ -106,6 +192,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    context.read<SseService>().removeListener(_onSseConnectivity);
+    _sseSub?.cancel();
     _locationStream?.cancel();
     _mapController.dispose();
     _searchController.dispose();
@@ -369,6 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final reports = await api.getReports();
       if (!mounted) return;
       setState(() {
+        _reports = reports;
         _markers = _buildMarkers(reports);
         _loading = false;
       });

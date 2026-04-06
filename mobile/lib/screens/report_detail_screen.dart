@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,7 +7,9 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
+import '../models/sse_event.dart';
 import '../services/auth_service.dart';
+import '../services/sse_service.dart';
 import 'login_screen.dart';
 import '../main.dart' show MainShell;
 
@@ -42,6 +45,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String? _myVote; // 'agree' | 'disagree' | null
   bool _voteLoading = false;
 
+  // ── Live status (may differ from widget.report.status via SSE) ─────────────
+  ReportStatus? _liveStatus;
+  ReportStatus get _currentStatus => _liveStatus ?? report.status;
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  StreamSubscription<SseEvent>? _sseSub;
+
   // ── Comment state ──────────────────────────────────────────────────────────
   List<_CommentData> _comments = [];
   bool _commentsLoading = false;
@@ -61,6 +71,30 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (_hasVideo) _initVideo();
     // Fetch fresh report so userVote / counts reflect server state.
     _refreshReport();
+    // Subscribe to real-time updates.
+    _sseSub = context.read<SseService>().events.listen(_onSseEvent);
+  }
+
+  void _onSseEvent(SseEvent event) {
+    if (!mounted || event.reportId != report.reportId) return;
+
+    if (event.eventType == 'REPORT_DELETED') {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    if (event.eventType == 'REPORT_UPDATED') {
+      setState(() {
+        if (event.agrees != null) _agrees = event.agrees!;
+        if (event.disagrees != null) _disagrees = event.disagrees!;
+        if (event.status != null) {
+          _liveStatus = ReportStatus.fromJson(event.status!);
+        }
+      });
+    } else if (event.eventType == 'MEDIA_ADDED') {
+      // Re-fetch the full report to get updated mediaUrls.
+      _refreshReport();
+    }
   }
 
   Future<void> _refreshReport() async {
@@ -140,6 +174,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   @override
   void dispose() {
+    _sseSub?.cancel();
     _videoController?.dispose();
     _commentController.dispose();
     super.dispose();

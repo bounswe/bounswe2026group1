@@ -136,6 +136,29 @@ class ReportModel {
     );
   }
 
+  ReportModel copyWith({
+    int? agrees,
+    int? disagrees,
+    ReportStatus? status,
+    List<String>? mediaUrls,
+  }) {
+    return ReportModel(
+      reportId: reportId,
+      userId: userId,
+      username: username,
+      latitude: latitude,
+      longitude: longitude,
+      description: description,
+      tag: tag,
+      status: status ?? this.status,
+      agrees: agrees ?? this.agrees,
+      disagrees: disagrees ?? this.disagrees,
+      publishDate: publishDate,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
+      userVote: userVote,
+    );
+  }
+
   int get totalVotes => agrees + disagrees;
 
   int get consensusPercent =>
