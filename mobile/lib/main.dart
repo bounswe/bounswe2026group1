@@ -87,6 +87,7 @@ class _MainShellState extends State<MainShell>
 
   void _switchTab(int newIdx) {
     if (newIdx == _current) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     _slideOffset = newIdx > _current ? 1.0 : -1.0;
     setState(() {
       _previous = _current;
