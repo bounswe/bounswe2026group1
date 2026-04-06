@@ -113,6 +113,19 @@ function RouteClickHandler({ onRightClick }) {
   return null
 }
 
+function MapCenterTracker({ onCenterChange }) {
+  useMapEvents({
+    moveend(e) {
+      const { lat, lng } = e.target.getCenter()
+      onCenterChange({ lat, lng })
+    },
+    locationfound(e) {
+      onCenterChange({ lat: e.latlng.lat, lng: e.latlng.lng })
+    },
+  })
+  return null
+}
+
 function GeolocateOnLoad() {
   const map = useMap()
   useEffect(() => {
@@ -136,6 +149,7 @@ function Home() {
   const [selectedReport, setSelectedReport] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
+  const [mapCenter, setMapCenter] = useState(null)
   const [searchError, setSearchError] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState([])
   const searchDebounce = useRef(null)
@@ -158,10 +172,21 @@ function Home() {
     if (query.trim().length < 2) { setSearchSuggestions([]); return }
     searchDebounce.current = setTimeout(async () => {
       try {
+        const viewboxParam = mapCenter
+          ? `&viewbox=${mapCenter.lng - 2},${mapCenter.lat - 2},${mapCenter.lng + 2},${mapCenter.lat + 2}`
+          : ''
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&addressdetails=1${viewboxParam}`
         )
-        setSearchSuggestions(await res.json())
+        let results = await res.json()
+        if (mapCenter) {
+          results = results.sort((a, b) => {
+            const distA = Math.hypot(parseFloat(a.lat) - mapCenter.lat, parseFloat(a.lon) - mapCenter.lng)
+            const distB = Math.hypot(parseFloat(b.lat) - mapCenter.lat, parseFloat(b.lon) - mapCenter.lng)
+            return distA - distB
+          })
+        }
+        setSearchSuggestions(results.slice(0, 5))
       } catch {
         setSearchSuggestions([])
       }
@@ -287,6 +312,7 @@ function Home() {
             )}
             <GeolocateOnLoad />
             <MapFlyTo target={searchTarget} />
+            <MapCenterTracker onCenterChange={setMapCenter} />
             <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
             <RouteClickHandler onRightClick={handleRouteRightClick} />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
