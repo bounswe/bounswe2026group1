@@ -4,6 +4,7 @@ import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
+import RoutePanel from '../components/RoutePanel.jsx'
 import { getReports, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
@@ -103,21 +104,15 @@ function MapClickHandler({ active, onPick }) {
   return null
 }
 
-function RouteClickHandler({ onRightClick }) {
-  useMapEvents({
-    contextmenu(e) {
-      L.DomEvent.preventDefault(e.originalEvent)
-      onRightClick(e.latlng)
-    },
-  })
-  return null
-}
 
-function GeolocateOnLoad() {
+function GeolocateOnLoad({ onLocation }) {
   const map = useMap()
   useEffect(() => {
+    function handleLocation(e) { onLocation(e.latlng) }
+    map.on('locationfound', handleLocation)
     map.locate({ setView: true, maxZoom: 16 })
-  }, [map])
+    return () => { map.off('locationfound', handleLocation) }
+  }, [map, onLocation])
   return null
 }
 
@@ -132,57 +127,106 @@ function Home() {
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
   const [userVotes, setUserVotes] = useState({})
+  const [routeMode, setRouteMode] = useState(false)
   const [routeOrigin, setRouteOrigin] = useState(null)
   const [routeDest, setRouteDest] = useState(null)
-  const [routePolyline, setRoutePolyline] = useState(null)
-  const [routeInfo, setRouteInfo] = useState(null)
+  const [routes, setRoutes] = useState(null)
+  const [activeRouteIndex, setActiveRouteIndex] = useState(0)
+  const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
+  const [routeNotice, setRouteNotice] = useState('')
+  const [userLocation, setUserLocation] = useState(null)
+  const [routeOriginLabel, setRouteOriginLabel] = useState('')
+  const [routeDestLabel, setRouteDestLabel] = useState('')
 
-  async function handleRouteRightClick(latlng) {
-    if (!routeOrigin) {
-      setRouteOrigin(latlng)
-      setRouteDest(null)
-      setRoutePolyline(null)
-      setRouteInfo(null)
-      setRouteError('')
-      return
+  async function reverseGeocode(latlng) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latlng.lat}&lon=${latlng.lng}&format=json`
+      )
+      const data = await res.json()
+      const parts = data.display_name?.split(',') ?? []
+      return parts.slice(0, 2).join(',').trim() || `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`
+    } catch {
+      return `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`
     }
-    setRouteDest(latlng)
+  }
+
+  async function fetchRoutes(origin, dest) {
+    setRouteLoading(true)
+    setRouteError('')
+    setRouteNotice('')
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startLat: routeOrigin.lat,
-          startLon: routeOrigin.lng,
-          endLat: latlng.lat,
-          endLon: latlng.lng,
+          startLat: origin.lat, startLon: origin.lng,
+          endLat: dest.lat, endLon: dest.lng,
           mode: null,
         }),
       })
       if (!res.ok) throw new Error('Routing failed')
-      const routes = await res.json()
-      if (!routes.length) throw new Error('No routes returned')
-      setRoutePolyline(routes.map(r => ({
+      const data = await res.json()
+      if (!data.length) throw new Error('No routes returned')
+      const mapped = data.map(r => ({
         coords: decodePolyline(r.geometry),
         hasObstacles: r.hasObstacles,
         label: r.routeLabel,
         distance: r.distanceMeters,
         duration: r.durationSeconds,
-      })))
-      setRouteInfo({ distance: routes[0].distanceMeters, duration: routes[0].durationSeconds, label: routes[0].routeLabel })
-      setRouteError('')
+      }))
+      setRoutes(mapped)
+      setActiveRouteIndex(0)
+      const fastestHasObstacles = mapped[0]?.hasObstacles
+      const hasAccessible = mapped.some(r => r.label === 'Accessible Route')
+      const hasWheelchair = mapped.some(r => r.label === 'Wheelchair Route')
+      const hasRamp = mapped.some(r => r.label?.includes('Ramp'))
+      const missing = []
+      if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
+      if (!hasWheelchair && !hasRamp) missing.push('wheelchair')
+      if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
     } catch (err) {
-      setRouteError('Could not fetch route. Please try again.')
+      const msg = err?.message || ''
+      if (msg.toLowerCase().includes('route could not be found') || msg.toLowerCase().includes('unable to find')) {
+        setRouteError('No walkable path found between these points. Try clicking on a road or footpath.')
+      } else {
+        setRouteError('Could not fetch route. Please try again.')
+      }
+    } finally {
+      setRouteLoading(false)
+    }
+  }
+
+  async function handleRouteMapClick(latlng) {
+    if (!routeMode) return
+    if (!routeOrigin) {
+      setRouteOrigin(latlng)
+      setRoutes(null)
+      setRouteError('')
+      setRouteNotice('')
+      reverseGeocode(latlng).then(setRouteOriginLabel)
+      if (routeDest) await fetchRoutes(latlng, routeDest)
+      return
+    }
+    if (!routeDest) {
+      setRouteDest(latlng)
+      reverseGeocode(latlng).then(setRouteDestLabel)
+      await fetchRoutes(routeOrigin, latlng)
     }
   }
 
   function resetRoute() {
+    setRouteMode(false)
     setRouteOrigin(null)
     setRouteDest(null)
-    setRoutePolyline(null)
-    setRouteInfo(null)
+    setRouteOriginLabel('')
+    setRouteDestLabel('')
+    setRoutes(null)
+    setActiveRouteIndex(0)
+    setRouteLoading(false)
     setRouteError('')
+    setRouteNotice('')
   }
 
   useEffect(() => {
@@ -204,7 +248,77 @@ function Home() {
     <div className="flex flex-col h-screen overflow-hidden bg-background font-body">
       <Navbar />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Route Panel — left sidebar overlay (does not resize the map) */}
+        {routeMode && (
+          <div className="absolute top-0 left-0 h-full z-[1000] pointer-events-auto">
+          <RoutePanel
+            routeOrigin={routeOrigin}
+            routeDest={routeDest}
+            routeOriginLabel={routeOriginLabel}
+            routeDestLabel={routeDestLabel}
+            routes={routes}
+            activeRouteIndex={activeRouteIndex}
+            routeError={routeError}
+            loading={routeLoading}
+            userLocation={userLocation}
+            onUseMyLocation={async () => {
+              if (userLocation) {
+                setRouteOrigin(userLocation)
+                setRoutes(null)
+                setRouteError('')
+                setRouteNotice('')
+                reverseGeocode(userLocation).then(setRouteOriginLabel)
+                if (routeDest) await fetchRoutes(userLocation, routeDest)
+              }
+            }}
+            onPickOrigin={async (latlng, label) => {
+              setRouteOrigin(latlng)
+              setRouteOriginLabel(label || '')
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+              if (routeDest) await fetchRoutes(latlng, routeDest)
+            }}
+            onPickDest={async (latlng, label) => {
+              setRouteDest(latlng)
+              setRouteDestLabel(label || '')
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+              if (routeOrigin) await fetchRoutes(routeOrigin, latlng)
+            }}
+            onClearOrigin={() => {
+              setRouteOrigin(null)
+              setRouteOriginLabel('')
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+            }}
+            onClearDest={() => {
+              setRouteDest(null)
+              setRouteDestLabel('')
+              setRoutes(null)
+              setRouteError('')
+              setRouteNotice('')
+            }}
+            onSwap={async () => {
+              if (!routeOrigin || !routeDest) return
+              const newOrigin = routeDest
+              const newDest = routeOrigin
+              setRouteOrigin(newOrigin)
+              setRouteDest(newDest)
+              setRouteOriginLabel(routeDestLabel)
+              setRouteDestLabel(routeOriginLabel)
+              setRoutes(null)
+              await fetchRoutes(newOrigin, newDest)
+            }}
+            onSelectRoute={setActiveRouteIndex}
+            onReset={resetRoute}
+          />
+          </div>
+        )}
+
         {/* Map area */}
         <main className="relative flex-1">
           <MapContainer
@@ -229,18 +343,35 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
-            <GeolocateOnLoad />
-            <MapClickHandler active={showCreatePanel} onPick={setNewReportPin} />
-            <RouteClickHandler onRightClick={handleRouteRightClick} />
+            <GeolocateOnLoad onLocation={setUserLocation} />
+            <MapClickHandler
+              active={showCreatePanel || routeMode}
+              onPick={(latlng) => {
+                if (routeMode) handleRouteMapClick(latlng)
+                else setNewReportPin(latlng)
+              }}
+            />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
             {routeDest && <Marker position={routeDest} icon={pinIcon} />}
-            {routePolyline && routePolyline.map((r, i) => (
-              <Polyline
-                key={i}
-                positions={r.coords}
-                pathOptions={{ color: r.hasObstacles ? '#dc2626' : '#176a21', weight: 5, opacity: 0.8 }}
-              />
-            ))}
+            {routes && routes.map((r, i) => {
+              let color
+              if (r.label?.includes('Accessible')) color = '#1565C0'
+              else if (r.label?.includes('Wheelchair')) color = '#6A1B9A'
+              else if (r.label?.includes('Ramp')) color = '#00695C'
+              else color = r.hasObstacles ? '#E65100' : '#2E7D32'
+              return (
+                <Polyline
+                  key={i}
+                  positions={r.coords}
+                  pathOptions={{
+                    color,
+                    weight: i === activeRouteIndex ? 7 : 4,
+                    opacity: i === activeRouteIndex ? 1 : 0.4,
+                  }}
+                  eventHandlers={{ click: () => setActiveRouteIndex(i) }}
+                />
+              )
+            })}
             <ZoomControls />
           </MapContainer>
 
@@ -270,45 +401,32 @@ function Home() {
             </div>
           )}
 
-          {/* Route hints / info */}
-          {routeOrigin && !routePolyline && !routeError && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+          {/* Route mode click hint */}
+          {routeMode && !routeOrigin && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
               <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">route</span>
-                Right-click destination to get route
+                Click on the map to set your starting point
               </div>
             </div>
           )}
-          {routeError && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000]">
-              <div className="bg-error text-white px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">error</span>
-                {routeError}
-                <button onClick={resetRoute} className="ml-2 underline text-xs">Dismiss</button>
+          {routeMode && routeOrigin && !routeDest && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">route</span>
+                Now click your destination
               </div>
             </div>
           )}
-          {routeInfo && (
-            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-[1000]">
-              <div className="bg-white/90 backdrop-blur-md rounded-2xl px-6 py-4 shadow-lg flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">directions_walk</span>
-                  <div>
-                    <p className="text-xs text-secondary font-bold uppercase tracking-wider">Distance</p>
-                    <p className="font-bold text-on-surface">{(routeInfo.distance / 1000).toFixed(2)} km</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">schedule</span>
-                  <div>
-                    <p className="text-xs text-secondary font-bold uppercase tracking-wider">Duration</p>
-                    <p className="font-bold text-on-surface">{Math.ceil(routeInfo.duration / 60)} min</p>
-                  </div>
-                </div>
-                <button onClick={resetRoute} className="ml-4 text-secondary hover:text-error transition-colors" aria-label="Clear route">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
+
+          {/* Route notice toast */}
+          {routeNotice && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-2xl shadow-lg max-w-sm text-sm font-semibold">
+              <span className="material-symbols-outlined text-amber-600 text-base flex-shrink-0">warning</span>
+              <span>{routeNotice}</span>
+              <button onClick={() => setRouteNotice('')} className="ml-1 text-amber-600 hover:text-amber-800" aria-label="Dismiss">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
             </div>
           )}
 
@@ -361,6 +479,15 @@ function Home() {
               </div>
             </div>
 
+            <button
+              onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
+              className={`h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
+                routeMode ? 'bg-secondary text-on-secondary' : 'bg-white/90 text-on-surface border border-outline-variant/20'
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
+              Get Routes
+            </button>
             <button
               onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
               className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
