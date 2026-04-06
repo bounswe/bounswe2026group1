@@ -14,7 +14,8 @@ import { REPORT_TAGS } from '../utils/reportTagConfig.js'
  *  - onVoteUpdate: (updatedReport) => void
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
-  const { token } = useAuth()
+  const { token, isAuthenticated } = useAuth()
+  const [following, setFollowing] = useState(false)
   const navigate = useNavigate()
   const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
@@ -249,14 +250,26 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
           {/* Follow Updates */}
           <div className="pt-4">
-            <button className="w-full py-5 bg-gradient-to-b from-primary to-primary-dim text-on-primary rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                if (!isAuthenticated) { navigate('/login'); return }
+                setFollowing(prev => !prev)
+              }}
+              className={`w-full py-5 rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${
+                following
+                  ? 'bg-surface-container-high text-on-surface border border-outline-variant/20'
+                  : 'bg-gradient-to-b from-primary to-primary-dim text-on-primary'
+              }`}
+            >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                notifications_active
+                {following ? 'notifications_off' : 'notifications_active'}
               </span>
-              Follow Updates
+              {following ? 'Unfollow' : 'Follow Updates'}
             </button>
             <p className="text-center text-xs text-on-surface-variant mt-4 px-6">
-              You will receive notifications for every status change on this report.
+              {following
+                ? 'You will be notified of every status change on this report.'
+                : 'Follow to receive notifications when this report status changes.'}
             </p>
           </div>
 

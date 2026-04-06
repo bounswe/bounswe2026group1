@@ -12,6 +12,7 @@ import java.util.List;
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class RegisteredUserController {
+
     private final RegisteredUserService registeredUserService;
 
     @GetMapping
@@ -23,7 +24,7 @@ public class RegisteredUserController {
     public ResponseEntity<RegisteredUser> getById(@PathVariable Long id) {
         return registeredUserService.getById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
@@ -33,8 +34,9 @@ public class RegisteredUserController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        return registeredUserService.delete(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        if (registeredUserService.delete(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 }
