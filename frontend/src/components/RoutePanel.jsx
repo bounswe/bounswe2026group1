@@ -21,6 +21,7 @@ function RoutePanel({
   loading,
   userLocation,
   onUseMyLocation,
+  onSwap,
   onSelectRoute,
   onReset,
 }) {
@@ -105,6 +106,19 @@ function RoutePanel({
                 {userLocation ? 'Use my current location' : 'Location not available'}
               </span>
             </button>
+          )}
+
+          {/* Swap button — between the two cards, only when both are set */}
+          {routeOrigin && routeDest && (
+            <div className="flex justify-center -my-1">
+              <button
+                onClick={onSwap}
+                className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant/30 flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors z-10"
+                aria-label="Swap origin and destination"
+              >
+                <span className="material-symbols-outlined text-sm">swap_vert</span>
+              </button>
+            </div>
           )}
 
           {/* Dest */}

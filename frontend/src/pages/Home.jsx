@@ -137,6 +137,52 @@ function Home() {
   const [routeNotice, setRouteNotice] = useState('')
   const [userLocation, setUserLocation] = useState(null)
 
+  async function fetchRoutes(origin, dest) {
+    setRouteLoading(true)
+    setRouteError('')
+    setRouteNotice('')
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startLat: origin.lat, startLon: origin.lng,
+          endLat: dest.lat, endLon: dest.lng,
+          mode: null,
+        }),
+      })
+      if (!res.ok) throw new Error('Routing failed')
+      const data = await res.json()
+      if (!data.length) throw new Error('No routes returned')
+      const mapped = data.map(r => ({
+        coords: decodePolyline(r.geometry),
+        hasObstacles: r.hasObstacles,
+        label: r.routeLabel,
+        distance: r.distanceMeters,
+        duration: r.durationSeconds,
+      }))
+      setRoutes(mapped)
+      setActiveRouteIndex(0)
+      const fastestHasObstacles = mapped[0]?.hasObstacles
+      const hasAccessible = mapped.some(r => r.label === 'Accessible Route')
+      const hasWheelchair = mapped.some(r => r.label === 'Wheelchair Route')
+      const hasRamp = mapped.some(r => r.label?.includes('Ramp'))
+      const missing = []
+      if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
+      if (!hasWheelchair && !hasRamp) missing.push('wheelchair')
+      if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
+    } catch (err) {
+      const msg = err?.message || ''
+      if (msg.toLowerCase().includes('route could not be found') || msg.toLowerCase().includes('unable to find')) {
+        setRouteError('No walkable path found between these points. Try clicking on a road or footpath.')
+      } else {
+        setRouteError('Could not fetch route. Please try again.')
+      }
+    } finally {
+      setRouteLoading(false)
+    }
+  }
+
   async function handleRouteMapClick(latlng) {
     if (!routeMode) return
     if (!routeOrigin) {
@@ -148,51 +194,7 @@ function Home() {
     }
     if (!routeDest) {
       setRouteDest(latlng)
-      setRouteLoading(true)
-      setRouteError('')
-      setRouteNotice('')
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            startLat: routeOrigin.lat,
-            startLon: routeOrigin.lng,
-            endLat: latlng.lat,
-            endLon: latlng.lng,
-            mode: null,
-          }),
-        })
-        if (!res.ok) throw new Error('Routing failed')
-        const data = await res.json()
-        if (!data.length) throw new Error('No routes returned')
-        const mapped = data.map(r => ({
-          coords: decodePolyline(r.geometry),
-          hasObstacles: r.hasObstacles,
-          label: r.routeLabel,
-          distance: r.distanceMeters,
-          duration: r.durationSeconds,
-        }))
-        setRoutes(mapped)
-        setActiveRouteIndex(0)
-        const fastestHasObstacles = mapped[0]?.hasObstacles
-        const hasAccessible = mapped.some(r => r.label === 'Accessible Route')
-        const hasWheelchair = mapped.some(r => r.label === 'Wheelchair Route')
-        const hasRamp = mapped.some(r => r.label?.includes('Ramp'))
-        const missing = []
-        if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
-        if (!hasWheelchair && !hasRamp) missing.push('wheelchair')
-        if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
-      } catch (err) {
-        const msg = err?.message || ''
-        if (msg.toLowerCase().includes('route could not be found') || msg.toLowerCase().includes('unable to find')) {
-          setRouteError('No walkable path found between these points. Try clicking on a road or footpath.')
-        } else {
-          setRouteError('Could not fetch route. Please try again.')
-        }
-      } finally {
-        setRouteLoading(false)
-      }
+      await fetchRoutes(routeOrigin, latlng)
     }
   }
 
@@ -245,6 +247,15 @@ function Home() {
                 setRouteError('')
                 setRouteNotice('')
               }
+            }}
+            onSwap={async () => {
+              if (!routeOrigin || !routeDest) return
+              const newOrigin = routeDest
+              const newDest = routeOrigin
+              setRouteOrigin(newOrigin)
+              setRouteDest(newDest)
+              setRoutes(null)
+              await fetchRoutes(newOrigin, newDest)
             }}
             onSelectRoute={setActiveRouteIndex}
             onReset={resetRoute}
