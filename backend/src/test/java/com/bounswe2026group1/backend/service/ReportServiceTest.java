@@ -5,6 +5,7 @@ import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.model.VoteType;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
+import com.bounswe2026group1.backend.repository.MediaRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +35,13 @@ class ReportServiceTest {
     private RegisteredUserRepository registeredUserRepository;
 
     @Mock
+    private MediaRepository mediaRepository;
+
+    @Mock
     private ReportVerificationRepository verificationRepository;
+
+    @Mock
+    private PublicSseService publicSseService;
 
     @InjectMocks
     private ReportService reportService;
@@ -178,6 +185,7 @@ class ReportServiceTest {
         assertEquals(5, testReport.getAgrees());
         assertEquals(ReportStatus.VERIFIED, testReport.getStatus());
         verify(reportRepository).save(testReport);
+        verify(publicSseService).broadcastReportUpdated(testReport, "verify");
     }
 
     @Test
@@ -231,6 +239,18 @@ class ReportServiceTest {
         assertEquals(1, testReport.getDisagrees());
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
         verify(reportRepository).save(testReport);
+        verify(publicSseService).broadcastReportUpdated(testReport, "unverify");
+    }
+
+    @Test
+    void addMediaToReport_broadcastsMediaAdded() {
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.addMediaToReport(1L, "https://cdn.example/media.jpg");
+
+        verify(mediaRepository).save(any(Media.class));
+        verify(publicSseService).broadcastMediaAdded(eq(testReport), any(Media.class));
     }
 
     @Test

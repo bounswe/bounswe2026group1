@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.bounswe2026group1.backend.model.ReportStatus;
 
 import java.util.Collections;
@@ -33,6 +35,7 @@ public class ReportService {
     private final RegisteredUserRepository registeredUserRepository;
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
+    private final PublicSseService publicSseService;
 
     // Fetched from application.properties
     @Value("${app.report.verification.threshold:5}")
@@ -145,6 +148,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "verify"));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -180,6 +184,7 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "unverify"));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -195,6 +200,21 @@ public class ReportService {
         // Saves the actual public URL which is sent by MediaController
         media.setFilePath(mediaUrl);
         // Saves the created Media entity to the database
-        mediaRepository.save(media);
+        Media savedMedia = mediaRepository.save(media);
+        broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
+    }
+
+    private void broadcastAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 }
