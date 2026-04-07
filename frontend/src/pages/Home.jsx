@@ -417,7 +417,13 @@ function Home() {
                 key={report.id}
                 position={[report.latitude, report.longitude]}
                 icon={makeMarkerIcon(report.status, report.tags[0])}
-                eventHandlers={{ click: () => setSelectedReportId(report.id) }}
+                eventHandlers={{
+                  click: () => {
+                    setShowCreatePanel(false)
+                    setNewReportPin(null)
+                    setSelectedReportId(report.id)
+                  },
+                }}
               />
             ))}
             {newReportPin && (
