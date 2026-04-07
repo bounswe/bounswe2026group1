@@ -4,5 +4,5 @@ export const REPORT_TAGS = {
   NARROW_PASSAGE:  { label: 'Narrow Passage',   icon: 'compress',           color: '#495F69' },
   WET_FLOOR:       { label: 'Wet Floor',         icon: 'water_drop',         color: '#006573' },
   CONSTRUCTION:    { label: 'Construction',      icon: 'construction',       color: '#8B6A00' },
-  OTHER:           { label: 'Other',             icon: 'warning',            color: '#767777' },
+  OTHER:           { label: 'Ramp Available',    icon: 'accessible',         color: '#2E7D32' },
 }
