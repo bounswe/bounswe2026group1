@@ -81,115 +81,76 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   }
 
   return (
-    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[500px] bg-surface-container-low overflow-y-auto border-l border-outline-variant/10 flex flex-col">
-
-      {/* Header */}
-      <div className="px-8 pt-8 pb-4 flex items-start justify-between flex-shrink-0">
-        <div>
-          <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
-          <p className="text-sm text-on-surface-variant mt-1">
-            {position
-              ? `📍 ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`
-              : 'Click on the map to set location'}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
-          aria-label="Close"
-        >
-          <span className="material-symbols-outlined text-base">close</span>
-        </button>
-      </div>
-
-      <div className="px-8 pb-10 flex flex-col gap-6">
-
-        {/* Visual Evidence */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDrop={handleDrop}
-            onDragOver={e => e.preventDefault()}
-            className="w-full h-44 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
-          >
-            {imagePreview ? (
-              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
-                <p className="text-xs text-outline">Maximum file size: 10MB (JPG, PNG)</p>
-              </>
-            )}
+    <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
+      <aside
+        style={{ height: '60dvh', maxHeight: '60dvh' }}
+        className="pointer-events-auto w-full h-[60dvh] max-h-[60dvh] lg:h-full lg:max-h-full lg:w-[500px] bg-surface-container-low flex flex-col rounded-t-[32px] lg:rounded-none border-t border-outline-variant/20 lg:border-t-0 lg:border-l shadow-[0_-10px_40px_rgba(0,0,0,0.2)] lg:shadow-none relative">
+        <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto mt-4 mb-2 lg:hidden flex-shrink-0" />
+        
+        <div className="px-8 pt-4 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
+          <div>
+            <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
+            <p className="text-sm text-on-surface-variant mt-1">
+              {position ? `📍 ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}` : 'Click on the map to set location'}
+            </p>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png"
-            className="hidden"
-            onChange={handleImageChange}
-          />
-        </div>
-
-        {/* Category */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Category</p>
-          <div className="grid grid-cols-3 gap-2">
-            {TAGS.map(t => (
-              <button
-                key={t.value}
-                onClick={() => setTag(t.value)}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40"
-                style={tag === t.value ? { borderColor: t.color, backgroundColor: t.color + '1a', color: t.color } : {}}
-              >
-                <span className="material-symbols-outlined text-xl">{t.icon}</span>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Details */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value.slice(0, 1000))}
-            rows={4}
-            maxLength={1000}
-            placeholder="Provide a brief description of the issue..."
-            className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
-            {description.length}/1000
-          </p>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
-        )}
-
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <button
-            onClick={onClose}
-            className="py-4 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
-          >
-            {submitting ? 'Submitting...' : 'Submit Report'}
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors" aria-label="Close">
+            <span className="material-symbols-outlined text-base">close</span>
           </button>
         </div>
 
-      </div>
-    </aside>
+        <div className="px-8 pb-10 flex flex-col gap-6 overflow-y-auto flex-1">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>
+            <div onClick={() => fileInputRef.current?.click()} onDrop={handleDrop} onDragOver={e => e.preventDefault()} className="w-full h-44 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
+                  <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
+                  <p className="text-xs text-outline">Maximum file size: 10MB (JPG, PNG)</p>
+                </>
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleImageChange} />
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Category</p>
+            <div className="grid grid-cols-3 gap-2">
+              {TAGS.map(t => (
+                <button key={t.value} onClick={() => setTag(t.value)} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40" style={tag === t.value ? { borderColor: t.color, backgroundColor: t.color + '1a', color: t.color } : {}}>
+                  <span className="material-symbols-outlined text-xl">{t.icon}</span>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
+            <textarea value={description} onChange={e => setDescription(e.target.value.slice(0, 1000))} rows={4} maxLength={1000} placeholder="Provide a brief description of the issue..." className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
+              {description.length}/1000
+            </p>
+          </div>
+
+          {error && (
+            <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button onClick={onClose} className="py-4 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container transition-colors">
+              Cancel
+            </button>
+            <button onClick={handleSubmit} disabled={submitting} className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60">
+              {submitting ? 'Submitting...' : 'Submit Report'}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
   )
 }
 
