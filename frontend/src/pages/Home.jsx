@@ -1,16 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
-import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
+import { getReports, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
-import Toast from '../components/Toast.jsx'
-import { useReports, reportKeys } from '../hooks/useReports.js'
+
 
 function decodePolyline(encoded) {
   const coords = []
@@ -58,24 +57,24 @@ function makeMarkerIcon(status, tag) {
 function ZoomControls() {
   const map = useMap()
   return (
-    <div className="absolute right-10 top-1/3 -translate-y-1/2 flex flex-col gap-2 z-[1000]">
+    <div className="absolute right-4 top-20 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
-        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-12 h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom in"
       >
         <span className="material-symbols-outlined">add</span>
       </button>
       <button
         onClick={() => map.zoomOut()}
-        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-12 h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom out"
       >
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
         onClick={() => map.locate({ setView: true, maxZoom: 16 })}
-        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors mt-2"
+        className="w-12 h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
         <span className="material-symbols-outlined">my_location</span>
@@ -152,15 +151,16 @@ function MapFlyTo({ target }) {
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { data: reports = [], isLoading: loading, error } = useReports()
-  const [selectedReportId, setSelectedReportId] = useState(null)
+  const [reports, setReports] = useState([])
+  const [selectedReport, setSelectedReport] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
   const [mapCenter, setMapCenter] = useState(null)
   const [searchError, setSearchError] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState([])
   const searchDebounce = useRef(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
   const [userVotes, setUserVotes] = useState({})
@@ -171,9 +171,6 @@ function Home() {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
-  const [toast, setToast] = useState(null)
-  const handleToastDismiss = useCallback(() => setToast(null), [])
-  const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -324,6 +321,21 @@ function Home() {
     setRouteNotice('')
   }
 
+  useEffect(() => {
+    async function fetchReports() {
+      try {
+        const data = await getReports()
+        setReports(data.map(mapReport))
+      } catch (err) {
+        setError('Failed to load reports.')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchReports()
+  }, [])
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background font-body">
       <Navbar />
@@ -417,13 +429,7 @@ function Home() {
                 key={report.id}
                 position={[report.latitude, report.longitude]}
                 icon={makeMarkerIcon(report.status, report.tags[0])}
-                eventHandlers={{
-                  click: () => {
-                    setShowCreatePanel(false)
-                    setNewReportPin(null)
-                    setSelectedReportId(report.id)
-                  },
-                }}
+                eventHandlers={{ click: () => setSelectedReport(report) }}
               />
             ))}
             {newReportPin && (
@@ -467,13 +473,13 @@ function Home() {
           {(loading || error) && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[500]">
               {loading && (
-                <p className="text-on-surface-variant font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                <p className="text-on-surface-variant font-bold text-lg select-none bg-surface-container-lowest/80 px-6 py-3 rounded-2xl shadow">
                   Loading reports...
                 </p>
               )}
               {error && (
-                <p className="text-error font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
-                  Failed to load reports.
+                <p className="text-error font-bold text-lg select-none bg-surface-container-lowest/80 px-6 py-3 rounded-2xl shadow">
+                  {error}
                 </p>
               )}
             </div>
@@ -481,7 +487,7 @@ function Home() {
 
           {/* Pin drop hint */}
           {showCreatePanel && !newReportPin && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
               <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">location_on</span>
                 Click on the map to set report location
@@ -520,7 +526,7 @@ function Home() {
 
           {/* Floating search bar */}
           <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 z-[1000] pointer-events-none">
-            <div className="flex items-center bg-white/80 backdrop-blur-md rounded-2xl px-6 py-3 gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
+            <div className="flex items-center bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl px-6 py-3 gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
               <span className="material-symbols-outlined text-primary">location_on</span>
               <div className="flex-1">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
@@ -541,7 +547,7 @@ function Home() {
               </button>
             </div>
             {searchSuggestions.length > 0 && (
-              <ul className="mt-1 bg-white rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
+              <ul className="mt-1 bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
                 {searchSuggestions.map((s) => (
                   <li key={s.place_id}>
                     <button
@@ -556,13 +562,13 @@ function Home() {
               </ul>
             )}
             {searchError && (
-              <p className="mt-2 text-xs text-error bg-white/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
+              <p className="mt-2 text-xs text-error bg-surface-container-lowest/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
             )}
           </div>
 
           {/* Community Pulse card + FAB */}
           <div className="absolute bottom-10 right-10 z-[1000] flex flex-col items-end gap-4">
-            <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
+            <div className="bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
@@ -592,7 +598,7 @@ function Home() {
             <button
               onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
               className={`h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
-                routeMode ? 'bg-secondary text-on-secondary' : 'bg-white/90 text-on-surface border border-outline-variant/20'
+                routeMode ? 'bg-secondary text-on-secondary' : 'bg-surface-container-lowest/90 text-on-surface border border-outline-variant/20'
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
@@ -616,12 +622,10 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReportId(null)}
+            onClose={() => setSelectedReport(null)}
             onVoteUpdate={(updatedReport) => {
-              setSelectedReportId(updatedReport.id)
-              queryClient.setQueryData(reportKeys.lists(), (prev) =>
-                prev?.map((r) => r.id === updatedReport.id ? updatedReport : r)
-              )
+              setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r))
+              setSelectedReport(updatedReport)
             }}
           />
         )}
@@ -632,18 +636,7 @@ function Home() {
         <CreateReportPanel
           position={newReportPin}
           onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
-          onCreated={() => {
-            queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
-            setNewReportPin(null)
-            setToast({ message: 'Report submitted successfully!', type: 'success' })
-          }}
-        />
-      )}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onDismiss={handleToastDismiss}
+          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null) }}
         />
       )}
     </div>
