@@ -1,7 +1,17 @@
+<<<<<<< HEAD
 import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ReportPanel from './ReportPanel';
+=======
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AuthProvider } from '../context/AuthContext.jsx'
+import ReportPanel from './ReportPanel.jsx'
+import * as reportService from '../services/reportService.js'
+>>>>>>> f9fad6907882b430c1c9d388dbe2cdc0d327a765
 
 vi.mock('../context/AuthContext.jsx', () => ({
   useAuth: () => ({ token: 'mock-token', isAuthenticated: true, userId: 'user123' }),
@@ -16,6 +26,7 @@ vi.mock('../services/reportService.js', () => ({
   deleteComment: vi.fn(() => Promise.resolve()),
 }));
 
+<<<<<<< HEAD
 import {
   agreeReport,
   disagreeReport,
@@ -23,6 +34,34 @@ import {
   createComment,
   deleteComment,
 } from '../services/reportService.js';
+=======
+function renderPanel({
+  report = MOCK_REPORT,
+  token = null,
+  userVote = null,
+  onClose = vi.fn(),
+  onVoteUpdate = vi.fn(),
+  onVoteChange = vi.fn(),
+} = {}) {
+  if (token) localStorage.setItem('token', token)
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <AuthProvider>
+          <ReportPanel
+            report={report}
+            userVote={userVote}
+            onClose={onClose}
+            onVoteUpdate={onVoteUpdate}
+            onVoteChange={onVoteChange}
+          />
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+>>>>>>> f9fad6907882b430c1c9d388dbe2cdc0d327a765
 
 describe('ReportPanel', () => {
   let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user;

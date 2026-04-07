@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.service.PublicSseService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +18,11 @@ public class PublicSseController {
     private final PublicSseService publicSseService;
 
     @GetMapping(path = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(HttpServletRequest request) {
+    public SseEmitter subscribe(HttpServletRequest request, HttpServletResponse response) {
+        // Prevent reverse proxies (nginx, Caddy) from buffering SSE events
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
+
         String source = request.getHeader("X-Forwarded-For");
         if (source == null || source.isBlank()) {
             source = request.getRemoteAddr();

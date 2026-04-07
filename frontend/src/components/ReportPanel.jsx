@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment, deleteComment } from '../services/reportService.js'
 
 
+import { useMutation } from '@tanstack/react-query'
+import { agreeReport, disagreeReport, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
@@ -20,7 +22,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
   const { token, isAuthenticated, userId } = useAuth()
   const navigate = useNavigate()
-  const [voting, setVoting] = useState(false)
   const [voteError, setVoteError] = useState('')
   const [comments, setComments] = useState([])
   const [commentsLoading, setCommentsLoading] = useState(false)
@@ -42,38 +43,36 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
   
 
+  const voteMutation = useMutation({
+    mutationFn: ({ type }) =>
+      type === 'agree'
+        ? agreeReport(report.id, token)
+        : disagreeReport(report.id, token),
+    onSuccess: (updated, { type }) => {
+      setVoteError('')
+      const mappedUpdated = mapReport(updated)
+      onVoteUpdate(mappedUpdated)
+      const prevCount = type === 'agree' ? report.agrees : report.disagrees
+      const newCount = type === 'agree' ? mappedUpdated.agrees : mappedUpdated.disagrees
+      onVoteChange(newCount > prevCount ? type : null)
+    },
+    onError: () => {
+      setVoteError('Failed to submit vote. Please try again.')
+    },
+  })
+
+  function handleVote(type) {
+    if (!token) { navigate('/login'); return }
+    setVoteError('')
+    voteMutation.mutate({ type })
+  }
+
   if (!report) return null
 
   const isValidated = report.status === 'verified'
   const total = (report.agrees || 0) + (report.disagrees || 0)
   const consensusPct = total > 0 ? Math.round(((report.agrees || 0) / total) * 100) : 0
-
-  async function handleVote(type) {
-    if (!token) {
-      navigate('/login')
-      return
-    }
-    setVoting(true)
-    setVoteError('')
-    try {
-      const prevAgrees = report.agrees
-      const prevDisagrees = report.disagrees
-      const updated = type === 'agree'
-        ? await agreeReport(report.id, token)
-        : await disagreeReport(report.id, token)
-      const mappedUpdated = mapReport(updated)
-      onVoteUpdate(mappedUpdated)
-      if (type === 'agree') {
-        onVoteChange(mappedUpdated.agrees > prevAgrees ? 'agree' : null)
-      } else {
-        onVoteChange(mappedUpdated.disagrees > prevDisagrees ? 'disagree' : null)
-      }
-    } catch (err) {
-      setVoteError('Failed to submit vote. Please try again.')
-    } finally {
-      setVoting(false)
-    }
-  }
+  const voting = voteMutation.isPending
 
 
   async function handleCommentSubmit() {

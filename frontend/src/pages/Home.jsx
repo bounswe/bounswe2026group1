@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
+import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '../components/Navbar.jsx'
 import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
-import { getReports, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 import Toast from '../components/Toast.jsx'
+import { useReports, reportKeys } from '../hooks/useReports.js'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -151,16 +152,15 @@ function MapFlyTo({ target }) {
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const [reports, setReports] = useState([])
-  const [selectedReport, setSelectedReport] = useState(null)
+  const queryClient = useQueryClient()
+  const { data: reports = [], isLoading: loading, error } = useReports()
+  const [selectedReportId, setSelectedReportId] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
   const [mapCenter, setMapCenter] = useState(null)
   const [searchError, setSearchError] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState([])
   const searchDebounce = useRef(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
   const [userVotes, setUserVotes] = useState({})
@@ -173,6 +173,7 @@ function Home() {
   const [routeError, setRouteError] = useState('')
   const [toast, setToast] = useState(null)
   const handleToastDismiss = useCallback(() => setToast(null), [])
+  const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -323,21 +324,6 @@ function Home() {
     setRouteNotice('')
   }
 
-  useEffect(() => {
-    async function fetchReports() {
-      try {
-        const data = await getReports()
-        setReports(data.map(mapReport))
-      } catch (err) {
-        setError('Failed to load reports.')
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchReports()
-  }, [])
-
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background font-body">
       <Navbar />
@@ -431,7 +417,13 @@ function Home() {
                 key={report.id}
                 position={[report.latitude, report.longitude]}
                 icon={makeMarkerIcon(report.status, report.tags[0])}
-                eventHandlers={{ click: () => { setShowCreatePanel(false); setNewReportPin(null); setSelectedReport(report) } }}
+                eventHandlers={{
+                  click: () => {
+                    setShowCreatePanel(false)
+                    setNewReportPin(null)
+                    setSelectedReportId(report.id)
+                  },
+                }}
               />
             ))}
             {newReportPin && (
@@ -481,7 +473,7 @@ function Home() {
               )}
               {error && (
                 <p className="text-error font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
-                  {error}
+                  Failed to load reports.
                 </p>
               )}
             </div>
@@ -624,10 +616,12 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReport(null)}
+            onClose={() => setSelectedReportId(null)}
             onVoteUpdate={(updatedReport) => {
-              setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r))
-              setSelectedReport(updatedReport)
+              setSelectedReportId(updatedReport.id)
+              queryClient.setQueryData(reportKeys.lists(), (prev) =>
+                prev?.map((r) => r.id === updatedReport.id ? updatedReport : r)
+              )
             }}
           />
         )}
@@ -638,7 +632,11 @@ function Home() {
         <CreateReportPanel
           position={newReportPin}
           onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
-          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null); setToast({ message: 'Report submitted successfully!', type: 'success' }) }}
+          onCreated={() => {
+            queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
+            setNewReportPin(null)
+            setToast({ message: 'Report submitted successfully!', type: 'success' })
+          }}
         />
       )}
       {toast && (

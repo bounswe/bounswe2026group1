@@ -1,8 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
+import { SseProvider } from '../context/SseContext.jsx'
 import Home from './Home.jsx'
+
+// useSseSync opens a real EventSource — mock it out in tests
+vi.mock('../hooks/useSseSync.js', () => ({ useSseSync: vi.fn() }))
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
@@ -25,12 +30,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 function renderHome() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <Home />
-      </AuthProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <SseProvider>
+        <MemoryRouter>
+          <AuthProvider>
+            <Home />
+          </AuthProvider>
+        </MemoryRouter>
+      </SseProvider>
+    </QueryClientProvider>
   )
 }
 
