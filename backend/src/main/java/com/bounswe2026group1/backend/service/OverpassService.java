@@ -49,7 +49,8 @@ public class OverpassService {
         List<Location[]> stairEndpoints = parseStairEndpoints(response);
         if (stairEndpoints.isEmpty()) {
             throw new RoutingException(
-                    "No stair found within " + SEARCH_RADIUS_METERS + "m of the reported ramp location");
+                    "Ramps can currently only be added to stairs. No stair found within "
+                    + SEARCH_RADIUS_METERS + "m of the reported location.");
         }
 
         return findNearestStair(stairEndpoints, reportedPoint);
