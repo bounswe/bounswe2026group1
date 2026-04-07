@@ -81,7 +81,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   }
 
   return (
-    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[480px] bg-white overflow-y-auto border-l border-outline-variant/10 flex flex-col">
+    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[500px] bg-surface-container-low overflow-y-auto border-l border-outline-variant/10 flex flex-col">
 
       {/* Header */}
       <div className="px-8 pt-8 pb-4 flex items-start justify-between flex-shrink-0">
