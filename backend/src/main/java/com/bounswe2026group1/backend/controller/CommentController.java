@@ -24,7 +24,7 @@ public class CommentController {
     public ResponseEntity<Comment> getById(@PathVariable Long id) {
         return commentService.getById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/author/{authorId}")
@@ -46,13 +46,14 @@ public class CommentController {
     public ResponseEntity<Comment> update(@PathVariable Long id, @RequestBody Comment comment) {
         return commentService.update(id, comment)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        return commentService.delete(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        if (commentService.delete(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 }
