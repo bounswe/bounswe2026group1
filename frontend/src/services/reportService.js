@@ -41,19 +41,27 @@ export async function disagreeReport(id, token) {
  * Fetch comments for a specific report.
  * GET /api/comments/report/{reportId}
  */
-export async function getCommentsByReport(reportId) {
-  return apiFetch(`/api/comments/report/${reportId}`)
+export async function getCommentsByReport(reportId, token) {
+  return apiFetch(`/api/comments/report/${reportId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
 }
 
 /**
  * Post a new comment on a report.
  * POST /api/comments
  */
-export async function createComment(reportId, content, token) {
+export async function createComment(reportId, content, token, userId) {
+  const payload = {
+    content,
+    author: { id: userId },
+    report: { reportId },
+  }
+
   return apiFetch('/api/comments', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ content, report: { id: reportId } }),
+    body: JSON.stringify(payload),
   })
 }
 
@@ -75,9 +83,22 @@ export function mapReport(r) {
     reportedBy: `User #${r.userId}`,
     agrees: r.agrees,
     disagrees: r.disagrees,
+    userVote: r.userVote ? r.userVote.toLowerCase() : null,
     tags: r.tag ? [r.tag] : [],
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     latitude: r.latitude,
     longitude: r.longitude,
   }
+}
+
+
+/**
+ * Delete a comment by ID.
+ * DELETE /api/comments/{id}
+ */
+export async function deleteComment(commentId, token) {
+  return apiFetch(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }

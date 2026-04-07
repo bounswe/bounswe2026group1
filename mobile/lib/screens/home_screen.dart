@@ -487,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return Marker(
         point: LatLng(report.latitude, report.longitude),
         width: 88,
-        height: 72,
+        height: 80,
         child: GestureDetector(
           onTap: () => Navigator.push(
             context,
@@ -496,6 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(4),
@@ -540,6 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Text(
                   report.tag.label,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.w700,

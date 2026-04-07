@@ -25,6 +25,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   ReportModel get report => widget.report;
 
   String? _fetchedUsername;
+  bool _usernameLoading = false;
 
   // ── Video player ───────────────────────────────────────────────────────────
   VideoPlayerController? _videoController;
@@ -65,7 +66,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
     _myVote = report.userVote?.toLowerCase();
-    if (report.username == null) _loadUsername();
+    if (report.username == null) {
+      _usernameLoading = true;
+      _loadUsername();
+    }
     _loadComments();
     if (_hasVideo) _initVideo();
     // Fetch fresh report so userVote / counts reflect server state.
@@ -181,8 +185,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Future<void> _loadUsername() async {
     final name = await context.read<AuthService>().api.getUserName(report.userId);
-    if (mounted && name != null) {
-      setState(() => _fetchedUsername = name);
+    if (mounted) {
+      setState(() {
+        _fetchedUsername = name;
+        _usernameLoading = false;
+      });
     }
   }
 
@@ -627,14 +634,23 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _displayUsername,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface,
-                  ),
-                ),
+                _usernameLoading
+                    ? Container(
+                        width: 90,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      )
+                    : Text(
+                        _displayUsername,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
                 Text(
                   'Reported ${report.timeAgo}',
                   style: const TextStyle(

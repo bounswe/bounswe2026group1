@@ -19,6 +19,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _loading = false;
 
+  String? _emailError;
+  String? _passwordError;
+  String? _formError;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -30,10 +34,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      _showError('Please enter your email and password.');
-      return;
-    }
+    setState(() {
+      _emailError = email.isEmpty ? 'Email is required' : null;
+      _passwordError = password.isEmpty ? 'Password is required' : null;
+      _formError = null;
+    });
+
+    if (email.isEmpty || password.isEmpty) return;
 
     setState(() => _loading = true);
     try {
@@ -44,23 +51,12 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } on ApiException catch (e) {
-      if (mounted) _showError(e.userMessage);
+      if (mounted) setState(() => _formError = e.userMessage);
     } catch (_) {
-      if (mounted) _showError('Cannot reach server. Check your connection.');
+      if (mounted) setState(() => _formError = 'Cannot reach server. Check your connection.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFFB02500),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
   }
 
   @override
@@ -116,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _emailController,
                       hint: 'name@example.com',
                       keyboardType: TextInputType.emailAddress,
+                      errorText: _emailError,
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -140,6 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       hint: '••••••••',
                       obscure: _obscurePassword,
+                      errorText: _passwordError,
                       suffix: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -155,6 +153,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
+                    if (_formError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFDAD6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFB4AB)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Color(0xFFBA1A1A), size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _formError!,
+                                style: const TextStyle(
+                                  color: Color(0xFFBA1A1A),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                    ],
                     _buildPrimaryButton(),
                     const SizedBox(height: 12),
                     _buildGuestButton(),
@@ -184,28 +209,52 @@ class _LoginScreenState extends State<LoginScreen> {
     TextInputType? keyboardType,
     bool obscure = false,
     Widget? suffix,
+    String? errorText,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppColors.outlineVariant),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 16,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(14),
+            border: errorText != null ? Border.all(color: const Color(0xFFBA1A1A)) : null,
           ),
-          suffixIcon: suffix,
+          child: TextField(
+            controller: controller,
+            obscureText: obscure,
+            keyboardType: keyboardType,
+            style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: AppColors.outlineVariant),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
+              suffixIcon: suffix,
+            ),
+            onChanged: (_) {
+              if (errorText != null) {
+                setState(() {
+                  if (controller == _emailController) _emailError = null;
+                  if (controller == _passwordController) _passwordError = null;
+                  _formError = null;
+                });
+              }
+            },
+          ),
         ),
-      ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 

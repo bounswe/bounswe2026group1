@@ -4,12 +4,12 @@ const API_KEY = import.meta.env.VITE_API_KEY
 export async function apiFetch(path, options = {}) {
   const { headers, ...rest } = options
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', 'Mapcess-Key': API_KEY, ...headers },
     ...rest,
+    headers: { 'Content-Type': 'application/json', 'Mapcess-Key': API_KEY, ...headers },
   })
 
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401 && !res.url.includes('/error')) {
       window.dispatchEvent(new CustomEvent('auth:expired'))
     }
     const error = await res.json().catch(() => ({ message: res.statusText }))
