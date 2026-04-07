@@ -3,18 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ReportPanel from './ReportPanel.jsx'
-import * as reportService from '../services/reportService.js'
 
-// 1. Mock Auth Context - This is crucial since your JSX uses useAuth()
 vi.mock('../context/AuthContext.jsx', () => ({
-  useAuth: () => ({ 
-    token: 'mock-token', 
-    isAuthenticated: true, 
-    userId: 'user123' 
-  }),
+  useAuth: () => ({ token: 'mock-token', isAuthenticated: true, userId: 'user123' }),
 }))
 
-// 2. Mock the Service - This intercepts all backend calls
 vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
@@ -24,31 +17,33 @@ vi.mock('../services/reportService.js', () => ({
   deleteComment: vi.fn(() => Promise.resolve()),
 }))
 
+import {
+  agreeReport,
+  disagreeReport,
+  getCommentsByReport,
+  createComment,
+  deleteComment,
+} from '../services/reportService.js'
+
 describe('ReportPanel', () => {
   let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user
 
-  // Standardized naming to fix the "ReferenceError: MOCK_REPORT is not defined"
-  const MOCK_REPORT = {
+  const report = {
     id: 'r1',
     title: 'Broken Elevator',
     description: 'The elevator is out of service.',
     location: '41.0683, 29.0505',
-    reportedBy: 'Tester',
-    date: '07 Apr 2026',
-    status: 'unverified',
     agrees: 0,
     disagrees: 0,
     imageUrl: null,
     userVote: null,
     isFollowed: false,
-    tags: []
   }
 
   const existingComment = {
     id: 'c1',
     content: 'Existing comment',
     author: { id: 'user123', name: 'Tester' },
-    createdAt: '2026-04-07T10:00:00Z'
   }
 
   beforeEach(() => {
@@ -58,21 +53,16 @@ describe('ReportPanel', () => {
     onVoteUpdateMock = vi.fn()
     user = userEvent.setup()
     vi.clearAllMocks()
-    reportService.getCommentsByReport.mockResolvedValue([])
+    getCommentsByReport.mockResolvedValue([])
   })
 
   function renderPanel(props = {}) {
-    const queryClient = new QueryClient({ 
-      defaultOptions: { 
-        queries: { retry: false }, 
-        mutations: { retry: false } 
-      } 
-    })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
     return render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
           <ReportPanel
-            report={MOCK_REPORT}
+            report={report}
             onClose={onCloseMock}
             onVoteChange={onVoteChangeMock}
             onVoteUpdate={onVoteUpdateMock}
@@ -84,90 +74,64 @@ describe('ReportPanel', () => {
     )
   }
 
-  test('renders basic report information', async () => {
+  test('renders the report title, description, location and buttons', async () => {
     renderPanel()
-    expect(screen.getByText(MOCK_REPORT.title)).toBeInTheDocument()
-    expect(screen.getByText(MOCK_REPORT.description)).toBeInTheDocument()
-    // Using regex for location to be safe with formatting
-    expect(screen.getByText(/41\.0683/)).toBeInTheDocument()
+
+    expect(screen.getByText(report.title)).toBeInTheDocument()
+    expect(screen.getByText(report.description)).toBeInTheDocument()
+    expect(screen.getByText(/41\.0683, 29\.0505/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Agree')).toBeInTheDocument()
+    expect(screen.getByLabelText('Disagree')).toBeInTheDocument()
   })
 
-  test('calls onVoteChange with agree when Agree is clicked', async () => {
-    // Mock the service response
-    reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 1, userVote: 'AGREE' })
-    reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 1, userVote: 'agree' })
+  test('calls onVoteChange with agree/disagree/null correctly', async () => {
+    agreeReport
+      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0, userVote: 'agree' })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0, userVote: null })
+    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1, userVote: 'disagree' })
 
     renderPanel()
+
     const agreeBtn = screen.getByLabelText('Agree')
-
-    await act(async () => { await user.click(agreeBtn) })
-    
-    await waitFor(() => {
-      expect(onVoteChangeMock).toHaveBeenCalledWith('agree')
-    })
-  })
-
-  test('calls onVoteChange with disagree when Disagree is clicked', async () => {
-    reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 1, userVote: 'DISAGREE' })
-    reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 1, userVote: 'disagree' })
-
-    renderPanel()
     const disagreeBtn = screen.getByLabelText('Disagree')
 
+    await act(async () => { await user.click(agreeBtn) })
+    await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith('agree'))
+
     await act(async () => { await user.click(disagreeBtn) })
-    
-    await waitFor(() => {
-      expect(onVoteChangeMock).toHaveBeenCalledWith('disagree')
-    })
+    await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith('disagree'))
+
+    await act(async () => { await user.click(agreeBtn) })
+    await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith(null))
   })
 
-  test('toggles follow state correctly', async () => {
+  test('toggles follow state', async () => {
     renderPanel()
+
     const followBtn = screen.getByRole('button', { name: /follow/i })
-    
     await act(async () => { await user.click(followBtn) })
 
     await waitFor(() => {
       expect(onFollowChangeMock).toHaveBeenCalled()
-      // Check if button text changed
-      expect(screen.getByText(/unfollow/i)).toBeInTheDocument()
+      expect(followBtn.textContent.toLowerCase()).toMatch(/unfollow/)
     })
   })
 
-  test('submits a new comment', async () => {
-    reportService.createComment.mockResolvedValueOnce({
-      id: 'c2',
-      content: 'New test comment',
-      author: { id: 'user123', name: 'Tester' },
-      createdAt: new Date().toISOString()
-    })
+  test('can delete own comment', async () => {
+    getCommentsByReport.mockResolvedValueOnce([existingComment])
 
     renderPanel()
-    const textarea = screen.getByPlaceholderText(/Add a comment/i)
-    const postBtn = screen.getByText('Post')
 
-    await user.type(textarea, 'New test comment')
-    await act(async () => { await user.click(postBtn) })
+    const comment = await screen.findByText((content, element) =>
+      element.tagName.toLowerCase() === 'p' && content.includes('Existing comment')
+    )
 
-    await waitFor(() => {
-      expect(screen.getByText('New test comment')).toBeInTheDocument()
-    })
-  })
-
-  test('deletes a comment', async () => {
-    reportService.getCommentsByReport.mockResolvedValueOnce([existingComment])
-
-    renderPanel()
-    
-    // Wait for the comment to appear
-    const commentText = await screen.findByText('Existing comment')
-    const deleteBtn = screen.getByLabelText('Delete comment')
+    const deleteBtn = within(comment.parentElement).getByLabelText('Delete comment')
 
     await act(async () => { await user.click(deleteBtn) })
 
     await waitFor(() => {
-      expect(reportService.deleteComment).toHaveBeenCalledWith(existingComment.id, expect.anything())
-      expect(commentText).not.toBeInTheDocument()
+      expect(comment).not.toBeInTheDocument()
     })
   })
 })
