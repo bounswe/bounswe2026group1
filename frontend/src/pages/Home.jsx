@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 import Toast from '../components/Toast.jsx'
+import { useReports } from '../hooks/useReports.js'
 
 function decodePolyline(encoded) {
   const coords = []
