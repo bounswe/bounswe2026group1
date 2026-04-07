@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/reports/ramp")
+@RequestMapping("/api/ramp-reports")
 @RequiredArgsConstructor
 public class RampReportController {
 

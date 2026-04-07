@@ -111,7 +111,7 @@ class ApiService {
     required ReportTag tag,
   }) async {
     final isRamp = tag == ReportTag.ramp;
-    final endpoint = isRamp ? '$_baseUrl/api/reports/ramp' : '$_baseUrl/api/reports';
+    final endpoint = isRamp ? '$_baseUrl/api/ramp-reports' : '$_baseUrl/api/reports';
     final body = isRamp
         ? {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description}
         : {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description, 'tag': tag.jsonValue};

@@ -43,7 +43,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
     setError('')
     try {
       const isRamp = tag === 'RAMP'
-      const endpoint = isRamp ? '/api/reports/ramp' : '/api/reports'
+      const endpoint = isRamp ? '/api/ramp-reports' : '/api/reports'
       const body = isRamp
         ? { userId, latitude: position.lat, longitude: position.lng, description: description.trim() }
         : { userId, latitude: position.lat, longitude: position.lng, description: description.trim(), tag }

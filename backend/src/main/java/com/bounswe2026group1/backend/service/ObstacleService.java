@@ -25,10 +25,10 @@ public class ObstacleService {
             Tag.WET_FLOOR, Tag.CONSTRUCTION, Tag.OTHER);
 
     /**
-     * ~10 m buffer around a reported obstacle → 20×20 m square (degrees,
+     * ~3 m buffer around a reported obstacle → 6×6 m square (degrees,
      * approximate at mid-latitudes).
      */
-    private static final double AVOID_BUFFER_DEGREES = 0.00009;
+    private static final double AVOID_BUFFER_DEGREES = 0.000027;
 
     /**
      * A report must be within this many metres of the path to count as "on route".
