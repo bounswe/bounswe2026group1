@@ -43,7 +43,7 @@ class ReportsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Community Reports are COMING SOON!',
+                      '!!! COMING SOON !!!',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.onSurfaceVariant,
