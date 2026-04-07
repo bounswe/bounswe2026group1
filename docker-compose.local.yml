@@ -39,11 +39,20 @@ services:
       AWS_SECRET_KEY: ${AWS_SECRET_KEY}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/reports || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   frontend:
     image: node:20-alpine
     container_name: mapcess_frontend_dev
     working_dir: /app
+    depends_on:
+      backend:
+        condition: service_healthy
     ports:
       - "5173:5173"
     environment:
