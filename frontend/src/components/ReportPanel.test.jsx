@@ -1,39 +1,77 @@
 import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import ReportPanel from './ReportPanel';
 
+vi.mock('../context/AuthContext.jsx', () => ({
+  useAuth: () => ({ token: 'mock-token', isAuthenticated: true, userId: 'user123' }),
+}));
+
+vi.mock('../services/reportService.js', () => ({
+  agreeReport: vi.fn(),
+  disagreeReport: vi.fn(),
+  mapReport: vi.fn(r => r),
+  getCommentsByReport: vi.fn(() => Promise.resolve([])),
+  createComment: vi.fn(),
+  deleteComment: vi.fn(() => Promise.resolve()),
+}));
+
+import {
+  agreeReport,
+  disagreeReport,
+  getCommentsByReport,
+  createComment,
+  deleteComment,
+} from '../services/reportService.js';
+
 describe('ReportPanel', () => {
-  let onCloseMock, onVoteChangeMock, onFollowChangeMock, user;
+  let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user;
 
   const report = {
     id: 'r1',
     title: 'Broken Elevator',
     description: 'The elevator is out of service.',
-    location: { lat: 41.0683, lng: 29.0505 },
+    location: '41.0683, 29.0505',
+    agrees: 0,
+    disagrees: 0,
     imageUrl: null,
     userVote: null,
     isFollowed: false,
-    comments: [
-      { id: 'c1', content: 'Existing comment', author: { id: 'user123', name: 'Tester' } }
-    ]
+  };
+
+  const existingComment = {
+    id: 'c1',
+    content: 'Existing comment',
+    author: { id: 'user123', name: 'Tester' },
   };
 
   beforeEach(() => {
     onCloseMock = vi.fn();
     onVoteChangeMock = vi.fn();
     onFollowChangeMock = vi.fn();
+    onVoteUpdateMock = vi.fn();
     user = userEvent.setup();
+    vi.clearAllMocks();
+    getCommentsByReport.mockResolvedValue([]);
   });
 
-  test('renders the report title, description, location and buttons', async () => {
-    render(
-      <ReportPanel
-        report={report}
-        onClose={onCloseMock}
-        onVoteChange={onVoteChangeMock}
-        onFollowChange={onFollowChangeMock}
-      />
+  function renderPanel(props = {}) {
+    return render(
+      <MemoryRouter>
+        <ReportPanel
+          report={report}
+          onClose={onCloseMock}
+          onVoteChange={onVoteChangeMock}
+          onVoteUpdate={onVoteUpdateMock}
+          onFollowChange={onFollowChangeMock}
+          {...props}
+        />
+      </MemoryRouter>
     );
+  }
+
+  test('renders the report title, description, location and buttons', async () => {
+    renderPanel();
 
     expect(screen.getByText(report.title)).toBeInTheDocument();
     expect(screen.getByText(report.description)).toBeInTheDocument();
@@ -43,43 +81,34 @@ describe('ReportPanel', () => {
   });
 
   test('calls onVoteChange with agree/disagree/null correctly', async () => {
-    render(
-      <ReportPanel
-        report={report}
-        onClose={onCloseMock}
-        onVoteChange={onVoteChangeMock}
-        onFollowChange={onFollowChangeMock}
-      />
-    );
+    agreeReport
+      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0 })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0 });
+    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1 });
+
+    renderPanel();
 
     const agreeBtn = screen.getByLabelText('Agree');
     const disagreeBtn = screen.getByLabelText('Disagree');
 
     // Cast agree vote
-    await act(async () => user.click(agreeBtn));
+    await act(async () => { await user.click(agreeBtn); });
     await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith('agree'));
 
     // Cast disagree vote
-    await act(async () => user.click(disagreeBtn));
+    await act(async () => { await user.click(disagreeBtn); });
     await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith('disagree'));
 
     // Toggle off agree vote
-    await act(async () => user.click(agreeBtn));
+    await act(async () => { await user.click(agreeBtn); });
     await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith(null));
   });
 
   test('toggles follow state', async () => {
-    render(
-      <ReportPanel
-        report={report}
-        onClose={onCloseMock}
-        onVoteChange={onVoteChangeMock}
-        onFollowChange={onFollowChangeMock}
-      />
-    );
+    renderPanel();
 
     const followBtn = screen.getByRole('button', { name: /follow/i });
-    await act(async () => user.click(followBtn));
+    await act(async () => { await user.click(followBtn); });
 
     await waitFor(() => {
       expect(onFollowChangeMock).toHaveBeenCalled();
@@ -88,20 +117,19 @@ describe('ReportPanel', () => {
   });
 
   test('can submit a new comment', async () => {
-    render(
-      <ReportPanel
-        report={report}
-        onClose={onCloseMock}
-        onVoteChange={onVoteChangeMock}
-        onFollowChange={onFollowChangeMock}
-      />
-    );
+    createComment.mockResolvedValueOnce({
+      id: 'c2',
+      content: 'New comment',
+      author: { id: 'user123', name: 'Tester' },
+    });
+
+    renderPanel();
 
     const textarea = screen.getByPlaceholderText('Add a comment...');
     const postBtn = screen.getByText(/post/i);
 
     await user.type(textarea, 'New comment');
-    await act(async () => user.click(postBtn));
+    await act(async () => { await user.click(postBtn); });
 
     await waitFor(() => {
       expect(screen.getByText('New comment')).toBeInTheDocument();
@@ -109,22 +137,17 @@ describe('ReportPanel', () => {
   });
 
   test('can delete own comment', async () => {
-    render(
-      <ReportPanel
-        report={report}
-        onClose={onCloseMock}
-        onVoteChange={onVoteChangeMock}
-        onFollowChange={onFollowChangeMock}
-      />
-    );
+    getCommentsByReport.mockResolvedValueOnce([existingComment]);
 
-    const comment = screen.getByText((content, element) =>
+    renderPanel();
+
+    const comment = await screen.findByText((content, element) =>
       element.tagName.toLowerCase() === 'p' && content.includes('Existing comment')
     );
 
     const deleteBtn = within(comment.parentElement).getByLabelText('Delete comment');
 
-    await act(async () => user.click(deleteBtn));
+    await act(async () => { await user.click(deleteBtn); });
 
     await waitFor(() => {
       expect(comment).not.toBeInTheDocument();

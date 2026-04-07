@@ -16,7 +16,7 @@ import { REPORT_TAGS } from '../utils/reportTagConfig.js'
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
-function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
+function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange }) {
 
   const { token, isAuthenticated, userId } = useAuth()
   const navigate = useNavigate()
@@ -366,7 +366,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
             <button
               onClick={() => {
                 if (!isAuthenticated) { navigate('/login'); return }
-                setFollowing(prev => !prev)
+                setFollowing(prev => {
+                  const next = !prev
+                  onFollowChange?.(next)
+                  return next
+                })
               }}
               className={`w-full py-5 rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${
                 following
