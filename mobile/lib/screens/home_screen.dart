@@ -63,6 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _routeEndLabel = '';
   bool _editingStart = false;   // which field is open for search
   bool _routePanelExpanded = true; // collapsed when routes are loaded
+  // null = not in pin-pick mode; true = picking start; false = picking end
+  bool? _pickingPin;
 
   static const LatLng _defaultCenter = LatLng(37.7599, -122.4148);
 
@@ -332,6 +334,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _closeSearch();
   }
 
+  void _onMapTap(TapPosition _, LatLng latlng) {
+    if (!_routeMode || _pickingPin == null) return;
+    final label =
+        '${latlng.latitude.toStringAsFixed(4)}, ${latlng.longitude.toStringAsFixed(4)}';
+    final isStart = _pickingPin!;
+    setState(() {
+      _pickingPin = null;
+      if (isStart) {
+        _routeStart = latlng;
+        _routeStartLabel = label;
+      } else {
+        _routeEnd = latlng;
+        _routeEndLabel = label;
+      }
+    });
+    if (_routeEnd != null) _fetchRoute(_routeEnd!);
+  }
+
   void _swapRoutePoints() {
     final swappedStart = _routeEnd;
     final swappedStartLabel = _routeEndLabel.isNotEmpty ? _routeEndLabel : 'Current Location';
@@ -419,14 +439,16 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // Fit map to show the first route
+      // Fit map to show the full route
       final allPoints = decoded.first.points;
       if (allPoints.isNotEmpty) {
-        final lats = allPoints.map((p) => p.latitude);
-        final lons = allPoints.map((p) => p.longitude);
-        final centerLat = lats.reduce((a, b) => a + b) / allPoints.length;
-        final centerLon = lons.reduce((a, b) => a + b) / allPoints.length;
-        _mapController.move(LatLng(centerLat, centerLon), 13);
+        final bounds = LatLngBounds.fromPoints(allPoints);
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(60),
+          ),
+        );
       }
 
       setState(() {
@@ -567,9 +589,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // ── Full-screen map ─────────────────────────────────────────────
           FlutterMap(
             mapController: _mapController,
-            options: const MapOptions(
+            options: MapOptions(
               initialCenter: _defaultCenter,
               initialZoom: 14,
+              onTap: _onMapTap,
             ),
             children: [
               TileLayer(
@@ -660,8 +683,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                // Route start pin
-                if (_routeMode && _routes.isNotEmpty)
+                // Route start pin (shown at picked location or current location)
+                if (_routeMode && (_routeStart != null || _userLocation != null))
                   Marker(
                     point: _routeStart ?? _userLocation!,
                     width: 36,
@@ -782,6 +805,56 @@ class _HomeScreenState extends State<HomeScreen> {
           // ── Route info card ─────────────────────────────────────────────
           _buildRouteInfoCard(),
 
+          // ── Pin-pick hint ───────────────────────────────────────────────
+          if (_pickingPin != null)
+            Positioned(
+              bottom: 100,
+              left: 40,
+              right: 40,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.location_pin,
+                          color: Colors.white, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        _pickingPin == true
+                            ? 'Tap map to set starting point'
+                            : 'Tap map to set destination',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => setState(() => _pickingPin = null),
+                        child: const Icon(Icons.close,
+                            color: Colors.white70, size: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // ── Navigate button (when NOT in route mode) ────────────────────
           if (!_routeMode)
             Positioned(
@@ -837,13 +910,19 @@ class _HomeScreenState extends State<HomeScreen> {
       color: Colors.white,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-            onPressed: _routeMode ? () {
-              _closeSearch();
-              setState(() => _editingStart = false);
-            } : _closeSearch,
-          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              onPressed: _routeMode ? () {
+                _closeSearch();
+                setState(() => _editingStart = false);
+              } : _closeSearch,
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Icon(Icons.search, color: AppColors.primary),
+            ),
           Expanded(
             child: TextField(
               controller: _searchController,
@@ -950,10 +1029,14 @@ class _HomeScreenState extends State<HomeScreen> {
               label: _routeStartLabel,
               hint: 'Starting point',
               isSet: true,
+              isPicking: _pickingPin == true,
               onTap: () {
-                setState(() => _editingStart = true);
+                setState(() { _editingStart = true; _pickingPin = null; });
                 _openSearch();
               },
+              onPinTap: () => setState(() {
+                _pickingPin = _pickingPin == true ? null : true;
+              }),
             ),
             // Divider + swap
             Row(
@@ -982,10 +1065,14 @@ class _HomeScreenState extends State<HomeScreen> {
               label: _routeEndLabel.isNotEmpty ? _routeEndLabel : '',
               hint: 'Choose destination',
               isSet: _routeEndLabel.isNotEmpty,
+              isPicking: _pickingPin == false,
               onTap: () {
-                setState(() => _editingStart = false);
+                setState(() { _editingStart = false; _pickingPin = null; });
                 _openSearch();
               },
+              onPinTap: () => setState(() {
+                _pickingPin = _pickingPin == false ? null : false;
+              }),
             ),
             // Cancel button
             Padding(
@@ -1020,6 +1107,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String hint,
     required bool isSet,
     required VoidCallback onTap,
+    required VoidCallback onPinTap,
+    bool isPicking = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -1042,12 +1131,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (isSet && label.isNotEmpty && label != 'Current Location')
-              GestureDetector(
-                onTap: onTap,
-                child: const Icon(Icons.edit_outlined,
-                    size: 14, color: AppColors.onSurfaceVariant),
+            GestureDetector(
+              onTap: onPinTap,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isPicking
+                      ? AppColors.primary.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.location_pin,
+                  size: 16,
+                  color: isPicking
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant,
+                ),
               ),
+            ),
           ],
         ),
       ),

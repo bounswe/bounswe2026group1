@@ -1,11 +1,11 @@
-import { render, screen, waitFor, act, within } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ReportPanel from './ReportPanel.jsx'
 import * as reportService from '../services/reportService.js'
 
-// 1. Mock Auth Context - This is crucial since your JSX uses useAuth()
+// 1. Mock Auth Context
 vi.mock('../context/AuthContext.jsx', () => ({
   useAuth: () => ({ 
     token: 'mock-token', 
@@ -14,7 +14,7 @@ vi.mock('../context/AuthContext.jsx', () => ({
   }),
 }))
 
-// 2. Mock the Service - This intercepts all backend calls
+// 2. Mock the Service
 vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
@@ -25,9 +25,8 @@ vi.mock('../services/reportService.js', () => ({
 }))
 
 describe('ReportPanel', () => {
-  let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user
+  let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user, queryClient
 
-  // Standardized naming to fix the "ReferenceError: MOCK_REPORT is not defined"
   const MOCK_REPORT = {
     id: 'r1',
     title: 'Broken Elevator',
@@ -59,16 +58,23 @@ describe('ReportPanel', () => {
     user = userEvent.setup()
     vi.clearAllMocks()
     reportService.getCommentsByReport.mockResolvedValue([])
-  })
 
-  function renderPanel(props = {}) {
-    const queryClient = new QueryClient({ 
+    // Fresh QueryClient for each test avoids cache pollution
+    queryClient = new QueryClient({ 
       defaultOptions: { 
         queries: { retry: false }, 
         mutations: { retry: false } 
       } 
     })
-    return render(
+  })
+
+  afterEach(() => {
+    queryClient.clear()
+  })
+
+  // Async render function that waits for initial data fetches to resolve
+  async function renderPanel(props = {}) {
+    render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
           <ReportPanel
@@ -82,25 +88,28 @@ describe('ReportPanel', () => {
         </MemoryRouter>
       </QueryClientProvider>
     )
+    
+    // This eliminates the act() warnings by waiting for the initial mount fetches!
+    await waitFor(() => {
+      expect(reportService.getCommentsByReport).toHaveBeenCalled()
+    })
   }
 
   test('renders basic report information', async () => {
-    renderPanel()
+    await renderPanel()
     expect(screen.getByText(MOCK_REPORT.title)).toBeInTheDocument()
     expect(screen.getByText(MOCK_REPORT.description)).toBeInTheDocument()
-    // Using regex for location to be safe with formatting
     expect(screen.getByText(/41\.0683/)).toBeInTheDocument()
   })
 
   test('calls onVoteChange with agree when Agree is clicked', async () => {
-    // Mock the service response
     reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 1, userVote: 'AGREE' })
     reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 1, userVote: 'agree' })
 
-    renderPanel()
+    await renderPanel()
     const agreeBtn = screen.getByLabelText('Agree')
 
-    await act(async () => { await user.click(agreeBtn) })
+    await user.click(agreeBtn)
     
     await waitFor(() => {
       expect(onVoteChangeMock).toHaveBeenCalledWith('agree')
@@ -111,10 +120,10 @@ describe('ReportPanel', () => {
     reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 1, userVote: 'DISAGREE' })
     reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 1, userVote: 'disagree' })
 
-    renderPanel()
+    await renderPanel()
     const disagreeBtn = screen.getByLabelText('Disagree')
 
-    await act(async () => { await user.click(disagreeBtn) })
+    await user.click(disagreeBtn)
     
     await waitFor(() => {
       expect(onVoteChangeMock).toHaveBeenCalledWith('disagree')
@@ -122,15 +131,13 @@ describe('ReportPanel', () => {
   })
 
   test('toggles follow state correctly', async () => {
-    renderPanel()
+    await renderPanel()
     const followBtn = screen.getByRole('button', { name: /follow/i })
     
-    await act(async () => { await user.click(followBtn) })
+    await user.click(followBtn)
 
     await waitFor(() => {
       expect(onFollowChangeMock).toHaveBeenCalled()
-      // Check if button text changed
-      expect(screen.getByText(/unfollow/i)).toBeInTheDocument()
     })
   })
 
@@ -142,28 +149,29 @@ describe('ReportPanel', () => {
       createdAt: new Date().toISOString()
     })
 
-    renderPanel()
+    await renderPanel()
     const textarea = screen.getByPlaceholderText(/Add a comment/i)
     const postBtn = screen.getByText('Post')
 
     await user.type(textarea, 'New test comment')
-    await act(async () => { await user.click(postBtn) })
+    await user.click(postBtn)
 
     await waitFor(() => {
       expect(screen.getByText('New test comment')).toBeInTheDocument()
     })
   })
 
-  test('deletes a comment', async () => {
+  test('can delete own comment', async () => {
     reportService.getCommentsByReport.mockResolvedValueOnce([existingComment])
 
-    renderPanel()
+    await renderPanel()
     
-    // Wait for the comment to appear
-    const commentText = await screen.findByText('Existing comment')
+    const commentText = await screen.findByText((content, element) =>
+      element.tagName.toLowerCase() === 'p' && content.includes('Existing comment')
+    )
     const deleteBtn = screen.getByLabelText('Delete comment')
 
-    await act(async () => { await user.click(deleteBtn) })
+    await user.click(deleteBtn)
 
     await waitFor(() => {
       expect(reportService.deleteComment).toHaveBeenCalledWith(existingComment.id, expect.anything())

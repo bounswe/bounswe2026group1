@@ -71,25 +71,26 @@ public class RouteService {
             }
         }
 
-        // 3. Wheelchair route — always returned, with obstacle avoidance
-        RoutingDirectionsResult wheelchairResult = fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
+        // 3. Ramp-Assisted Route — best of direct wheelchair vs multi-leg through ramp
+        RouteResponse bestWheelchair = null;
 
+        // Candidate A: direct wheelchair route with obstacle avoidance
+        RoutingDirectionsResult wheelchairResult = fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
         if (wheelchairResult != null) {
-            routes.add(RouteResponse.builder()
-                    .routeLabel("Wheelchair Route")
+            bestWheelchair = RouteResponse.builder()
+                    .routeLabel("Ramp-Assisted Route")
                     .distanceMeters(wheelchairResult.getDistanceMeters())
                     .durationSeconds(wheelchairResult.getDurationSeconds())
                     .mode(TravelMode.WHEELCHAIR)
                     .geometry(wheelchairResult.getGeometry())
                     .steps(wheelchairResult.getSteps())
                     .hasObstacles(false)
-                    .build());
+                    .build();
         }
 
-        // 4. Ramp-assisted Route — multi-leg through nearest ramp entry/exit
+        // Candidate B: multi-leg route through nearest ramp entry/exit
         RampReport ramp = obstacleService.findClosestRampInBoundingBox(start, end);
         if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
-            // Orient ramp: entry = endpoint closer to start, exit = endpoint closer to end
             Location rampA = ramp.getEntryPoint();
             Location rampB = ramp.getExitPoint();
             double distAToStart = haversineMeters(rampA, start);
@@ -98,7 +99,6 @@ public class RouteService {
             Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
 
             RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
-            // Leg 2 is the ramp itself — too short for ORS routing, modelled as a straight-line walk.
             RoutingDirectionsResult leg2 = straightLineLeg(rampEntry, rampExit);
             RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
 
@@ -106,32 +106,36 @@ public class RouteService {
                 double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
                 double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
 
-                List<Location> combinedPath = new ArrayList<>();
-                combinedPath.addAll(PolylineDecoder.decode(leg1.getGeometry()));
-                combinedPath.addAll(PolylineDecoder.decode(leg2.getGeometry()));
-                combinedPath.addAll(PolylineDecoder.decode(leg3.getGeometry()));
+                // Pick the ramp-assisted multi-leg if it's shorter than the direct wheelchair route
+                if (bestWheelchair == null || totalDistance < bestWheelchair.getDistanceMeters()) {
+                    List<Location> combinedPath = new ArrayList<>();
+                    combinedPath.addAll(PolylineDecoder.decode(leg1.getGeometry()));
+                    combinedPath.addAll(PolylineDecoder.decode(leg2.getGeometry()));
+                    combinedPath.addAll(PolylineDecoder.decode(leg3.getGeometry()));
 
-                String combinedGeometry = PolylineEncoder.encode(combinedPath);
+                    List<RouteStep> combinedSteps = new ArrayList<>();
+                    if (leg1.getSteps() != null) combinedSteps.addAll(leg1.getSteps());
+                    combinedSteps.addAll(leg2.getSteps());
+                    combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
+                    if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
 
-                List<RouteStep> combinedSteps = new ArrayList<>();
-                if (leg1.getSteps() != null) combinedSteps.addAll(leg1.getSteps());
-                // leg2 steps already contain "Take the ramp" from straightLineLeg
-                combinedSteps.addAll(leg2.getSteps());
-                combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
-                if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
-
-                routes.add(RouteResponse.builder()
-                        .routeLabel("Ramp-Assisted Route")
-                        .distanceMeters(totalDistance)
-                        .durationSeconds(totalDuration)
-                        .mode(TravelMode.WHEELCHAIR)
-                        .geometry(combinedGeometry)
-                        .steps(combinedSteps)
-                        .hasObstacles(false)
-                        .build());
+                    bestWheelchair = RouteResponse.builder()
+                            .routeLabel("Ramp-Assisted Route")
+                            .distanceMeters(totalDistance)
+                            .durationSeconds(totalDuration)
+                            .mode(TravelMode.WHEELCHAIR)
+                            .geometry(PolylineEncoder.encode(combinedPath))
+                            .steps(combinedSteps)
+                            .hasObstacles(false)
+                            .build();
+                }
             } else {
-                log.warn("Ramp-assisted route skipped; leg 1 or leg 3 returned null.");
+                log.warn("Ramp-assisted route via ramp skipped; leg 1 or leg 3 returned null.");
             }
+        }
+
+        if (bestWheelchair != null) {
+            routes.add(bestWheelchair);
         }
 
         return routes;

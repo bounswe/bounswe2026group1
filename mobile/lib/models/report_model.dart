@@ -33,13 +33,13 @@ enum ReportTag {
   };
 
   IconData get icon => switch (this) {
-    ReportTag.missingRamp => Icons.accessible_forward,
+    ReportTag.missingRamp => Icons.not_accessible,
     ReportTag.brokenElevator => Icons.elevator_outlined,
     ReportTag.narrowPassage => Icons.compress,
     ReportTag.wetFloor => Icons.water_drop_outlined,
     ReportTag.construction => Icons.construction,
     ReportTag.other => Icons.warning_rounded,
-    ReportTag.ramp => Icons.accessible,
+    ReportTag.ramp => Icons.accessible_forward,
   };
 
   /// Backend enum string (e.g. MISSING_RAMP).
