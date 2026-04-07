@@ -174,11 +174,16 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
           {/* Consensus */}
           <section className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Community Consensus
-              </h3>
-              <span className="text-xs font-bold text-primary">{consensusPct}% Consensus</span>
-            </div>
+  <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+    Community Consensus
+  </h3>
+  <div className="flex flex-col items-end">
+    <span className="text-xs font-bold text-primary">{consensusPct}% Consensus</span>
+    <span className="text-[10px] text-outline font-medium uppercase tracking-tighter">
+      {total} total {total === 1 ? 'vote' : 'votes'}
+    </span>
+  </div>
+</div>
             <div className="bg-surface-container-high h-2.5 w-full rounded-full overflow-hidden">
               <div
                 className="bg-gradient-to-r from-primary-container to-primary h-full rounded-full transition-all"
@@ -186,8 +191,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               />
             </div>
             <p className="text-sm text-on-surface-variant italic">
-              {report.agrees || 0} people have verified this issue as active.
-            </p>
+  {report.agrees || 0} {report.agrees === 1 ? 'person has' : 'people have'} agreed that this issue is active.
+</p>
 
             {/* Vote error */}
             {voteError && (
@@ -198,31 +203,39 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
             <div className="grid grid-cols-2 gap-3 mt-2">
               <button
-                onClick={() => handleVote('agree')}
-                disabled={voting}
-                aria-label="Agree"
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${
-                  userVote === 'agree'
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-surface-container-highest text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'agree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_up</span>
-                {voting ? '...' : 'Agree'}
-              </button>
+  onClick={() => handleVote('agree')}
+  disabled={voting}
+  aria-label={`Agree (${report.agrees || 0})`}
+  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${
+    userVote === 'agree'
+      ? 'bg-primary text-on-primary'
+      : 'bg-surface-container-highest text-on-surface hover:bg-primary/10'
+  }`}
+>
+  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'agree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_up</span>
+  <span className="flex items-center gap-1.5">
+    {voting && voteMutation.variables?.type === 'agree' ? '...' : (
+      <>Agree <span className="opacity-60 font-medium text-xs">({report.agrees || 0})</span></>
+    )}
+  </span>
+</button>
               <button
-                onClick={() => handleVote('disagree')}
-                disabled={voting}
-                aria-label="Disagree"
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60 ${
-                  userVote === 'disagree'
-                    ? 'bg-error text-white'
-                    : 'bg-surface-container-highest text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'disagree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_down</span>
-                {voting ? '...' : 'Disagree'}
-              </button>
+  onClick={() => handleVote('disagree')}
+  disabled={voting}
+  aria-label={`Disagree (${report.disagrees || 0})`}
+  className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60 ${
+    userVote === 'disagree'
+      ? 'bg-error text-white'
+      : 'bg-surface-container-highest text-on-surface hover:bg-error hover:text-on-error'
+  }`}
+>
+  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'disagree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_down</span>
+  <span className="flex items-center gap-1.5">
+    {voting && voteMutation.variables?.type === 'disagree' ? '...' : (
+      <>Disagree <span className="opacity-60 font-medium text-xs">({report.disagrees || 0})</span></>
+    )}
+  </span>
+</button>
             </div>
           </section>
 

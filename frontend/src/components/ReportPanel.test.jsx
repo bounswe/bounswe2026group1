@@ -76,10 +76,10 @@ describe('ReportPanel', () => {
     })
 
     it('renders Agree and Disagree buttons', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: 'Agree' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Disagree' })).toBeInTheDocument()
-    })
+  renderPanel()
+  expect(screen.getByRole('button', { name: /Agree \(3\)/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Disagree \(1\)/ })).toBeInTheDocument()
+})
 
     it('renders the close button', () => {
       renderPanel()
@@ -118,26 +118,26 @@ describe('ReportPanel', () => {
 
   describe('vote button colors', () => {
     it('agree button starts with gray background when userVote is null', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-surface-container-highest')
-    })
+  renderPanel()
+  expect(screen.getByRole('button', { name: /Agree/ }).className).toContain('bg-surface-container-highest')
+})
 
-    it('disagree button starts with gray background when userVote is null', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-surface-container-highest')
-    })
+it('disagree button starts with gray background when userVote is null', () => {
+  renderPanel()
+  expect(screen.getByRole('button', { name: /Disagree/ }).className).toContain('bg-surface-container-highest')
+})
 
     it('agree button is green when userVote prop is agree', () => {
-      renderPanel({ userVote: 'agree' })
-      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-primary')
-      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-surface-container-highest')
-    })
+  renderPanel({ userVote: 'agree' })
+  expect(screen.getByRole('button', { name: /Agree/ }).className).toContain('bg-primary')
+  expect(screen.getByRole('button', { name: /Disagree/ }).className).toContain('bg-surface-container-highest')
+})
 
-    it('disagree button is red when userVote prop is disagree', () => {
-      renderPanel({ userVote: 'disagree' })
-      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-error')
-      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-surface-container-highest')
-    })
+it('disagree button is red when userVote prop is disagree', () => {
+  renderPanel({ userVote: 'disagree' })
+  expect(screen.getByRole('button', { name: /Disagree/ }).className).toContain('bg-error')
+  expect(screen.getByRole('button', { name: /Agree/ }).className).toContain('bg-surface-container-highest')
+})
 
     it('calls onVoteChange with agree when agree vote is cast', async () => {
       const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
@@ -147,7 +147,7 @@ describe('ReportPanel', () => {
       const user = userEvent.setup()
       renderPanel({ token: fakeToken, onVoteChange })
 
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
+      await user.click(screen.getByRole('button', { name: /Agree/ }))
 
       await waitFor(() => {
         expect(onVoteChange).toHaveBeenCalledWith('agree')
@@ -162,7 +162,7 @@ describe('ReportPanel', () => {
       const user = userEvent.setup()
       renderPanel({ token: fakeToken, onVoteChange })
 
-      await user.click(screen.getByRole('button', { name: 'Disagree' }))
+      await user.click(screen.getByRole('button', { name: /Disagree/ }))
 
       await waitFor(() => {
         expect(onVoteChange).toHaveBeenCalledWith('disagree')
@@ -178,7 +178,7 @@ describe('ReportPanel', () => {
       const user = userEvent.setup()
       renderPanel({ token: fakeToken, userVote: 'agree', onVoteChange })
 
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
+      await user.click(screen.getByRole('button', { name: /Agree/ }))
 
       await waitFor(() => {
         expect(onVoteChange).toHaveBeenCalledWith(null)
@@ -190,23 +190,31 @@ describe('ReportPanel', () => {
 
   describe('vote error handling', () => {
     it('navigates to /login when voting without being logged in', async () => {
-      const user = userEvent.setup()
-      renderPanel() // no token
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
-      expect(screen.queryByText(/failed to submit vote/i)).not.toBeInTheDocument()
-    })
+  const user = userEvent.setup()
+  renderPanel() // no token
+  // Use regex /Agree/ to match the button even with the count in the aria-label
+  await user.click(screen.getByRole('button', { name: /Agree/ }))
+  expect(screen.queryByText(/failed to submit vote/i)).not.toBeInTheDocument()
+})
 
-    it('shows error when vote API call fails', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      reportService.agreeReport.mockRejectedValue(new Error('Server error'))
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken })
+    it('navigates to /login when voting without being logged in', async () => {
+  const user = userEvent.setup()
+  renderPanel() // no token
+  await user.click(screen.getByRole('button', { name: /Agree/ }))
+  expect(screen.queryByText(/failed to submit vote/i)).not.toBeInTheDocument()
+})
 
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
+it('shows error when vote API call fails', async () => {
+  const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+  reportService.agreeReport.mockRejectedValue(new Error('Server error'))
+  const user = userEvent.setup()
+  renderPanel({ token: fakeToken })
 
-      await waitFor(() => {
-        expect(screen.getByText(/failed to submit vote/i)).toBeInTheDocument()
-      })
-    })
+  await user.click(screen.getByRole('button', { name: /Agree/ }))
+
+  await waitFor(() => {
+    expect(screen.getByText(/failed to submit vote/i)).toBeInTheDocument()
+  })
+})
   })
 })
