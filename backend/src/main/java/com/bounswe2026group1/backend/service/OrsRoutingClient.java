@@ -133,7 +133,13 @@ public class OrsRoutingClient {
             double distance = summary.path("distance").asDouble(0);
             double duration = summary.path("duration").asDouble(0);
             JsonNode geometryNode = firstRoute.path("geometry");
-            String geometry = geometryNode.isMissingNode() || geometryNode.isNull() ? null : geometryNode.stringValue();
+            String geometry = null;
+            if (!geometryNode.isMissingNode() && !geometryNode.isNull()) {
+                // ORS may return geometry as an encoded polyline string or a GeoJSON object
+                geometry = geometryNode.isValueNode()
+                        ? geometryNode.stringValue("")
+                        : objectMapper.writeValueAsString(geometryNode);
+            }
 
             List<RouteStep> steps = extractSteps(firstRoute.path("segments"));
 

@@ -1,0 +1,252 @@
+name: Auto-assign Project Dates
+
+on:
+  issues:
+    types: [opened, closed, edited]
+
+jobs:
+  assign-dates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set project dates
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_DATES_TOKEN }}
+          script: |
+            const PROJECT_NUMBER = 144;
+            const ORG = 'bounswe';
+            const START_FIELD = 'Start date';
+            const TARGET_FIELD = 'Target date';
+            const SIZE_FIELD = 'Size';
+            const ESTIMATE_FIELD = 'Estimate';
+            const SIZE_OPTIONS = {
+              XS: { id: '6c6483d2', points: 1 },  // 0-1 days
+              S:  { id: 'f784b110', points: 2 },  // 2-3 days
+              M:  { id: '7515a9f1', points: 3 },  // 4-7 days
+              L:  { id: '817d0097', points: 5 },  // 8-14 days
+              XL: { id: 'db339eb2', points: 8 },  // 15+ days
+            };
+
+            function daysBetween(startStr, endStr) {
+              const ms = new Date(endStr) - new Date(startStr);
+              return Math.round(ms / (1000 * 60 * 60 * 24));
+            }
+
+            function sizeForDays(days) {
+              if (days <= 1)  return SIZE_OPTIONS.XS;
+              if (days <= 3)  return SIZE_OPTIONS.S;
+              if (days <= 7)  return SIZE_OPTIONS.M;
+              if (days <= 14) return SIZE_OPTIONS.L;
+              return SIZE_OPTIONS.XL;
+            }
+
+            const issue = context.payload.issue;
+            const eventAction = context.payload.action;
+
+            // --- Helper: parse deadline from issue body ---
+            function parseDeadline(body) {
+              if (!body) return null;
+              const patterns = [
+                /(?:deadline|due date|target date|due by|end date)[:\s*]*(\d{2})\.(\d{2})\.(\d{4})/i,
+                /(?:deadline|due date|target date|due by|end date)[:\s*]*(\d{4})-(\d{2})-(\d{2})/i,
+              ];
+              for (const p of patterns) {
+                const m = body.match(p);
+                if (m) {
+                  if (p.source.includes('\\d{4})-')) {
+                    return `${m[1]}-${m[2]}-${m[3]}`;
+                  } else {
+                    return `${m[3]}-${m[2]}-${m[1]}`;
+                  }
+                }
+              }
+              return null;
+            }
+
+            // --- Step 1: Get project ID and field IDs ---
+            const projectQuery = await github.graphql(`
+              query($org: String!, $number: Int!) {
+                organization(login: $org) {
+                  projectV2(number: $number) {
+                    id
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2Field {
+                          id
+                          name
+                          dataType
+                        }
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { org: ORG, number: PROJECT_NUMBER });
+
+            const project = projectQuery.organization.projectV2;
+            const fields = project.fields.nodes;
+            const startFieldId = fields.find(f => f.name === START_FIELD)?.id;
+            const targetFieldId = fields.find(f => f.name === TARGET_FIELD)?.id;
+            const sizeFieldId = fields.find(f => f.name === SIZE_FIELD)?.id;
+            const estimateFieldId = fields.find(f => f.name === ESTIMATE_FIELD)?.id;
+
+            if (!startFieldId || !targetFieldId) {
+              core.setFailed(`Could not find field IDs. Start: ${startFieldId}, Target: ${targetFieldId}`);
+              return;
+            }
+
+            // --- Step 2: Find the project item for this issue ---
+            const issueQuery = await github.graphql(`
+              query($nodeId: ID!) {
+                node(id: $nodeId) {
+                  ... on Issue {
+                    projectItems(first: 10) {
+                      nodes {
+                        id
+                        project { id }
+                        fieldValues(first: 20) {
+                          nodes {
+                            ... on ProjectV2ItemFieldDateValue {
+                              field { ... on ProjectV2Field { name } }
+                              date
+                            }
+                            ... on ProjectV2ItemFieldSingleSelectValue {
+                              field { ... on ProjectV2SingleSelectField { name } }
+                              name
+                            }
+                            ... on ProjectV2ItemFieldNumberValue {
+                              field { ... on ProjectV2Field { name } }
+                              number
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { nodeId: issue.node_id });
+
+            const projectItems = issueQuery.node.projectItems.nodes;
+            const projectItem = projectItems.find(item => item.project.id === project.id);
+
+            if (!projectItem) {
+              console.log(`Issue #${issue.number} is not in project ${PROJECT_NUMBER}, skipping.`);
+              return;
+            }
+
+            const itemId = projectItem.id;
+            const fieldValues = projectItem.fieldValues.nodes;
+            const existingStart = fieldValues.find(f => f.field?.name === START_FIELD)?.date;
+            const existingTarget = fieldValues.find(f => f.field?.name === TARGET_FIELD)?.date;
+            const existingSize = fieldValues.find(f => f.field?.name === SIZE_FIELD);
+            const existingEstimate = fieldValues.find(f => f.field?.name === ESTIMATE_FIELD);
+
+            // --- Step 3: Mutation helpers ---
+            async function setDate(fieldId, dateValue) {
+              await github.graphql(`
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $date: Date!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: { date: $date }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `, { projectId: project.id, itemId, fieldId, date: dateValue });
+            }
+
+            async function setSize(optionId) {
+              if (!sizeFieldId) return;
+              await github.graphql(`
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: { singleSelectOptionId: $optionId }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `, { projectId: project.id, itemId, fieldId: sizeFieldId, optionId });
+            }
+
+            async function setEstimate(points) {
+              if (!estimateFieldId) return;
+              await github.graphql(`
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $number: Float!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: { number: $number }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `, { projectId: project.id, itemId, fieldId: estimateFieldId, number: points });
+            }
+
+            async function updateSizeAndEstimate(startStr, targetStr) {
+              if (startStr && targetStr) {
+                const days = daysBetween(startStr, targetStr);
+                const size = sizeForDays(days);
+                const sizeName = Object.keys(SIZE_OPTIONS).find(k => SIZE_OPTIONS[k] === size);
+                if (!existingSize) {
+                  console.log(`Setting size to ${sizeName} (${days} days) for issue #${issue.number}`);
+                  await setSize(size.id);
+                }
+                if (!existingEstimate) {
+                  console.log(`Setting estimate to ${size.points} points for issue #${issue.number}`);
+                  await setEstimate(size.points);
+                }
+              }
+            }
+
+            const today = new Date().toISOString().slice(0, 10);
+
+            if (eventAction === 'opened') {
+              const startDate = existingStart || today;
+              if (!existingStart) {
+                console.log(`Setting start date to ${today} for issue #${issue.number}`);
+                await setDate(startFieldId, today);
+              }
+              const deadline = parseDeadline(issue.body);
+              if (deadline && !existingTarget) {
+                console.log(`Setting target date to ${deadline} for issue #${issue.number}`);
+                await setDate(targetFieldId, deadline);
+                await updateSizeAndEstimate(startDate, deadline);
+              }
+            }
+
+            if (eventAction === 'closed') {
+              const createdAt = issue.created_at.slice(0, 10);
+              const closedAt = issue.closed_at.slice(0, 10);
+              if (!existingStart) {
+                console.log(`Setting start date to ${createdAt} for issue #${issue.number}`);
+                await setDate(startFieldId, createdAt);
+              }
+              if (!existingTarget) {
+                console.log(`Setting target date to ${closedAt} for issue #${issue.number}`);
+                await setDate(targetFieldId, closedAt);
+              }
+              await updateSizeAndEstimate(existingStart || createdAt, existingTarget || closedAt);
+            }
+
+            if (eventAction === 'edited') {
+              const deadline = parseDeadline(issue.body);
+              if (deadline && !existingTarget) {
+                console.log(`Setting target date to ${deadline} for issue #${issue.number} (from edited body)`);
+                await setDate(targetFieldId, deadline);
+                await updateSizeAndEstimate(existingStart, deadline);
+              }
+            }
+
+            console.log('Done.');

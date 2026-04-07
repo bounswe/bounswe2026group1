@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/report_model.dart';
 
 const _baseUrl = 'https://api.mapcess.live';
@@ -156,6 +158,71 @@ class ApiService {
         .post(Uri.parse('$_baseUrl/api/reports/$id/unverify'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Routes ────────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getRoutes({
+    required double startLat,
+    required double startLon,
+    required double endLat,
+    required double endLon,
+    String mode = 'WALKING',
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/routes'),
+          headers: _headers,
+          body: jsonEncode({
+            'startLat': startLat,
+            'startLon': startLon,
+            'endLat': endLat,
+            'endLon': endLon,
+            'mode': mode,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Media ────────────────────────────────────────────────────────────────
+
+  Future<String> uploadMedia(int reportId, File file) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/api/reports/$reportId/media'),
+    );
+
+    // Add all headers except Content-Type — multipart sets its own with boundary
+    final headers = Map<String, String>.from(_headers)..remove('Content-Type');
+    request.headers.addAll(headers);
+
+    final ext = file.path.split('.').last.toLowerCase();
+    final mimeType = switch (ext) {
+      'mp4'         => 'video/mp4',
+      'mov'         => 'video/quicktime',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png'         => 'image/png',
+      _             => 'application/octet-stream',
+    };
+    request.files.add(await http.MultipartFile.fromPath(
+      'file',
+      file.path,
+      contentType: MediaType.parse(mimeType),
+    ));
+
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['mediaUrl'] as String;
+    }
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 

@@ -8,12 +8,16 @@ import 'package:mapcess/screens/login_screen.dart';
 import 'package:mapcess/screens/register_screen.dart';
 import 'package:mapcess/services/auth_service.dart';
 import 'package:mapcess/services/api_service.dart';
+import 'package:mapcess/services/sse_service.dart';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 Widget _withAuth(Widget screen) {
-  return ChangeNotifierProvider(
-    create: (_) => AuthService(),
+  return MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => AuthService()),
+      Provider(create: (_) => SseService()),
+    ],
     child: MaterialApp(home: screen),
   );
 }
@@ -29,7 +33,7 @@ void main() {
 
   testWidgets('Mapcess smoke test', (WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 900));
-    await tester.pumpWidget(MapcessApp(auth: AuthService()));
+    await tester.pumpWidget(MapcessApp(auth: AuthService(), sse: SseService()));
   });
 
   // ── ApiException.userMessage ────────────────────────────────────────────────

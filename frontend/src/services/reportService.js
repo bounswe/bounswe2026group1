@@ -1,4 +1,5 @@
 import { apiFetch } from './api.js'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
 /**
  * Fetch all reports from the backend.
@@ -18,9 +19,7 @@ export async function getReportById(id) {
 
 /**
  * Submit an agree vote on a report.
- * PUT /api/reports/{id}
  */
-// TODO: backend should expose /agree and /disagree endpoints; using /verify and /unverify for now
 export async function agreeReport(id, token) {
   return apiFetch(`/api/reports/${id}/verify`, {
     method: 'POST',
@@ -28,6 +27,9 @@ export async function agreeReport(id, token) {
   })
 }
 
+/**
+ * Submit a disagree vote on a report.
+ */
 export async function disagreeReport(id, token) {
   return apiFetch(`/api/reports/${id}/unverify`, {
     method: 'POST',
@@ -36,21 +38,32 @@ export async function disagreeReport(id, token) {
 }
 
 /**
+ * Fetch comments for a specific report.
+ * GET /api/comments/report/{reportId}
+ */
+export async function getCommentsByReport(reportId) {
+  return apiFetch(`/api/comments/report/${reportId}`)
+}
+
+/**
+ * Post a new comment on a report.
+ * POST /api/comments
+ */
+export async function createComment(reportId, content, token) {
+  return apiFetch('/api/comments', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content, report: { id: reportId } }),
+  })
+}
+
+/**
  * Map API ReportResponse fields to ReportPanel prop shape.
  */
 export function mapReport(r) {
-  const tagLabels = {
-    MISSING_RAMP: 'Missing Ramp',
-    BROKEN_ELEVATOR: 'Broken Elevator',
-    NARROW_PASSAGE: 'Narrow Passage',
-    WET_FLOOR: 'Wet Floor',
-    CONSTRUCTION: 'Construction',
-    OTHER: 'Other',
-  }
-
   return {
     id: r.reportId,
-    title: tagLabels[r.tag] || r.tag,
+    title: REPORT_TAGS[r.tag]?.label || r.tag,
     description: r.description,
     status: r.status === 'VERIFIED' ? 'verified' : 'unverified',
     date: r.publishDate
@@ -62,7 +75,7 @@ export function mapReport(r) {
     reportedBy: `User #${r.userId}`,
     agrees: r.agrees,
     disagrees: r.disagrees,
-    tags: [tagLabels[r.tag] || r.tag],
+    tags: r.tag ? [r.tag] : [],
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     latitude: r.latitude,
     longitude: r.longitude,

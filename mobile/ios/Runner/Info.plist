@@ -53,6 +53,23 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Mapcess needs camera access to take photos and videos for your accessibility reports.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Mapcess needs photo library access to attach photos and videos to your accessibility reports.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mapcess needs microphone access to record videos for your accessibility reports.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Mapcess uses your location to show you on the map and to calculate accessible routes from your position.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Mapcess uses your location to show you on the map and to calculate accessible routes from your position.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
