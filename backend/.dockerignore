@@ -17,6 +17,7 @@ pom.xml.next
 
 # Environment Variables (CRITICAL FOR SECURITY)
 # Never commit or include .env files in your docker image
+../.env
 .env
 .env.*
 *.properties

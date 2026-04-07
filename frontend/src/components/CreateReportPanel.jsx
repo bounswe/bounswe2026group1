@@ -3,15 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { apiFetch } from '../services/api.js'
 import { mapReport } from '../services/reportService.js'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
-const TAGS = [
-  { value: 'MISSING_RAMP',    label: 'Missing Ramp',    icon: 'accessible_forward' },
-  { value: 'BROKEN_ELEVATOR', label: 'Broken Elevator',  icon: 'elevator' },
-  { value: 'NARROW_PASSAGE',  label: 'Narrow Passage',   icon: 'width_normal' },
-  { value: 'WET_FLOOR',       label: 'Wet Floor',        icon: 'water_drop' },
-  { value: 'CONSTRUCTION',    label: 'Construction',     icon: 'construction' },
-  { value: 'OTHER',           label: 'Other',            icon: 'more_horiz' },
-]
+const TAGS = Object.entries(REPORT_TAGS).map(([value, cfg]) => ({ value, ...cfg }))
 
 function CreateReportPanel({ position, onClose, onCreated }) {
   const { token, userId } = useAuth()
@@ -87,7 +81,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   }
 
   return (
-    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[480px] bg-white overflow-y-auto border-l border-outline-variant/10 flex flex-col">
+    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[500px] bg-surface-container-low overflow-y-auto border-l border-outline-variant/10 flex flex-col">
 
       {/* Header */}
       <div className="px-8 pt-8 pb-4 flex items-start justify-between flex-shrink-0">
@@ -146,11 +140,8 @@ function CreateReportPanel({ position, onClose, onCreated }) {
               <button
                 key={t.value}
                 onClick={() => setTag(t.value)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${
-                  tag === t.value
-                    ? 'border-primary bg-primary-container/30 text-primary'
-                    : 'border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40'
-                }`}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40"
+                style={tag === t.value ? { borderColor: t.color, backgroundColor: t.color + '1a', color: t.color } : {}}
               >
                 <span className="material-symbols-outlined text-xl">{t.icon}</span>
                 {t.label}
@@ -164,11 +155,15 @@ function CreateReportPanel({ position, onClose, onCreated }) {
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
           <textarea
             value={description}
-            onChange={e => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value.slice(0, 1000))}
             rows={4}
+            maxLength={1000}
             placeholder="Provide a brief description of the issue..."
             className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
+          <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
+            {description.length}/1000
+          </p>
         </div>
 
         {/* Error */}

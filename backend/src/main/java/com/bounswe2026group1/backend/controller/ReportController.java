@@ -28,7 +28,7 @@ public class ReportController {
                                                    @AuthenticationPrincipal String email) {
         return reportService.getById(id, email)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/user/{userId}")
@@ -46,14 +46,15 @@ public class ReportController {
     public ResponseEntity<ReportResponse> update(@PathVariable Long id, @RequestBody CreateReportRequest request) {
         return reportService.update(id, request)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        return reportService.delete(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        if (reportService.delete(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PostMapping("/{id}/verify")

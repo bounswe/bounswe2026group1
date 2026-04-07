@@ -24,13 +24,10 @@ public class AuthController {
         try {
             RegisterResponse response = registeredUserService.registerUser(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
         } catch (IllegalArgumentException ex) {
             if (ex.getMessage().contains("already in use")) {
-                // Return 409 Conflict for duplicate email
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
             } else {
-                // Return 400 Bad Request for weak password
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
             }
         }
@@ -40,11 +37,8 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody @Valid LoginRequest request) {
         try {
             LoginResponse response = registeredUserService.loginUser(request);
-            // Successful login: 200 OK with token and user info
             return ResponseEntity.ok(response);
-
         } catch (BadCredentialsException ex) {
-            // Wrong email or password: 401 Unauthorized
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
         }
     }

@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.config;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -49,16 +51,33 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(ROUTING_AND_AUTH_PUBLIC).permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET,
+                        "/api/sse/public/**")
+                    .permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
-                                "/api/comments", "/api/comments/**")
-                        .permitAll()
-                        .anyRequest().authenticated())
-                // Add api key filter before JWT
-                .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(jwtAuthFilter, ApiKeyFilter.class);
-
+                                "/api/comments", "/api/comments/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                // Before the UsernamePasswordAuthenticationFilter, we want to run our JwtAuthFilter to check for JWT tokens in the request
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, e) -> {
+                            log.warn("401 UNAUTHORIZED {} {}: {}", request.getMethod(), sanitizeUri(request.getRequestURI()), e.getMessage());
+                            response.sendError(401, e.getMessage());
+                        })
+                        .accessDeniedHandler((request, response, e) -> {
+                            log.warn("403 FORBIDDEN {} {}: {}", request.getMethod(), sanitizeUri(request.getRequestURI()), e.getMessage());
+                            response.sendError(403, e.getMessage());
+                        })
+                );
         return http.build();
+    }
+
+    // Strips CR/LF to prevent log forging via CRLF injection
+    private static String sanitizeUri(String uri) {
+        return uri.replaceAll("[\r\n]", "_");
     }
 
     @Bean

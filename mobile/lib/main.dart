@@ -1,28 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
+import 'services/sse_service.dart';
 import 'theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final auth = AuthService();
   await auth.init();
-  runApp(MapcessApp(auth: auth));
+  final sse = SseService();
+  sse.connect();
+  runApp(MapcessApp(auth: auth, sse: sse));
 }
 
 class MapcessApp extends StatelessWidget {
   final AuthService auth;
+  final SseService sse;
 
-  const MapcessApp({super.key, required this.auth});
+  const MapcessApp({super.key, required this.auth, required this.sse});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: auth,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider.value(value: sse),
+      ],
       child: MaterialApp(
         title: 'Mapcess',
         debugShowCheckedModeBanner: false,
@@ -31,7 +39,7 @@ class MapcessApp extends StatelessWidget {
           fontFamily: 'Inter',
           useMaterial3: true,
         ),
-        home: const LoginScreen(),
+        home: const AuthShell(),
       ),
     );
   }
@@ -80,6 +88,7 @@ class _MainShellState extends State<MainShell>
 
   void _switchTab(int newIdx) {
     if (newIdx == _current) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     _slideOffset = newIdx > _current ? 1.0 : -1.0;
     setState(() {
       _previous = _current;
@@ -216,7 +225,7 @@ class _MainShellState extends State<MainShell>
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(builder: (_) => const AuthShell()),
                       (r) => false,
                     );
                   }
@@ -236,7 +245,7 @@ class _MainShellState extends State<MainShell>
                   Navigator.pop(context);
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    MaterialPageRoute(builder: (_) => const AuthShell()),
                     (r) => false,
                   );
                 },
@@ -321,6 +330,192 @@ class _MainShellState extends State<MainShell>
           _navItem(Icons.map, Icons.map_outlined, 'Home', 0),
           _navItem(Icons.assignment, Icons.assignment_outlined, 'Reports', 1),
           _navItem(Icons.person, Icons.person_outline, 'Profile', 2),
+        ],
+      ),
+    );
+  }
+
+  Widget _navItem(
+    IconData activeIcon,
+    IconData inactiveIcon,
+    String label,
+    int idx,
+  ) {
+    final active = _current == idx;
+    return GestureDetector(
+      onTap: () => _switchTab(idx),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              active ? activeIcon : inactiveIcon,
+              color: active ? Colors.white : AppColors.secondary,
+              size: 22,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: active ? Colors.white : AppColors.secondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Auth shell ─────────────────────────────────────────────────────────────────
+// Mirrors MainShell: slides between Login (0) and Register (1) with the same
+// global bottom nav bar positioned over the content.
+
+class AuthShell extends StatefulWidget {
+  final int initialTab;
+  const AuthShell({super.key, this.initialTab = 0});
+
+  @override
+  State<AuthShell> createState() => _AuthShellState();
+}
+
+class _AuthShellState extends State<AuthShell>
+    with SingleTickerProviderStateMixin {
+  late int _current;
+  int _previous = 0;
+  bool _animating = false;
+  double _slideOffset = 0.0;
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialTab;
+    _previous = widget.initialTab;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    _ctrl.value = 1.0;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _switchTab(int newIdx) {
+    if (newIdx == _current) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    _slideOffset = newIdx > _current ? 1.0 : -1.0;
+    setState(() {
+      _previous = _current;
+      _current = newIdx;
+      _animating = true;
+    });
+    _ctrl.forward(from: 0).then((_) {
+      if (mounted) setState(() => _animating = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const double bottomNavHeight = 88.0;
+    final mq = MediaQuery.of(context);
+
+    final pages = [
+      LoginScreen(onTabSwitch: _switchTab),
+      RegisterScreen(onTabSwitch: _switchTab),
+    ];
+
+    Widget wrapPage(int i) {
+      return MediaQuery(
+        data: mq.copyWith(
+          padding: mq.padding.copyWith(
+            bottom: mq.padding.bottom + bottomNavHeight,
+          ),
+        ),
+        child: pages[i],
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          // ── Sliding content ────────────────────────────────────────────
+          AnimatedBuilder(
+            animation: _anim,
+            builder: (ctx, _) {
+              final w = MediaQuery.of(ctx).size.width;
+              return Stack(
+                children: [
+                  for (int i = 0; i < pages.length; i++)
+                    if (_animating && i == _previous)
+                      Transform.translate(
+                        offset: Offset(-_slideOffset * w * _anim.value, 0),
+                        child: wrapPage(i),
+                      )
+                    else if (i == _current)
+                      Transform.translate(
+                        offset: Offset(
+                          _animating
+                              ? _slideOffset * w * (1.0 - _anim.value)
+                              : 0,
+                          0,
+                        ),
+                        child: wrapPage(i),
+                      )
+                    else
+                      Offstage(child: wrapPage(i)),
+                ],
+              );
+            },
+          ),
+          // ── Global bottom nav ──────────────────────────────────────────
+          Positioned(
+            bottom: mq.viewInsets.bottom,
+            left: 0,
+            right: 0,
+            child: _buildNavContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavContent() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.88),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 32,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _navItem(Icons.login, Icons.login, 'SIGN IN', 0),
+          _navItem(Icons.person_add, Icons.person_add_outlined, 'SIGN UP', 1),
         ],
       ),
     );

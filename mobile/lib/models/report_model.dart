@@ -8,7 +8,9 @@ enum ReportTag {
   narrowPassage,
   wetFloor,
   construction,
-  other;
+  other,
+  // Positive — accessibility feature present
+  ramp;
 
   static ReportTag fromJson(String s) => switch (s) {
     'MISSING_RAMP' => ReportTag.missingRamp,
@@ -16,6 +18,7 @@ enum ReportTag {
     'NARROW_PASSAGE' => ReportTag.narrowPassage,
     'WET_FLOOR' => ReportTag.wetFloor,
     'CONSTRUCTION' => ReportTag.construction,
+    'RAMP' => ReportTag.ramp,
     _ => ReportTag.other,
   };
 
@@ -26,6 +29,7 @@ enum ReportTag {
     ReportTag.wetFloor => 'Wet Floor',
     ReportTag.construction => 'Construction',
     ReportTag.other => 'Other',
+    ReportTag.ramp => 'Ramp Available',
   };
 
   IconData get icon => switch (this) {
@@ -35,6 +39,7 @@ enum ReportTag {
     ReportTag.wetFloor => Icons.water_drop_outlined,
     ReportTag.construction => Icons.construction,
     ReportTag.other => Icons.warning_rounded,
+    ReportTag.ramp => Icons.accessible,
   };
 
   /// Backend enum string (e.g. MISSING_RAMP).
@@ -45,6 +50,7 @@ enum ReportTag {
     ReportTag.wetFloor => 'WET_FLOOR',
     ReportTag.construction => 'CONSTRUCTION',
     ReportTag.other => 'OTHER',
+    ReportTag.ramp => 'RAMP',
   };
 
   Color get color => switch (this) {
@@ -54,7 +60,11 @@ enum ReportTag {
     ReportTag.wetFloor => const Color(0xFF006573),
     ReportTag.construction => const Color(0xFF8B6A00),
     ReportTag.other => const Color(0xFF767777),
+    ReportTag.ramp => const Color(0xFF176a21),
   };
+
+  /// True for tags that mark a positive accessibility feature.
+  bool get isPositive => this == ReportTag.ramp;
 }
 
 // ─── Status enum ─────────────────────────────────────────────────────────────
@@ -98,6 +108,8 @@ class ReportModel {
   final int disagrees;
   final String publishDate;
   final List<String> mediaUrls;
+  /// 'AGREE', 'DISAGREE', or null — the authenticated user's current vote.
+  final String? userVote;
 
   const ReportModel({
     required this.reportId,
@@ -112,6 +124,7 @@ class ReportModel {
     required this.disagrees,
     required this.publishDate,
     required this.mediaUrls,
+    this.userVote,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
@@ -129,6 +142,30 @@ class ReportModel {
       publishDate: json['publishDate'] as String? ?? '',
       mediaUrls:
           (json['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
+      userVote: json['userVote'] as String?,
+    );
+  }
+
+  ReportModel copyWith({
+    int? agrees,
+    int? disagrees,
+    ReportStatus? status,
+    List<String>? mediaUrls,
+  }) {
+    return ReportModel(
+      reportId: reportId,
+      userId: userId,
+      username: username,
+      latitude: latitude,
+      longitude: longitude,
+      description: description,
+      tag: tag,
+      status: status ?? this.status,
+      agrees: agrees ?? this.agrees,
+      disagrees: disagrees ?? this.disagrees,
+      publishDate: publishDate,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
+      userVote: userVote,
     );
   }
 

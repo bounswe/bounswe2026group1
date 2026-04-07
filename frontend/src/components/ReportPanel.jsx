@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment, deleteComment } from '../services/reportService.js'
+
+
 import { useAuth } from '../context/AuthContext.jsx'
+import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
 /**
  * ReportPanel
@@ -9,12 +13,11 @@ import { useAuth } from '../context/AuthContext.jsx'
  * Mobile: full screen overlay.
  * Props:
  *  - report: mapped report object
- *  - userVote: 'agree' | 'disagree' | null
- *  - onVoteChange: (type) => void
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
+
   const { token, isAuthenticated, userId } = useAuth()
   const navigate = useNavigate()
   const [voting, setVoting] = useState(false)
@@ -32,6 +35,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
       .catch(() => setComments([]))
       .finally(() => setCommentsLoading(false))
   }, [report?.id])
+
 
   
 
@@ -70,6 +74,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
     }
   }
 
+
   async function handleCommentSubmit() {
   if (!newComment.trim()) return
   setSubmittingComment(true)
@@ -104,6 +109,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
       return iso
     }
   }
+
 
   return (
     <>
@@ -173,13 +179,21 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                   <p className="text-xs text-on-surface-variant">{report.date}</p>
                 </div>
               </div>
-              {report.tags && (
+              {report.tags && report.tags.length > 0 && (
                 <div className="flex gap-2 flex-wrap justify-end">
-                  {report.tags.map(tag => (
-                    <span key={tag} className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-medium rounded-full">
-                      {tag}
-                    </span>
-                  ))}
+                  {report.tags.map(tag => {
+                    const cfg = REPORT_TAGS[tag] ?? { label: tag, icon: 'warning', color: '#767777' }
+                    return (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
+                        style={{ backgroundColor: cfg.color }}
+                      >
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: '14px' }}>{cfg.icon}</span>
+                        {cfg.label}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -223,6 +237,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               {report.agrees || 0} people have verified this issue as active.
             </p>
 
+            {/* Vote error */}
             {voteError && (
               <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">
                 {voteError}
@@ -258,6 +273,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               </button>
             </div>
           </section>
+
 
           {/* Comments Section */}
           <section className="flex flex-col gap-4">
@@ -323,6 +339,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
             )}
           </section>
 
+
           {/* Activity Timeline */}
           <section className="flex flex-col gap-6">
             <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -345,14 +362,26 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
 
           {/* Follow Updates */}
           <div className="pt-4">
-            <button className="w-full py-5 bg-gradient-to-b from-primary to-primary-dim text-on-primary rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                if (!isAuthenticated) { navigate('/login'); return }
+                setFollowing(prev => !prev)
+              }}
+              className={`w-full py-5 rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${
+                following
+                  ? 'bg-surface-container-high text-on-surface border border-outline-variant/20'
+                  : 'bg-gradient-to-b from-primary to-primary-dim text-on-primary'
+              }`}
+            >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                notifications_active
+                {following ? 'notifications_off' : 'notifications_active'}
               </span>
-              Follow Updates
+              {following ? 'Unfollow' : 'Follow Updates'}
             </button>
             <p className="text-center text-xs text-on-surface-variant mt-4 px-6">
-              You will receive notifications for every status change on this report.
+              {following
+                ? 'You will be notified of every status change on this report.'
+                : 'Follow to receive notifications when this report status changes.'}
             </p>
           </div>
 
