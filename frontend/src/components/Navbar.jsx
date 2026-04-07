@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import SseStatusIndicator from './SseStatusIndicator.jsx'
 
 function Navbar() {
   return (
@@ -33,6 +34,7 @@ function Navbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <SseStatusIndicator />
         <button
           className="shrink-0 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors"
           style={{ width: '40px', height: '40px' }}
