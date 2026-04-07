@@ -73,7 +73,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
       onCreated(mapped)
       onClose()
     } catch (err) {
-      setError('Failed to submit report. Please try again.')
+      setError(err.message || 'Failed to submit report. Please try again.')
     } finally {
       setSubmitting(false)
     }
