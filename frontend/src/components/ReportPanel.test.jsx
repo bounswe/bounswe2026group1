@@ -86,9 +86,9 @@ describe('ReportPanel', () => {
 
   test('calls onVoteChange with agree/disagree/null correctly', async () => {
     agreeReport
-      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0 })
-      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0 })
-    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1 })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0, userVote: 'agree' })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0, userVote: null })
+    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1, userVote: 'disagree' })
 
     renderPanel()
 
@@ -114,69 +114,6 @@ describe('ReportPanel', () => {
     await waitFor(() => {
       expect(onFollowChangeMock).toHaveBeenCalled()
       expect(followBtn.textContent.toLowerCase()).toMatch(/unfollow/)
-    })
-  })
-
-    it('calls onVoteChange with agree when agree vote is cast', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 4, userVote: 'AGREE' })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 4, userVote: 'agree' })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, onVoteChange })
-
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
-
-      await waitFor(() => {
-        expect(onVoteChange).toHaveBeenCalledWith('agree')
-      })
-    })
-
-    it('calls onVoteChange with disagree when disagree vote is cast', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 2, userVote: 'DISAGREE' })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 2, userVote: 'disagree' })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, onVoteChange })
-
-
-    const textarea = screen.getByPlaceholderText('Add a comment...')
-    const postBtn = screen.getByText(/post/i)
-
-    await user.type(textarea, 'New comment')
-    await act(async () => { await user.click(postBtn) })
-
-
-    it('calls onVoteChange with null when toggling off an existing agree vote', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 2, userVote: null })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 2, userVote: null })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, userVote: 'agree', onVoteChange })
-
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
-
-      await waitFor(() => {
-        expect(onVoteChange).toHaveBeenCalledWith(null)
-      })
-
-    })
-
-    it('calls onVoteChange with null when toggling off an existing disagree vote', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 0, userVote: null })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 0, userVote: null })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, userVote: 'disagree', onVoteChange })
-
-      await user.click(screen.getByRole('button', { name: 'Disagree' }))
-
-      await waitFor(() => {
-        expect(onVoteChange).toHaveBeenCalledWith(null)
-      })
     })
   })
 
