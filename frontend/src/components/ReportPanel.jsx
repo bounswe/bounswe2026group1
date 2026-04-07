@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment, deleteComment } from '../services/reportService.js'
 import { useMutation } from '@tanstack/react-query'
-import { agreeReport, disagreeReport, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 
@@ -14,17 +15,30 @@ import { REPORT_TAGS } from '../utils/reportTagConfig.js'
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
-function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) {
-  const { token, isAuthenticated } = useAuth()
-  const [following, setFollowing] = useState(false)
+function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange }) {
+
+  const { token, isAuthenticated, userId } = useAuth()
   const navigate = useNavigate()
   const [voteError, setVoteError] = useState('')
+  const [comments, setComments] = useState([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [newComment, setNewComment] = useState('')
+  const [submittingComment, setSubmittingComment] = useState(false)
+  const [following, setFollowing] = useState(false)
 
   useEffect(() => {
-    function handleExpired() { navigate('/login') }
-    window.addEventListener('auth:expired', handleExpired)
-    return () => window.removeEventListener('auth:expired', handleExpired)
-  }, [navigate])
+    if (!report) return
+    setCommentsLoading(true)
+    getCommentsByReport(report.id, token)
+      .then(data => setComments(Array.isArray(data) ? data : (data?.content ?? data?.comments ?? [])))
+      .catch(err => { console.error('[ReportPanel] Failed to load comments:', err); setComments([]) })
+      .finally(() => setCommentsLoading(false))
+  }, [report?.id])
+
+
+  
+
+  
 
   const voteMutation = useMutation({
     mutationFn: ({ type }) =>
@@ -57,16 +71,51 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
   const consensusPct = total > 0 ? Math.round(((report.agrees || 0) / total) * 100) : 0
   const voting = voteMutation.isPending
 
+
+  async function handleCommentSubmit() {
+  if (!newComment.trim()) return
+  setSubmittingComment(true)
+  try {
+    console.log('[handleCommentSubmit] Submitting comment:', newComment.trim())
+    const created = await createComment(report.id, newComment.trim(), token, userId)
+    console.log('[handleCommentSubmit] Created comment:', created)
+    setComments(prev => [created, ...prev])
+    setNewComment('')
+  } catch (err) {
+    console.error('[handleCommentSubmit] Error submitting comment:', err)
+  } finally {
+    setSubmittingComment(false)
+  }
+}
+
+  async function handleDeleteComment(commentId) {
+    try {
+      await deleteComment(commentId, token)
+      setComments(prev => prev.filter(c => c.id !== commentId))
+    } catch (err) {
+      console.error('Failed to delete comment', err)
+    }
+  }
+
+  function formatDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      })
+    } catch {
+      return iso
+    }
+  }
+
+
   return (
     <>
-      {/* Mobile backdrop */}
       <div
         className="fixed inset-0 bg-black/20 z-[1100] lg:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
       <aside className="
         fixed top-0 right-0 h-full z-[1200]
         w-full lg:w-[500px]
@@ -76,7 +125,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
         flex flex-col
       ">
 
-        {/* Report Photo */}
         <div className="p-6">
           <div className="relative">
             {report.image ? (
@@ -91,7 +139,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               </div>
             )}
 
-            {/* Status badge */}
             <div className="absolute top-4 right-4">
               <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
                 isValidated
@@ -102,7 +149,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
               </span>
             </div>
 
-            {/* Close button */}
             <button
               onClick={onClose}
               className="absolute top-4 left-4 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
@@ -113,7 +159,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
           </div>
         </div>
 
-        {/* Content */}
         <div className="px-8 pb-12 flex flex-col gap-8">
 
           {/* Header */}
@@ -226,6 +271,72 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
             </div>
           </section>
 
+
+          {/* Comments Section */}
+          <section className="flex flex-col gap-4">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              Comments {!commentsLoading && `(${comments.length})`}
+            </h3>
+
+            {isAuthenticated ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  rows={3}
+                  placeholder="Add a comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                />
+                <button
+                  onClick={handleCommentSubmit}
+                  disabled={submittingComment || !newComment.trim()}
+                  className="self-end px-6 py-2 bg-primary text-on-primary rounded-full text-sm font-bold active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {submittingComment ? 'Posting...' : 'Post'}
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-on-surface-variant bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/10">
+                <a href="/login" className="font-bold text-primary hover:underline">Log in</a> to leave a comment.
+              </p>
+            )}
+
+            {commentsLoading ? (
+              <p className="text-sm text-on-surface-variant italic">Loading comments...</p>
+            ) : comments.length === 0 ? (
+              <p className="text-sm text-on-surface-variant italic">No comments yet.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {comments.map(comment => (
+                  <div key={comment.id} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-surface-container-high flex-shrink-0 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-sm text-on-surface-variant">person</span>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-on-surface">{comment.author?.name || 'Anonymous'}</p>
+                          <p className="text-xs text-outline">{formatDate(comment.createdAt)}</p>
+                        </div>
+                        {userId && comment.author?.id == userId && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="text-outline hover:text-error transition-colors"
+                            aria-label="Delete comment"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm text-on-surface-variant leading-relaxed">{comment.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+
           {/* Activity Timeline */}
           <section className="flex flex-col gap-6">
             <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -251,7 +362,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
             <button
               onClick={() => {
                 if (!isAuthenticated) { navigate('/login'); return }
-                setFollowing(prev => !prev)
+                setFollowing(prev => {
+                  const next = !prev
+                  onFollowChange?.(next)
+                  return next
+                })
               }}
               className={`w-full py-5 rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${
                 following
