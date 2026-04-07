@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -154,7 +155,52 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   // ─── Media picking ─────────────────────────────────────────────────────────
 
+  /// Returns true if the required permission is granted.
+  /// Requests it if not yet determined; shows a Settings dialog if denied.
+  Future<bool> _ensurePermission(Permission permission) async {
+    var status = await permission.status;
+    if (status.isGranted) return true;
+
+    if (status.isDenied) {
+      status = await permission.request();
+      if (status.isGranted) return true;
+    }
+
+    if (status.isPermanentlyDenied || status.isDenied) {
+      if (!mounted) return false;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Permission required'),
+          content: const Text(
+            'Camera access was denied. Please enable it in Settings to take photos or videos.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+
+    return false;
+  }
+
   Future<void> _pickImage(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final granted = await _ensurePermission(Permission.camera);
+      if (!granted) return;
+    }
     try {
       final picked = await _picker.pickImage(
         source: source,
@@ -171,6 +217,12 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final camGranted = await _ensurePermission(Permission.camera);
+      if (!camGranted) return;
+      final micGranted = await _ensurePermission(Permission.microphone);
+      if (!micGranted) return;
+    }
     try {
       final picked = await _picker.pickVideo(source: source);
       if (picked == null) return;

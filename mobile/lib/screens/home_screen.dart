@@ -11,7 +11,7 @@ import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import 'report_detail_screen.dart';
 import 'make_report_screen.dart';
-import 'login_screen.dart';
+import '../main.dart' show AuthShell;
 import '../models/sse_event.dart';
 import '../services/sse_service.dart';
 
@@ -1501,7 +1501,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(ctx);
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthShell()),
                 (r) => false,
               );
             },
