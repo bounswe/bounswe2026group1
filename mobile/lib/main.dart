@@ -5,24 +5,31 @@ import 'screens/home_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
+import 'services/sse_service.dart';
 import 'theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final auth = AuthService();
   await auth.init();
-  runApp(MapcessApp(auth: auth));
+  final sse = SseService();
+  sse.connect();
+  runApp(MapcessApp(auth: auth, sse: sse));
 }
 
 class MapcessApp extends StatelessWidget {
   final AuthService auth;
+  final SseService sse;
 
-  const MapcessApp({super.key, required this.auth});
+  const MapcessApp({super.key, required this.auth, required this.sse});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: auth,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider.value(value: sse),
+      ],
       child: MaterialApp(
         title: 'Mapcess',
         debugShowCheckedModeBanner: false,
@@ -80,6 +87,7 @@ class _MainShellState extends State<MainShell>
 
   void _switchTab(int newIdx) {
     if (newIdx == _current) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     _slideOffset = newIdx > _current ? 1.0 : -1.0;
     setState(() {
       _previous = _current;
