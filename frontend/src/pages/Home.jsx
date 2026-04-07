@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 import Toast from '../components/Toast.jsx'
-import { useReports } from '../hooks/useReports.js'
+import { useReports, reportKeys } from '../hooks/useReports.js'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -154,7 +154,7 @@ function Home() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
-  const [selectedReport, setSelectedReport] = useState(null)
+  const [selectedReportId, setSelectedReportId] = useState(null)
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
   const [mapCenter, setMapCenter] = useState(null)
@@ -173,6 +173,7 @@ function Home() {
   const [routeError, setRouteError] = useState('')
   const [toast, setToast] = useState(null)
   const handleToastDismiss = useCallback(() => setToast(null), [])
+  const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -416,7 +417,7 @@ function Home() {
                 key={report.id}
                 position={[report.latitude, report.longitude]}
                 icon={makeMarkerIcon(report.status, report.tags[0])}
-                eventHandlers={{ click: () => setSelectedReport(report) }}
+                eventHandlers={{ click: () => setSelectedReportId(report.id) }}
               />
             ))}
             {newReportPin && (
@@ -609,9 +610,12 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReport(null)}
+            onClose={() => setSelectedReportId(null)}
             onVoteUpdate={(updatedReport) => {
-              setSelectedReport(updatedReport)
+              setSelectedReportId(updatedReport.id)
+              queryClient.setQueryData(reportKeys.lists(), (prev) =>
+                prev?.map((r) => r.id === updatedReport.id ? updatedReport : r)
+              )
             }}
           />
         )}
@@ -625,7 +629,8 @@ function Home() {
           onCreated={() => {
             queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
             setNewReportPin(null)
-         ; setToast({ message: 'Report submitted successfully!', type: 'success' }) }}
+            setToast({ message: 'Report submitted successfully!', type: 'success' })
+          }}
         />
       )}
       {toast && (
