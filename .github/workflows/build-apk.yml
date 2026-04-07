@@ -1,13 +1,14 @@
 name: Build and Distribute APK
 
-# Only run when a tag is pushed (e.g., v1.0.0)
-# This separates normal daily pushes (handled by mobile-pr-check.yml) from actual releases.
 on:
   push:
+    branches:
+      - main
     tags:
-      - 'v*'
+      - '*' # All tags
+  release:
+    types: [published, created]
 
-# Required permissions to create a GitHub Release
 permissions:
   contents: write
 
@@ -48,8 +49,9 @@ jobs:
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
 
-      # Automatically publish to GitHub Releases
+      # If the push is a tag, create a GitHub Release and attach the APK
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: mobile/build/app/outputs/flutter-apk/app-release.apk
