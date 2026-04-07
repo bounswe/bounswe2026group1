@@ -214,7 +214,7 @@ describe('CreateReportPanel', () => {
       await user.click(screen.getByRole('button', { name: /submit report/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/failed to submit report/i)).toBeInTheDocument()
+        expect(screen.getByText(/server error/i)).toBeInTheDocument()
       })
     })
   })
