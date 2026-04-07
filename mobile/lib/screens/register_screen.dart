@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart';
 import '../main.dart' show MainShell;
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final void Function(int)? onTabSwitch;
+  const RegisterScreen({super.key, this.onTabSwitch});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -230,12 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const TextSpan(text: 'Already a member? '),
                             WidgetSpan(
                               child: GestureDetector(
-                                onTap: () => Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const LoginScreen(),
-                                  ),
-                                ),
+                                onTap: () => widget.onTabSwitch?.call(0),
                                 child: const Text(
                                   'Sign In',
                                   style: TextStyle(
@@ -255,7 +250,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -354,78 +348,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 40,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavTab(
-            icon: Icons.login,
-            label: 'SIGN IN',
-            active: false,
-            onTap: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            ),
-          ),
-          _buildNavTab(
-            icon: Icons.person_add,
-            label: 'SIGN UP',
-            active: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavTab({
-    required IconData icon,
-    required String label,
-    required bool active,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFFDCF5DC) : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: active ? AppColors.primary : AppColors.outline,
-              size: 20,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: active ? AppColors.primary : AppColors.outline,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

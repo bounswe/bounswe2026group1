@@ -10,8 +10,7 @@ import '../models/report_model.dart';
 import '../models/sse_event.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
-import 'login_screen.dart';
-import '../main.dart' show MainShell;
+import '../main.dart' show MainShell, AuthShell;
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -262,7 +261,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Navigator.pop(ctx);
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthShell()),
                 (r) => false,
               );
             },
