@@ -42,16 +42,15 @@ function CreateReportPanel({ position, onClose, onCreated }) {
     setSubmitting(true)
     setError('')
     try {
-      const created = await apiFetch('/api/reports', {
+      const isRamp = tag === 'RAMP'
+      const endpoint = isRamp ? '/api/reports/ramp' : '/api/reports'
+      const body = isRamp
+        ? { userId, latitude: position.lat, longitude: position.lng, description: description.trim() }
+        : { userId, latitude: position.lat, longitude: position.lng, description: description.trim(), tag }
+      const created = await apiFetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          userId,
-          latitude: position.lat,
-          longitude: position.lng,
-          description: description.trim(),
-          tag,
-        }),
+        body: JSON.stringify(body),
       })
 
       let imageUrl = null
