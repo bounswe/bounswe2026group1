@@ -83,6 +83,7 @@ export function mapReport(r) {
     reportedBy: `User #${r.userId}`,
     agrees: r.agrees,
     disagrees: r.disagrees,
+    userVote: r.userVote ? r.userVote.toLowerCase() : null,
     tags: r.tag ? [r.tag] : [],
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     latitude: r.latitude,
