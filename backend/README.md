@@ -27,7 +27,7 @@ Spring Boot 4.0 / Java 21 / PostgreSQL
    ```
 2. Start the database:
    ```bash
-   docker compose up -d
+   docker compose up -d db
    ```
 
 3. Run the application:
