@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
@@ -9,6 +9,7 @@ import { getReports, mapReport } from '../services/reportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import Toast from '../components/Toast.jsx'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -170,6 +171,8 @@ function Home() {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
+  const [toast, setToast] = useState(null)
+  const handleToastDismiss = useCallback(() => setToast(null), [])
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -486,7 +489,7 @@ function Home() {
 
           {/* Pin drop hint */}
           {showCreatePanel && !newReportPin && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
               <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">location_on</span>
                 Click on the map to set report location
@@ -635,7 +638,14 @@ function Home() {
         <CreateReportPanel
           position={newReportPin}
           onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
-          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null) }}
+          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null); setToast({ message: 'Report submitted successfully!', type: 'success' }) }}
+        />
+      )}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={handleToastDismiss}
         />
       )}
     </div>
