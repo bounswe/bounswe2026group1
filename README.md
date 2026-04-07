@@ -71,6 +71,7 @@ Once the command finishes and services start, you can access the applications lo
 * 🌐 **Web Frontend:** [http://localhost:5173](http://localhost:5173) *(Features Hot-Reload)*
 * ⚙️ **Backend API:** [http://localhost:8080/api/reports](http://localhost:8080/api/reports) *(Test Endpoint)*
 * 🗄️ **Database:** `localhost:5432` *(Credentials match your `.env` file)*
+* 🛢️ **Adminer (DB Web UI):** [http://localhost:8081](http://localhost:8081) *(System: `PostgreSQL`, Server: `db`, credentials from `.env`)*
 
 ### Stopping the Services:
 When you are done testing, you can stop all containers gracefully by running:
