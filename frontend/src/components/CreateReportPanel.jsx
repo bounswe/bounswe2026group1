@@ -155,11 +155,15 @@ function CreateReportPanel({ position, onClose, onCreated }) {
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
           <textarea
             value={description}
-            onChange={e => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value.slice(0, 1000))}
             rows={4}
+            maxLength={1000}
             placeholder="Provide a brief description of the issue..."
             className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
+          <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
+            {description.length}/1000
+          </p>
         </div>
 
         {/* Error */}
