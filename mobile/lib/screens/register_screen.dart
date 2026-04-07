@@ -21,6 +21,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreedToTerms = false;
   bool _loading = false;
 
+  String? _nameError;
+  String? _emailError;
+  String? _passwordError;
+  String? _formError;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -34,12 +39,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showError('Please fill in all fields.');
-      return;
+    String? validatePassword(String pass) {
+      if (pass.isEmpty) return 'Password is required';
+      if (pass.length < 8) return 'Min 8 characters required';
+      if (!RegExp(r'[A-Z]').hasMatch(pass)) return 'Must contain at least 1 uppercase letter';
+      if (!RegExp(r'[a-z]').hasMatch(pass)) return 'Must contain at least 1 lowercase letter';
+      if (!RegExp(r'\d').hasMatch(pass)) return 'Must contain at least 1 digit';
+      if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>+=\-\[\]\\]').hasMatch(pass)) return 'Must contain at least 1 special character';
+      return null;
     }
+
+    setState(() {
+      _nameError = name.isEmpty ? 'Name is required' : null;
+      _emailError = email.isEmpty ? 'Email is required' : null;
+      _passwordError = validatePassword(password);
+      _formError = null;
+    });
+
+    if (_nameError != null || _emailError != null || _passwordError != null) return;
+    
     if (!_agreedToTerms) {
-      _showError('Please accept the Terms of Service to continue.');
+      setState(() => _formError = 'Please accept the Terms of Service to continue.');
       return;
     }
 
@@ -55,23 +75,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } on ApiException catch (e) {
-      if (mounted) _showError(e.userMessage);
+      if (mounted) setState(() => _formError = e.userMessage);
     } catch (_) {
-      if (mounted) _showError('Cannot reach server. Check your connection.');
+      if (mounted) setState(() => _formError = 'Cannot reach server. Check your connection.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFFB02500),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
   }
 
   @override
@@ -126,6 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _buildTextField(
                       controller: _nameController,
                       hint: 'Enter your name',
+                      errorText: _nameError,
                     ),
                     const SizedBox(height: 14),
                     _buildLabel('Email Address'),
@@ -134,6 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _emailController,
                       hint: 'you@example.com',
                       keyboardType: TextInputType.emailAddress,
+                      errorText: _emailError,
                     ),
                     const SizedBox(height: 14),
                     _buildLabel('Password'),
@@ -142,6 +153,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _passwordController,
                       hint: '••••••••',
                       obscure: _obscurePassword,
+                      errorText: _passwordError,
                       suffix: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -172,8 +184,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           height: 22,
                           child: Checkbox(
                             value: _agreedToTerms,
-                            onChanged: (v) =>
-                                setState(() => _agreedToTerms = v ?? false),
+                            onChanged: (v) => setState(() {
+                              _agreedToTerms = v ?? false;
+                              if (_agreedToTerms) _formError = null;
+                            }),
                             activeColor: AppColors.primary,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
@@ -217,6 +231,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    if (_formError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFDAD6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFB4AB)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Color(0xFFBA1A1A), size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _formError!,
+                                style: const TextStyle(
+                                  color: Color(0xFFBA1A1A),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     _buildPrimaryButton(),
                     const SizedBox(height: 16),
                     Center(
@@ -271,28 +312,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextInputType? keyboardType,
     bool obscure = false,
     Widget? suffix,
+    String? errorText,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppColors.outlineVariant),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 16,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(14),
+            border: errorText != null ? Border.all(color: const Color(0xFFBA1A1A)) : null,
           ),
-          suffixIcon: suffix,
+          child: TextField(
+            controller: controller,
+            obscureText: obscure,
+            keyboardType: keyboardType,
+            style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: AppColors.outlineVariant),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
+              suffixIcon: suffix,
+            ),
+            onChanged: (_) {
+              if (errorText != null) {
+                setState(() {
+                  if (controller == _nameController) _nameError = null;
+                  if (controller == _emailController) _emailError = null;
+                  if (controller == _passwordController) _passwordError = null;
+                  _formError = null;
+                });
+              }
+            },
+          ),
         ),
-      ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 
