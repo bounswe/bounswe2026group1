@@ -53,8 +53,8 @@ describe('ReportPanel', () => {
     localStorage.clear()
     reportService.getCommentsByReport.mockResolvedValue([])
   })
-  // ─── Rendering ───────────────────────────────────────────────────────────────
 
+  // ─── Rendering ───────────────────────────────────────────────────────────────
   describe('rendering', () => {
     it('renders the report title', () => {
       renderPanel()
@@ -99,7 +99,6 @@ describe('ReportPanel', () => {
   })
 
   // ─── Close button ─────────────────────────────────────────────────────────────
-
   describe('close button', () => {
     it('calls onClose when close button is clicked', async () => {
       const onClose = vi.fn()
@@ -110,8 +109,7 @@ describe('ReportPanel', () => {
     })
   })
 
-  // ─── Vote button colors ───────────────────────────────────────────────────────
-
+  // ─── Vote button colors and behavior ─────────────────────────────────────────
   describe('vote button colors', () => {
     it('agree button starts with gray background when userVote is null', () => {
       renderPanel()
@@ -136,7 +134,7 @@ describe('ReportPanel', () => {
     })
 
     it('calls onVoteChange with agree when agree vote is cast', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const fakeToken = 'fake-token'
       const onVoteChange = vi.fn()
       reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 4 })
       reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 4 })
@@ -151,7 +149,7 @@ describe('ReportPanel', () => {
     })
 
     it('calls onVoteChange with disagree when disagree vote is cast', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const fakeToken = 'fake-token'
       const onVoteChange = vi.fn()
       reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 2 })
       reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 2 })
@@ -166,9 +164,8 @@ describe('ReportPanel', () => {
     })
 
     it('calls onVoteChange with null when toggling off an existing agree vote', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const fakeToken = 'fake-token'
       const onVoteChange = vi.fn()
-      // agrees goes from 3 → 2 (toggle off), so delta is negative → null
       reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 2 })
       reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 2 })
       const user = userEvent.setup()
@@ -183,7 +180,6 @@ describe('ReportPanel', () => {
   })
 
   // ─── Vote error handling ──────────────────────────────────────────────────────
-
   describe('vote error handling', () => {
     it('navigates to /login when voting without being logged in', async () => {
       const user = userEvent.setup()
@@ -193,7 +189,7 @@ describe('ReportPanel', () => {
     })
 
     it('shows error when vote API call fails', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
+      const fakeToken = 'fake-token'
       reportService.agreeReport.mockRejectedValue(new Error('Server error'))
       const user = userEvent.setup()
       renderPanel({ token: fakeToken })
@@ -203,6 +199,68 @@ describe('ReportPanel', () => {
       await waitFor(() => {
         expect(screen.getByText(/failed to submit vote/i)).toBeInTheDocument()
       })
+    })
+  })
+
+  // ─── Follow/Unfollow tests ───────────────────────────────────────────────────
+  describe('follow/unfollow button', () => {
+    it('toggles follow state when clicked', async () => {
+      const user = userEvent.setup()
+      renderPanel({ token: 'fake-token' })
+
+      const button = screen.getByRole('button', { name: /Follow Updates/i })
+      expect(button).toHaveTextContent('Follow Updates')
+
+      await user.click(button)
+      expect(button).toHaveTextContent('Unfollow')
+
+      await user.click(button)
+      expect(button).toHaveTextContent('Follow Updates')
+    })
+
+    it('does not toggle follow if unauthenticated', async () => {
+      const user = userEvent.setup()
+      renderPanel({ token: null })
+
+      const button = screen.getByRole('button', { name: /Follow Updates/i })
+      await user.click(button)
+      expect(button).toHaveTextContent('Follow Updates')
+    })
+  })
+
+  // ─── Comments tests ──────────────────────────────────────────────────────────
+  describe('comments', () => {
+    beforeEach(() => {
+      reportService.createComment.mockImplementation((reportId, content) =>
+        Promise.resolve({ id: 'c2', content, author: { id: 'user123', name: 'Tester' }, createdAt: new Date().toISOString() })
+      )
+      reportService.deleteComment.mockResolvedValue({})
+      reportService.getCommentsByReport.mockResolvedValue([
+        { id: 'c1', content: 'Existing comment', author: { id: 'user123', name: 'Tester' }, createdAt: '2026-04-07T12:00:00Z' }
+      ])
+    })
+
+    it('can submit a new comment', async () => {
+      const user = userEvent.setup()
+      renderPanel({ token: 'fake-token' })
+
+      const textarea = screen.getByPlaceholderText('Add a comment...')
+      await user.type(textarea, 'New comment')
+      await user.click(screen.getByText('Post'))
+
+      await waitFor(() => expect(screen.getByText('New comment')).toBeInTheDocument())
+    })
+
+    it('can delete own comment', async () => {
+      const user = userEvent.setup()
+      renderPanel({ token: 'fake-token' })
+
+      await waitFor(() => screen.getByText('Existing comment'))
+
+      const deleteBtn = screen.getByLabelText('Delete comment')
+      await user.click(deleteBtn)
+
+      await waitFor(() => expect(screen.queryByText('Existing comment')).not.toBeInTheDocument())
     })
   })
 })

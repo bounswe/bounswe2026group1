@@ -26,6 +26,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
+  const [following, setFollowing] = useState(false)
 
   useEffect(() => {
     if (!report) return
