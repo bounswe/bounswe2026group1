@@ -51,26 +51,18 @@ export async function getCommentsByReport(reportId, token) {
  * Post a new comment on a report.
  * POST /api/comments
  */
-// reportService.js
-export async function createComment(reportId, content, token) {
-  console.log('[createComment] Sending comment', { reportId, content, token })
-
-  try {
-    // Backend usually expects reportId at top-level, not nested in 'report'
-    const payload = { content, reportId }
-
-    const result = await apiFetch('/api/comments', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
-    })
-
-    console.log('[createComment] Success:', result)
-    return result
-  } catch (err) {
-    console.error('[createComment] Failed', err)
-    throw err
+export async function createComment(reportId, content, token, userId) {
+  const payload = {
+    content,
+    author: { id: userId },
+    report: { reportId },
   }
+
+  return apiFetch('/api/comments', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  })
 }
 
 /**

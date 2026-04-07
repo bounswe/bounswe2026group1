@@ -77,7 +77,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   setSubmittingComment(true)
   try {
     console.log('[handleCommentSubmit] Submitting comment:', newComment.trim())
-    const created = await createComment(report.id, newComment.trim(), token)
+    const created = await createComment(report.id, newComment.trim(), token, userId)
     console.log('[handleCommentSubmit] Created comment:', created)
     setComments(prev => [created, ...prev])
     setNewComment('')
