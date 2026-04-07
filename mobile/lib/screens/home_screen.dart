@@ -846,7 +846,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocus,
-              autofocus: true,
               onChanged: _onSearchChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _search,
