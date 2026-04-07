@@ -11,7 +11,7 @@ vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
   mapReport: vi.fn(r => r),
-  getCommentsByReport: vi.fn(() => Promise.resolve([])),
+  getCommentsByReport: vi.fn((_id, _token) => Promise.resolve([])),
   createComment: vi.fn(),
   deleteComment: vi.fn(() => Promise.resolve()),
 }));

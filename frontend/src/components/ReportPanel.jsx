@@ -31,9 +31,9 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   useEffect(() => {
     if (!report) return
     setCommentsLoading(true)
-    getCommentsByReport(report.id)
-      .then(data => setComments(data || []))
-      .catch(() => setComments([]))
+    getCommentsByReport(report.id, token)
+      .then(data => setComments(Array.isArray(data) ? data : (data?.content ?? data?.comments ?? [])))
+      .catch(err => { console.error('[ReportPanel] Failed to load comments:', err); setComments([]) })
       .finally(() => setCommentsLoading(false))
   }, [report?.id])
 

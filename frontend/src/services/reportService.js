@@ -41,8 +41,10 @@ export async function disagreeReport(id, token) {
  * Fetch comments for a specific report.
  * GET /api/comments/report/{reportId}
  */
-export async function getCommentsByReport(reportId) {
-  return apiFetch(`/api/comments/report/${reportId}`)
+export async function getCommentsByReport(reportId, token) {
+  return apiFetch(`/api/comments/report/${reportId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
 }
 
 /**
