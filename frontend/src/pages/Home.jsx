@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import Navbar from '../components/Navbar.jsx'
@@ -172,6 +172,7 @@ function Home() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
   const [toast, setToast] = useState(null)
+  const handleToastDismiss = useCallback(() => setToast(null), [])
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -637,14 +638,14 @@ function Home() {
         <CreateReportPanel
           position={newReportPin}
           onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
-          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null); console.log('toast set'); setToast({ message: 'Report submitted successfully!', type: 'success' }) }}
+          onCreated={(newReport) => { setReports(prev => [...prev, newReport]); setNewReportPin(null); setToast({ message: 'Report submitted successfully!', type: 'success' }) }}
         />
       )}
-    {toast && (
+      {toast && (
         <Toast
           message={toast.message}
           type={toast.type}
-          onDismiss={() => setToast(null)}
+          onDismiss={handleToastDismiss}
         />
       )}
     </div>
