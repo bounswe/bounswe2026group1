@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../models/report_model.dart';
-import 'login_screen.dart';
-import 'register_screen.dart';
+import '../main.dart' show AuthShell;
 import 'report_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -81,7 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pop(context);
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthShell()),
               );
             },
             child: const Text(
@@ -567,7 +566,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           GestureDetector(
             onTap: () => Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              MaterialPageRoute(builder: (_) => const AuthShell()),
             ),
             child: Container(
               width: double.infinity,
@@ -613,7 +612,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               GestureDetector(
                 onTap: () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  MaterialPageRoute(builder: (_) => const AuthShell(initialTab: 1)),
                 ),
                 child: const Text(
                   'Sign Up',
