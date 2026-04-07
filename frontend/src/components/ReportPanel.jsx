@@ -31,13 +31,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
       type === 'agree'
         ? agreeReport(report.id, token)
         : disagreeReport(report.id, token),
-    onSuccess: (updated, { type }) => {
+    onSuccess: (updated) => {
       setVoteError('')
       const mappedUpdated = mapReport(updated)
       onVoteUpdate(mappedUpdated)
-      const prevCount = type === 'agree' ? report.agrees : report.disagrees
-      const newCount = type === 'agree' ? mappedUpdated.agrees : mappedUpdated.disagrees
-      onVoteChange(newCount > prevCount ? type : null)
+      onVoteChange(mappedUpdated.userVote ?? null)
     },
     onError: () => {
       setVoteError('Failed to submit vote. Please try again.')
@@ -185,9 +183,19 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                 style={{ width: `${consensusPct}%` }}
               />
             </div>
-            <p className="text-sm text-on-surface-variant italic">
-              {report.agrees || 0} people have verified this issue as active.
-            </p>
+            <div className="flex items-center justify-between text-sm text-on-surface-variant italic">
+              <span>{report.agrees || 0} people have agreed that this issue is active.</span>
+              <span className="flex gap-3 not-italic font-semibold">
+                <span className="flex items-center gap-1 text-primary">
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
+                  {report.agrees || 0}
+                </span>
+                <span className="flex items-center gap-1 text-error">
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>thumb_down</span>
+                  {report.disagrees || 0}
+                </span>
+              </span>
+            </div>
 
             {/* Vote error */}
             {voteError && (
@@ -204,7 +212,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                 className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${
                   userVote === 'agree'
                     ? 'bg-primary text-on-primary'
-                    : 'bg-surface-container-highest text-on-surface'
+                    : 'bg-surface-container-highest text-on-surface hover:bg-primary/10 hover:text-primary'
                 }`}
               >
                 <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'agree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_up</span>
@@ -214,10 +222,10 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
                 onClick={() => handleVote('disagree')}
                 disabled={voting}
                 aria-label="Disagree"
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all disabled:opacity-60 ${
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${
                   userVote === 'disagree'
                     ? 'bg-error text-white'
-                    : 'bg-surface-container-highest text-on-surface'
+                    : 'bg-surface-container-highest text-on-surface hover:bg-error/10 hover:text-error'
                 }`}
               >
                 <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'disagree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_down</span>
