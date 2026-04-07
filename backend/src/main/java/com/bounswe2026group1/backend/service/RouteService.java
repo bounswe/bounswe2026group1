@@ -71,22 +71,11 @@ public class RouteService {
             }
         }
 
-        // 3. Wheelchair route — always returned, with obstacle avoidance
+        // 3. Wheelchair route — baseline accessible route with obstacle avoidance
         RoutingDirectionsResult wheelchairResult = fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
 
-        if (wheelchairResult != null) {
-            routes.add(RouteResponse.builder()
-                    .routeLabel("Wheelchair Route")
-                    .distanceMeters(wheelchairResult.getDistanceMeters())
-                    .durationSeconds(wheelchairResult.getDurationSeconds())
-                    .mode(TravelMode.WHEELCHAIR)
-                    .geometry(wheelchairResult.getGeometry())
-                    .steps(wheelchairResult.getSteps())
-                    .hasObstacles(false)
-                    .build());
-        }
-
-        // 4. Ramp-assisted Route — multi-leg through nearest ramp entry/exit
+        // 4. Ramp-assisted route — multi-leg through nearest ramp entry/exit
+        RouteResponse rampAssistedRoute = null;
         RampReport ramp = obstacleService.findClosestRampInBoundingBox(start, end);
         if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
             // Orient ramp: entry = endpoint closer to start, exit = endpoint closer to end
@@ -120,7 +109,7 @@ public class RouteService {
                 combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
                 if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
 
-                routes.add(RouteResponse.builder()
+                rampAssistedRoute = RouteResponse.builder()
                         .routeLabel("Ramp-Assisted Route")
                         .distanceMeters(totalDistance)
                         .durationSeconds(totalDuration)
@@ -128,10 +117,39 @@ public class RouteService {
                         .geometry(combinedGeometry)
                         .steps(combinedSteps)
                         .hasObstacles(false)
-                        .build());
+                        .build();
             } else {
                 log.warn("Ramp-assisted route skipped; leg 1 or leg 3 returned null.");
             }
+        }
+
+        // Return the shorter of the wheelchair and ramp-assisted routes, labelled "Ramp-Assisted Route".
+        // Falls back to whichever is available if only one could be built.
+        if (wheelchairResult != null && rampAssistedRoute != null) {
+            RouteResponse shorter = rampAssistedRoute.getDistanceMeters() <= wheelchairResult.getDistanceMeters()
+                    ? rampAssistedRoute
+                    : RouteResponse.builder()
+                            .routeLabel("Ramp-Assisted Route")
+                            .distanceMeters(wheelchairResult.getDistanceMeters())
+                            .durationSeconds(wheelchairResult.getDurationSeconds())
+                            .mode(TravelMode.WHEELCHAIR)
+                            .geometry(wheelchairResult.getGeometry())
+                            .steps(wheelchairResult.getSteps())
+                            .hasObstacles(false)
+                            .build();
+            routes.add(shorter);
+        } else if (rampAssistedRoute != null) {
+            routes.add(rampAssistedRoute);
+        } else if (wheelchairResult != null) {
+            routes.add(RouteResponse.builder()
+                    .routeLabel("Ramp-Assisted Route")
+                    .distanceMeters(wheelchairResult.getDistanceMeters())
+                    .durationSeconds(wheelchairResult.getDurationSeconds())
+                    .mode(TravelMode.WHEELCHAIR)
+                    .geometry(wheelchairResult.getGeometry())
+                    .steps(wheelchairResult.getSteps())
+                    .hasObstacles(false)
+                    .build());
         }
 
         return routes;
