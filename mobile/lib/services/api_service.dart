@@ -110,17 +110,17 @@ class ApiService {
     required String description,
     required ReportTag tag,
   }) async {
+    final isRamp = tag == ReportTag.ramp;
+    final endpoint = isRamp ? '$_baseUrl/api/reports/ramp' : '$_baseUrl/api/reports';
+    final body = isRamp
+        ? {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description}
+        : {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description, 'tag': tag.jsonValue};
+
     final response = await http
         .post(
-          Uri.parse('$_baseUrl/api/reports'),
+          Uri.parse(endpoint),
           headers: _headers,
-          body: jsonEncode({
-            'userId': userId,
-            'latitude': latitude,
-            'longitude': longitude,
-            'description': description,
-            'tag': tag.jsonValue,
-          }),
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
 

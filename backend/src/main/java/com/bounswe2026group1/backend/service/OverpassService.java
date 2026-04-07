@@ -3,6 +3,7 @@ package com.bounswe2026group1.backend.service;
 import com.bounswe2026group1.backend.exception.RoutingException;
 import com.bounswe2026group1.backend.model.Location;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
@@ -48,8 +49,9 @@ public class OverpassService {
 
         List<Location[]> stairEndpoints = parseStairEndpoints(response);
         if (stairEndpoints.isEmpty()) {
-            throw new RoutingException(
-                    "No stair found within " + SEARCH_RADIUS_METERS + "m of the reported ramp location");
+            throw new RoutingException(HttpStatus.BAD_REQUEST,
+                    "Ramps can currently only be added to stairs. No stair found within "
+                    + SEARCH_RADIUS_METERS + "m of the reported location.");
         }
 
         return findNearestStair(stairEndpoints, reportedPoint);
