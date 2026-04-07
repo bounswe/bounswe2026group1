@@ -21,7 +21,7 @@ export async function getReportById(id) {
  * Submit an agree vote on a report.
  */
 export async function agreeReport(id, token) {
-  return apiFetch(`/api/reports/${id}/agree`, {
+  return apiFetch(`/api/reports/${id}/verify`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -31,7 +31,7 @@ export async function agreeReport(id, token) {
  * Submit a disagree vote on a report.
  */
 export async function disagreeReport(id, token) {
-  return apiFetch(`/api/reports/${id}/disagree`, {
+  return apiFetch(`/api/reports/${id}/unverify`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
