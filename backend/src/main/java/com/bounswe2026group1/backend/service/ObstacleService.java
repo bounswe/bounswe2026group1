@@ -37,8 +37,8 @@ public class ObstacleService {
 
     private static final double METERS_PER_DEGREE = 111_000.0;
 
-    /** Statuses considered active — reports we act on. REJECTED reports are ignored. */
-    private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.PENDING, ReportStatus.VERIFIED);
+    /** Only verified reports are used for route calculations. */
+    private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.VERIFIED);
 
     private final ReportRepository reportRepository;
     private final RampReportRepository rampReportRepository;
@@ -53,7 +53,7 @@ public class ObstacleService {
      *         or null if none exist
      */
     public ObjectNode buildAvoidPolygons() {
-        // Fetch only PENDING and VERIFIED obstacle reports — REJECTED reports are ignored.
+        // Fetch only VERIFIED obstacle reports for route avoidance.
         List<Report> obstacles = reportRepository.findByTagInAndStatusIn(List.copyOf(OBSTACLE_TAGS), ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
             return null;
@@ -91,7 +91,7 @@ public class ObstacleService {
         double minLon = Math.min(start.getLongitude(), end.getLongitude()) - bufferDeg;
         double maxLon = Math.max(start.getLongitude(), end.getLongitude()) + bufferDeg;
 
-        // Fetch only PENDING and VERIFIED ramp reports — REJECTED reports are ignored.
+        // Fetch only VERIFIED ramp reports for route calculations.
         List<RampReport> candidates = rampReportRepository.findRampsInBoundingBoxWithStatuses(
                 minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
@@ -136,7 +136,7 @@ public class ObstacleService {
         double minLon = pathPoints.stream().mapToDouble(Location::getLongitude).min().orElseThrow() - bufferDeg;
         double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
 
-        // Fetch only PENDING and VERIFIED reports in the path bounding box — REJECTED reports are ignored.
+        // Fetch only VERIFIED reports in the path bounding box for route calculations.
         List<Report> candidates = reportRepository.findReportsInBoundingBoxWithStatuses(
                 minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
