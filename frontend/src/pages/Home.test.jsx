@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext.jsx'
+import { ThemeProvider } from '../context/ThemeContext.jsx'
 import Home from './Home.jsx'
 
 vi.mock('react-leaflet', () => ({
@@ -27,9 +28,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
 function renderHome() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <Home />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Home />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>
   )
 }
