@@ -452,6 +452,7 @@ class _AuthShellState extends State<AuthShell>
 
     return Scaffold(
       backgroundColor: AppColors.surface,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // ── Sliding content ────────────────────────────────────────────
@@ -485,7 +486,7 @@ class _AuthShellState extends State<AuthShell>
           ),
           // ── Global bottom nav ──────────────────────────────────────────
           Positioned(
-            bottom: 0,
+            bottom: mq.viewInsets.bottom,
             left: 0,
             right: 0,
             child: _buildNavContent(),
