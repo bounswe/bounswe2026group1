@@ -161,12 +161,14 @@ describe('ReportPanel', () => {
     })
   })
 
-  test('deletes a comment', async () => {
+  test('can delete own comment', async () => {
     reportService.getCommentsByReport.mockResolvedValueOnce([existingComment])
 
     await renderPanel()
     
-    const commentText = await screen.findByText('Existing comment')
+    const commentText = await screen.findByText((content, element) =>
+      element.tagName.toLowerCase() === 'p' && content.includes('Existing comment')
+    )
     const deleteBtn = screen.getByLabelText('Delete comment')
 
     await user.click(deleteBtn)
