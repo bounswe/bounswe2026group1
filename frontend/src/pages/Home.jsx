@@ -489,7 +489,7 @@ function Home() {
 
           {/* Pin drop hint */}
           {showCreatePanel && !newReportPin && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
               <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">location_on</span>
                 Click on the map to set report location
