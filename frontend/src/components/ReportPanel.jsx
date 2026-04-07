@@ -71,18 +71,20 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate }) 
   }
 
   async function handleCommentSubmit() {
-    if (!newComment.trim()) return
-    setSubmittingComment(true)
-    try {
-      const created = await createComment(report.id, newComment.trim(), token)
-      setComments(prev => [created, ...prev])
-      setNewComment('')
-    } catch (err) {
-      console.error('Failed to submit comment', err)
-    } finally {
-      setSubmittingComment(false)
-    }
+  if (!newComment.trim()) return
+  setSubmittingComment(true)
+  try {
+    console.log('[handleCommentSubmit] Submitting comment:', newComment.trim())
+    const created = await createComment(report.id, newComment.trim(), token)
+    console.log('[handleCommentSubmit] Created comment:', created)
+    setComments(prev => [created, ...prev])
+    setNewComment('')
+  } catch (err) {
+    console.error('[handleCommentSubmit] Error submitting comment:', err)
+  } finally {
+    setSubmittingComment(false)
   }
+}
 
   async function handleDeleteComment(commentId) {
     try {
