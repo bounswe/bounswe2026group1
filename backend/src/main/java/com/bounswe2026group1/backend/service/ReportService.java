@@ -6,6 +6,8 @@ import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.bounswe2026group1.backend.model.ReportVerification;
 import com.bounswe2026group1.backend.model.VoteType;
 import com.bounswe2026group1.backend.repository.MediaRepository;
@@ -36,6 +38,7 @@ public class ReportService {
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
     private final PublicSseService publicSseService;
+    private final S3MediaService s3MediaService;
 
     // Fetched from application.properties
     @Value("${app.report.verification.threshold:5}")
@@ -110,11 +113,24 @@ public class ReportService {
     }
 
     @Transactional
-    public boolean delete(Long id) {
-        if (!reportRepository.existsById(id)) return false;
-        reportRepository.deleteById(id);
+    public void delete(Long id, String email) {
+        Report report = reportRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found with id: " + id));
+
+        RegisteredUser requester = registeredUserRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        if (!report.getCreatedBy().getId().equals(requester.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
+        }
+
+        List<String> mediaPaths = report.getMediaList().stream()
+                .map(Media::getFilePath)
+                .toList();
+        mediaPaths.forEach(s3MediaService::deleteFile);
+
+        reportRepository.delete(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportDeleted(id));
-        return true;
     }
 
     @Transactional
