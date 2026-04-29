@@ -14,7 +14,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -43,6 +45,9 @@ class ReportServiceTest {
     @Mock
     private PublicSseService publicSseService;
 
+    @Mock
+    private S3MediaService s3MediaService;
+
     @InjectMocks
     private ReportService reportService;
 
@@ -54,6 +59,7 @@ class ReportServiceTest {
     void setUp() {
         testUser = new RegisteredUser();
         testUser.setId(1L);
+        testUser.setEmail("owner@test.com");
 
         testReport = new Report(testUser, new Location(41.0, 29.0), "Broken ramp", Tag.MISSING_RAMP);
 
@@ -151,24 +157,55 @@ class ReportServiceTest {
     }
 
     @Test
-    void delete_existingId_returnsTrue() {
-        when(reportRepository.existsById(1L)).thenReturn(true);
+    void delete_ownerDeletesOwnReport_deletesAndBroadcasts() {
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
 
-        boolean result = reportService.delete(1L);
+        reportService.delete(1L, "owner@test.com");
 
-        assertTrue(result);
-        verify(reportRepository).deleteById(1L);
+        verify(reportRepository).delete(testReport);
         verify(publicSseService).broadcastReportDeleted(1L);
     }
 
     @Test
-    void delete_nonExistingId_returnsFalse() {
-        when(reportRepository.existsById(99L)).thenReturn(false);
+    void delete_reportNotFound_throws404() {
+        when(reportRepository.findById(99L)).thenReturn(Optional.empty());
 
-        boolean result = reportService.delete(99L);
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.delete(99L, "owner@test.com"));
 
-        assertFalse(result);
-        verify(reportRepository, never()).deleteById(any());
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+        verify(reportRepository, never()).delete(any());
+    }
+
+    @Test
+    void delete_notOwner_throws403() {
+        RegisteredUser otherUser = new RegisteredUser();
+        otherUser.setId(2L);
+        otherUser.setEmail("other@test.com");
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("other@test.com")).thenReturn(Optional.of(otherUser));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.delete(1L, "other@test.com"));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+        verify(reportRepository, never()).delete(any());
+    }
+
+    @Test
+    void delete_withMedia_callsS3DeleteForEachFile() {
+        Media media = new Media();
+        media.setFilePath("https://bucket.s3.amazonaws.com/file.jpg");
+        testReport.getMediaList().add(media);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
+
+        reportService.delete(1L, "owner@test.com");
+
+        verify(s3MediaService).deleteFile("https://bucket.s3.amazonaws.com/file.jpg");
     }
 
     @Test
