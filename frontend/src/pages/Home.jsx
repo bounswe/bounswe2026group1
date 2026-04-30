@@ -58,24 +58,24 @@ function makeMarkerIcon(status, tag) {
 function ZoomControls() {
   const map = useMap()
   return (
-    <div className="absolute right-10 top-1/3 -translate-y-1/2 flex flex-col gap-2 z-[1000]">
+    <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
-        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
         aria-label="Zoom in"
       >
         <span className="material-symbols-outlined">add</span>
       </button>
       <button
         onClick={() => map.zoomOut()}
-        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
         aria-label="Zoom out"
       >
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
         onClick={() => map.locate({ setView: true, maxZoom: 16 })}
-        className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors mt-2"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
         <span className="material-symbols-outlined">my_location</span>
@@ -331,7 +331,7 @@ function Home() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Route Panel — left sidebar overlay (does not resize the map) */}
         {routeMode && (
-          <div className="absolute top-0 left-0 h-full z-[1000] pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full sm:w-auto h-full z-[1000] pointer-events-auto">
           <RoutePanel
             routeOrigin={routeOrigin}
             routeDest={routeDest}
@@ -481,8 +481,8 @@ function Home() {
 
           {/* Pin drop hint */}
           {showCreatePanel && !newReportPin && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+            <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
+              <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">location_on</span>
                 Click on the map to set report location
               </div>
@@ -491,16 +491,16 @@ function Home() {
 
           {/* Route mode click hint */}
           {routeMode && !routeOrigin && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+            <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
+              <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">route</span>
                 Click on the map to set your starting point
               </div>
             </div>
           )}
           {routeMode && routeOrigin && !routeDest && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-              <div className="bg-primary text-on-primary px-6 py-3 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2">
+            <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
+              <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">route</span>
                 Now click your destination
               </div>
@@ -509,7 +509,7 @@ function Home() {
 
           {/* Route notice toast */}
           {routeNotice && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-2xl shadow-lg max-w-sm text-sm font-semibold">
+            <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-lg max-w-[calc(100%-2rem)] sm:max-w-sm text-xs sm:text-sm font-semibold">
               <span className="material-symbols-outlined text-amber-600 text-base flex-shrink-0">warning</span>
               <span>{routeNotice}</span>
               <button onClick={() => setRouteNotice('')} className="ml-1 text-amber-600 hover:text-amber-800" aria-label="Dismiss">
@@ -519,11 +519,11 @@ function Home() {
           )}
 
           {/* Floating search bar */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 z-[1000] pointer-events-none">
-            <div className="flex items-center bg-white/80 backdrop-blur-md rounded-2xl px-6 py-3 gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
-              <span className="material-symbols-outlined text-primary">location_on</span>
-              <div className="flex-1">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
+          <div className="absolute top-3 sm:top-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-2xl sm:px-6 z-[1000] pointer-events-none">
+            <div className="flex items-center bg-white/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
+              <span className="material-symbols-outlined text-primary text-xl sm:text-2xl">location_on</span>
+              <div className="flex-1 min-w-0">
+                <p className="hidden sm:block text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
                 <input
                   type="text"
                   value={searchValue}
@@ -535,8 +535,8 @@ function Home() {
                   className="bg-transparent border-none p-0 w-full text-on-surface font-headline font-semibold focus:ring-0 text-sm outline-none"
                 />
               </div>
-              <div className="h-8 w-px bg-outline-variant/30" />
-              <button className="p-2 hover:bg-primary/10 rounded-lg transition-colors" aria-label="Filter">
+              <div className="hidden sm:block h-8 w-px bg-outline-variant/30" />
+              <button className="p-2 hover:bg-primary/10 rounded-lg transition-colors flex-shrink-0" aria-label="Filter">
                 <span className="material-symbols-outlined text-secondary">tune</span>
               </button>
             </div>
@@ -561,8 +561,8 @@ function Home() {
           </div>
 
           {/* Community Pulse card + FAB */}
-          <div className="absolute bottom-10 right-10 z-[1000] flex flex-col items-end gap-4">
-            <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
+          <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
+            <div className="hidden lg:block bg-white/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
@@ -591,19 +591,21 @@ function Home() {
 
             <button
               onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
-              className={`h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
+              aria-label="Get Routes"
+              className={`h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
                 routeMode ? 'bg-secondary text-on-secondary' : 'bg-white/90 text-on-surface border border-outline-variant/20'
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
-              Get Routes
+              <span className="hidden sm:inline">Get Routes</span>
             </button>
             <button
               onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
-              className="bg-primary text-white h-14 px-7 rounded-full shadow-lg flex items-center gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
+              aria-label="Report an Issue"
+              className="bg-primary text-white h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
-              Report an Issue
+              <span className="hidden sm:inline">Report an Issue</span>
             </button>
           </div>
 
