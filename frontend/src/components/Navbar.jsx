@@ -29,14 +29,14 @@ function Navbar() {
             Home
           </NavLink>
           <NavLink
-            to="/reports"
+            to="/feed"
             className={({ isActive }) =>
               isActive
                 ? 'text-primary border-b-2 border-primary font-semibold pb-1'
                 : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
             }
           >
-            Reports
+            Feed
           </NavLink>
         </nav>
       </div>
