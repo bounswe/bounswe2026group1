@@ -4,18 +4,25 @@ import com.bounswe2026group1.backend.dto.LoginRequest;
 import com.bounswe2026group1.backend.dto.LoginResponse;
 import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
+import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
+import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
+import com.bounswe2026group1.backend.repository.ReportRepository;
+import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.lang.reflect.Field;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,14 +32,11 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RegisteredUserServiceTest {
 
-    @Mock
-    private RegisteredUserRepository registeredUserRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private JwtUtil jwtUtil;
+    @Mock private RegisteredUserRepository registeredUserRepository;
+    @Mock private ReportRepository reportRepository;
+    @Mock private RouteRepository routeRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private JwtUtil jwtUtil;
 
     @InjectMocks
     private RegisteredUserService registeredUserService;
@@ -48,7 +52,14 @@ class RegisteredUserServiceTest {
         validRegisterRequest.setEmail("test@test.com");
         validRegisterRequest.setPassword("StrongP@ss1");
 
-        mockUser = new RegisteredUser(1L, "Test User", "test@test.com", "hashedPassword", "USER");
+        mockUser = new RegisteredUser();
+        mockUser.setId(1L);
+        mockUser.setName("Test User");
+        mockUser.setEmail("test@test.com");
+        mockUser.setPassword("hashedPassword");
+        mockUser.setRole("USER");
+        mockUser.setBio("hello");
+        mockUser.setAvatarUrl("https://cdn/old.jpg");
 
         validLoginRequest = new LoginRequest();
         validLoginRequest.setEmail("test@test.com");
@@ -109,11 +120,15 @@ class RegisteredUserServiceTest {
         when(registeredUserRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(validLoginRequest.getPassword(), mockUser.getPassword())).thenReturn(true);
         when(jwtUtil.generateToken(mockUser.getId(), mockUser.getEmail(), mockUser.getRole())).thenReturn("mockJwtToken");
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
 
         LoginResponse response = registeredUserService.loginUser(validLoginRequest);
 
         assertNotNull(response);
         assertEquals("mockJwtToken", response.getToken());
+        assertNotNull(response.getProfile());
+        assertEquals(1L, response.getProfile().getId());
     }
 
     @Test
@@ -133,5 +148,250 @@ class RegisteredUserServiceTest {
         assertThrows(BadCredentialsException.class, () -> {
             registeredUserService.loginUser(validLoginRequest);
         });
+    }
+
+    // ───── PROFILE TESTS (issue #302) ────────────────────────────────────────
+
+    @Test
+    void getProfileById_returnsAllFieldsAndStats() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(3L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(2L);
+
+        UserProfileDTO dto = registeredUserService.getProfileById(1L);
+
+        assertEquals(1L, dto.getId());
+        assertEquals("Test User", dto.getName());
+        assertEquals("test@test.com", dto.getEmail());
+        assertEquals("hello", dto.getBio());
+        assertEquals("https://cdn/old.jpg", dto.getAvatarUrl());
+        assertEquals("USER", dto.getRole());
+        assertEquals(3L, dto.getContributionStats().getReportsSubmitted());
+        assertEquals(2L, dto.getContributionStats().getRoutesPlanned());
+        verify(reportRepository, times(1)).countByCreatedById(1L);
+        verify(routeRepository, times(1)).countByCreatedById(1L);
+    }
+
+    @Test
+    void getProfileById_throwsAndSkipsCounts_whenUserMissing() {
+        when(registeredUserRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> registeredUserService.getProfileById(99L));
+
+        verifyNoInteractions(reportRepository);
+        verifyNoInteractions(routeRepository);
+    }
+
+    @Test
+    void getProfileById_statsDefaultToZero_noNpe() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UserProfileDTO dto = registeredUserService.getProfileById(1L);
+
+        assertEquals(0L, dto.getContributionStats().getReportsSubmitted());
+        assertEquals(0L, dto.getContributionStats().getRoutesPlanned());
+    }
+
+    @Test
+    void getProfileById_doesNotLeakPassword() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UserProfileDTO dto = registeredUserService.getProfileById(1L);
+
+        // Regression guard: UserProfileDTO must not expose a password field at all.
+        for (Field f : dto.getClass().getDeclaredFields()) {
+            assertNotEquals("password", f.getName(), "UserProfileDTO must not expose a password field");
+        }
+    }
+
+    @Test
+    void getProfileByEmail_resolvesSameShape() {
+        when(registeredUserRepository.findByEmail("test@test.com")).thenReturn(Optional.of(mockUser));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(1L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UserProfileDTO dto = registeredUserService.getProfileByEmail("test@test.com");
+
+        assertEquals(1L, dto.getId());
+        assertEquals("test@test.com", dto.getEmail());
+        assertEquals(1L, dto.getContributionStats().getReportsSubmitted());
+    }
+
+    @Test
+    void getProfileByEmail_throwsWhenUnknown() {
+        when(registeredUserRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.getProfileByEmail("ghost@example.com"));
+    }
+
+    @Test
+    void updateProfile_bioOnly_leavesNameUntouched() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UpdateProfileRequest req = new UpdateProfileRequest(null, "new bio");
+        UserProfileDTO dto = registeredUserService.updateProfile(1L, req);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("Test User", captor.getValue().getName(), "name must be untouched");
+        assertEquals("new bio", captor.getValue().getBio());
+        assertEquals("new bio", dto.getBio());
+    }
+
+    @Test
+    void updateProfile_nameOnly_leavesBioUntouched() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UpdateProfileRequest req = new UpdateProfileRequest("Lovelace", null);
+        registeredUserService.updateProfile(1L, req);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("Lovelace", captor.getValue().getName());
+        assertEquals("hello", captor.getValue().getBio(), "bio must be untouched");
+    }
+
+    @Test
+    void updateProfile_bothFields_persistsBoth() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UpdateProfileRequest req = new UpdateProfileRequest("Lovelace", "new bio");
+        registeredUserService.updateProfile(1L, req);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("Lovelace", captor.getValue().getName());
+        assertEquals("new bio", captor.getValue().getBio());
+    }
+
+    @Test
+    void updateProfile_emptyBio_clearsBio() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UpdateProfileRequest req = new UpdateProfileRequest(null, "");
+        registeredUserService.updateProfile(1L, req);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("", captor.getValue().getBio());
+    }
+
+    @Test
+    void updateProfile_returnsPostSaveDto() {
+        RegisteredUser persisted = new RegisteredUser();
+        persisted.setId(1L);
+        persisted.setName("Persisted-Name");
+        persisted.setEmail("test@test.com");
+        persisted.setBio("persisted-bio");
+        persisted.setRole("USER");
+
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenReturn(persisted);
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UpdateProfileRequest req = new UpdateProfileRequest("ignored-by-mock", "ignored-by-mock");
+        UserProfileDTO dto = registeredUserService.updateProfile(1L, req);
+
+        assertEquals("Persisted-Name", dto.getName());
+        assertEquals("persisted-bio", dto.getBio());
+    }
+
+    @Test
+    void updateProfile_userMissing_throwsAndDoesNotSave() {
+        when(registeredUserRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.updateProfile(99L, new UpdateProfileRequest("X", "Y")));
+
+        verify(registeredUserRepository, never()).save(any());
+    }
+
+    @Test
+    void setAvatar_persistsAndReturnsNewUrl() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        UserProfileDTO dto = registeredUserService.setAvatar(1L, "https://cdn/new.jpg");
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("https://cdn/new.jpg", captor.getValue().getAvatarUrl());
+        assertEquals("https://cdn/new.jpg", dto.getAvatarUrl());
+    }
+
+    @Test
+    void setAvatar_replacesOldValue_doesNotConcatenate() {
+        // mockUser starts with "https://cdn/old.jpg"
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        registeredUserService.setAvatar(1L, "https://cdn/new.jpg");
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("https://cdn/new.jpg", captor.getValue().getAvatarUrl());
+        assertFalse(captor.getValue().getAvatarUrl().contains("old.jpg"));
+    }
+
+    @Test
+    void setAvatar_userMissing_throws() {
+        when(registeredUserRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.setAvatar(99L, "https://cdn/new.jpg"));
+
+        verify(registeredUserRepository, never()).save(any());
+    }
+
+    @Test
+    void loginUser_includesProfileWithStats() {
+        when(registeredUserRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
+        when(passwordEncoder.matches(validLoginRequest.getPassword(), mockUser.getPassword())).thenReturn(true);
+        when(jwtUtil.generateToken(1L, "test@test.com", "USER")).thenReturn("jwt-token");
+        when(reportRepository.countByCreatedById(1L)).thenReturn(4L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(1L);
+
+        LoginResponse resp = registeredUserService.loginUser(validLoginRequest);
+
+        assertEquals("jwt-token", resp.getToken());
+        assertNotNull(resp.getProfile());
+        assertEquals(1L, resp.getProfile().getId());
+        assertEquals("test@test.com", resp.getProfile().getEmail());
+        assertEquals(4L, resp.getProfile().getContributionStats().getReportsSubmitted());
+        assertEquals(1L, resp.getProfile().getContributionStats().getRoutesPlanned());
+    }
+
+    @Test
+    void loginUser_badCredentials_skipsProfile() {
+        when(registeredUserRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
+        when(passwordEncoder.matches(validLoginRequest.getPassword(), mockUser.getPassword())).thenReturn(false);
+
+        assertThrows(BadCredentialsException.class, () -> registeredUserService.loginUser(validLoginRequest));
+
+        verify(reportRepository, never()).countByCreatedById(any());
+        verify(routeRepository, never()).countByCreatedById(any());
+        verify(jwtUtil, never()).generateToken(any(), any(), any());
     }
 }

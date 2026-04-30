@@ -37,4 +37,11 @@ public class RegisteredUser {
     @NotBlank(message = "Role cannot be blank")
     @Column(nullable = false)
     private String role;
+
+    @Size(max = 500, message = "Bio must be at most 500 characters")
+    @Column(length = 500)
+    private String bio;
+
+    @Column(length = 1024)
+    private String avatarUrl;
 }
