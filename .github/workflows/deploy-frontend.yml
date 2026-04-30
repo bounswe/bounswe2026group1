@@ -30,6 +30,14 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: npm run build
 
+      - name: Clean target directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: rm -rf /var/www/mapcess.live/*
+
       - name: Copy dist to Droplet
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -39,6 +47,7 @@ jobs:
           source: frontend/dist/
           target: /var/www/mapcess.live
           strip_components: 2
+          overwrite: true
 
       - name: Fix permissions
         uses: appleboy/ssh-action@v1.0.3
