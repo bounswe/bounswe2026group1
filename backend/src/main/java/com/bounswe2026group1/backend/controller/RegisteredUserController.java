@@ -7,6 +7,7 @@ import com.bounswe2026group1.backend.service.RegisteredUserService;
 import com.bounswe2026group1.backend.service.S3MediaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -110,6 +112,31 @@ public class RegisteredUserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Avatar upload failed.");
+        }
+    }
+
+    @DeleteMapping("/{id}/profile/avatar")
+    public ResponseEntity<?> deleteAvatar(@PathVariable Long id) {
+        try {
+            requireOwner(id);
+            UserProfileDTO current = registeredUserService.getProfileById(id);
+            String oldUrl = current.getAvatarUrl();
+            registeredUserService.setAvatar(id, null);
+            // Clear DB first, then best-effort S3 delete. If S3 fails the object is orphaned
+            // but the user's avatar field is already cleared, which is what they asked for.
+            if (oldUrl != null && !oldUrl.isBlank()) {
+                try {
+                    s3MediaService.deleteFile(oldUrl);
+                } catch (Exception e) {
+                    log.warn("Failed to delete S3 object for user {} avatar ({}): {}",
+                            id, oldUrl, e.getMessage());
+                }
+            }
+            return ResponseEntity.noContent().build();
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
 

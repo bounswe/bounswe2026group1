@@ -228,4 +228,76 @@ class RegisteredUserControllerTest {
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isInternalServerError());
     }
+
+    // ───── DELETE /{id}/profile/avatar ───────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("DELETE /{id}/profile/avatar by owner returns 204 and clears DB + S3")
+    void deleteAvatar_owner_returns204() throws Exception {
+        String existing = "https://bucket.s3.amazonaws.com/uuid_pic.jpg";
+        UserProfileDTO withAvatar = UserProfileDTO.builder()
+                .id(OWNER_ID).name("Owner").email(OWNER_EMAIL).avatarUrl(existing).role("USER")
+                .contributionStats(UserProfileDTO.ContributionStatsDTO.builder().build())
+                .build();
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(registeredUserService.getProfileById(OWNER_ID)).thenReturn(withAvatar);
+
+        mockMvc.perform(delete("/api/users/{id}/profile/avatar", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+
+        verify(registeredUserService).setAvatar(OWNER_ID, null);
+        verify(s3MediaService).deleteFile(existing);
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("DELETE /{id}/profile/avatar with no existing avatar still returns 204 (no S3 call)")
+    void deleteAvatar_noExistingAvatar_skipsS3() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(registeredUserService.getProfileById(OWNER_ID)).thenReturn(ownerProfile); // avatarUrl null
+
+        mockMvc.perform(delete("/api/users/{id}/profile/avatar", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+
+        verify(registeredUserService).setAvatar(OWNER_ID, null);
+        verify(s3MediaService, never()).deleteFile(any());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("DELETE /{id}/profile/avatar still returns 204 even when S3 delete fails")
+    void deleteAvatar_s3Failure_stillReturns204() throws Exception {
+        String existing = "https://bucket.s3.amazonaws.com/uuid_pic.jpg";
+        UserProfileDTO withAvatar = UserProfileDTO.builder()
+                .id(OWNER_ID).name("Owner").email(OWNER_EMAIL).avatarUrl(existing).role("USER")
+                .contributionStats(UserProfileDTO.ContributionStatsDTO.builder().build())
+                .build();
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(registeredUserService.getProfileById(OWNER_ID)).thenReturn(withAvatar);
+        doThrow(new RuntimeException("S3 down")).when(s3MediaService).deleteFile(existing);
+
+        mockMvc.perform(delete("/api/users/{id}/profile/avatar", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+
+        // DB clear must have happened before S3 call
+        verify(registeredUserService).setAvatar(OWNER_ID, null);
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("DELETE /{id}/profile/avatar by non-owner returns 403")
+    void deleteAvatar_nonOwner_returns403() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+
+        mockMvc.perform(delete("/api/users/{id}/profile/avatar", OTHER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isForbidden());
+
+        verify(registeredUserService, never()).setAvatar(any(), any());
+        verify(s3MediaService, never()).deleteFile(any());
+    }
 }

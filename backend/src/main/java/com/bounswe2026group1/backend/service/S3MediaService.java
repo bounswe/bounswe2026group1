@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -54,5 +55,28 @@ public class S3MediaService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to upload to S3", e);
         }
+    }
+
+    /**
+     * Deletes the S3 object referenced by {@code url}. The URL must point to this service's
+     * configured bucket; URLs from other buckets are rejected so a malicious caller can't
+     * trick the app into deleting arbitrary objects.
+     */
+    public void deleteFile(String url) {
+        if (url == null || url.isBlank()) return;
+
+        String prefix = "https://" + bucketName + ".s3.amazonaws.com/";
+        if (!url.startsWith(prefix)) {
+            throw new IllegalArgumentException("URL does not belong to this bucket: " + url);
+        }
+        String key = url.substring(prefix.length());
+        if (key.isBlank()) {
+            throw new IllegalArgumentException("URL has no S3 key");
+        }
+
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build());
     }
 }
