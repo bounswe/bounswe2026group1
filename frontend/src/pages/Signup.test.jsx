@@ -27,7 +27,7 @@ function renderSignup() {
 async function fillAndSubmit(user, overrides = {}) {
   const name = overrides.name ?? 'Alex Rivera'
   const email = overrides.email ?? 'alex@example.com'
-  const password = overrides.password ?? 'secret123'
+  const password = overrides.password ?? 'Secret12!'
 
   await user.type(screen.getByLabelText(/full name/i), name)
   await user.type(screen.getByLabelText(/email address/i), email)
@@ -134,11 +134,63 @@ describe('Signup page', () => {
       expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled()
     })
 
-    it('is enabled after accepting terms', async () => {
+    it('is enabled after accepting terms and entering a valid password', async () => {
       const user = userEvent.setup()
       renderSignup()
+      await user.type(screen.getByLabelText(/^password$/i), 'Secret12!')
       await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
       expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
+    })
+
+    it('stays disabled when password does not meet all rules', async () => {
+      const user = userEvent.setup()
+      renderSignup()
+      await user.type(screen.getByLabelText(/^password$/i), 'weakpass')
+      await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
+      expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled()
+    })
+  })
+
+  // ─── Password validation UI ──────────────────────────────────────────────────
+
+  describe('password requirements checklist', () => {
+    it('shows a descriptive message for each unmet rule as the user types', async () => {
+      const user = userEvent.setup()
+      renderSignup()
+      await user.type(screen.getByLabelText(/^password$/i), 'abc')
+
+      expect(screen.getByText(/at least 8 characters long/i)).toBeInTheDocument()
+      expect(screen.getByText(/uppercase letter/i)).toBeInTheDocument()
+      expect(screen.getByText(/at least one number/i)).toBeInTheDocument()
+      expect(screen.getByText(/special character/i)).toBeInTheDocument()
+    })
+
+    it('marks rules as passed when satisfied', async () => {
+      const user = userEvent.setup()
+      renderSignup()
+      await user.type(screen.getByLabelText(/^password$/i), 'Secret12!')
+
+      for (const id of ['length', 'uppercase', 'lowercase', 'digit', 'special']) {
+        expect(screen.getByTestId(`password-rule-${id}`)).toHaveAttribute(
+          'data-passed',
+          'true',
+        )
+      }
+    })
+
+    it('does not submit when the password is invalid', async () => {
+      authService.registerUser.mockResolvedValue({ id: 1 })
+      const user = userEvent.setup()
+      renderSignup()
+
+      await user.type(screen.getByLabelText(/full name/i), 'Alex')
+      await user.type(screen.getByLabelText(/email address/i), 'a@b.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'weakpass')
+      await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
+      // Button is disabled; simulate an Enter submit on the form instead.
+      await user.keyboard('{Enter}')
+
+      expect(authService.registerUser).not.toHaveBeenCalled()
     })
   })
 
@@ -157,7 +209,7 @@ describe('Signup page', () => {
         expect(authService.registerUser).toHaveBeenCalledWith({
           name: 'Alex Rivera',
           email: 'alex@example.com',
-          password: 'secret123',
+          password: 'Secret12!',
         })
       })
     })
@@ -173,7 +225,7 @@ describe('Signup page', () => {
       await waitFor(() => {
         expect(authService.loginUser).toHaveBeenCalledWith({
           email: 'alex@example.com',
-          password: 'secret123',
+          password: 'Secret12!',
         })
       })
     })
