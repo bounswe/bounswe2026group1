@@ -47,7 +47,7 @@ describe('CreateReportPanel', () => {
       expect(screen.getByRole('button', { name: /narrow passage/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /wet floor/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /construction/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /other/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /ramp available/i })).toBeInTheDocument()
     })
 
     it('renders the description textarea', () => {
@@ -214,7 +214,7 @@ describe('CreateReportPanel', () => {
       await user.click(screen.getByRole('button', { name: /submit report/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/failed to submit report/i)).toBeInTheDocument()
+        expect(screen.getByText(/server error/i)).toBeInTheDocument()
       })
     })
   })

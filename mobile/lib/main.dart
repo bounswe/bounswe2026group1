@@ -328,7 +328,7 @@ class _MainShellState extends State<MainShell>
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _navItem(Icons.map, Icons.map_outlined, 'Home', 0),
-          _navItem(Icons.assignment, Icons.assignment_outlined, 'Reports', 1),
+          _navItem(Icons.assignment, Icons.assignment_outlined, 'Feed', 1),
           _navItem(Icons.person, Icons.person_outline, 'Profile', 2),
         ],
       ),

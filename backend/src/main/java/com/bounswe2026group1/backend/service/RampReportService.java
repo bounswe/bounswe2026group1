@@ -2,12 +2,14 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateRampReportRequest;
 import com.bounswe2026group1.backend.dto.RampReportResponse;
+import com.bounswe2026group1.backend.exception.RoutingException;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RampReport;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.repository.RampReportRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,7 +30,15 @@ public class RampReportService {
         Location reportedPoint = new Location(request.getLatitude(), request.getLongitude());
 
         // Snap to nearest OSM stair — orientation resolved at routing time
-        Location[] endpoints = overpassService.snapToNearestStair(reportedPoint);
+        Location[] endpoints;
+        try {
+            endpoints = overpassService.snapToNearestStair(reportedPoint);
+        } catch (RoutingException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RoutingException(HttpStatus.BAD_REQUEST,
+                    "Could not verify stair location. Please try again later.");
+        }
 
         RampReport report = new RampReport(user, reportedPoint, request.getDescription(),
                 endpoints[0], endpoints[1]);

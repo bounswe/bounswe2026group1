@@ -68,10 +68,8 @@ void main() {
     await tester.tap(find.text('Sign In').first);
     await tester.pump();
 
-    expect(
-      find.text('Please enter your email and password.'),
-      findsOneWidget,
-    );
+    expect(find.text('Email is required'), findsOneWidget);
+    expect(find.text('Password is required'), findsOneWidget);
   });
 
   // ── Register screen ─────────────────────────────────────────────────────────
@@ -83,7 +81,9 @@ void main() {
     await tester.tap(find.text('Create Account'));
     await tester.pump();
 
-    expect(find.text('Please fill in all fields.'), findsOneWidget);
+    expect(find.text('Name is required'), findsOneWidget);
+    expect(find.text('Email is required'), findsOneWidget);
+    expect(find.text('Password is required'), findsOneWidget);
   });
 
   testWidgets('Register: shows error when terms not accepted', (tester) async {
@@ -104,5 +104,38 @@ void main() {
       find.text('Please accept the Terms of Service to continue.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Register: shows error when password does not meet requirements', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1100));
+    await tester.pumpWidget(_withAuth(const RegisterScreen()));
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'John Doe');
+    await tester.enterText(fields.at(1), 'john@example.com');
+
+    // Test length
+    await tester.enterText(fields.at(2), 'aB1!');
+    await tester.tap(find.text('Create Account'));
+    await tester.pump();
+    expect(find.text('Min 8 characters required'), findsOneWidget);
+
+    // Test uppercase
+    await tester.enterText(fields.at(2), 'password123!');
+    await tester.tap(find.text('Create Account'));
+    await tester.pump();
+    expect(find.text('Must contain at least 1 uppercase letter'), findsOneWidget);
+
+    // Test digit
+    await tester.enterText(fields.at(2), 'Password!!!');
+    await tester.tap(find.text('Create Account'));
+    await tester.pump();
+    expect(find.text('Must contain at least 1 digit'), findsOneWidget);
+
+    // Test special character
+    await tester.enterText(fields.at(2), 'Password123');
+    await tester.tap(find.text('Create Account'));
+    await tester.pump();
+    expect(find.text('Must contain at least 1 special character'), findsOneWidget);
   });
 }

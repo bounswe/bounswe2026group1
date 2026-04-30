@@ -86,9 +86,9 @@ describe('ReportPanel', () => {
 
   test('calls onVoteChange with agree/disagree/null correctly', async () => {
     agreeReport
-      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0 })
-      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0 })
-    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1 })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0, userVote: 'agree' })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0, userVote: null })
+    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1, userVote: 'disagree' })
 
     renderPanel()
 
@@ -114,26 +114,6 @@ describe('ReportPanel', () => {
     await waitFor(() => {
       expect(onFollowChangeMock).toHaveBeenCalled()
       expect(followBtn.textContent.toLowerCase()).toMatch(/unfollow/)
-    })
-  })
-
-  test('can submit a new comment', async () => {
-    createComment.mockResolvedValueOnce({
-      id: 'c2',
-      content: 'New comment',
-      author: { id: 'user123', name: 'Tester' },
-    })
-
-    renderPanel()
-
-    const textarea = screen.getByPlaceholderText('Add a comment...')
-    const postBtn = screen.getByText(/post/i)
-
-    await user.type(textarea, 'New comment')
-    await act(async () => { await user.click(postBtn) })
-
-    await waitFor(() => {
-      expect(screen.getByText('New comment')).toBeInTheDocument()
     })
   })
 

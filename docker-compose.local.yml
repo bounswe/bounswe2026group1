@@ -63,5 +63,13 @@ services:
       - /app/node_modules
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
 
+  adminer:
+    image: adminer
+    container_name: mapcess_adminer_dev
+    depends_on:
+      - db
+    ports:
+      - "8081:8080"
+
 volumes:
   postgres_data_dev:
