@@ -36,10 +36,13 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Anonymous access: routing API and auth endpoints. */
+    /** Anonymous access: routing API, auth endpoints, and Spring Boot's error dispatcher.
+     *  /error must be public so validation/binding failures forward correctly and surface
+     *  as 400 instead of being masked as 401 by the security chain. */
     private static final String[] ROUTING_AND_AUTH_PUBLIC = {
             "/api/routes", "/api/routes/**",
             "/auth/register", "/auth/login",
+            "/error",
     };
 
     @Bean
