@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
+import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.model.VoteType;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
@@ -145,15 +146,47 @@ class ReportServiceTest {
     }
 
     @Test
-    void update_existingId_returnsUpdatedReport() {
+    void update_existingId_updatesFieldsAndBroadcasts() {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(reportRepository.save(any(Report.class))).thenReturn(testReport);
 
-        testRequest.setDescription("Updated description");
-        Optional<ReportResponse> result = reportService.update(1L, testRequest);
+        UpdateReportRequest updateRequest = new UpdateReportRequest("Updated description", Tag.BROKEN_ELEVATOR, 40.0, 28.0, null);
+        ReportResponse result = reportService.update(1L, updateRequest);
 
-        assertTrue(result.isPresent());
-        verify(reportRepository).save(any(Report.class));
+        assertNotNull(result);
+        assertEquals(Tag.BROKEN_ELEVATOR, testReport.getTag());
+        assertEquals("Updated description", testReport.getDescription());
+        verify(reportRepository).save(testReport);
+        verify(publicSseService).broadcastReportUpdated(testReport, "update");
+    }
+
+    @Test
+    void update_reportNotFound_throws404() {
+        when(reportRepository.findById(99L)).thenReturn(Optional.empty());
+
+        UpdateReportRequest updateRequest = new UpdateReportRequest("desc", Tag.MISSING_RAMP, 41.0, 29.0, null);
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.update(99L, updateRequest));
+
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void update_withMediaIdsToRemove_deletesS3FilesAndRemovesFromList() {
+        Media media = new Media();
+        media.setFilePath("https://bucket.s3.amazonaws.com/file.jpg");
+        ReflectionTestUtils.setField(media, "mediaId", 10L);
+        testReport.getMediaList().add(media);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(reportRepository.save(any(Report.class))).thenReturn(testReport);
+
+        UpdateReportRequest updateRequest = new UpdateReportRequest("desc", Tag.MISSING_RAMP, 41.0, 29.0, List.of(10L));
+        reportService.update(1L, updateRequest);
+
+        verify(s3MediaService).deleteFile("https://bucket.s3.amazonaws.com/file.jpg");
+        assertTrue(testReport.getMediaList().isEmpty());
     }
 
     @Test
