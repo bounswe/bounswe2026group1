@@ -24,11 +24,8 @@ public class ObstacleService {
             Tag.MISSING_RAMP, Tag.BROKEN_ELEVATOR, Tag.NARROW_PASSAGE,
             Tag.WET_FLOOR, Tag.CONSTRUCTION, Tag.OTHER);
 
-    /**
-     * ~10 m buffer around a reported obstacle → 20×20 m square (degrees,
-     * approximate at mid-latitudes).
-     */
-    private static final double AVOID_BUFFER_DEGREES = 0.00009;
+    /** ~10 m buffer around a reported obstacle in the latitude direction (degrees). */
+    private static final double AVOID_BUFFER_LAT_DEGREES = 0.00009;
 
     /**
      * A report must be within this many metres of the path to count as "on route".
@@ -95,25 +92,43 @@ public class ObstacleService {
         List<RampReport> candidates = rampReportRepository.findRampsInBoundingBoxWithStatuses(
                 minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
-        RampReport closestRamp = null;
-        double minDistance = Double.MAX_VALUE;
+        RampReport bestRamp = null;
+        double minTotalDistance = Double.MAX_VALUE;
 
         for (RampReport ramp : candidates) {
-            Location entry = ramp.getEntryPoint();
-            if (entry == null)
+            Location entryPoint = ramp.getEntryPoint();
+            Location exitPoint = ramp.getExitPoint();
+            if (entryPoint == null || exitPoint == null)
                 continue;
 
-            double dLat = entry.getLatitude() - start.getLatitude();
-            double dLon = entry.getLongitude() - start.getLongitude();
-            double distSq = dLat * dLat + dLon * dLon;
+            // Orient: pick whichever endpoint is closer to start as entry
+            double distEntryToStart = haversineMeters(entryPoint, start);
+            double distExitToStart  = haversineMeters(exitPoint, start);
+            Location rampEntry = distEntryToStart <= distExitToStart ? entryPoint : exitPoint;
+            Location rampExit  = distEntryToStart <= distExitToStart ? exitPoint  : entryPoint;
 
-            if (distSq < minDistance) {
-                minDistance = distSq;
-                closestRamp = ramp;
+            // Proxy for total route cost: straight-line start→entry + exit→end
+            double totalEstimate = haversineMeters(start, rampEntry) + haversineMeters(rampExit, end);
+
+            if (totalEstimate < minTotalDistance) {
+                minTotalDistance = totalEstimate;
+                bestRamp = ramp;
             }
         }
 
-        return closestRamp;
+        return bestRamp;
+    }
+
+    private static double haversineMeters(Location a, Location b) {
+        final double R = 6_371_000.0;
+        double dLat = Math.toRadians(b.getLatitude()  - a.getLatitude());
+        double dLon = Math.toRadians(b.getLongitude() - a.getLongitude());
+        double sinDLat = Math.sin(dLat / 2);
+        double sinDLon = Math.sin(dLon / 2);
+        double h = sinDLat * sinDLat
+                + Math.cos(Math.toRadians(a.getLatitude())) * Math.cos(Math.toRadians(b.getLatitude()))
+                * sinDLon * sinDLon;
+        return 2 * R * Math.asin(Math.sqrt(h));
     }
 
     // -------------------------------------------------------------------------
@@ -190,12 +205,15 @@ public class ObstacleService {
     }
 
     private ArrayNode squareRingAround(double lon, double lat) {
+        double dLat = AVOID_BUFFER_LAT_DEGREES;
+        // Cosine correction so the buffer is geographically square, not rectangular
+        double dLon = dLat / Math.cos(Math.toRadians(lat));
         ArrayNode ring = objectMapper.createArrayNode();
-        ring.add(coordinatePair(lon - AVOID_BUFFER_DEGREES, lat - AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon + AVOID_BUFFER_DEGREES, lat - AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon + AVOID_BUFFER_DEGREES, lat + AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon - AVOID_BUFFER_DEGREES, lat + AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon - AVOID_BUFFER_DEGREES, lat - AVOID_BUFFER_DEGREES));
+        ring.add(coordinatePair(lon - dLon, lat - dLat));
+        ring.add(coordinatePair(lon + dLon, lat - dLat));
+        ring.add(coordinatePair(lon + dLon, lat + dLat));
+        ring.add(coordinatePair(lon - dLon, lat + dLat));
+        ring.add(coordinatePair(lon - dLon, lat - dLat));
         return ring;
     }
 
