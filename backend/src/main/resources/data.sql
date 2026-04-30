@@ -26,15 +26,33 @@ INSERT INTO reports (user_id, latitude, longitude, description, tag, status, agr
 SELECT 1, 41.085693, 29.044523, 'There is actually a ramp in north campus.', 'RAMP', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'There is actually a ramp in north campus.');
 
--- Comments: guard with NOT EXISTS on content + report_id
+-- Comments: resolve report_id via the parent report's description so this stays
+-- FK-safe even if reports get deleted/re-inserted with new auto-generated ids.
+-- Each insert is a no-op if the matching comment already exists, or if the
+-- referenced parent report cannot be found.
 INSERT INTO comments (content, author_id, report_id, created_at)
-SELECT 'Yes, people also fall from this ramp', 2, 1, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM comments WHERE content = 'Yes, people also fall from this ramp' AND report_id = 1);
+SELECT 'Yes, people also fall from this ramp', 2, r.id, NOW()
+FROM reports r
+WHERE r.description = 'This ramp is too steep for wheelchairs'
+  AND NOT EXISTS (
+    SELECT 1 FROM comments c
+    WHERE c.content = 'Yes, people also fall from this ramp' AND c.report_id = r.id
+  );
 
 INSERT INTO comments (content, author_id, report_id, created_at)
-SELECT 'Please fix this ASAP, it affects many students.', 3, 1, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM comments WHERE content = 'Please fix this ASAP, it affects many students.' AND report_id = 1);
+SELECT 'Please fix this ASAP, it affects many students.', 3, r.id, NOW()
+FROM reports r
+WHERE r.description = 'This ramp is too steep for wheelchairs'
+  AND NOT EXISTS (
+    SELECT 1 FROM comments c
+    WHERE c.content = 'Please fix this ASAP, it affects many students.' AND c.report_id = r.id
+  );
 
 INSERT INTO comments (content, author_id, report_id, created_at)
-SELECT 'The elevator was repaired according to staff.', 3, 2, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM comments WHERE content = 'The elevator was repaired according to staff.' AND report_id = 2);
+SELECT 'The elevator was repaired according to staff.', 3, r.id, NOW()
+FROM reports r
+WHERE r.description = 'Elevator of Boğaziçi Metro is broken'
+  AND NOT EXISTS (
+    SELECT 1 FROM comments c
+    WHERE c.content = 'The elevator was repaired according to staff.' AND c.report_id = r.id
+  );
