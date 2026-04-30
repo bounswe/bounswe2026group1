@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:15
     container_name: mapcess_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -19,6 +20,7 @@ services:
   app:
     image: ghcr.io/bounswe/bounswe2026group1-backend:latest
     container_name: mapcess_backend
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
