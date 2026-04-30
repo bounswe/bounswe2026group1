@@ -1,14 +1,22 @@
 import { NavLink } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
+import logo from '../assets/mapcess-transparent.png'
 
 function Navbar() {
   return (
     <header className="w-full sticky top-0 z-[1001] bg-white/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
-      <div className="flex items-baseline gap-4 md:gap-8">
-        <span className="text-xl md:text-2xl font-bold text-primary tracking-tight font-headline">
-          Mapcess
-        </span>
-        <nav className="hidden md:flex items-baseline gap-6">
+      <div className="flex items-center gap-4 md:gap-8">
+        <div className="flex items-center gap-2 sm:gap-3 -translate-y-[2px]">
+          <img
+            src={logo}
+            alt="Mapcess logo"
+            className="h-12 md:h-18 w-auto block shrink-0"
+          />
+          <span className="text-xl md:text-2xl font-bold text-primary tracking-tight font-headline leading-none -translate-y-[1px]">
+            Mapcess
+          </span>
+        </div>
+        <nav className="hidden md:flex items-center gap-6">
           <NavLink
             to="/"
             end
@@ -21,14 +29,14 @@ function Navbar() {
             Home
           </NavLink>
           <NavLink
-            to="/reports"
+            to="/feed"
             className={({ isActive }) =>
               isActive
                 ? 'text-primary border-b-2 border-primary font-semibold pb-1'
                 : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
             }
           >
-            Reports
+            Feed
           </NavLink>
         </nav>
       </div>

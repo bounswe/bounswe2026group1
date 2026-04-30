@@ -5,11 +5,13 @@ import AuthFooter from '../components/AuthFooter.jsx'
 import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
 import { registerUser, loginUser } from '../services/authService.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import { validatePassword } from '../utils/passwordValidation.js'
 
 function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordTouched, setPasswordTouched] = useState(false)
   const [terms, setTerms] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -17,9 +19,15 @@ function Signup() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const passwordValidation = validatePassword(password)
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!passwordValidation.isValid) {
+      setPasswordTouched(true)
+      return
+    }
     setIsLoading(true)
     try {
       await registerUser({ name, email, password })
@@ -132,8 +140,37 @@ function Signup() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setPasswordTouched(true)}
+                    aria-invalid={passwordTouched && !passwordValidation.isValid}
+                    aria-describedby="password-requirements"
                     required
                   />
+                  <ul
+                    id="password-requirements"
+                    className="mt-2 space-y-1 text-sm"
+                    aria-live="polite"
+                  >
+                    {passwordValidation.results.map((rule) => {
+                      const showFailure =
+                        (passwordTouched || password.length > 0) && !rule.passed
+                      const colorClass = rule.passed
+                        ? 'text-[#176a21]'
+                        : showFailure
+                          ? 'text-red-600'
+                          : 'text-[#767777]'
+                      return (
+                        <li
+                          key={rule.id}
+                          data-testid={`password-rule-${rule.id}`}
+                          data-passed={rule.passed}
+                          className={`flex items-center gap-2 ${colorClass}`}
+                        >
+                          <span aria-hidden="true">{rule.passed ? '✓' : '•'}</span>
+                          <span>{showFailure ? rule.message : rule.label}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
               </div>
 
@@ -163,7 +200,7 @@ function Signup() {
               <button
                 className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
                 type="submit"
-                disabled={!terms || isLoading}
+                disabled={!terms || isLoading || !passwordValidation.isValid}
               >
                 {isLoading ? 'Creating account…' : 'Create Account'}
               </button>
