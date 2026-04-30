@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
+import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.RegisteredUser;
@@ -101,15 +102,27 @@ public class ReportService {
         return ReportResponse.fromEntity(saved);
     }
 
-    public Optional<ReportResponse> update(Long id, CreateReportRequest request) {
-        return reportRepository.findById(id).map(existing -> {
-            existing.setDescription(request.getDescription());
-            existing.setTag(request.getTag());
-            existing.getLocation().setLatitude(request.getLatitude());
-            existing.getLocation().setLongitude(request.getLongitude());
-            Report saved = reportRepository.save(existing);
-            return ReportResponse.fromEntity(saved);
-        });
+    @Transactional
+    public ReportResponse update(Long id, UpdateReportRequest request) {
+        Report report = reportRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found with id: " + id));
+
+        report.setDescription(request.getDescription());
+        report.setTag(request.getTag());
+        report.getLocation().setLatitude(request.getLatitude());
+        report.getLocation().setLongitude(request.getLongitude());
+
+        if (request.getMediaIdsToRemove() != null && !request.getMediaIdsToRemove().isEmpty()) {
+            List<Media> toRemove = report.getMediaList().stream()
+                    .filter(m -> request.getMediaIdsToRemove().contains(m.getId()))
+                    .toList();
+            toRemove.forEach(m -> s3MediaService.deleteFile(m.getFilePath()));
+            report.getMediaList().removeAll(toRemove);
+        }
+
+        Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "update"));
+        return ReportResponse.fromEntity(saved);
     }
 
     @Transactional
