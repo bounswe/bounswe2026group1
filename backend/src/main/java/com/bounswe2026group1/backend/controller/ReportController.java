@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
+import com.bounswe2026group1.backend.dto.ReportFeedQueryRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.service.ReportService;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +24,12 @@ public class ReportController {
     @GetMapping
     public List<ReportResponse> getAll(@AuthenticationPrincipal String email) {
         return reportService.getAll(email);
+    }
+
+    @GetMapping("/feed")
+    public Page<ReportResponse> getFeed(@ModelAttribute ReportFeedQueryRequest query,
+                                        @AuthenticationPrincipal String email) {
+        return reportService.getFeed(query, email);
     }
 
     @GetMapping("/{id}")

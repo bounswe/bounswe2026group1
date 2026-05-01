@@ -52,6 +52,13 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportVerification> verifications = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private ReportCategory category;
+
+    @Enumerated(EnumType.STRING)
+    private ReportEnvironment environment;
+
     public Report() {
     }
 
@@ -127,6 +134,22 @@ public class Report {
 
     public void setTag(Tag tag) {
         this.tag = tag;
+    }
+
+    public ReportCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(ReportCategory category) {
+        this.category = category;
+    }
+
+    public ReportEnvironment getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(ReportEnvironment environment) {
+        this.environment = environment;
     }
 
 }

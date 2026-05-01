@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
+import com.bounswe2026group1.backend.dto.ReportFeedQueryRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.Location;
@@ -15,7 +16,12 @@ import com.bounswe2026group1.backend.repository.MediaRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
+import com.bounswe2026group1.backend.repository.spec.ReportSpecifications;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,6 +70,24 @@ public class ReportService {
         return reportRepository.findByCreatedById(userId).stream()
                 .map(ReportResponse::fromEntity)
                 .toList();
+    }
+
+    /**
+     * Paged chronological feed (newest first). Optional filters match the redesigned category/type/environment model.
+     */
+    @Transactional(readOnly = true)
+    public Page<ReportResponse> getFeed(ReportFeedQueryRequest filters, String email) {
+        Long viewerId = resolveUserId(email);
+        Specification<Report> spec = ReportSpecifications.feedFilters(
+                filters.getCategoryId(),
+                filters.getType(),
+                filters.getEnvironment(),
+                filters.getUserId());
+        Sort sort = Sort.by(Sort.Direction.DESC, "publishDate");
+        PageRequest pageable = PageRequest.of(filters.getPage(), filters.getSize(), sort);
+        Page<Report> page = reportRepository.findAll(spec, pageable);
+        Map<Long, VoteType> votesByReportId = resolveUserVotes(viewerId, page.getContent());
+        return page.map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId())));
     }
 
     private Long resolveUserId(String email) {
