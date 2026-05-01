@@ -13,7 +13,7 @@ import java.util.List;
 public class UpdateReportRequest {
     private String description;
     private Tag tag;
-    private double latitude;
-    private double longitude;
+    private Double latitude;
+    private Double longitude;
     private List<Long> mediaIdsToRemove;
 }

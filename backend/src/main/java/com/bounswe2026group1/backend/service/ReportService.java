@@ -107,10 +107,10 @@ public class ReportService {
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found with id: " + id));
 
-        report.setDescription(request.getDescription());
-        report.setTag(request.getTag());
-        report.getLocation().setLatitude(request.getLatitude());
-        report.getLocation().setLongitude(request.getLongitude());
+        if (request.getDescription() != null) report.setDescription(request.getDescription());
+        if (request.getTag() != null) report.setTag(request.getTag());
+        if (request.getLatitude() != null) report.getLocation().setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) report.getLocation().setLongitude(request.getLongitude());
 
         if (request.getMediaIdsToRemove() != null && !request.getMediaIdsToRemove().isEmpty()) {
             List<Media> toRemove = report.getMediaList().stream()
