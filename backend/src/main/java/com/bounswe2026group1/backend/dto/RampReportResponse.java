@@ -6,7 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @NoArgsConstructor
@@ -18,7 +18,7 @@ public class RampReportResponse {
     private double longitude;
     private String description;
     private ReportStatus status;
-    private LocalDateTime publishDate;
+    private Instant publishDate;
     private double entryLatitude;
     private double entryLongitude;
     private double exitLatitude;
