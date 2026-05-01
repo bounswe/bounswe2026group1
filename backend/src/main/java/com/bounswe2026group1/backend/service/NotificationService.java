@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 
 @Service
@@ -65,7 +66,10 @@ public class NotificationService {
         ReportStatus status = report.getStatus();
         if (status != ReportStatus.VERIFIED && status != ReportStatus.REJECTED) return;
 
-        String message = "Your report #" + report.getReportId() + " was " + status.name().toLowerCase() + ".";
+        // Use Locale.ROOT so 'VERIFIED' lowercases to 'verified' even on Turkish JVMs
+        // (default-locale toLowerCase would map I -> dotless 'ı').
+        String message = "Your report #" + report.getReportId()
+                + " was " + status.name().toLowerCase(Locale.ROOT) + ".";
         create(report.getCreatedBy(), message, NotificationType.STATUS_CHANGE, report.getReportId());
     }
 
