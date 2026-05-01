@@ -1,6 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
-import com.bounswe2026group1.backend.dto.SubscriptionStatusResponse;
+import com.bounswe2026group1.backend.dto.FollowStatusResponse;
 import com.bounswe2026group1.backend.service.ReportSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,34 +14,38 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+/** REST surface for the "Follow Updates" feature.
+ *  The persistence layer keeps the {@code ReportSubscription} naming because
+ *  the database table is {@code report_subscriptions}; renaming it would
+ *  require a migration and {@code ddl-auto=update} cannot rename tables. */
 @RestController
-@RequestMapping("/api/reports/{reportId}/subscribe")
+@RequestMapping("/api/reports/{reportId}/follow")
 @RequiredArgsConstructor
-public class ReportSubscriptionController {
+public class ReportFollowController {
 
     private final ReportSubscriptionService subscriptionService;
 
     @PostMapping
-    public ResponseEntity<SubscriptionStatusResponse> subscribe(@PathVariable Long reportId,
-                                                                @AuthenticationPrincipal String email) {
+    public ResponseEntity<FollowStatusResponse> follow(@PathVariable Long reportId,
+                                                       @AuthenticationPrincipal String email) {
         requireEmail(email);
         subscriptionService.subscribe(reportId, email);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new SubscriptionStatusResponse(true));
+        return ResponseEntity.status(HttpStatus.CREATED).body(new FollowStatusResponse(true));
     }
 
     @DeleteMapping
-    public ResponseEntity<SubscriptionStatusResponse> unsubscribe(@PathVariable Long reportId,
-                                                                  @AuthenticationPrincipal String email) {
+    public ResponseEntity<FollowStatusResponse> unfollow(@PathVariable Long reportId,
+                                                         @AuthenticationPrincipal String email) {
         requireEmail(email);
         subscriptionService.unsubscribe(reportId, email);
-        return ResponseEntity.ok(new SubscriptionStatusResponse(false));
+        return ResponseEntity.ok(new FollowStatusResponse(false));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<SubscriptionStatusResponse> isSubscribed(@PathVariable Long reportId,
-                                                                   @AuthenticationPrincipal String email) {
+    public ResponseEntity<FollowStatusResponse> isFollowing(@PathVariable Long reportId,
+                                                            @AuthenticationPrincipal String email) {
         requireEmail(email);
-        return ResponseEntity.ok(new SubscriptionStatusResponse(
+        return ResponseEntity.ok(new FollowStatusResponse(
                 subscriptionService.isSubscribed(reportId, email)));
     }
 

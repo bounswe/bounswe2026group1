@@ -1,6 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
-import com.bounswe2026group1.backend.dto.SubscriptionStatusResponse;
+import com.bounswe2026group1.backend.dto.FollowStatusResponse;
 import com.bounswe2026group1.backend.model.ReportSubscription;
 import com.bounswe2026group1.backend.service.ReportSubscriptionService;
 import org.junit.jupiter.api.Test;
@@ -19,59 +19,59 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ReportSubscriptionControllerTest {
+class ReportFollowControllerTest {
 
     @Mock
     private ReportSubscriptionService subscriptionService;
 
     @InjectMocks
-    private ReportSubscriptionController controller;
+    private ReportFollowController controller;
 
     private static final String EMAIL = "alice@example.com";
 
     @Test
-    void subscribe_returns201WithSubscribedTrue() {
+    void follow_returns201WithFollowingTrue() {
         when(subscriptionService.subscribe(100L, EMAIL)).thenReturn(new ReportSubscription());
 
-        ResponseEntity<SubscriptionStatusResponse> response = controller.subscribe(100L, EMAIL);
+        ResponseEntity<FollowStatusResponse> response = controller.follow(100L, EMAIL);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(true, response.getBody().subscribed());
+        assertEquals(true, response.getBody().following());
     }
 
     @Test
-    void unsubscribe_returns200WithSubscribedFalse() {
-        ResponseEntity<SubscriptionStatusResponse> response = controller.unsubscribe(100L, EMAIL);
+    void unfollow_returns200WithFollowingFalse() {
+        ResponseEntity<FollowStatusResponse> response = controller.unfollow(100L, EMAIL);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(false, response.getBody().subscribed());
+        assertEquals(false, response.getBody().following());
         verify(subscriptionService).unsubscribe(100L, EMAIL);
     }
 
     @Test
-    void isSubscribed_reflectsServiceAnswer() {
+    void isFollowing_reflectsServiceAnswer() {
         when(subscriptionService.isSubscribed(100L, EMAIL)).thenReturn(true);
 
-        ResponseEntity<SubscriptionStatusResponse> response = controller.isSubscribed(100L, EMAIL);
+        ResponseEntity<FollowStatusResponse> response = controller.isFollowing(100L, EMAIL);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(true, response.getBody().subscribed());
+        assertEquals(true, response.getBody().following());
     }
 
     @Test
-    void subscribe_returns401WhenPrincipalMissing() {
+    void follow_returns401WhenPrincipalMissing() {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.subscribe(100L, null));
+                () -> controller.follow(100L, null));
         assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
     }
 
     @Test
-    void unsubscribe_returns401WhenPrincipalMissing() {
+    void unfollow_returns401WhenPrincipalMissing() {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.unsubscribe(100L, ""));
+                () -> controller.unfollow(100L, ""));
         assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
     }
 }
