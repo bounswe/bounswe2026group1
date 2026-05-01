@@ -6,12 +6,15 @@ import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.dto.UserSearchDto;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -154,6 +157,16 @@ public class RegisteredUserService {
 
         RegisteredUser saved = registeredUserRepository.save(user);
         return toProfileDTO(saved, true);
+    }
+
+    // ───── Search (issue #310) ──────────────────────────────────────────────
+
+    public Page<UserSearchDto> searchUsers(String q, Pageable pageable) {
+        String query = q == null ? "" : q.trim();
+        return registeredUserRepository
+                .findByNameContainingIgnoreCase(query, pageable)
+                .map(u -> UserSearchDto.fromEntity(
+                        u, reportRepository.countByCreatedById(u.getId())));
     }
 
     public UserProfileDTO setAvatar(Long id, String avatarUrl) {
