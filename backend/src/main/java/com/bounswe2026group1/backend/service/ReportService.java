@@ -45,6 +45,9 @@ public class ReportService {
     @Value("${app.report.verification.threshold:5}")
     private int verificationThreshold;
 
+    @Value("${app.report.verification.ratio:0.60}")
+    private double verificationRatio;
+
     public List<ReportResponse> getAll(String email) {
         Long userId = resolveUserId(email);
         List<Report> reports = reportRepository.findAll();
@@ -173,15 +176,11 @@ public class ReportService {
             verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
         }
 
-        if (report.getAgrees() >= verificationThreshold && report.getStatus() != ReportStatus.VERIFIED) {
-            report.setStatus(ReportStatus.VERIFIED);
-        }
-        if (report.getAgrees() < verificationThreshold && report.getStatus() == ReportStatus.VERIFIED) {
-            report.setStatus(ReportStatus.PENDING);
-        }
+        ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
-        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "verify"));
+        String op = newStatus == ReportStatus.REJECTED ? "reject" : "verify";
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -212,13 +211,43 @@ public class ReportService {
             verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
         }
 
-        if (report.getAgrees() < verificationThreshold && report.getStatus() == ReportStatus.VERIFIED) {
-            report.setStatus(ReportStatus.PENDING);
-        }
+        ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
-        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "unverify"));
+        String op = newStatus == ReportStatus.REJECTED ? "reject" : "unverify";
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
+    }
+
+    private ReportStatus evaluateStatus(Report report) {
+        int agrees = report.getAgrees();
+        int disagrees = report.getDisagrees();
+        int total = agrees + disagrees;
+        if (total == 0) return report.getStatus();
+
+        double agreeRatio = (double) agrees / total;
+        double disagreeRatio = (double) disagrees / total;
+        ReportStatus current = report.getStatus();
+        ReportStatus target = current;
+
+        if (agrees >= verificationThreshold && agreeRatio >= verificationRatio) {
+            target = ReportStatus.VERIFIED;
+        } else if (disagrees >= verificationThreshold && disagreeRatio >= verificationRatio) {
+            target = ReportStatus.REJECTED;
+        } else if (current == ReportStatus.VERIFIED
+                && disagrees >= verificationThreshold
+                && agreeRatio < verificationRatio) {
+            target = ReportStatus.PENDING;
+        } else if (current == ReportStatus.REJECTED
+                && agrees >= verificationThreshold
+                && disagreeRatio < verificationRatio) {
+            target = ReportStatus.PENDING;
+        }
+
+        if (target != current) {
+            report.setStatus(target);
+        }
+        return target;
     }
 
     public void addMediaToReport(Long reportId, String mediaUrl) {
