@@ -40,6 +40,7 @@ public class SecurityConfig {
     private static final String[] ROUTING_AND_AUTH_PUBLIC = {
             "/api/routes", "/api/routes/**",
             "/auth/register", "/auth/login",
+            "/error",
     };
 
     @Bean

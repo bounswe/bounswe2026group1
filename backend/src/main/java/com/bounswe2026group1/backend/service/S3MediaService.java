@@ -1,10 +1,13 @@
 package com.bounswe2026group1.backend.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -14,8 +17,10 @@ import java.util.UUID;
 @Service
 public class S3MediaService {
 
-    private final S3Client s3Client;        // The object(bean) is in the AwsConfig
-    private final String bucketName;        // AWS S3 bucket name(injected from .env)
+    private static final Logger log = LoggerFactory.getLogger(S3MediaService.class);
+
+    private final S3Client s3Client;
+    private final String bucketName;
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "image/jpeg", "image/png", "image/jpg", "video/mp4");
@@ -53,6 +58,17 @@ public class S3MediaService {
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to upload to S3", e);
+        }
+    }
+
+    public void deleteFile(String fileUrl) {
+        String prefix = "https://" + bucketName + ".s3.amazonaws.com/";
+        if (fileUrl == null || !fileUrl.startsWith(prefix)) return;
+        String key = fileUrl.substring(prefix.length());
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucketName).key(key).build());
+        } catch (Exception e) {
+            log.warn("Failed to delete S3 object '{}': {}", key, e.getMessage());
         }
     }
 }
