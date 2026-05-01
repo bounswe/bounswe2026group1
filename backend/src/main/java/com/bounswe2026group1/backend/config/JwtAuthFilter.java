@@ -31,14 +31,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // 2. Check if the header is present and starts with "Bearer "
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // 2. Resolve the token. Browser EventSource cannot set custom headers,
+        //    so SSE endpoints fall back to a `?token=` query parameter.
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+        } else if (isSseRequest(request)) {
+            String tokenParam = request.getParameter("token");
+            if (tokenParam == null || tokenParam.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            jwt = tokenParam;
+        } else {
             filterChain.doFilter(request, response);
             return; // If no token is present, just continue the filter chain (unauthenticated)
         }
-
-        // 3. Parse the token
-        jwt = authHeader.substring(7);
 
         try {
             // 4. Validate the token and extract the email
@@ -66,5 +73,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // 6. Pass the request to the next filter or controller
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean isSseRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path != null && path.startsWith("/api/sse/notifications");
     }
 }
