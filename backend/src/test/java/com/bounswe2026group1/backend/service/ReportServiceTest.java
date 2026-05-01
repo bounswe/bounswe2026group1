@@ -43,6 +43,9 @@ class ReportServiceTest {
     @Mock
     private PublicSseService publicSseService;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ReportService reportService;
 
