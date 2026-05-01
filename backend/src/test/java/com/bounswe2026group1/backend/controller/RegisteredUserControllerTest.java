@@ -382,6 +382,27 @@ class RegisteredUserControllerTest {
                 p.getPageNumber() == 0 && p.getPageSize() == 20));
     }
 
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("GET /search ignores client sort and pins to id ASC")
+    void search_ignoresClientSort_pinsToIdAsc() throws Exception {
+        when(registeredUserService.searchUsers(eq(""), argThat(p ->
+                p.getSort().getOrderFor("id") != null
+                        && p.getSort().getOrderFor("id").isAscending()
+                        && p.getSort().stream().count() == 1)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        // Swagger sends literal '["string"]' as sort placeholder; we must not 500.
+        mockMvc.perform(get("/api/users/search")
+                        .param("sort", "[\"string\"]")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk());
+
+        verify(registeredUserService).searchUsers(eq(""), argThat(p ->
+                p.getSort().getOrderFor("id") != null
+                        && p.getSort().getOrderFor("id").isAscending()));
+    }
+
     // Note: 401 for unauthenticated /search is enforced by SecurityConfig's
     // anyRequest().authenticated() rule. @WebMvcTest does not load that filter
     // chain, so it cannot be asserted at the slice level — covered by

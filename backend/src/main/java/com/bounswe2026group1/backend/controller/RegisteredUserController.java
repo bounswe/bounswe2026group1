@@ -11,7 +11,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -69,7 +71,12 @@ public class RegisteredUserController {
     public Page<UserSearchDto> search(
             @RequestParam(name = "q", required = false, defaultValue = "") String q,
             @PageableDefault(size = 20) Pageable pageable) {
-        return registeredUserService.searchUsers(q, pageable);
+        // Pin sort to id ASC — ignore any client-supplied sort. This avoids 500s
+        // from arbitrary property names (e.g. Swagger's literal ["string"] example)
+        // and keeps pagination deterministic across pages.
+        Pageable safe = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.ASC, "id"));
+        return registeredUserService.searchUsers(q, safe);
     }
 
     // ───── Profile endpoints (issue #302) ───────────────────────────────────
