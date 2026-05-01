@@ -2,12 +2,17 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.dto.UserSearchDto;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import com.bounswe2026group1.backend.service.S3MediaService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,6 +60,16 @@ public class RegisteredUserController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    // ───── Search (issue #310) ──────────────────────────────────────────────
+
+    @GetMapping("/search")
+    @Operation(summary = "Search users by name (partial, case-insensitive). Authenticated only.")
+    public Page<UserSearchDto> search(
+            @RequestParam(name = "q", required = false, defaultValue = "") String q,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return registeredUserService.searchUsers(q, pageable);
     }
 
     // ───── Profile endpoints (issue #302) ───────────────────────────────────
