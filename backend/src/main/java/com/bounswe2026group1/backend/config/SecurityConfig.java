@@ -54,6 +54,13 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                         "/api/sse/public/**")
                     .permitAll()
+                        // Subscription endpoints must stay authenticated even though they
+                        // live under /api/reports/**. Spring Security matches in order,
+                        // so this rule must come before the permit-all GET on /api/reports/**.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/reports/*/subscribe",
+                                "/api/reports/*/subscribe/**")
+                        .authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
                                 "/api/comments", "/api/comments/**"
