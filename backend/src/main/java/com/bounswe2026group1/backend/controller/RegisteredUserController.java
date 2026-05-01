@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -71,11 +70,11 @@ public class RegisteredUserController {
     public Page<UserSearchDto> search(
             @RequestParam(name = "q", required = false, defaultValue = "") String q,
             @PageableDefault(size = 20) Pageable pageable) {
-        // Pin sort to id ASC — ignore any client-supplied sort. This avoids 500s
-        // from arbitrary property names (e.g. Swagger's literal ["string"] example)
-        // and keeps pagination deterministic across pages.
-        Pageable safe = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-                Sort.by(Sort.Direction.ASC, "id"));
+        // Drop any client-supplied sort. Ordering is owned by the JPQL @Query,
+        // which ranks prefix matches above mere-contains and tiebreaks by name
+        // then id. Forwarding a client sort here would either fight that ORDER
+        // BY or 500 on a bad property name (e.g. Swagger's ["string"] example).
+        Pageable safe = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         return registeredUserService.searchUsers(q, safe);
     }
 

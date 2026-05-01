@@ -384,12 +384,12 @@ class RegisteredUserControllerTest {
 
     @Test
     @WithMockUser(username = OWNER_EMAIL)
-    @DisplayName("GET /search ignores client sort and pins to id ASC")
-    void search_ignoresClientSort_pinsToIdAsc() throws Exception {
-        when(registeredUserService.searchUsers(eq(""), argThat(p ->
-                p.getSort().getOrderFor("id") != null
-                        && p.getSort().getOrderFor("id").isAscending()
-                        && p.getSort().stream().count() == 1)))
+    @DisplayName("GET /search drops client sort (JPQL @Query owns ordering)")
+    void search_dropsClientSort() throws Exception {
+        // Ordering is owned by the JPQL query (prefix > contains, then name).
+        // The controller must hand the service an unsorted Pageable so the
+        // JPQL ORDER BY is the only ordering applied.
+        when(registeredUserService.searchUsers(eq(""), argThat(p -> p.getSort().isUnsorted())))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         // Swagger sends literal '["string"]' as sort placeholder; we must not 500.
@@ -398,9 +398,7 @@ class RegisteredUserControllerTest {
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isOk());
 
-        verify(registeredUserService).searchUsers(eq(""), argThat(p ->
-                p.getSort().getOrderFor("id") != null
-                        && p.getSort().getOrderFor("id").isAscending()));
+        verify(registeredUserService).searchUsers(eq(""), argThat(p -> p.getSort().isUnsorted()));
     }
 
     // Note: 401 for unauthenticated /search is enforced by SecurityConfig's

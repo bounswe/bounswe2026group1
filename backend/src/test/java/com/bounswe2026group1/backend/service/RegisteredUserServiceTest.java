@@ -453,7 +453,7 @@ class RegisteredUserServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Page<RegisteredUser> repoPage = new PageImpl<>(List.of(ada, alan), pageable, 2);
 
-        when(registeredUserRepository.findByNameContainingIgnoreCase("a", pageable))
+        when(registeredUserRepository.searchByName("a", pageable))
                 .thenReturn(repoPage);
         when(reportRepository.countByCreatedById(1L)).thenReturn(7L);
         when(reportRepository.countByCreatedById(2L)).thenReturn(3L);
@@ -471,29 +471,29 @@ class RegisteredUserServiceTest {
     @Test
     void searchUsers_normalizesNullQueryToEmptyString() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(registeredUserRepository.findByNameContainingIgnoreCase("", pageable))
+        when(registeredUserRepository.searchByName("", pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         registeredUserService.searchUsers(null, pageable);
 
-        verify(registeredUserRepository).findByNameContainingIgnoreCase("", pageable);
+        verify(registeredUserRepository).searchByName("", pageable);
     }
 
     @Test
     void searchUsers_trimsWhitespaceQuery() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(registeredUserRepository.findByNameContainingIgnoreCase("ada", pageable))
+        when(registeredUserRepository.searchByName("ada", pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         registeredUserService.searchUsers("  ada  ", pageable);
 
-        verify(registeredUserRepository).findByNameContainingIgnoreCase("ada", pageable);
+        verify(registeredUserRepository).searchByName("ada", pageable);
     }
 
     @Test
     void searchUsers_emptyResult_returnsEmptyPage_andNeverCallsCount() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(registeredUserRepository.findByNameContainingIgnoreCase("ghost", pageable))
+        when(registeredUserRepository.searchByName("ghost", pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         Page<UserSearchDto> result = registeredUserService.searchUsers("ghost", pageable);

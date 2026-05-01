@@ -164,7 +164,7 @@ public class RegisteredUserService {
     public Page<UserSearchDto> searchUsers(String q, Pageable pageable) {
         String query = q == null ? "" : q.trim();
         return registeredUserRepository
-                .findByNameContainingIgnoreCase(query, pageable)
+                .searchByName(query, pageable)
                 .map(u -> UserSearchDto.fromEntity(
                         u, reportRepository.countByCreatedById(u.getId())));
     }
