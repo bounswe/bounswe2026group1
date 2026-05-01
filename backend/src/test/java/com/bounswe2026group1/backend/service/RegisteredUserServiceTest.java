@@ -6,6 +6,7 @@ import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.dto.UserSearchDto;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -18,6 +19,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -430,6 +435,72 @@ class RegisteredUserServiceTest {
         assertEquals("test@test.com", resp.getProfile().getEmail());
         assertEquals(4L, resp.getProfile().getContributionStats().getReportsSubmitted());
         assertEquals(1L, resp.getProfile().getContributionStats().getRoutesPlanned());
+    }
+
+    // ───── SEARCH TESTS (issue #310) ─────────────────────────────────────────
+
+    @Test
+    void searchUsers_mapsRepoResultIntoDtoWithContributionCount() {
+        RegisteredUser ada = new RegisteredUser();
+        ada.setId(1L);
+        ada.setName("Ada Lovelace");
+        ada.setAvatarUrl("https://cdn/ada.jpg");
+
+        RegisteredUser alan = new RegisteredUser();
+        alan.setId(2L);
+        alan.setName("Alan Turing");
+
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<RegisteredUser> repoPage = new PageImpl<>(List.of(ada, alan), pageable, 2);
+
+        when(registeredUserRepository.findByNameContainingIgnoreCase("a", pageable))
+                .thenReturn(repoPage);
+        when(reportRepository.countByCreatedById(1L)).thenReturn(7L);
+        when(reportRepository.countByCreatedById(2L)).thenReturn(3L);
+
+        Page<UserSearchDto> result = registeredUserService.searchUsers("a", pageable);
+
+        assertEquals(2, result.getTotalElements());
+        assertEquals(1L, result.getContent().get(0).getId());
+        assertEquals("Ada Lovelace", result.getContent().get(0).getName());
+        assertEquals("https://cdn/ada.jpg", result.getContent().get(0).getAvatarUrl());
+        assertEquals(7L, result.getContent().get(0).getContributionCount());
+        assertEquals(3L, result.getContent().get(1).getContributionCount());
+    }
+
+    @Test
+    void searchUsers_normalizesNullQueryToEmptyString() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(registeredUserRepository.findByNameContainingIgnoreCase("", pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        registeredUserService.searchUsers(null, pageable);
+
+        verify(registeredUserRepository).findByNameContainingIgnoreCase("", pageable);
+    }
+
+    @Test
+    void searchUsers_trimsWhitespaceQuery() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(registeredUserRepository.findByNameContainingIgnoreCase("ada", pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        registeredUserService.searchUsers("  ada  ", pageable);
+
+        verify(registeredUserRepository).findByNameContainingIgnoreCase("ada", pageable);
+    }
+
+    @Test
+    void searchUsers_emptyResult_returnsEmptyPage_andNeverCallsCount() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(registeredUserRepository.findByNameContainingIgnoreCase("ghost", pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        Page<UserSearchDto> result = registeredUserService.searchUsers("ghost", pageable);
+
+        assertEquals(0, result.getTotalElements());
+        assertTrue(result.getContent().isEmpty());
+        verify(reportRepository, never()).countByCreatedById(any());
     }
 
     @Test

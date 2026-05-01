@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.dto.UserSearchDto;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import com.bounswe2026group1.backend.service.S3MediaService;
 import com.bounswe2026group1.backend.util.JwtUtil;
@@ -11,6 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -18,9 +23,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -299,5 +306,89 @@ class RegisteredUserControllerTest {
 
         verify(registeredUserService, never()).setAvatar(any(), any());
         verify(s3MediaService, never()).deleteFile(any());
+    }
+
+    // ───── GET /search (issue #310) ──────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("GET /search returns 200 with paged content and totalPages/totalElements")
+    void search_returns200WithPagedEnvelope() throws Exception {
+        UserSearchDto ada = new UserSearchDto(1L, "Ada Lovelace", "https://cdn/ada.jpg", 7L);
+        UserSearchDto alan = new UserSearchDto(2L, "Alan Turing", null, 3L);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<UserSearchDto> page = new PageImpl<>(List.of(ada, alan), pageable, 2);
+        when(registeredUserService.searchUsers(eq("a"), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/users/search").param("q", "a")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Ada Lovelace"))
+                .andExpect(jsonPath("$.content[0].avatarUrl").value("https://cdn/ada.jpg"))
+                .andExpect(jsonPath("$.content[0].contributionCount").value(7))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("GET /search response items must not leak email, password, bio, or role")
+    void search_doesNotLeakPrivateFields() throws Exception {
+        UserSearchDto ada = new UserSearchDto(1L, "Ada Lovelace", "https://cdn/ada.jpg", 7L);
+        Pageable pageable = PageRequest.of(0, 20);
+        when(registeredUserService.searchUsers(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(ada), pageable, 1));
+
+        mockMvc.perform(get("/api/users/search").param("q", "ada")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].email").doesNotExist())
+                .andExpect(jsonPath("$.content[0].password").doesNotExist())
+                .andExpect(jsonPath("$.content[0].bio").doesNotExist())
+                .andExpect(jsonPath("$.content[0].role").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("GET /search forwards page and size params to the service")
+    void search_forwardsPaginationParamsToService() throws Exception {
+        when(registeredUserService.searchUsers(eq("ada"), argThat(p ->
+                p.getPageNumber() == 1 && p.getPageSize() == 5)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 5), 0));
+
+        mockMvc.perform(get("/api/users/search")
+                        .param("q", "ada").param("page", "1").param("size", "5")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk());
+
+        verify(registeredUserService).searchUsers(eq("ada"), argThat(p ->
+                p.getPageNumber() == 1 && p.getPageSize() == 5));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("GET /search defaults to page 0 size 20 when params are omitted")
+    void search_defaultsPageZeroSize20() throws Exception {
+        when(registeredUserService.searchUsers(eq(""), argThat(p ->
+                p.getPageNumber() == 0 && p.getPageSize() == 20)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        mockMvc.perform(get("/api/users/search").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk());
+
+        verify(registeredUserService).searchUsers(eq(""), argThat(p ->
+                p.getPageNumber() == 0 && p.getPageSize() == 20));
+    }
+
+    @Test
+    @DisplayName("GET /search returns 401 when unauthenticated")
+    void search_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(get("/api/users/search").param("q", "ada")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isUnauthorized());
+
+        verify(registeredUserService, never()).searchUsers(any(), any());
     }
 }
