@@ -157,7 +157,7 @@ public class ReportService {
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "verify"));
         if (saved.getStatus() != previousStatus) {
-            notificationService.notifyStatusChange(saved);
+            notificationService.notifyStatusChange(saved, user.getId());
         }
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
@@ -198,7 +198,7 @@ public class ReportService {
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "unverify"));
         if (saved.getStatus() != previousStatus) {
-            notificationService.notifyStatusChange(saved);
+            notificationService.notifyStatusChange(saved, user.getId());
         }
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }

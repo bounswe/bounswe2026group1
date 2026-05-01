@@ -9,8 +9,11 @@ import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.repository.CommentRepository;
 import com.bounswe2026group1.backend.repository.NotificationRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
+import com.bounswe2026group1.backend.repository.ReportSubscriptionRepository;
+import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,13 +26,17 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,36 +44,37 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
 
-    @Mock
-    private NotificationRepository notificationRepository;
-
-    @Mock
-    private RegisteredUserRepository registeredUserRepository;
-
-    @Mock
-    private NotificationSseService notificationSseService;
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private RegisteredUserRepository registeredUserRepository;
+    @Mock private NotificationSseService notificationSseService;
+    @Mock private CommentRepository commentRepository;
+    @Mock private ReportVerificationRepository verificationRepository;
+    @Mock private ReportSubscriptionRepository subscriptionRepository;
 
     @InjectMocks
     private NotificationService notificationService;
 
     private RegisteredUser author;
     private RegisteredUser commenter;
+    private RegisteredUser voter;
+    private RegisteredUser subscriber;
     private Report report;
 
     @BeforeEach
     void setUp() {
-        author = new RegisteredUser();
-        author.setId(1L);
-        author.setEmail("alice@example.com");
-        author.setName("Alice");
-
-        commenter = new RegisteredUser();
-        commenter.setId(2L);
-        commenter.setEmail("bob@example.com");
-        commenter.setName("Bob");
+        author = newUser(1L, "alice@example.com", "Alice");
+        commenter = newUser(2L, "bob@example.com", "Bob");
+        voter = newUser(3L, "carol@example.com", "Carol");
+        subscriber = newUser(4L, "dave@example.com", "Dave");
 
         report = new Report(author, new Location(41.0, 29.0), "Broken ramp", Tag.MISSING_RAMP);
         ReflectionTestUtils.setField(report, "reportId", 100L);
+    }
+
+    private void stubEmptyAudience() {
+        when(commentRepository.findCommenterUserIdsByReportId(100L)).thenReturn(Collections.emptyList());
+        when(verificationRepository.findVoterUserIdsByReportId(100L)).thenReturn(Collections.emptyList());
+        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L)).thenReturn(Collections.emptyList());
     }
 
     private void stubSaveAssignsId() {
@@ -78,12 +86,21 @@ class NotificationServiceTest {
         });
     }
 
+    private void stubFindByIdReturns(RegisteredUser... users) {
+        for (RegisteredUser u : users) {
+            when(registeredUserRepository.findById(u.getId())).thenReturn(Optional.of(u));
+        }
+    }
+
     @Test
     void notifyStatusChange_persistsStatusChangeForReportAuthor() {
+        stubEmptyAudience();
         stubSaveAssignsId();
+        stubFindByIdReturns(author);
         report.setStatus(ReportStatus.VERIFIED);
 
-        notificationService.notifyStatusChange(report);
+        // actor = a stranger so author still receives the notification
+        notificationService.notifyStatusChange(report, 999L);
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
@@ -93,20 +110,90 @@ class NotificationServiceTest {
         assertEquals(author, saved.getRecipient());
         assertEquals(100L, saved.getRelatedEntityId());
         assertTrue(saved.getMessage().contains("verified"));
+        assertTrue(saved.getMessage().contains("Your report"),
+                "Author should get the personalized 'Your report' phrasing");
     }
 
     @Test
     void notifyStatusChange_skipsTransitionsThatAreNotVerifiedOrRejected() {
         report.setStatus(ReportStatus.PENDING);
 
-        notificationService.notifyStatusChange(report);
+        notificationService.notifyStatusChange(report, 999L);
+
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void notifyStatusChange_fansOutToCommentersVotersSubscribers_excludingActor() {
+        // Bob (commenter) is the actor; Carol (voter) and Dave (subscriber) should each receive one,
+        // plus Alice (author).
+        when(commentRepository.findCommenterUserIdsByReportId(100L))
+                .thenReturn(List.of(commenter.getId()));
+        when(verificationRepository.findVoterUserIdsByReportId(100L))
+                .thenReturn(List.of(voter.getId()));
+        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
+                .thenReturn(List.of(subscriber.getId()));
+        stubSaveAssignsId();
+        stubFindByIdReturns(author, voter, subscriber);
+        report.setStatus(ReportStatus.VERIFIED);
+
+        notificationService.notifyStatusChange(report, commenter.getId());
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, atLeastOnce()).save(captor.capture());
+
+        Set<Long> recipientIds = captor.getAllValues().stream()
+                .map(n -> n.getRecipient().getId())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of(author.getId(), voter.getId(), subscriber.getId()), recipientIds);
+
+        // Non-author recipients get the "you follow" phrasing.
+        captor.getAllValues().stream()
+                .filter(n -> !n.getRecipient().getId().equals(author.getId()))
+                .forEach(n -> assertTrue(n.getMessage().contains("you follow"),
+                        "Non-author recipient should see 'you follow' phrasing: " + n.getMessage()));
+    }
+
+    @Test
+    void notifyStatusChange_dedupesUsersSpanningMultipleCohorts() {
+        // Carol both commented AND voted AND is subscribed; she should still get only one notification.
+        when(commentRepository.findCommenterUserIdsByReportId(100L))
+                .thenReturn(List.of(voter.getId()));
+        when(verificationRepository.findVoterUserIdsByReportId(100L))
+                .thenReturn(List.of(voter.getId()));
+        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
+                .thenReturn(List.of(voter.getId()));
+        stubSaveAssignsId();
+        stubFindByIdReturns(author, voter);
+        report.setStatus(ReportStatus.VERIFIED);
+
+        notificationService.notifyStatusChange(report, 999L);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, atLeastOnce()).save(captor.capture());
+
+        long carolNotifications = captor.getAllValues().stream()
+                .filter(n -> n.getRecipient().getId().equals(voter.getId()))
+                .count();
+        assertEquals(1, carolNotifications);
+    }
+
+    @Test
+    void notifyStatusChange_excludesActorEvenWhenActorIsAuthor() {
+        // Author votes on her own report, flipping the status. She should not be notified.
+        stubEmptyAudience();
+        report.setStatus(ReportStatus.VERIFIED);
+
+        notificationService.notifyStatusChange(report, author.getId());
 
         verify(notificationRepository, never()).save(any());
     }
 
     @Test
     void notifyNewComment_persistsCommentNotificationForReportAuthor() {
+        stubEmptyAudience();
         stubSaveAssignsId();
+        stubFindByIdReturns(author);
         Comment comment = new Comment();
         comment.setId(55L);
         comment.setReport(report);
@@ -126,7 +213,37 @@ class NotificationServiceTest {
     }
 
     @Test
+    void notifyNewComment_fansOutToVotersAndSubscribers_excludingCommenter() {
+        // Bob (commenter) is the actor; Carol (voter) and Dave (subscriber) get notifications,
+        // plus Alice (author).
+        when(commentRepository.findCommenterUserIdsByReportId(100L))
+                .thenReturn(List.of(commenter.getId()));
+        when(verificationRepository.findVoterUserIdsByReportId(100L))
+                .thenReturn(List.of(voter.getId()));
+        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
+                .thenReturn(List.of(subscriber.getId()));
+        stubSaveAssignsId();
+        stubFindByIdReturns(author, voter, subscriber);
+
+        Comment comment = new Comment();
+        comment.setId(60L);
+        comment.setReport(report);
+        comment.setAuthor(commenter);
+
+        notificationService.notifyNewComment(comment);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, atLeastOnce()).save(captor.capture());
+
+        Set<Long> recipientIds = captor.getAllValues().stream()
+                .map(n -> n.getRecipient().getId())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of(author.getId(), voter.getId(), subscriber.getId()), recipientIds);
+    }
+
+    @Test
     void notifyNewComment_skipsWhenAuthorCommentsOnOwnReport() {
+        stubEmptyAudience();
         Comment comment = new Comment();
         comment.setId(56L);
         comment.setReport(report);
@@ -189,5 +306,13 @@ class NotificationServiceTest {
         assertEquals(1, result.size());
         assertEquals(11L, result.get(0).getId());
         assertEquals(1L, result.get(0).getRecipientId());
+    }
+
+    private static RegisteredUser newUser(Long id, String email, String name) {
+        RegisteredUser u = new RegisteredUser();
+        u.setId(id);
+        u.setEmail(email);
+        u.setName(name);
+        return u;
     }
 }
