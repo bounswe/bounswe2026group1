@@ -2,13 +2,9 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.routing.RouteRequest;
 import com.bounswe2026group1.backend.dto.routing.RouteResponse;
-import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.RampReport;
-import com.bounswe2026group1.backend.model.RegisteredUser;
-import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.Tag;
-import com.bounswe2026group1.backend.repository.RampReportRepository;
+import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
+import com.bounswe2026group1.backend.repository.ReportCategoryRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,24 +53,36 @@ class RouteServiceLiveOrsIntegrationTest {
     private ReportRepository reportRepository;
 
     @Autowired
-    private RampReportRepository rampReportRepository;
+    private ReportCategoryRepository categoryRepository;
 
     @Autowired
     private RegisteredUserRepository registeredUserRepository;
 
     private RegisteredUser testUser;
+    private ReportCategory obstacleCategory;
+    private ReportCategory rampCategory;
 
     @BeforeEach
     void cleanStateAndPrepareUser() {
-        rampReportRepository.deleteAll();
         reportRepository.deleteAll();
 
         testUser = new RegisteredUser();
         testUser.setName("Route Tester");
-                testUser.setEmail("route.tester+" + UUID.randomUUID() + "@example.com");
+        testUser.setEmail("route.tester+" + UUID.randomUUID() + "@example.com");
         testUser.setPassword("StrongP@ss1");
         testUser.setRole("USER");
         testUser = registeredUserRepository.save(testUser);
+
+        obstacleCategory = new ReportCategory();
+        obstacleCategory.setName("Test Obstacle");
+        obstacleCategory.setType(ReportType.OBSTACLE);
+        obstacleCategory = categoryRepository.save(obstacleCategory);
+
+        rampCategory = new ReportCategory();
+        rampCategory.setName("Test Ramp");
+        rampCategory.setType(ReportType.FEATURE);
+        rampCategory.setAffectedProfiles("[\"WHEELCHAIR\"]");
+        rampCategory = categoryRepository.save(rampCategory);
     }
 
     @Test
@@ -98,7 +106,8 @@ class RouteServiceLiveOrsIntegrationTest {
                 testUser,
                 new Location(NEGATIVE_LAT, NEGATIVE_LON),
                 "Test negative obstacle near path",
-                Tag.CONSTRUCTION);
+                obstacleCategory,
+                ReportEnvironment.OUTDOOR);
         reportRepository.save(negativeReport);
 
         List<RouteResponse> negativeRoutes = routeService.getRouteOptions(request);
@@ -115,13 +124,15 @@ class RouteServiceLiveOrsIntegrationTest {
         // 3) Remove negative report, add ramp report, ask route again
         reportRepository.deleteById(negativeReport.getReportId());
 
-        RampReport rampReport = new RampReport(
+        Report rampReport = new Report(
                 testUser,
                 new Location(RAMP_LAT, RAMP_LON),
                 "Test ramp near path",
-                new Location(41.085700, 29.044550),
-                new Location(41.085650, 29.044500));
-        rampReportRepository.save(rampReport);
+                rampCategory,
+                ReportEnvironment.OUTDOOR);
+        rampReport.setEntryPoint(new Location(41.085700, 29.044550));
+        rampReport.setExitPoint(new Location(41.085650, 29.044500));
+        reportRepository.save(rampReport);
 
         List<RouteResponse> rampRoutes = routeService.getRouteOptions(request);
         RouteResponse rampAssisted = byLabel(rampRoutes, "Ramp-Assisted Route");
