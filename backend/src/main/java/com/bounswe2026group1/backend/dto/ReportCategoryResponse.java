@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.dto;
 
 import com.bounswe2026group1.backend.model.ReportCategory;
 import com.bounswe2026group1.backend.model.ReportType;
+import com.bounswe2026group1.backend.model.SnapType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
@@ -19,6 +20,8 @@ public class ReportCategoryResponse {
     private final ReportType type;
     private final List<String> affectedProfiles;
     private final Object measurementSchema;
+    private final boolean routingRelevant;
+    private final SnapType snapType;
     private final List<ReportCategoryResponse> children;
 
     public ReportCategoryResponse(ReportCategory category, List<ReportCategoryResponse> children) {
@@ -27,6 +30,8 @@ public class ReportCategoryResponse {
         this.type = category.getType();
         this.affectedProfiles = parseProfiles(category.getAffectedProfiles());
         this.measurementSchema = parseSchema(category.getMeasurementSchema());
+        this.routingRelevant = category.isRoutingRelevant();
+        this.snapType = category.getSnapType();
         this.children = children;
     }
 
