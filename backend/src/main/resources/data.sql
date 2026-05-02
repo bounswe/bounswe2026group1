@@ -26,10 +26,45 @@ INSERT INTO reports (user_id, latitude, longitude, description, tag, status, agr
 SELECT 1, 41.085693, 29.044523, 'There is actually a ramp in north campus.', 'RAMP', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'There is actually a ramp in north campus.');
 
+-- Categories: insert with explicit IDs for self-referencing foreign keys
+-- Parent categories first (no parent_id), then leaf categories
+INSERT INTO report_categories (id, name, type, parent_id, affected_profiles, measurement_schema) VALUES
+    -- OBSTACLE parents
+    (1,  'Ramp Issues',      'OBSTACLE', NULL, NULL, NULL),
+    (2,  'Elevator Issues',  'OBSTACLE', NULL, NULL, NULL),
+    (3,  'Sidewalk Issues',  'OBSTACLE', NULL, NULL, NULL),
+    -- OBSTACLE leaves (no parent)
+    (4,  'Other',            'OBSTACLE', NULL, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL),
+    -- OBSTACLE leaves under Ramp Issues
+    (5,  'Missing Ramp',     NULL, 1, '["WHEELCHAIR","STROLLER"]', NULL),
+    (6,  'Too Steep',        NULL, 1, '["WHEELCHAIR"]',            '{"slope_percent":{"min":0,"max":100,"accessible_max":8.33},"width_cm":{"min":0,"max":500,"accessible_min":90}}'),
+    (7,  'Too Narrow',       NULL, 1, '["WHEELCHAIR","STROLLER"]', '{"width_cm":{"min":0,"max":500,"accessible_min":90}}'),
+    (8,  'Damaged Surface',  NULL, 1, '["WHEELCHAIR","VISUAL_IMPAIRED"]', NULL),
+    -- OBSTACLE leaves under Elevator Issues
+    (9,  'Out of Service',   NULL, 2, '["WHEELCHAIR"]', NULL),
+    (10, 'Missing',          NULL, 2, '["WHEELCHAIR"]', NULL),
+    -- OBSTACLE leaves under Sidewalk Issues
+    (11, 'Blocked',          NULL, 3, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL),
+    (12, 'Uneven Surface',   NULL, 3, '["WHEELCHAIR","VISUAL_IMPAIRED"]', NULL),
+    (13, 'No Curb Cut',      NULL, 3, '["WHEELCHAIR","STROLLER"]', NULL),
+    -- FEATURE leaves (all top-level)
+    (14, 'Ramp',             'FEATURE', NULL, '["WHEELCHAIR","STROLLER"]',   '{"slope_percent":{"min":0,"max":100,"accessible_max":8.33},"width_cm":{"min":0,"max":500,"accessible_min":90},"height_cm":{"min":0,"max":300}}'),
+    (15, 'Elevator',         'FEATURE', NULL, '["WHEELCHAIR"]',              '{"width_cm":{"min":0,"max":500,"accessible_min":90}}'),
+    (16, 'Accessible Toilet','FEATURE', NULL, '["WHEELCHAIR"]',              NULL),
+    (17, 'Tactile Paving',   'FEATURE', NULL, '["VISUAL_IMPAIRED"]',         NULL),
+    (18, 'Audio Traffic Light','FEATURE',NULL,'["VISUAL_IMPAIRED"]',         NULL),
+    (19, 'Accessible Parking','FEATURE',NULL, '["WHEELCHAIR"]',              NULL),
+    (20, 'Other',            'FEATURE', NULL, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- Advance sequence past the explicitly inserted IDs
+SELECT setval('report_categories_id_seq', (SELECT MAX(id) FROM report_categories));
+
 -- Comments: resolve report_id via the parent report's description so this stays
 -- FK-safe even if reports get deleted/re-inserted with new auto-generated ids.
 -- Each insert is a no-op if the matching comment already exists, or if the
 -- referenced parent report cannot be found.
+-- Comments: guard with NOT EXISTS on content + report_id
 INSERT INTO comments (content, author_id, report_id, created_at)
 SELECT 'Yes, people also fall from this ramp', 2, r.id, NOW()
 FROM reports r
