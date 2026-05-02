@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -25,7 +25,7 @@ public class ReportResponse {
     private ReportStatus status;
     private int agrees;
     private int disagrees;
-    private LocalDateTime publishDate;
+    private Instant publishDate;
     private List<String> mediaUrls;
     private VoteType userVote;
 

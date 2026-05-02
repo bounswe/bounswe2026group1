@@ -3,7 +3,7 @@ package com.bounswe2026group1.backend.model;
 import jakarta.persistence.*;
 import org.hibernate.annotations.DiscriminatorFormula;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,7 +42,7 @@ public class Report {
     private int agrees = 0;
     private int disagrees = 0;
 
-    private LocalDateTime publishDate;
+    private Instant publishDate;
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
 
@@ -63,7 +63,7 @@ public class Report {
 
         // Report status defaults to PENDING on creation
         this.status = ReportStatus.PENDING;
-        this.publishDate = LocalDateTime.now();
+        this.publishDate = Instant.now();
     }
 
     public void incrementAgrees() { this.agrees++; }
@@ -105,7 +105,7 @@ public class Report {
         return disagrees;
     }
 
-    public LocalDateTime getPublishDate() {
+    public Instant getPublishDate() {
         return publishDate;
     }
 
