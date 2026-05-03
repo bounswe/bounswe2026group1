@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -47,4 +48,10 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             @Param("minLon") double minLon,
             @Param("maxLon") double maxLon,
             @Param("statuses") Collection<ReportStatus> statuses);
+
+    /**
+     * Reports that have been in FIXED state long enough for the cleanup job to delete them.
+     * Used by ReportLifecycleScheduler.
+     */
+    List<Report> findByStatusAndFixedAtBefore(ReportStatus status, Instant cutoff);
 }
