@@ -1,6 +1,6 @@
 package com.bounswe2026group1.backend.dto;
 
-import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.ReportEnvironment;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,5 +13,7 @@ public class CreateReportRequest {
     private double latitude;
     private double longitude;
     private String description;
-    private Tag tag;
+    private Long categoryId;
+    private ReportEnvironment environment;
+    private String measurements;
 }

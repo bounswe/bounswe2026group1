@@ -38,6 +38,15 @@ public class ReportCategory {
     @Column(name = "measurement_schema", columnDefinition = "TEXT")
     private String measurementSchema;
 
+    // True for FEATURE categories that provide a physical path (entry/exit points)
+    // and should be considered in wheelchair routing
+    @Column(nullable = false)
+    private boolean routingRelevant = false;
+
+    // Defines which Overpass snap method to use when routingRelevant=true
+    @Enumerated(EnumType.STRING)
+    private SnapType snapType;
+
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     private List<ReportCategory> children = new ArrayList<>();
 }

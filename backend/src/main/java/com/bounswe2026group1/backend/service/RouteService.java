@@ -5,7 +5,7 @@ import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.dto.routing.RouteStep;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.RampReport;
+import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.TravelMode;
 import tools.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
@@ -89,7 +89,7 @@ public class RouteService {
         }
 
         // Candidate B: multi-leg route through nearest ramp entry/exit
-        RampReport ramp = obstacleService.findClosestRampInBoundingBox(start, end);
+        Report ramp = obstacleService.findClosestRampInBoundingBox(start, end);
         if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
             Location rampA = ramp.getEntryPoint();
             Location rampB = ramp.getExitPoint();

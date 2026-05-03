@@ -8,4 +8,6 @@ import java.util.List;
 public interface ReportCategoryRepository extends JpaRepository<ReportCategory, Long> {
 
     List<ReportCategory> findByParentIsNull();
+
+    boolean existsByParentId(Long parentId);
 }
