@@ -5,6 +5,8 @@ import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.repository.FixRequestRepository;
+import com.bounswe2026group1.backend.repository.FixRequestVoteRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.MediaRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -42,6 +44,12 @@ class ReportServiceTest {
 
     @Mock
     private ReportVerificationRepository verificationRepository;
+
+    @Mock
+    private FixRequestRepository fixRequestRepository;
+
+    @Mock
+    private FixRequestVoteRepository fixRequestVoteRepository;
 
     @Mock
     private PublicSseService publicSseService;
@@ -362,4 +370,34 @@ class ReportServiceTest {
         verify(reportRepository, never()).save(any());
     }
 
+    @Test
+    void getById_withActiveFixRequest_includesFixRequestInResponse() {
+        ReflectionTestUtils.setField(testReport, "reportId", 1L);
+        FixRequest fixRequest = new FixRequest(testReport, testUser, "Looks fixed");
+        ReflectionTestUtils.setField(fixRequest, "id", 7L);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(fixRequestRepository.findFirstByReportReportIdAndState(1L, FixRequestState.OPEN))
+                .thenReturn(Optional.of(fixRequest));
+
+        Optional<ReportResponse> result = reportService.getById(1L, null);
+
+        assertTrue(result.isPresent());
+        assertNotNull(result.get().getActiveFixRequest());
+        assertEquals(7L, result.get().getActiveFixRequest().getId());
+        assertEquals(FixRequestState.OPEN, result.get().getActiveFixRequest().getState());
+    }
+
+    @Test
+    void getById_withoutActiveFixRequest_activeFixRequestIsNull() {
+        ReflectionTestUtils.setField(testReport, "reportId", 1L);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(fixRequestRepository.findFirstByReportReportIdAndState(1L, FixRequestState.OPEN))
+                .thenReturn(Optional.empty());
+
+        Optional<ReportResponse> result = reportService.getById(1L, null);
+
+        assertTrue(result.isPresent());
+        assertNull(result.get().getActiveFixRequest());
+    }
 }
