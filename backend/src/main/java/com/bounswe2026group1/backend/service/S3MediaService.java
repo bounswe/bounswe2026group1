@@ -30,14 +30,22 @@ public class S3MediaService {
         this.bucketName = bucketName;
     }
 
-    public String uploadFile(MultipartFile file) {
-
-        String contentType = file.getContentType();
-
-        // Prevents unsupported formats (like .exe or .pdf)
-        if (file.isEmpty() || contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+    /**
+     * Throws IllegalArgumentException if the file is empty or has an unsupported MIME type.
+     * Useful when callers need to validate a batch of uploads before any I/O happens.
+     */
+    public void validate(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Invalid file type.");
         }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Invalid file type.");
+        }
+    }
+
+    public String uploadFile(MultipartFile file) {
+        validate(file);
 
         try {
             // Generate UUID prefix to prevent overwrite the same file (names the file uniquely)

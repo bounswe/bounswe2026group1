@@ -43,10 +43,26 @@ public class FixRequestService {
     @Value("${app.report.fix.ratio:0.60}")
     private double fixRatio;
 
+    private static final int DESCRIPTION_MAX_LENGTH = 1000;
+
     @Transactional
     public FixRequestResponse submit(Long reportId, String email, String description, MultipartFile[] files) {
         if (files == null || files.length == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one media file is required");
+        }
+        if (description != null && description.length() > DESCRIPTION_MAX_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Description must be at most " + DESCRIPTION_MAX_LENGTH + " characters");
+        }
+        // Pre-validate every file before any S3 upload, so a single bad file in a batch
+        // doesn't leave a partial set of uploaded objects on S3 that the rolled-back
+        // transaction won't clean up.
+        try {
+            for (MultipartFile file : files) {
+                s3MediaService.validate(file);
+            }
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
         if (email == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");

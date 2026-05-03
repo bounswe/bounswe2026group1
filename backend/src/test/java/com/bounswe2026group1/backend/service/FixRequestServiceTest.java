@@ -109,6 +109,65 @@ class FixRequestServiceTest {
     }
 
     @Test
+    void submit_emptyFile_throws400AndDoesNotUpload() {
+        MockMultipartFile emptyFile = new MockMultipartFile("files", "empty.jpg", "image/jpeg", new byte[0]);
+        doThrow(new IllegalArgumentException("Invalid file type.")).when(s3MediaService).validate(any());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> fixRequestService.submit(100L, "submitter@test.com", "x", new MultipartFile[]{emptyFile}));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        // Pre-validation must run before any upload, user lookup, or DB writes.
+        verify(s3MediaService, never()).uploadFile(any());
+        verifyNoInteractions(reportRepository, fixRequestRepository, registeredUserRepository);
+    }
+
+    @Test
+    void submit_secondFileInvalid_throws400AndDoesNotUploadEither() {
+        MockMultipartFile good = new MockMultipartFile("files", "ok.jpg", "image/jpeg", "bytes".getBytes());
+        MockMultipartFile bad = new MockMultipartFile("files", "doc.pdf", "application/pdf", "bytes".getBytes());
+        doNothing().when(s3MediaService).validate(good);
+        doThrow(new IllegalArgumentException("Invalid file type.")).when(s3MediaService).validate(bad);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> fixRequestService.submit(100L, "submitter@test.com", "x", new MultipartFile[]{good, bad}));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        // Critical: even the good file must not be uploaded, since a partial-batch failure
+        // would leak the good file on S3 (the rolled-back transaction can't clean S3).
+        verify(s3MediaService, never()).uploadFile(any());
+    }
+
+    @Test
+    void submit_oversizedDescription_throws400() {
+        String tooLong = "a".repeat(1001);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> fixRequestService.submit(100L, "submitter@test.com", tooLong, new MultipartFile[]{validPhoto}));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verifyNoInteractions(reportRepository, fixRequestRepository, registeredUserRepository);
+        verify(s3MediaService, never()).uploadFile(any());
+        verify(s3MediaService, never()).validate(any());
+    }
+
+    @Test
+    void submit_descriptionAtMaxLength_succeeds() {
+        String exactlyMax = "a".repeat(1000);
+        when(registeredUserRepository.findByEmail("submitter@test.com")).thenReturn(Optional.of(submitter));
+        when(reportRepository.findById(100L)).thenReturn(Optional.of(parentReport));
+        when(fixRequestRepository.findFirstByReportReportIdAndState(100L, FixRequestState.OPEN))
+                .thenReturn(Optional.empty());
+        when(s3MediaService.uploadFile(any())).thenReturn("https://bucket.s3.amazonaws.com/fix.jpg");
+        when(fixRequestRepository.save(any(FixRequest.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        FixRequestResponse response = fixRequestService.submit(
+                100L, "submitter@test.com", exactlyMax, new MultipartFile[]{validPhoto});
+
+        assertEquals(exactlyMax, response.getDescription());
+    }
+
+    @Test
     void submit_anonymous_throws401() {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> fixRequestService.submit(100L, null, "x", new MultipartFile[]{validPhoto}));
