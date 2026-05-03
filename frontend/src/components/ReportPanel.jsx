@@ -180,79 +180,42 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
         flex flex-col
       ">
 
-        <div className="p-6">
-          <div className="relative">
-            {report.image ? (
-              <img
-                className="w-full h-64 object-cover rounded-xl shadow-sm"
-                src={report.image}
-                alt={report.title}
-              />
-            ) : (
-              <div className="w-full h-64 bg-surface-container rounded-xl shadow-sm flex items-center justify-center">
-                <span className="material-symbols-outlined text-6xl text-outline-variant">image</span>
-              </div>
-            )}
-
-            <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5">
-              <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
-                isFixed
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : isRejected
-                  ? 'bg-red-100 text-red-800'
-                  : isValidated
-                  ? 'bg-primary-container text-on-primary-container'
-                  : 'bg-amber-100 text-amber-800'
-              }`}>
-                {isFixed ? 'Fixed' : isRejected ? 'Rejected' : isValidated ? 'Validated' : 'Unverified'}
+        {/* Top status strip — always visible, holds the close button and the
+            current status pills so they stay reachable even when an active
+            fix card pushes the hero image below the fold. */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-2 gap-2">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow border border-outline-variant/20"
+            aria-label="Close panel"
+          >
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
+              isFixed
+                ? 'bg-emerald-100 text-emerald-800'
+                : isRejected
+                ? 'bg-red-100 text-red-800'
+                : isValidated
+                ? 'bg-primary-container text-on-primary-container'
+                : 'bg-amber-100 text-amber-800'
+            }`}>
+              {isFixed ? 'Fixed' : isRejected ? 'Rejected' : isValidated ? 'Validated' : 'Unverified'}
+            </span>
+            {activeFix && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                Fix pending
               </span>
-              {activeFix && (
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
-                  Fix pending
-                </span>
-              )}
-            </div>
-
-            <button
-              onClick={onClose}
-              className="absolute top-4 left-4 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
-              aria-label="Close panel"
-            >
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
+            )}
           </div>
         </div>
 
-        {/* Fix entry CTA — sits between hero and title so a returning visitor
-            can flag a resolved obstacle without scrolling. Hidden when the
-            report is already FIXED or has an OPEN fix request in flight. */}
-        {canShowFixCta && (
-          <div className="px-6 pb-2">
-            <button
-              onClick={() => setShowCreateFix(true)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest hover:bg-emerald-50 transition group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-emerald-700" style={{ fontSize: '20px' }}>build</span>
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-bold text-on-surface">Has this been fixed?</p>
-                  <p className="text-xs text-on-surface-variant">Submit a fix report with a photo</p>
-                </div>
-              </div>
-              <span className="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition" style={{ fontSize: '20px' }}>chevron_right</span>
-            </button>
-          </div>
-        )}
-
-        <div className="px-8 pb-12 flex flex-col gap-8">
-
-          {/* Active fix request — the live community vote on whether this
-              obstacle has been resolved. Pinned at the top of the panel so
-              a returning voter sees the active question first, before the
-              original report's metadata and description. */}
-          {activeFix && (
+        {/* Active fix request — pinned to the very top of the panel so a
+            returning voter sees the live question first, before the original
+            report's metadata, image, and description. */}
+        {activeFix && (
+          <div className="px-5 pb-3">
             <section className="rounded-2xl overflow-hidden ring-1 ring-emerald-200 shadow-sm">
               <div className="px-4 py-2 bg-emerald-700 text-white text-[11px] font-extrabold tracking-widest uppercase flex items-center gap-2">
                 <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>build</span>
@@ -336,7 +299,47 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 </div>
               </div>
             </section>
+          </div>
+        )}
+
+        <div className="px-6 pt-2 pb-2">
+          {report.image ? (
+            <img
+              className="w-full h-64 object-cover rounded-xl shadow-sm"
+              src={report.image}
+              alt={report.title}
+            />
+          ) : (
+            <div className="w-full h-64 bg-surface-container rounded-xl shadow-sm flex items-center justify-center">
+              <span className="material-symbols-outlined text-6xl text-outline-variant">image</span>
+            </div>
           )}
+        </div>
+
+        {/* Fix entry CTA — sits between hero and title so a returning visitor
+            can flag a resolved obstacle without scrolling. Hidden when the
+            report is already FIXED or has an OPEN fix request in flight. */}
+        {canShowFixCta && (
+          <div className="px-6 pb-2">
+            <button
+              onClick={() => setShowCreateFix(true)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest hover:bg-emerald-50 transition group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-emerald-700" style={{ fontSize: '20px' }}>build</span>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-on-surface">Has this been fixed?</p>
+                  <p className="text-xs text-on-surface-variant">Submit a fix report with a photo</p>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition" style={{ fontSize: '20px' }}>chevron_right</span>
+            </button>
+          </div>
+        )}
+
+        <div className="px-8 pb-12 flex flex-col gap-8">
 
           {/* Header */}
           <div className="flex flex-col gap-4">
