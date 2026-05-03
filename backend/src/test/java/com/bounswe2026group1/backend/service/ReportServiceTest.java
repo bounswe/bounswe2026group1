@@ -334,6 +334,61 @@ class ReportServiceTest {
     }
 
     @Test
+    void create_withMeasurements_usesInheritedParentSchema() {
+        ReportCategory parent = new ReportCategory();
+        parent.setMeasurementSchema("{\"width_cm\":{\"min\":0,\"max\":500,\"accessible_min\":100}}");
+
+        ReportCategory child = new ReportCategory();
+        ReflectionTestUtils.setField(child, "id", 6L);
+        child.setName("Too Narrow");
+        child.setType(ReportType.OBSTACLE);
+        child.setParent(parent);
+
+        testRequest.setMeasurements("{\"width_cm\":80}");
+
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(categoryRepository.findById(6L)).thenReturn(Optional.of(child));
+        when(categoryRepository.existsByParentId(6L)).thenReturn(false);
+        when(measurementValidator.validate(any(), any())).thenReturn(List.of());
+        when(reportRepository.save(any(Report.class))).thenReturn(testReport);
+
+        reportService.create(testRequest);
+
+        verify(measurementValidator).validate(
+                "{\"width_cm\":80}",
+                "{\"width_cm\":{\"min\":0,\"max\":500,\"accessible_min\":100}}"
+        );
+    }
+
+    @Test
+    void create_withMeasurements_usesOwnSchemaWhenChildHasOne() {
+        ReportCategory parent = new ReportCategory();
+        parent.setMeasurementSchema("{\"width_cm\":{\"min\":0,\"max\":500}}");
+
+        ReportCategory child = new ReportCategory();
+        ReflectionTestUtils.setField(child, "id", 6L);
+        child.setName("High Threshold");
+        child.setType(ReportType.OBSTACLE);
+        child.setParent(parent);
+        child.setMeasurementSchema("{\"height_cm\":{\"min\":0,\"max\":30,\"accessible_max\":1.3}}");
+
+        testRequest.setMeasurements("{\"height_cm\":5}");
+
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(categoryRepository.findById(6L)).thenReturn(Optional.of(child));
+        when(categoryRepository.existsByParentId(6L)).thenReturn(false);
+        when(measurementValidator.validate(any(), any())).thenReturn(List.of());
+        when(reportRepository.save(any(Report.class))).thenReturn(testReport);
+
+        reportService.create(testRequest);
+
+        verify(measurementValidator).validate(
+                "{\"height_cm\":5}",
+                "{\"height_cm\":{\"min\":0,\"max\":30,\"accessible_max\":1.3}}"
+        );
+    }
+
+    @Test
     void addMediaToReport_broadcastsMediaAdded() {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArguments()[0]);
