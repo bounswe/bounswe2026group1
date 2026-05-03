@@ -1,8 +1,11 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
+import com.bounswe2026group1.backend.dto.FixRequestResponse;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
+import com.bounswe2026group1.backend.model.FixRequest;
+import com.bounswe2026group1.backend.model.FixRequestState;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.RegisteredUser;
@@ -11,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.bounswe2026group1.backend.model.ReportVerification;
 import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.repository.FixRequestRepository;
+import com.bounswe2026group1.backend.repository.FixRequestVoteRepository;
 import com.bounswe2026group1.backend.repository.MediaRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -24,6 +29,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.bounswe2026group1.backend.model.ReportStatus;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -38,6 +44,8 @@ public class ReportService {
     private final RegisteredUserRepository registeredUserRepository;
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
+    private final FixRequestRepository fixRequestRepository;
+    private final FixRequestVoteRepository fixRequestVoteRepository;
     private final PublicSseService publicSseService;
     private final S3MediaService s3MediaService;
 
@@ -49,15 +57,22 @@ public class ReportService {
         Long userId = resolveUserId(email);
         List<Report> reports = reportRepository.findAll();
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
+        Map<Long, FixRequestResponse> activeFixByReportId = resolveActiveFixRequests(userId, reports);
         return reports.stream()
-                .map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId())))
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        votesByReportId.get(r.getReportId()),
+                        activeFixByReportId.get(r.getReportId())))
                 .toList();
     }
 
     public Optional<ReportResponse> getById(Long id, String email) {
         Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId())));
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        resolveUserVote(userId, r.getReportId()),
+                        resolveActiveFixRequest(userId, r.getReportId())));
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
@@ -87,6 +102,45 @@ public class ReportService {
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (VoteType) row[1]));
+    }
+
+    private FixRequestResponse resolveActiveFixRequest(Long userId, Long reportId) {
+        return fixRequestRepository.findFirstByReportReportIdAndState(reportId, FixRequestState.OPEN)
+                .map(fr -> {
+                    VoteType userVote = userId == null ? null
+                            : fixRequestVoteRepository.findByUserIdAndFixRequestId(userId, fr.getId())
+                                    .map(v -> v.getVoteType())
+                                    .orElse(null);
+                    return FixRequestResponse.fromEntity(fr, userVote);
+                })
+                .orElse(null);
+    }
+
+    private Map<Long, FixRequestResponse> resolveActiveFixRequests(Long userId, List<Report> reports) {
+        if (reports.isEmpty()) return Collections.emptyMap();
+        List<Long> reportIds = reports.stream().map(Report::getReportId).toList();
+        List<Object[]> rows = fixRequestRepository.findOpenFixRequestIdsByReportIds(reportIds);
+        if (rows.isEmpty()) return Collections.emptyMap();
+
+        List<Long> fixRequestIds = rows.stream().map(row -> (Long) row[1]).toList();
+        Map<Long, FixRequest> byId = fixRequestRepository.findAllById(fixRequestIds).stream()
+                .collect(Collectors.toMap(FixRequest::getId, fr -> fr));
+
+        Map<Long, VoteType> userVotesByFixId = userId == null ? Collections.emptyMap()
+                : fixRequestVoteRepository.findVotesByUserIdAndFixRequestIds(userId, fixRequestIds).stream()
+                        .collect(Collectors.toMap(
+                                row -> (Long) row[0],
+                                row -> (VoteType) row[1]));
+
+        Map<Long, FixRequestResponse> result = new HashMap<>();
+        for (Object[] row : rows) {
+            Long reportId = (Long) row[0];
+            Long fixId = (Long) row[1];
+            FixRequest fr = byId.get(fixId);
+            if (fr == null) continue;
+            result.put(reportId, FixRequestResponse.fromEntity(fr, userVotesByFixId.get(fixId)));
+        }
+        return result;
     }
 
     @Transactional

@@ -26,14 +26,20 @@ public class ReportResponse {
     private int agrees;
     private int disagrees;
     private Instant publishDate;
+    private Instant fixedAt;
     private List<String> mediaUrls;
     private VoteType userVote;
+    private FixRequestResponse activeFixRequest;
 
     public static ReportResponse fromEntity(Report report) {
-        return fromEntity(report, null);
+        return fromEntity(report, null, null);
     }
 
     public static ReportResponse fromEntity(Report report, VoteType userVote) {
+        return fromEntity(report, userVote, null);
+    }
+
+    public static ReportResponse fromEntity(Report report, VoteType userVote, FixRequestResponse activeFixRequest) {
         ReportResponse response = new ReportResponse();
         response.setReportId(report.getReportId());
         response.setUserId(report.getCreatedBy().getId());
@@ -45,12 +51,14 @@ public class ReportResponse {
         response.setAgrees(report.getAgrees());
         response.setDisagrees(report.getDisagrees());
         response.setPublishDate(report.getPublishDate());
+        response.setFixedAt(report.getFixedAt());
         response.setMediaUrls(
                 report.getMediaList().stream()
                         .map(Media::getFilePath)
                         .toList()
         );
         response.setUserVote(userVote);
+        response.setActiveFixRequest(activeFixRequest);
         return response;
     }
 }
