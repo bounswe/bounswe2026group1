@@ -76,8 +76,21 @@ public class ReportService {
 
     public List<ReportResponse> getByUserId(Long userId) {
         return reportRepository.findByCreatedById(userId).stream()
-                .map(ReportResponse::fromEntity)
+                .map(r -> toResponse(r, userId))
                 .toList();
+    }
+
+    /**
+     * Build a ReportResponse for a single report with both userVote and activeFixRequest
+     * populated. Use this from every mutation that returns a report so the client never
+     * receives a stale {@code activeFixRequest: null} when an OPEN fix request exists.
+     */
+    private ReportResponse toResponse(Report report, Long userId) {
+        return ReportResponse.fromEntity(
+                report,
+                resolveUserVote(userId, report.getReportId()),
+                resolveActiveFixRequest(userId, report.getReportId())
+        );
     }
 
     private Long resolveUserId(String email) {
@@ -152,7 +165,7 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(saved));
-        return ReportResponse.fromEntity(saved);
+        return toResponse(saved, request.getUserId());
     }
 
     @Transactional
@@ -175,7 +188,7 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "update"));
-        return ReportResponse.fromEntity(saved);
+        return toResponse(saved, null);
     }
 
     @Transactional
@@ -235,7 +248,7 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "verify"));
-        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
+        return toResponse(saved, user.getId());
     }
 
     @Transactional
@@ -271,7 +284,7 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "unverify"));
-        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
+        return toResponse(saved, user.getId());
     }
 
     public void addMediaToReport(Long reportId, String mediaUrl) {

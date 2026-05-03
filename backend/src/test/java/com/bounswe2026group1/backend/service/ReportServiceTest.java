@@ -400,4 +400,27 @@ class ReportServiceTest {
         assertTrue(result.isPresent());
         assertNull(result.get().getActiveFixRequest());
     }
+
+    @Test
+    void verifyReport_responseIncludesActiveFixRequestWhenPresent() {
+        // Regression: every mutation that returns a report must hydrate activeFixRequest,
+        // otherwise the frontend wipes the live fix card from its cache after a vote on
+        // the parent report.
+        ReflectionTestUtils.setField(testReport, "reportId", 1L);
+        FixRequest fix = new FixRequest(testReport, testUser, "Looks fixed");
+        ReflectionTestUtils.setField(fix, "id", 7L);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(fixRequestRepository.findFirstByReportReportIdAndState(1L, FixRequestState.OPEN))
+                .thenReturn(Optional.of(fix));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        ReportResponse response = reportService.verifyReport(1L, "user@test.com");
+
+        assertNotNull(response.getActiveFixRequest());
+        assertEquals(7L, response.getActiveFixRequest().getId());
+    }
 }
