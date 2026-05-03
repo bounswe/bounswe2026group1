@@ -16,7 +16,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -102,6 +104,31 @@ public class RegisteredUserService {
 
     // ───── Profile (issue #302) ─────────────────────────────────────────────
 
+    /** Public listing — uses batched count queries so this stays at 3 queries
+     *  total regardless of user count, instead of 1 + 3N. */
+    public List<UserProfileDTO> getAllProfiles() {
+        List<RegisteredUser> users = registeredUserRepository.findAll();
+        if (users.isEmpty()) return List.of();
+
+        List<Long> ids = users.stream().map(RegisteredUser::getId).toList();
+        Map<Long, Long> reportCounts = toCountMap(reportRepository.countByCreatedByIdIn(ids));
+        Map<Long, Long> routeCounts = toCountMap(routeRepository.countByCreatedByIdIn(ids));
+
+        return users.stream()
+                .map(u -> buildDTO(u, false,
+                        reportCounts.getOrDefault(u.getId(), 0L),
+                        routeCounts.getOrDefault(u.getId(), 0L)))
+                .toList();
+    }
+
+    private static Map<Long, Long> toCountMap(List<Object[]> rows) {
+        Map<Long, Long> map = new HashMap<>(rows.size());
+        for (Object[] row : rows) {
+            map.put((Long) row[0], (Long) row[1]);
+        }
+        return map;
+    }
+
     public UserProfileDTO getProfileById(Long id) {
         RegisteredUser user = registeredUserRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("User not found with id: " + id));
@@ -142,6 +169,10 @@ public class RegisteredUserService {
     private UserProfileDTO toProfileDTO(RegisteredUser user, boolean includeEmail) {
         long reports = reportRepository.countByCreatedById(user.getId());
         long routes = routeRepository.countByCreatedById(user.getId());
+        return buildDTO(user, includeEmail, reports, routes);
+    }
+
+    private UserProfileDTO buildDTO(RegisteredUser user, boolean includeEmail, long reports, long routes) {
         return UserProfileDTO.builder()
                 .id(user.getId())
                 .name(user.getName())

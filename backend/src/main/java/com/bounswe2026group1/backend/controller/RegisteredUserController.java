@@ -32,9 +32,7 @@ public class RegisteredUserController {
 
     @GetMapping
     public List<UserProfileDTO> getAll() {
-        return registeredUserService.getAll().stream()
-                .map(u -> registeredUserService.getProfileById(u.getId()))
-                .toList();
+        return registeredUserService.getAllProfiles();
     }
 
     @GetMapping("/{id}")

@@ -22,11 +22,13 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -151,6 +153,52 @@ class RegisteredUserServiceTest {
     }
 
     // ───── PROFILE TESTS (issue #302) ────────────────────────────────────────
+
+    @Test
+    void getAllProfiles_usesBatchQueries_noPerUserCounts() {
+        RegisteredUser other = new RegisteredUser();
+        other.setId(2L);
+        other.setName("Other");
+        other.setEmail("other@test.com");
+        other.setRole("USER");
+
+        when(registeredUserRepository.findAll()).thenReturn(List.of(mockUser, other));
+        // mockUser=1L has 3 reports & 2 routes; user 2L has zero of either (absent rows)
+        when(reportRepository.countByCreatedByIdIn(List.of(1L, 2L)))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 3L}));
+        when(routeRepository.countByCreatedByIdIn(List.of(1L, 2L)))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 2L}));
+
+        List<UserProfileDTO> profiles = registeredUserService.getAllProfiles();
+
+        assertEquals(2, profiles.size());
+        UserProfileDTO ada = profiles.stream().filter(p -> p.getId() == 1L).findFirst().orElseThrow();
+        UserProfileDTO bob = profiles.stream().filter(p -> p.getId() == 2L).findFirst().orElseThrow();
+        assertEquals(3L, ada.getContributionStats().getReportsSubmitted());
+        assertEquals(2L, ada.getContributionStats().getRoutesPlanned());
+        assertEquals(0L, bob.getContributionStats().getReportsSubmitted());
+        assertEquals(0L, bob.getContributionStats().getRoutesPlanned());
+        // Public listing must not leak email
+        assertNull(ada.getEmail());
+        assertNull(bob.getEmail());
+
+        // Each batch query fires exactly once; per-user count queries are never used.
+        verify(reportRepository, times(1)).countByCreatedByIdIn(anyCollection());
+        verify(routeRepository, times(1)).countByCreatedByIdIn(anyCollection());
+        verify(reportRepository, never()).countByCreatedById(any());
+        verify(routeRepository, never()).countByCreatedById(any());
+    }
+
+    @Test
+    void getAllProfiles_emptyUsers_skipsCountQueries() {
+        when(registeredUserRepository.findAll()).thenReturn(List.of());
+
+        List<UserProfileDTO> profiles = registeredUserService.getAllProfiles();
+
+        assertTrue(profiles.isEmpty());
+        verifyNoInteractions(reportRepository);
+        verifyNoInteractions(routeRepository);
+    }
 
     @Test
     void getProfileById_returnsPublicFieldsAndStats_withoutEmail() {

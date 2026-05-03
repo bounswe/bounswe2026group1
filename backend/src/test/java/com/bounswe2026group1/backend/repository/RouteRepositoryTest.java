@@ -55,6 +55,28 @@ class RouteRepositoryTest {
     }
 
     @Test
+    void countByCreatedByIdIn_groupsCountsPerUser_omittingUsersWithNoRoutes() {
+        RegisteredUser ada = persistUser("ada-batch@test.com");
+        RegisteredUser bob = persistUser("bob-batch@test.com");
+        RegisteredUser cleo = persistUser("cleo-batch@test.com"); // no routes
+        persistRoute(ada, 100);
+        persistRoute(ada, 200);
+        persistRoute(bob, 300);
+
+        List<Object[]> rows = routeRepository.countByCreatedByIdIn(
+                List.of(ada.getId(), bob.getId(), cleo.getId()));
+
+        assertEquals(2, rows.size(), "users with zero routes should not appear in the result");
+        for (Object[] row : rows) {
+            Long userId = (Long) row[0];
+            Long count = (Long) row[1];
+            if (userId.equals(ada.getId())) assertEquals(2L, count);
+            else if (userId.equals(bob.getId())) assertEquals(1L, count);
+            else throw new AssertionError("unexpected userId in result: " + userId);
+        }
+    }
+
+    @Test
     void findByCreatedByIdOrderByIdDesc_returnsOnlyUsersRoutes_newestFirst() {
         RegisteredUser ada = persistUser("ada@test.com");
         RegisteredUser bob = persistUser("bob@test.com");

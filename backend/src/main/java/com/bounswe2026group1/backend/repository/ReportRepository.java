@@ -18,6 +18,15 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     long countByCreatedById(Long userId);
 
+    /** Batch variant of {@link #countByCreatedById}: one query, grouped by user.
+     *  Returns rows of {@code [userId, count]}; absent users mean zero. */
+    @Query("""
+            SELECT r.createdBy.id, COUNT(r) FROM Report r
+            WHERE r.createdBy.id IN :userIds
+            GROUP BY r.createdBy.id
+            """)
+    List<Object[]> countByCreatedByIdIn(@Param("userIds") Collection<Long> userIds);
+
     List<Report> findByStatus(ReportStatus status);
 
     /**
