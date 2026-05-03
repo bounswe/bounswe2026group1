@@ -4,7 +4,7 @@ import com.bounswe2026group1.backend.dto.routing.RouteRequest;
 import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.RampReport;
+import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.TravelMode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -64,7 +64,7 @@ class RouteServiceTest {
     @Test
     void rampAssistedRoute_isSkippedGracefully_whenLeg2WalkingCallFails() {
         // A ramp candidate exists, so the multi-leg branch is entered
-        RampReport ramp = new RampReport();
+        Report ramp = new Report();
         ramp.setEntryPoint(new Location(41.0840, 29.0460));
         ramp.setExitPoint(new Location(41.0830, 29.0480));
         when(obstacleService.findClosestRampInBoundingBox(any(), any())).thenReturn(ramp);

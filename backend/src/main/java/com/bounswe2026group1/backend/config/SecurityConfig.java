@@ -40,6 +40,7 @@ public class SecurityConfig {
     private static final String[] ROUTING_AND_AUTH_PUBLIC = {
             "/api/routes", "/api/routes/**",
             "/auth/register", "/auth/login",
+            "/error",
     };
 
     @Bean
@@ -56,7 +57,8 @@ public class SecurityConfig {
                     .permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
-                                "/api/comments", "/api/comments/**"
+                                "/api/comments", "/api/comments/**",
+                                "/api/categories", "/api/categories/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
