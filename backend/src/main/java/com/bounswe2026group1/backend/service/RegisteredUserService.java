@@ -79,7 +79,7 @@ public class RegisteredUserService {
         String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
 
         // 4. Return token + profile in response
-        return new LoginResponse(token, toProfileDTO(user));
+        return new LoginResponse(token, toProfileDTO(user, true));
     }
 
     public List<RegisteredUser> getAll() {
@@ -105,13 +105,13 @@ public class RegisteredUserService {
     public UserProfileDTO getProfileById(Long id) {
         RegisteredUser user = registeredUserRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("User not found with id: " + id));
-        return toProfileDTO(user);
+        return toProfileDTO(user, false);
     }
 
     public UserProfileDTO getProfileByEmail(String email) {
         RegisteredUser user = registeredUserRepository.findByEmail(email)
                 .orElseThrow(() -> new NoSuchElementException("User not found with email: " + email));
-        return toProfileDTO(user);
+        return toProfileDTO(user, true);
     }
 
     public UserProfileDTO updateProfile(Long id, UpdateProfileRequest request) {
@@ -126,7 +126,7 @@ public class RegisteredUserService {
         }
 
         RegisteredUser saved = registeredUserRepository.save(user);
-        return toProfileDTO(saved);
+        return toProfileDTO(saved, true);
     }
 
     public UserProfileDTO setAvatar(Long id, String avatarUrl) {
@@ -134,16 +134,18 @@ public class RegisteredUserService {
                 .orElseThrow(() -> new NoSuchElementException("User not found with id: " + id));
         user.setAvatarUrl(avatarUrl);
         RegisteredUser saved = registeredUserRepository.save(user);
-        return toProfileDTO(saved);
+        return toProfileDTO(saved, true);
     }
 
-    private UserProfileDTO toProfileDTO(RegisteredUser user) {
+    // includeEmail=true is reserved for self-views (/me, login, owner-only mutations).
+    // Public lookups must pass false to avoid leaking another user's email.
+    private UserProfileDTO toProfileDTO(RegisteredUser user, boolean includeEmail) {
         long reports = reportRepository.countByCreatedById(user.getId());
         long routes = routeRepository.countByCreatedById(user.getId());
         return UserProfileDTO.builder()
                 .id(user.getId())
                 .name(user.getName())
-                .email(user.getEmail())
+                .email(includeEmail ? user.getEmail() : null)
                 .bio(user.getBio())
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())

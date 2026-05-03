@@ -81,27 +81,27 @@ class RegisteredUserControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ───── GET /{id}/profile ─────────────────────────────────────────────────
+    // ───── GET /{id} ─────────────────────────────────────────────────────────
 
     @Test
     @WithMockUser(username = OWNER_EMAIL)
-    @DisplayName("GET /{id}/profile returns 200")
-    void getProfile_returns200() throws Exception {
+    @DisplayName("GET /{id} returns 200")
+    void getById_returns200() throws Exception {
         when(registeredUserService.getProfileById(OWNER_ID)).thenReturn(ownerProfile);
 
-        mockMvc.perform(get("/api/users/{id}/profile", OWNER_ID).header("Mapcess-Key", validApiKey))
+        mockMvc.perform(get("/api/users/{id}", OWNER_ID).header("Mapcess-Key", validApiKey))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(OWNER_ID));
     }
 
     @Test
     @WithMockUser(username = OWNER_EMAIL)
-    @DisplayName("GET /{id}/profile returns 404 when user missing")
-    void getProfile_returns404() throws Exception {
+    @DisplayName("GET /{id} returns 404 when user missing")
+    void getById_returns404() throws Exception {
         when(registeredUserService.getProfileById(99L))
                 .thenThrow(new NoSuchElementException("User not found with id: 99"));
 
-        mockMvc.perform(get("/api/users/{id}/profile", 99L).header("Mapcess-Key", validApiKey))
+        mockMvc.perform(get("/api/users/{id}", 99L).header("Mapcess-Key", validApiKey))
                 .andExpect(status().isNotFound());
     }
 

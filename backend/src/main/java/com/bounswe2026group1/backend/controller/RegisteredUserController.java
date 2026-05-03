@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -68,15 +69,6 @@ public class RegisteredUserController {
         }
         try {
             return ResponseEntity.ok(registeredUserService.getProfileByEmail(email));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
-    }
-
-    @GetMapping("/{id}/profile")
-    public ResponseEntity<?> getProfile(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(registeredUserService.getProfileById(id));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
@@ -156,7 +148,10 @@ public class RegisteredUserController {
 
     private String currentUserEmailOrNull() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getName() == null) return null;
+        // Spring's anonymous token reports isAuthenticated() == true with name "anonymousUser".
+        if (auth == null || auth instanceof AnonymousAuthenticationToken || !auth.isAuthenticated() || auth.getName() == null) {
+            return null;
+        }
         return auth.getName();
     }
 }

@@ -153,7 +153,7 @@ class RegisteredUserServiceTest {
     // ───── PROFILE TESTS (issue #302) ────────────────────────────────────────
 
     @Test
-    void getProfileById_returnsAllFieldsAndStats() {
+    void getProfileById_returnsPublicFieldsAndStats_withoutEmail() {
         when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
         when(reportRepository.countByCreatedById(1L)).thenReturn(3L);
         when(routeRepository.countByCreatedById(1L)).thenReturn(2L);
@@ -162,7 +162,8 @@ class RegisteredUserServiceTest {
 
         assertEquals(1L, dto.getId());
         assertEquals("Test User", dto.getName());
-        assertEquals("test@test.com", dto.getEmail());
+        // Public lookup must NOT expose email — it's PII and only owner-views may include it.
+        assertNull(dto.getEmail());
         assertEquals("hello", dto.getBio());
         assertEquals("https://cdn/old.jpg", dto.getAvatarUrl());
         assertEquals("USER", dto.getRole());
