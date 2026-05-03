@@ -12,7 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,7 +37,7 @@ class NotificationControllerTest {
     @Test
     void list_delegatesToServiceWithAuthenticatedEmail() {
         NotificationResponse n = new NotificationResponse(
-                7L, 1L, NotificationType.NEW_COMMENT, "Bob commented", 100L, false, LocalDateTime.now());
+                7L, 1L, NotificationType.NEW_COMMENT, "Bob commented", 100L, false, Instant.now());
         when(notificationService.listForUser(EMAIL)).thenReturn(List.of(n));
 
         ResponseEntity<List<NotificationResponse>> response = controller.list(EMAIL);
@@ -63,7 +63,7 @@ class NotificationControllerTest {
     @Test
     void markRead_delegatesAndReturnsUpdatedDto() {
         NotificationResponse n = new NotificationResponse(
-                9L, 1L, NotificationType.STATUS_CHANGE, "verified", 100L, true, LocalDateTime.now());
+                9L, 1L, NotificationType.STATUS_CHANGE, "verified", 100L, true, Instant.now());
         when(notificationService.markAsRead(9L, EMAIL)).thenReturn(n);
 
         ResponseEntity<NotificationResponse> response = controller.markRead(9L, EMAIL);

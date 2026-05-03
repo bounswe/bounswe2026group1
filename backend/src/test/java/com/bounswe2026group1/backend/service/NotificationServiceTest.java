@@ -25,7 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -81,7 +81,7 @@ class NotificationServiceTest {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> {
             Notification arg = invocation.getArgument(0);
             ReflectionTestUtils.setField(arg, "id", 7L);
-            arg.setCreatedAt(LocalDateTime.now());
+            arg.setCreatedAt(Instant.now());
             return arg;
         });
     }
@@ -296,7 +296,7 @@ class NotificationServiceTest {
         n.setRecipient(author);
         n.setMessage("Hi");
         n.setType(NotificationType.NEW_COMMENT);
-        n.setCreatedAt(LocalDateTime.now());
+        n.setCreatedAt(Instant.now());
 
         when(registeredUserRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(author));
         when(notificationRepository.findByRecipientIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(n));

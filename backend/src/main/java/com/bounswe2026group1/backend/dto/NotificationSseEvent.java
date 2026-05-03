@@ -3,8 +3,6 @@ package com.bounswe2026group1.backend.dto;
 import com.bounswe2026group1.backend.model.NotificationType;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 public record NotificationSseEvent(
         String eventType,
@@ -22,9 +20,8 @@ public record NotificationSseEvent(
             NotificationType type,
             String message,
             Long relatedEntityId,
-            LocalDateTime createdAt
+            Instant createdAt
     ) {
-        Instant ts = createdAt == null ? Instant.now() : createdAt.toInstant(ZoneOffset.UTC);
         return new NotificationSseEvent(
                 "NOTIFICATION_CREATED",
                 notificationId,
@@ -33,7 +30,7 @@ public record NotificationSseEvent(
                 message,
                 relatedEntityId,
                 false,
-                ts
+                createdAt == null ? Instant.now() : createdAt
         );
     }
 }
