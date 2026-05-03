@@ -7,8 +7,10 @@ import com.bounswe2026group1.backend.model.Notification;
 import com.bounswe2026group1.backend.model.NotificationType;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.ReportCategory;
+import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.repository.CommentRepository;
 import com.bounswe2026group1.backend.repository.NotificationRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
@@ -70,7 +72,12 @@ class NotificationServiceTest {
         voter = newUser(3L, "carol@example.com", "Carol");
         subscriber = newUser(4L, "dave@example.com", "Dave");
 
-        report = new Report(author, new Location(41.0, 29.0), "Broken ramp", Tag.MISSING_RAMP);
+        ReportCategory category = new ReportCategory();
+        ReflectionTestUtils.setField(category, "id", 6L);
+        category.setName("Missing Ramp");
+        category.setType(ReportType.OBSTACLE);
+
+        report = new Report(author, new Location(41.0, 29.0), "Broken ramp", category, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(report, "reportId", 100L);
     }
 

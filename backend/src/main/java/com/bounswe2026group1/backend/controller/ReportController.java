@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
+import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -43,18 +44,16 @@ public class ReportController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ReportResponse> update(@PathVariable Long id, @RequestBody CreateReportRequest request) {
-        return reportService.update(id, request)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<ReportResponse> update(@PathVariable Long id,
+                                                  @RequestBody UpdateReportRequest request,
+                                                  @AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(reportService.update(id, request, email));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (reportService.delete(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id, @AuthenticationPrincipal String email) {
+        reportService.delete(id, email);
     }
 
     @PostMapping("/{id}/verify")

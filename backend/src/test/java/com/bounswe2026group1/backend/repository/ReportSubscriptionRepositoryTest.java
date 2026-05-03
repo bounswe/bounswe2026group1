@@ -3,8 +3,10 @@ package com.bounswe2026group1.backend.repository;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.ReportCategory;
+import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportSubscription;
-import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.ReportType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +33,9 @@ class ReportSubscriptionRepositoryTest {
     @Autowired
     private ReportRepository reportRepository;
 
+    @Autowired
+    private ReportCategoryRepository categoryRepository;
+
     private RegisteredUser alice;
     private RegisteredUser bob;
     private Report report;
@@ -39,8 +44,14 @@ class ReportSubscriptionRepositoryTest {
     void setUp() {
         alice = persistUser("alice@example.com", "Alice");
         bob = persistUser("bob@example.com", "Bob");
+
+        ReportCategory category = new ReportCategory();
+        category.setName("Missing Ramp");
+        category.setType(ReportType.OBSTACLE);
+        category = categoryRepository.save(category);
+
         report = reportRepository.save(
-                new Report(alice, new Location(41.0, 29.0), "Broken ramp", Tag.MISSING_RAMP));
+                new Report(alice, new Location(41.0, 29.0), "Broken ramp", category, ReportEnvironment.OUTDOOR));
     }
 
     @Test

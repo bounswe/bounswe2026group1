@@ -5,15 +5,17 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateReportRequest {
-    private Long userId;
-    private double latitude;
-    private double longitude;
+public class UpdateReportRequest {
     private String description;
     private Long categoryId;
     private ReportEnvironment environment;
+    private Double latitude;
+    private Double longitude;
     private String measurements;
+    private List<Long> mediaIdsToRemove;
 }
