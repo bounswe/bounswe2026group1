@@ -20,12 +20,11 @@ import com.bounswe2026group1.backend.repository.MediaRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
+import com.bounswe2026group1.backend.util.TransactionalEvents;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.bounswe2026group1.backend.model.ReportStatus;
 
 import java.util.Collections;
@@ -292,16 +291,6 @@ public class ReportService {
     }
 
     private void broadcastAfterCommit(Runnable action) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
-            action.run();
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                action.run();
-            }
-        });
+        TransactionalEvents.runAfterCommit(action);
     }
 }
