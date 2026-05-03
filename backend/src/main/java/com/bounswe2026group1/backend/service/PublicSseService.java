@@ -137,6 +137,43 @@ public class PublicSseService {
         sendToAll("report-updated", event);
     }
 
+    /**
+     * Fired when a user submits a new fix request on a report.
+     * Frontends should refetch the report to pick up {@code activeFixRequest}.
+     */
+    public void broadcastFixRequested(Report report) {
+        PublicSseEvent event = new PublicSseEvent(
+                "REPORT_UPDATED",
+                report.getReportId(),
+                "fix_requested",
+                report.getAgrees(),
+                report.getDisagrees(),
+                report.getStatus().name(),
+                null,
+                null,
+                Instant.now()
+        );
+        sendToAll("report-updated", event);
+    }
+
+    /**
+     * Fired when a fix request reaches the threshold and the report transitions to FIXED.
+     */
+    public void broadcastFixed(Report report) {
+        PublicSseEvent event = new PublicSseEvent(
+                "REPORT_UPDATED",
+                report.getReportId(),
+                "fixed",
+                report.getAgrees(),
+                report.getDisagrees(),
+                report.getStatus().name(),
+                null,
+                null,
+                Instant.now()
+        );
+        sendToAll("report-updated", event);
+    }
+
     public void broadcastMediaAdded(Report report, Media media) {
         PublicSseEvent event = new PublicSseEvent(
                 "MEDIA_ADDED",
