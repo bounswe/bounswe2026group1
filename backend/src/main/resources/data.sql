@@ -66,28 +66,28 @@ SELECT setval('report_categories_id_seq', (SELECT MAX(id) FROM report_categories
 -- referenced parent report cannot be found.
 -- Comments: guard with NOT EXISTS on content + report_id
 INSERT INTO comments (content, author_id, report_id, created_at)
-SELECT 'Yes, people also fall from this ramp', 2, r.id, NOW()
+SELECT 'Yes, people also fall from this ramp', 2, r.report_id, NOW()
 FROM reports r
 WHERE r.description = 'This ramp is too steep for wheelchairs'
   AND NOT EXISTS (
     SELECT 1 FROM comments c
-    WHERE c.content = 'Yes, people also fall from this ramp' AND c.report_id = r.id
+    WHERE c.content = 'Yes, people also fall from this ramp' AND c.report_id = r.report_id
   );
 
 INSERT INTO comments (content, author_id, report_id, created_at)
-SELECT 'Please fix this ASAP, it affects many students.', 3, r.id, NOW()
+SELECT 'Please fix this ASAP, it affects many students.', 3, r.report_id, NOW()
 FROM reports r
 WHERE r.description = 'This ramp is too steep for wheelchairs'
   AND NOT EXISTS (
     SELECT 1 FROM comments c
-    WHERE c.content = 'Please fix this ASAP, it affects many students.' AND c.report_id = r.id
+    WHERE c.content = 'Please fix this ASAP, it affects many students.' AND c.report_id = r.report_id
   );
 
 INSERT INTO comments (content, author_id, report_id, created_at)
-SELECT 'The elevator was repaired according to staff.', 3, r.id, NOW()
+SELECT 'The elevator was repaired according to staff.', 3, r.report_id, NOW()
 FROM reports r
 WHERE r.description = 'Elevator of Boğaziçi Metro is broken'
   AND NOT EXISTS (
     SELECT 1 FROM comments c
-    WHERE c.content = 'The elevator was repaired according to staff.' AND c.report_id = r.id
+    WHERE c.content = 'The elevator was repaired according to staff.' AND c.report_id = r.report_id
   );
