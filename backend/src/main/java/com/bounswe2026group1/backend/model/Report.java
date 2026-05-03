@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,7 +46,7 @@ public class Report {
     private int agrees = 0;
     private int disagrees = 0;
 
-    private LocalDateTime publishDate;
+    private Instant publishDate;
 
     // Nullable — only relevant for FEATURE reports used in wheelchair routing
     @Embedded
@@ -92,7 +92,7 @@ public class Report {
         this.category = category;
         this.environment = environment;
         this.status = ReportStatus.PENDING;
-        this.publishDate = LocalDateTime.now();
+        this.publishDate = Instant.now();
     }
 
     public void incrementAgrees()    { this.agrees++; }
