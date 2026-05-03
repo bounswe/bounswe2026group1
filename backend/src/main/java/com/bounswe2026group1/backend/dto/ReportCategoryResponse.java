@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.dto;
 
+import com.bounswe2026group1.backend.model.LocationType;
 import com.bounswe2026group1.backend.model.ReportCategory;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.model.SnapType;
@@ -18,6 +19,7 @@ public class ReportCategoryResponse {
     private final Long id;
     private final String name;
     private final ReportType type;
+    private final LocationType locationType;
     private final List<String> affectedProfiles;
     private final Object measurementSchema;
     private final boolean routingRelevant;
@@ -28,8 +30,9 @@ public class ReportCategoryResponse {
         this.id = category.getId();
         this.name = category.getName();
         this.type = category.getType();
+        this.locationType = category.getLocationType();
         this.affectedProfiles = parseProfiles(category.getAffectedProfiles());
-        this.measurementSchema = parseSchema(category.getMeasurementSchema());
+        this.measurementSchema = parseSchema(category.getEffectiveMeasurementSchema());
         this.routingRelevant = category.isRoutingRelevant();
         this.snapType = category.getSnapType();
         this.children = children;

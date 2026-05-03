@@ -47,6 +47,18 @@ public class ReportCategory {
     @Enumerated(EnumType.STRING)
     private SnapType snapType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "location_type")
+    private LocationType locationType;
+
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     private List<ReportCategory> children = new ArrayList<>();
+
+    // Returns own schema if set; falls back to parent's schema (one level up).
+    // Leaf nodes under OBSTACLE parents inherit the parent's measurement schema.
+    public String getEffectiveMeasurementSchema() {
+        if (measurementSchema != null) return measurementSchema;
+        if (parent != null) return parent.getMeasurementSchema();
+        return null;
+    }
 }

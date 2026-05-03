@@ -101,7 +101,7 @@ public class ReportService {
 
         List<MeasurementWarning> warnings = List.of();
         if (request.getMeasurements() != null) {
-            warnings = measurementValidator.validate(request.getMeasurements(), category.getMeasurementSchema());
+            warnings = measurementValidator.validate(request.getMeasurements(), category.getEffectiveMeasurementSchema());
             report.setMeasurements(request.getMeasurements());
         }
 
@@ -155,7 +155,7 @@ public class ReportService {
 
         List<MeasurementWarning> warnings = List.of();
         if (request.getMeasurements() != null) {
-            warnings = measurementValidator.validate(request.getMeasurements(), report.getCategory().getMeasurementSchema());
+            warnings = measurementValidator.validate(request.getMeasurements(), report.getCategory().getEffectiveMeasurementSchema());
             diff.put("measurements", new Object[]{report.getMeasurements(), request.getMeasurements()});
             report.setMeasurements(request.getMeasurements());
         }
@@ -288,7 +288,7 @@ public class ReportService {
 
     private List<MeasurementWarning> computeWarnings(Report report) {
         if (report.getMeasurements() == null || report.getCategory() == null) return List.of();
-        return measurementValidator.validate(report.getMeasurements(), report.getCategory().getMeasurementSchema());
+        return measurementValidator.validate(report.getMeasurements(), report.getCategory().getEffectiveMeasurementSchema());
     }
 
     private void appendEditHistory(Report report, Long editorId, Map<String, Object[]> diff) {
