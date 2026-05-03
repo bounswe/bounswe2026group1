@@ -156,7 +156,7 @@ public class FixRequestService {
 
     /**
      * Marks any OPEN fix request older than the given window as EXPIRED.
-     * Called by the scheduled cleanup job in commit 7.
+     * Called by ReportLifecycleScheduler.
      */
     @Transactional
     public int expireOpenFixRequestsOlderThan(Duration window) {
@@ -168,6 +168,26 @@ public class FixRequestService {
             fr.setResolvedAt(now);
         }
         fixRequestRepository.saveAll(stale);
+        return stale.size();
+    }
+
+    /**
+     * Deletes Reports that have been in FIXED state longer than the configured retention,
+     * along with their media (S3 + DB) and any cascaded child rows. Broadcasts
+     * report-deleted SSE for each removed report after the surrounding transaction commits.
+     */
+    @Transactional
+    public int deleteFixedReportsOlderThan(Duration retention) {
+        Instant cutoff = Instant.now().minus(retention);
+        List<Report> stale = reportRepository.findByStatusAndFixedAtBefore(ReportStatus.FIXED, cutoff);
+        for (Report report : stale) {
+            report.getMediaList().forEach(m -> s3MediaService.deleteFile(m.getFilePath()));
+            report.getFixRequests().forEach(fr ->
+                    fr.getMediaList().forEach(frm -> s3MediaService.deleteFile(frm.getFilePath())));
+            Long deletedId = report.getReportId();
+            reportRepository.delete(report);
+            TransactionalEvents.runAfterCommit(() -> publicSseService.broadcastReportDeleted(deletedId));
+        }
         return stale.size();
     }
 }

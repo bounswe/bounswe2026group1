@@ -56,6 +56,10 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportVerification> verifications = new ArrayList<>();
 
+    // Cascade so deleting a Report drops its fix requests (and their votes/media).
+    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FixRequest> fixRequests = new ArrayList<>();
+
     public Report() {
     }
 
@@ -127,6 +131,10 @@ public class Report {
 
     public List<Comment> getComments() {
         return comments;
+    }
+
+    public List<FixRequest> getFixRequests() {
+        return fixRequests;
     }
 
     public void setStatus(ReportStatus status) {
