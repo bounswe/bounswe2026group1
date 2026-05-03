@@ -141,6 +141,13 @@ public class FixRequestService {
 
         evaluateFixStatus(fixRequest);
         FixRequest saved = fixRequestRepository.save(fixRequest);
+        // Broadcast on every vote so other clients see the consensus % update live.
+        // Skipped when the vote just triggered a FIXED transition -- broadcastFixed
+        // already fires for that case from evaluateFixStatus.
+        if (saved.getState() == FixRequestState.OPEN) {
+            Report parent = saved.getReport();
+            TransactionalEvents.runAfterCommit(() -> publicSseService.broadcastFixVote(parent));
+        }
         VoteType callerVote = fixRequestVoteRepository.findByUserIdAndFixRequestId(user.getId(), fixRequestId)
                 .map(FixRequestVote::getVoteType)
                 .orElse(null);

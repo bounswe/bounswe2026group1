@@ -157,6 +157,25 @@ public class PublicSseService {
     }
 
     /**
+     * Fired on every agree/disagree on an OPEN fix request so other clients
+     * see the consensus % update live without waiting for the FIXED transition.
+     */
+    public void broadcastFixVote(Report report) {
+        PublicSseEvent event = new PublicSseEvent(
+                "REPORT_UPDATED",
+                report.getReportId(),
+                "fix_updated",
+                report.getAgrees(),
+                report.getDisagrees(),
+                report.getStatus().name(),
+                null,
+                null,
+                Instant.now()
+        );
+        sendToAll("report-updated", event);
+    }
+
+    /**
      * Fired when a fix request reaches the threshold and the report transitions to FIXED.
      */
     public void broadcastFixed(Report report) {
