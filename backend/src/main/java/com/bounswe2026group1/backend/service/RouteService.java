@@ -99,7 +99,7 @@ public class RouteService {
             RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
             RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
 
-            if (leg1 != null && leg3 != null) {
+            if (leg1 != null && leg2 != null && leg3 != null) {
                 double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
                 double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
 
@@ -127,7 +127,7 @@ public class RouteService {
                             .build();
                 }
             } else {
-                log.warn("Ramp-assisted route via ramp skipped; leg 1 or leg 3 returned null.");
+                log.warn("Ramp-assisted route via ramp skipped; leg 1, leg 2, or leg 3 returned null.");
             }
         }
 
