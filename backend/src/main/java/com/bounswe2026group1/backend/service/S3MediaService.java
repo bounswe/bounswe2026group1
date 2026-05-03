@@ -1,5 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,8 +17,10 @@ import java.util.UUID;
 @Service
 public class S3MediaService {
 
-    private final S3Client s3Client;        // The object(bean) is in the AwsConfig
-    private final String bucketName;        // AWS S3 bucket name(injected from .env)
+    private static final Logger log = LoggerFactory.getLogger(S3MediaService.class);
+
+    private final S3Client s3Client;
+    private final String bucketName;
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "image/jpeg", "image/png", "image/jpg", "video/mp4");
