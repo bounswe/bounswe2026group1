@@ -144,11 +144,11 @@ public class ReportService {
             report.setEnvironment(request.getEnvironment());
         }
 
-        if (request.getLatitude() != null && request.getLatitude() != report.getLocation().getLatitude()) {
+        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getLatitude()) > 1e-9) {
             diff.put("latitude", new Object[]{report.getLocation().getLatitude(), request.getLatitude()});
             report.getLocation().setLatitude(request.getLatitude());
         }
-        if (request.getLongitude() != null && request.getLongitude() != report.getLocation().getLongitude()) {
+        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getLongitude()) > 1e-9) {
             diff.put("longitude", new Object[]{report.getLocation().getLongitude(), request.getLongitude()});
             report.getLocation().setLongitude(request.getLongitude());
         }
