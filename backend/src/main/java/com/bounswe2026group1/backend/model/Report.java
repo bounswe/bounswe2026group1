@@ -43,6 +43,10 @@ public class Report {
     private int disagrees = 0;
 
     private Instant publishDate;
+
+    // Set when the report transitions to FIXED; consumed by the scheduled deletion job.
+    private Instant fixedAt;
+
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
 
@@ -107,6 +111,14 @@ public class Report {
 
     public Instant getPublishDate() {
         return publishDate;
+    }
+
+    public Instant getFixedAt() {
+        return fixedAt;
+    }
+
+    public void setFixedAt(Instant fixedAt) {
+        this.fixedAt = fixedAt;
     }
 
     public List<Media> getMediaList() {
