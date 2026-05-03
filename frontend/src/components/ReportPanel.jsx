@@ -248,44 +248,10 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
         <div className="px-8 pb-12 flex flex-col gap-8">
 
-          {/* Header */}
-          <div className="flex flex-col gap-4">
-            <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
-              {report.title}
-            </h1>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-on-surface">{report.reportedBy}</p>
-                  <p className="text-xs text-on-surface-variant">{report.date}</p>
-                </div>
-              </div>
-              {report.tags && report.tags.length > 0 && (
-                <div className="flex gap-2 flex-wrap justify-end">
-                  {report.tags.map(tag => {
-                    const cfg = REPORT_TAGS[tag] ?? { label: tag, icon: 'warning', color: '#767777' }
-                    return (
-                      <span
-                        key={tag}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
-                        style={{ backgroundColor: cfg.color }}
-                      >
-                        <span className="material-symbols-outlined leading-none" style={{ fontSize: '14px' }}>{cfg.icon}</span>
-                        {cfg.label}
-                      </span>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Active fix request — the live community vote on whether this
-              obstacle has been resolved. Sits above the original report
-              details so a returning voter sees the active question first. */}
+              obstacle has been resolved. Pinned at the top of the panel so
+              a returning voter sees the active question first, before the
+              original report's metadata and description. */}
           {activeFix && (
             <section className="rounded-2xl overflow-hidden ring-1 ring-emerald-200 shadow-sm">
               <div className="px-4 py-2 bg-emerald-700 text-white text-[11px] font-extrabold tracking-widest uppercase flex items-center gap-2">
@@ -371,6 +337,41 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               </div>
             </section>
           )}
+
+          {/* Header */}
+          <div className="flex flex-col gap-4">
+            <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
+              {report.title}
+            </h1>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-on-surface">{report.reportedBy}</p>
+                  <p className="text-xs text-on-surface-variant">{report.date}</p>
+                </div>
+              </div>
+              {report.tags && report.tags.length > 0 && (
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {report.tags.map(tag => {
+                    const cfg = REPORT_TAGS[tag] ?? { label: tag, icon: 'warning', color: '#767777' }
+                    return (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
+                        style={{ backgroundColor: cfg.color }}
+                      >
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: '14px' }}>{cfg.icon}</span>
+                        {cfg.label}
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Description */}
           <section className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
