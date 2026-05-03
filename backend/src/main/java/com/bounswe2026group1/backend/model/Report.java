@@ -1,6 +1,8 @@
 package com.bounswe2026group1.backend.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -9,6 +11,8 @@ import java.util.List;
 @Entity
 @Table(name = "reports",
         indexes = @Index(name = "idx_report_location", columnList = "latitude, longitude"))
+@Getter
+@Setter
 public class Report {
 
     @Id
@@ -95,32 +99,4 @@ public class Report {
     public void decrementAgrees()   { if (this.agrees > 0) this.agrees--; }
     public void incrementDisagrees() { this.disagrees++; }
     public void decrementDisagrees() { if (this.disagrees > 0) this.disagrees--; }
-
-    public Long getReportId()               { return reportId; }
-    public RegisteredUser getCreatedBy()    { return createdBy; }
-    public Location getLocation()           { return location; }
-    public String getDescription()          { return description; }
-    public ReportCategory getCategory()     { return category; }
-    public ReportEnvironment getEnvironment() { return environment; }
-    public ReportStatus getStatus()         { return status; }
-    public int getAgrees()                  { return agrees; }
-    public int getDisagrees()               { return disagrees; }
-    public LocalDateTime getPublishDate()   { return publishDate; }
-    public Location getEntryPoint()         { return entryPoint; }
-    public Location getExitPoint()          { return exitPoint; }
-    public String getMeasurements()         { return measurements; }
-    public RegisteredUser getLastEditedBy() { return lastEditedBy; }
-    public String getEditHistory()          { return editHistory; }
-    public List<Media> getMediaList()       { return mediaList; }
-    public List<Comment> getComments()      { return comments; }
-
-    public void setStatus(ReportStatus status)          { this.status = status; }
-    public void setDescription(String description)      { this.description = description; }
-    public void setCategory(ReportCategory category)    { this.category = category; }
-    public void setEnvironment(ReportEnvironment env)   { this.environment = env; }
-    public void setEntryPoint(Location entryPoint)      { this.entryPoint = entryPoint; }
-    public void setExitPoint(Location exitPoint)        { this.exitPoint = exitPoint; }
-    public void setMeasurements(String measurements)    { this.measurements = measurements; }
-    public void setLastEditedBy(RegisteredUser user)    { this.lastEditedBy = user; }
-    public void setEditHistory(String editHistory)      { this.editHistory = editHistory; }
 }

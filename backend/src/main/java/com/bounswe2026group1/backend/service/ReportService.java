@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.MeasurementWarning;
+import com.bounswe2026group1.backend.dto.ReportFeedQueryRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.exception.RoutingException;
@@ -12,6 +13,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,13 +25,17 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.bounswe2026group1.backend.repository.ReportSpecifications.feed;
 
 @Service
 @RequiredArgsConstructor
 public class ReportService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final double COORD_EPSILON = 1e-6;
 
     private final ReportRepository reportRepository;
     private final RegisteredUserRepository registeredUserRepository;
@@ -64,6 +72,70 @@ public class ReportService {
         return reportRepository.findByCreatedById(userId).stream()
                 .map(r -> ReportResponse.fromEntity(r, null, computeWarnings(r)))
                 .toList();
+    }
+
+    /**
+     * Paginated reports feed with optional filters. Category filter uses the subtree (BFS) of {@link ReportFeedQueryRequest#getCategoryId()}.
+     * Type filter uses resolved {@link ReportType} per category (walk to root), computed in memory for correctness with inherited types.
+     */
+    @Transactional(readOnly = true)
+    public Page<ReportResponse> getFeed(ReportFeedQueryRequest query, Pageable pageable, String email) {
+        Long viewerId = resolveUserId(email);
+        List<ReportCategory> allCategories = categoryRepository.findAll();
+
+        Map<Long, Long> parentByCategoryId = new HashMap<>();
+        Map<Long, String> nameByCategoryId = new HashMap<>();
+        Map<Long, ReportCategory> categoryById = new HashMap<>();
+        Map<Long, List<Long>> childrenByParentId = new HashMap<>();
+
+        for (ReportCategory c : allCategories) {
+            Long id = c.getId();
+            categoryById.put(id, c);
+            nameByCategoryId.put(id, c.getName());
+            Long parentId = c.getParent() != null ? c.getParent().getId() : null;
+            parentByCategoryId.put(id, parentId);
+            if (c.getParent() != null) {
+                childrenByParentId
+                        .computeIfAbsent(c.getParent().getId(), k -> new ArrayList<>())
+                        .add(id);
+            }
+        }
+
+        Function<Long, List<String>> pathResolver =
+                leafId -> buildCategoryPath(leafId, parentByCategoryId, nameByCategoryId);
+
+        Collection<Long> subtreeFilter = null;
+        if (query.getCategoryId() != null) {
+            if (!categoryById.containsKey(query.getCategoryId())) {
+                return Page.empty(pageable);
+            }
+            subtreeFilter = collectSubtreeCategoryIds(query.getCategoryId(), childrenByParentId);
+        }
+
+        Collection<Long> typeCategoryIds = null;
+        if (query.getType() != null) {
+            Set<Long> ids = new HashSet<>();
+            for (ReportCategory c : allCategories) {
+                if (query.getType() == resolveCategoryType(c.getId(), parentByCategoryId, categoryById)) {
+                    ids.add(c.getId());
+                }
+            }
+            if (ids.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            typeCategoryIds = ids;
+        }
+
+        Specification<Report> spec = feed(subtreeFilter, typeCategoryIds, query.getEnvironment(), query.getUserId());
+        Page<Report> reportPage = reportRepository.findAll(spec, pageable);
+        Map<Long, VoteType> votesByReportId = resolveUserVotes(viewerId, reportPage.getContent());
+
+        return reportPage.map(r ->
+                ReportResponse.fromEntity(
+                        r,
+                        votesByReportId.get(r.getReportId()),
+                        computeWarnings(r),
+                        pathResolver));
     }
 
     @Transactional
@@ -144,11 +216,13 @@ public class ReportService {
             report.setEnvironment(request.getEnvironment());
         }
 
-        if (request.getLatitude() != null && request.getLatitude() != report.getLocation().getLatitude()) {
+        if (request.getLatitude() != null && report.getLocation() != null
+                && Math.abs(request.getLatitude() - report.getLocation().getLatitude()) > COORD_EPSILON) {
             diff.put("latitude", new Object[]{report.getLocation().getLatitude(), request.getLatitude()});
             report.getLocation().setLatitude(request.getLatitude());
         }
-        if (request.getLongitude() != null && request.getLongitude() != report.getLocation().getLongitude()) {
+        if (request.getLongitude() != null && report.getLocation() != null
+                && Math.abs(request.getLongitude() - report.getLocation().getLongitude()) > COORD_EPSILON) {
             diff.put("longitude", new Object[]{report.getLocation().getLongitude(), request.getLongitude()});
             report.getLocation().setLongitude(request.getLongitude());
         }
@@ -318,10 +392,61 @@ public class ReportService {
     }
 
     private Long resolveUserId(String email) {
-        if (email == null) return null;
+        if (email == null || email.isBlank()) return null;
+        if ("anonymousUser".equalsIgnoreCase(email)) return null;
         return registeredUserRepository.findByEmail(email)
                 .map(RegisteredUser::getId)
                 .orElse(null);
+    }
+
+    private static Set<Long> collectSubtreeCategoryIds(Long rootId, Map<Long, List<Long>> childrenByParentId) {
+        Set<Long> visited = new LinkedHashSet<>();
+        Deque<Long> queue = new ArrayDeque<>();
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            Long id = queue.poll();
+            if (!visited.add(id)) {
+                continue;
+            }
+            for (Long childId : childrenByParentId.getOrDefault(id, List.of())) {
+                queue.add(childId);
+            }
+        }
+        return visited;
+    }
+
+    private static ReportType resolveCategoryType(Long categoryId, Map<Long, Long> parentByCategoryId,
+                                                   Map<Long, ReportCategory> categoryById) {
+        Long id = categoryId;
+        for (int i = 0; i < 64 && id != null; i++) {
+            ReportCategory c = categoryById.get(id);
+            if (c == null) {
+                return null;
+            }
+            if (c.getType() != null) {
+                return c.getType();
+            }
+            id = parentByCategoryId.get(id);
+        }
+        return null;
+    }
+
+    private static List<String> buildCategoryPath(Long leafCategoryId,
+                                                  Map<Long, Long> parentByCategoryId,
+                                                  Map<Long, String> nameByCategoryId) {
+        if (leafCategoryId == null) {
+            return List.of();
+        }
+        LinkedList<String> segments = new LinkedList<>();
+        Long id = leafCategoryId;
+        for (int i = 0; i < 64 && id != null; i++) {
+            String name = nameByCategoryId.get(id);
+            if (name != null) {
+                segments.addFirst(name);
+            }
+            id = parentByCategoryId.get(id);
+        }
+        return new ArrayList<>(segments);
     }
 
     private VoteType resolveUserVote(Long userId, Long reportId) {

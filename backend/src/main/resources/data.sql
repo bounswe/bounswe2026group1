@@ -13,23 +13,23 @@ ON CONFLICT DO NOTHING;
 -- Parent categories first (no parent_id), then leaf categories
 INSERT INTO report_categories (id, name, type, parent_id, affected_profiles, measurement_schema, routing_relevant, snap_type) VALUES
     -- OBSTACLE parents
-    (1,  'Ramp Issues',      'OBSTACLE', NULL, NULL, NULL, false),
-    (2,  'Elevator Issues',  'OBSTACLE', NULL, NULL, NULL, false),
-    (3,  'Sidewalk Issues',  'OBSTACLE', NULL, NULL, NULL, false),
+    (1,  'Ramp Issues',      'OBSTACLE', NULL, NULL, NULL, false, NULL),
+    (2,  'Elevator Issues',  'OBSTACLE', NULL, NULL, NULL, false, NULL),
+    (3,  'Sidewalk Issues',  'OBSTACLE', NULL, NULL, NULL, false, NULL),
     -- OBSTACLE leaves (no parent)
-    (4,  'Other',            'OBSTACLE', NULL, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL, false),
+    (4,  'Other',            'OBSTACLE', NULL, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL, false, NULL),
     -- OBSTACLE leaves under Ramp Issues
-    (5,  'Missing Ramp',     NULL, 1, '["WHEELCHAIR","STROLLER"]', NULL, false),
-    (6,  'Too Steep',        NULL, 1, '["WHEELCHAIR"]',            '{"slope_percent":{"min":0,"max":100,"accessible_max":8.33},"width_cm":{"min":0,"max":500,"accessible_min":90}}', false),
-    (7,  'Too Narrow',       NULL, 1, '["WHEELCHAIR","STROLLER"]', '{"width_cm":{"min":0,"max":500,"accessible_min":90}}', false),
-    (8,  'Damaged Surface',  NULL, 1, '["WHEELCHAIR","VISUAL_IMPAIRED"]', NULL, false),
+    (5,  'Missing Ramp',     NULL, 1, '["WHEELCHAIR","STROLLER"]', NULL, false, NULL),
+    (6,  'Too Steep',        NULL, 1, '["WHEELCHAIR"]',            '{"slope_percent":{"min":0,"max":100,"accessible_max":8.33},"width_cm":{"min":0,"max":500,"accessible_min":90}}', false, NULL),
+    (7,  'Too Narrow',       NULL, 1, '["WHEELCHAIR","STROLLER"]', '{"width_cm":{"min":0,"max":500,"accessible_min":90}}', false, NULL),
+    (8,  'Damaged Surface',  NULL, 1, '["WHEELCHAIR","VISUAL_IMPAIRED"]', NULL, false, NULL),
     -- OBSTACLE leaves under Elevator Issues
-    (9,  'Out of Service',   NULL, 2, '["WHEELCHAIR"]', NULL, false),
-    (10, 'Missing',          NULL, 2, '["WHEELCHAIR"]', NULL, false),
+    (9,  'Out of Service',   NULL, 2, '["WHEELCHAIR"]', NULL, false, NULL),
+    (10, 'Missing',          NULL, 2, '["WHEELCHAIR"]', NULL, false, NULL),
     -- OBSTACLE leaves under Sidewalk Issues
-    (11, 'Blocked',          NULL, 3, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL, false),
-    (12, 'Uneven Surface',   NULL, 3, '["WHEELCHAIR","VISUAL_IMPAIRED"]', NULL, false),
-    (13, 'No Curb Cut',      NULL, 3, '["WHEELCHAIR","STROLLER"]', NULL, false),
+    (11, 'Blocked',          NULL, 3, '["WHEELCHAIR","VISUAL_IMPAIRED","STROLLER","ELDERLY"]', NULL, false, NULL),
+    (12, 'Uneven Surface',   NULL, 3, '["WHEELCHAIR","VISUAL_IMPAIRED"]', NULL, false, NULL),
+    (13, 'No Curb Cut',      NULL, 3, '["WHEELCHAIR","STROLLER"]', NULL, false, NULL),
     -- FEATURE leaves (routing_relevant=true only for categories with entry/exit path semantics)
     (14, 'Ramp',             'FEATURE', NULL, '["WHEELCHAIR","STROLLER"]',   '{"slope_percent":{"min":0,"max":100,"accessible_max":8.33},"width_cm":{"min":0,"max":500,"accessible_min":90},"height_cm":{"min":0,"max":300}}', true,  'STAIR'),
     (15, 'Elevator',         'FEATURE', NULL, '["WHEELCHAIR"]',              '{"width_cm":{"min":0,"max":500,"accessible_min":90}}',                                                                                             false, NULL),

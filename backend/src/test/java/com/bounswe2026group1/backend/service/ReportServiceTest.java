@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
+import com.bounswe2026group1.backend.dto.ReportFeedQueryRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.*;
@@ -11,6 +12,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -111,6 +118,51 @@ class ReportServiceTest {
         Optional<ReportResponse> result = reportService.getById(99L, null);
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getFeed_runsSpecificationQuery_andMapsResponse() {
+        when(categoryRepository.findAll()).thenReturn(List.of(testCategory));
+        when(reportRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(testReport), PageRequest.of(0, 20), 1));
+
+        Page<ReportResponse> result = reportService.getFeed(
+                new ReportFeedQueryRequest(),
+                PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishDate")),
+                null);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("Too Steep", result.getContent().get(0).getCategoryName());
+        verify(reportRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getFeed_unknownCategory_returnsEmptyWithoutQuery() {
+        when(categoryRepository.findAll()).thenReturn(List.of(testCategory));
+
+        ReportFeedQueryRequest q = new ReportFeedQueryRequest();
+        q.setCategoryId(999L);
+
+        Page<ReportResponse> result = reportService.getFeed(q, PageRequest.of(0, 20), null);
+
+        assertTrue(result.isEmpty());
+        verify(reportRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getFeed_anonymousPrincipal_skipsVoteLookup() {
+        when(categoryRepository.findAll()).thenReturn(List.of(testCategory));
+        when(reportRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(testReport), PageRequest.of(0, 20), 1));
+
+        Page<ReportResponse> result = reportService.getFeed(
+                new ReportFeedQueryRequest(),
+                PageRequest.of(0, 20),
+                "anonymousUser");
+
+        assertNull(result.getContent().get(0).getUserVote());
+        verify(registeredUserRepository, never()).findByEmail(any());
+        verify(verificationRepository, never()).findVotesByUserIdAndReportIds(any(), any());
     }
 
     @Test
@@ -227,7 +279,7 @@ class ReportServiceTest {
                 () -> reportService.delete(99L, "owner@test.com"));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
-        verify(reportRepository, never()).delete(any());
+        verify(reportRepository, never()).delete(any(Report.class));
     }
 
     @Test
@@ -243,7 +295,7 @@ class ReportServiceTest {
                 () -> reportService.delete(1L, "other@test.com"));
 
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
-        verify(reportRepository, never()).delete(any());
+        verify(reportRepository, never()).delete(any(Report.class));
     }
 
     @Test

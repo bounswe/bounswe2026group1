@@ -1,10 +1,15 @@
 package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
+import com.bounswe2026group1.backend.dto.ReportFeedQueryRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.service.ReportService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +27,14 @@ public class ReportController {
     @GetMapping
     public List<ReportResponse> getAll(@AuthenticationPrincipal String email) {
         return reportService.getAll(email);
+    }
+
+    @GetMapping("/feed")
+    public Page<ReportResponse> getFeed(ReportFeedQueryRequest query,
+                                        @PageableDefault(size = 20, sort = "publishDate", direction = Sort.Direction.DESC)
+                                        Pageable pageable,
+                                        @AuthenticationPrincipal String email) {
+        return reportService.getFeed(query, pageable, email);
     }
 
     @GetMapping("/{id}")
