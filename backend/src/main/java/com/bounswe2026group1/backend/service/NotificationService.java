@@ -24,8 +24,11 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -82,10 +85,12 @@ public class NotificationService {
         Long reportId = report.getReportId();
         Long authorId = report.getCreatedBy().getId();
 
-        for (Long recipientId : resolveAudience(reportId, authorId, actorUserId)) {
-            String message = buildStatusMessage(recipientId, authorId, reportId, statusLower);
-            RegisteredUser recipient = loadRecipient(recipientId);
+        Set<Long> audience = resolveAudience(reportId, authorId, actorUserId);
+        Map<Long, RegisteredUser> recipientsById = loadRecipients(audience);
+        for (Long recipientId : audience) {
+            RegisteredUser recipient = recipientsById.get(recipientId);
             if (recipient == null) continue;
+            String message = buildStatusMessage(recipientId, authorId, reportId, statusLower);
             create(recipient, message, NotificationType.STATUS_CHANGE, reportId);
         }
     }
@@ -103,10 +108,12 @@ public class NotificationService {
         Long authorId = reportAuthor.getId();
         String commenterName = commenter == null ? "Someone" : commenter.getName();
 
-        for (Long recipientId : resolveAudience(reportId, authorId, actorUserId)) {
-            String message = buildCommentMessage(recipientId, authorId, reportId, commenterName);
-            RegisteredUser recipient = loadRecipient(recipientId);
+        Set<Long> audience = resolveAudience(reportId, authorId, actorUserId);
+        Map<Long, RegisteredUser> recipientsById = loadRecipients(audience);
+        for (Long recipientId : audience) {
+            RegisteredUser recipient = recipientsById.get(recipientId);
             if (recipient == null) continue;
+            String message = buildCommentMessage(recipientId, authorId, reportId, commenterName);
             create(recipient, message, NotificationType.NEW_COMMENT, comment.getId());
         }
     }
@@ -139,7 +146,7 @@ public class NotificationService {
     }
 
     /** Author + commenters + voters + subscribers, deduped, minus the actor and any nulls.
-     *  Returns user ids only; callers hydrate the recipient via {@link #loadRecipient}. */
+     *  Returns user ids only; callers hydrate the recipients via {@link #loadRecipients}. */
     Set<Long> resolveAudience(Long reportId, Long authorId, Long actorUserId) {
         LinkedHashSet<Long> audience = new LinkedHashSet<>();
         if (authorId != null) audience.add(authorId);
@@ -151,9 +158,10 @@ public class NotificationService {
         return audience;
     }
 
-    private RegisteredUser loadRecipient(Long userId) {
-        if (userId == null) return null;
-        return registeredUserRepository.findById(userId).orElse(null);
+    private Map<Long, RegisteredUser> loadRecipients(Set<Long> userIds) {
+        if (userIds.isEmpty()) return Map.of();
+        return registeredUserRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(RegisteredUser::getId, Function.identity()));
     }
 
     private static String buildStatusMessage(Long recipientId, Long authorId, Long reportId, String statusLower) {

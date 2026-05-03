@@ -26,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -36,8 +37,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -86,17 +89,22 @@ class NotificationServiceTest {
         });
     }
 
-    private void stubFindByIdReturns(RegisteredUser... users) {
-        for (RegisteredUser u : users) {
-            when(registeredUserRepository.findById(u.getId())).thenReturn(Optional.of(u));
-        }
+    private void stubFindAllByIdReturns(RegisteredUser... users) {
+        when(registeredUserRepository.findAllById(any())).thenAnswer(invocation -> {
+            Iterable<Long> ids = invocation.getArgument(0);
+            Set<Long> idSet = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
+                    .collect(Collectors.toSet());
+            return Arrays.stream(users)
+                    .filter(u -> idSet.contains(u.getId()))
+                    .toList();
+        });
     }
 
     @Test
     void notifyStatusChange_persistsStatusChangeForReportAuthor() {
         stubEmptyAudience();
         stubSaveAssignsId();
-        stubFindByIdReturns(author);
+        stubFindAllByIdReturns(author);
         report.setStatus(ReportStatus.VERIFIED);
 
         // actor = a stranger so author still receives the notification
@@ -134,7 +142,7 @@ class NotificationServiceTest {
         when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
                 .thenReturn(List.of(subscriber.getId()));
         stubSaveAssignsId();
-        stubFindByIdReturns(author, voter, subscriber);
+        stubFindAllByIdReturns(author, voter, subscriber);
         report.setStatus(ReportStatus.VERIFIED);
 
         notificationService.notifyStatusChange(report, commenter.getId());
@@ -155,6 +163,25 @@ class NotificationServiceTest {
     }
 
     @Test
+    void notifyStatusChange_fetchesAllRecipientsInASingleQuery() {
+        when(commentRepository.findCommenterUserIdsByReportId(100L))
+                .thenReturn(List.of(commenter.getId()));
+        when(verificationRepository.findVoterUserIdsByReportId(100L))
+                .thenReturn(List.of(voter.getId()));
+        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
+                .thenReturn(List.of(subscriber.getId()));
+        stubSaveAssignsId();
+        stubFindAllByIdReturns(author, voter, subscriber);
+        report.setStatus(ReportStatus.VERIFIED);
+
+        notificationService.notifyStatusChange(report, commenter.getId());
+
+        // Single batched fetch for all recipients, no per-recipient findById.
+        verify(registeredUserRepository, times(1)).findAllById(any());
+        verify(registeredUserRepository, never()).findById(anyLong());
+    }
+
+    @Test
     void notifyStatusChange_dedupesUsersSpanningMultipleCohorts() {
         // Carol both commented AND voted AND is subscribed; she should still get only one notification.
         when(commentRepository.findCommenterUserIdsByReportId(100L))
@@ -164,7 +191,7 @@ class NotificationServiceTest {
         when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
                 .thenReturn(List.of(voter.getId()));
         stubSaveAssignsId();
-        stubFindByIdReturns(author, voter);
+        stubFindAllByIdReturns(author, voter);
         report.setStatus(ReportStatus.VERIFIED);
 
         notificationService.notifyStatusChange(report, 999L);
@@ -193,7 +220,7 @@ class NotificationServiceTest {
     void notifyNewComment_persistsCommentNotificationForReportAuthor() {
         stubEmptyAudience();
         stubSaveAssignsId();
-        stubFindByIdReturns(author);
+        stubFindAllByIdReturns(author);
         Comment comment = new Comment();
         comment.setId(55L);
         comment.setReport(report);
@@ -223,7 +250,7 @@ class NotificationServiceTest {
         when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
                 .thenReturn(List.of(subscriber.getId()));
         stubSaveAssignsId();
-        stubFindByIdReturns(author, voter, subscriber);
+        stubFindAllByIdReturns(author, voter, subscriber);
 
         Comment comment = new Comment();
         comment.setId(60L);
