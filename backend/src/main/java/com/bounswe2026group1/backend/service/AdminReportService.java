@@ -35,6 +35,15 @@ public class AdminReportService {
     }
 
     @Transactional
+    public ReportResponse changeStatus(Long reportId, ReportStatus newStatus) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Report not found with id: " + reportId));
+        report.setStatus(newStatus);
+        return ReportResponse.fromEntity(reportRepository.save(report), null);
+    }
+
+    @Transactional
     public void deleteReport(Long reportId) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,

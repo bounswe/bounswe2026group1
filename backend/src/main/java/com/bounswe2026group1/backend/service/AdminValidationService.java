@@ -1,17 +1,22 @@
 package com.bounswe2026group1.backend.service;
 
-import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.model.ReportVerification;
-import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.dto.admin.AdminValidationResponse;
+import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +27,25 @@ public class AdminValidationService {
 
     @Value("${app.report.verification.threshold:5}")
     private int verificationThreshold;
+
+    public Page<AdminValidationResponse> listValidations(Long reportId, Long userId,
+                                                         VoteType voteType, Pageable pageable) {
+        Specification<ReportVerification> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (reportId != null) {
+                predicates.add(cb.equal(root.get("report").get("reportId"), reportId));
+            }
+            if (userId != null) {
+                predicates.add(cb.equal(root.get("user").get("id"), userId));
+            }
+            if (voteType != null) {
+                predicates.add(cb.equal(root.get("voteType"), voteType));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return verificationRepository.findAll(spec, pageable)
+                .map(AdminValidationResponse::fromEntity);
+    }
 
     @Transactional
     public void deleteValidation(Long verificationId) {

@@ -1,9 +1,8 @@
 package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.ReportResponse;
-import com.bounswe2026group1.backend.dto.admin.AdminChangeRoleRequest;
-import com.bounswe2026group1.backend.dto.admin.AdminCreateUserRequest;
-import com.bounswe2026group1.backend.dto.admin.AdminUserResponse;
+import com.bounswe2026group1.backend.dto.admin.*;
+import com.bounswe2026group1.backend.model.VoteType;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
@@ -35,6 +34,16 @@ public class AdminController {
     private final AdminReportService adminReportService;
     private final AdminCommentService adminCommentService;
     private final AdminValidationService adminValidationService;
+    private final AdminStatsService adminStatsService;
+
+    // -------------------------------------------------------------------------
+    // User Management
+    // -------------------------------------------------------------------------
+
+    @GetMapping("/stats")
+    public AdminStatsResponse getStats() {
+        return adminStatsService.getStats();
+    }
 
     // -------------------------------------------------------------------------
     // User Management
@@ -46,6 +55,11 @@ public class AdminController {
             @RequestParam(required = false) UserRole role,
             @ParameterObject @PageableDefault(size = 20) Pageable pageable) {
         return adminUserService.listUsers(status, role, pageable);
+    }
+
+    @GetMapping("/users/{id}")
+    public AdminUserResponse getUser(@PathVariable Long id) {
+        return adminUserService.getUser(id);
     }
 
     @PostMapping("/users")
@@ -98,6 +112,12 @@ public class AdminController {
         return adminReportService.listReports(status, categoryId, environment, type, dateFrom, dateTo, pageable);
     }
 
+    @PatchMapping("/reports/{id}/status")
+    public ReportResponse changeReportStatus(@PathVariable Long id,
+                                             @Valid @RequestBody AdminReportStatusRequest request) {
+        return adminReportService.changeStatus(id, request.getStatus());
+    }
+
     @DeleteMapping("/reports/{id}")
     public ResponseEntity<Void> deleteReport(@PathVariable Long id) {
         adminReportService.deleteReport(id);
@@ -108,6 +128,14 @@ public class AdminController {
     // Comment Management
     // -------------------------------------------------------------------------
 
+    @GetMapping("/comments")
+    public Page<AdminCommentResponse> listComments(
+            @RequestParam(required = false) Long reportId,
+            @RequestParam(required = false) Long authorId,
+            @ParameterObject @PageableDefault(size = 20) Pageable pageable) {
+        return adminCommentService.listComments(reportId, authorId, pageable);
+    }
+
     @DeleteMapping("/comments/{id}")
     public ResponseEntity<Void> deleteComment(@PathVariable Long id) {
         adminCommentService.deleteComment(id);
@@ -117,6 +145,15 @@ public class AdminController {
     // -------------------------------------------------------------------------
     // Validation Management
     // -------------------------------------------------------------------------
+
+    @GetMapping("/validations")
+    public Page<AdminValidationResponse> listValidations(
+            @RequestParam(required = false) Long reportId,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) VoteType voteType,
+            @ParameterObject @PageableDefault(size = 20) Pageable pageable) {
+        return adminValidationService.listValidations(reportId, userId, voteType, pageable);
+    }
 
     @DeleteMapping("/validations/{id}")
     public ResponseEntity<Void> deleteValidation(@PathVariable Long id) {

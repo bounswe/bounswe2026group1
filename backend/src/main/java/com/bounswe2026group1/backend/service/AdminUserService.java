@@ -23,6 +23,10 @@ public class AdminUserService {
     private final RegisteredUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    public AdminUserResponse getUser(Long id) {
+        return AdminUserResponse.fromEntity(findUser(id));
+    }
+
     public Page<AdminUserResponse> listUsers(UserStatus status, UserRole role, Pageable pageable) {
         Page<RegisteredUser> page;
         if (status != null && role != null) {

@@ -16,6 +16,7 @@ import java.util.List;
 public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report> {
 
     List<Report> findByCreatedById(Long userId);
+    long countByStatus(ReportStatus status);
 
     List<Report> findByStatus(ReportStatus status);
 

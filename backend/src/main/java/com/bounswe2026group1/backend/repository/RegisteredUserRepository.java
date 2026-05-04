@@ -25,4 +25,5 @@ public interface RegisteredUserRepository extends JpaRepository<RegisteredUser, 
 
     // Used to enforce the "at least one admin" rule
     long countByRole(UserRole role);
+    long countByStatus(UserStatus status);
 }
