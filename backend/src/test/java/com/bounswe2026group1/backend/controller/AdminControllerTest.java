@@ -1,8 +1,8 @@
 package com.bounswe2026group1.backend.controller;
 
-import com.bounswe2026group1.backend.dto.admin.AdminChangeRoleRequest;
-import com.bounswe2026group1.backend.dto.admin.AdminCreateUserRequest;
-import com.bounswe2026group1.backend.dto.admin.AdminUserResponse;
+import com.bounswe2026group1.backend.dto.ReportResponse;
+import com.bounswe2026group1.backend.dto.admin.*;
+import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.model.UserStatus;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
@@ -53,6 +53,8 @@ class AdminControllerTest {
     private AdminCommentService adminCommentService;
     @MockitoBean
     private AdminValidationService adminValidationService;
+    @MockitoBean
+    private AdminStatsService adminStatsService;
 
     // -------------------------------------------------------------------------
     // User Management
@@ -273,6 +275,118 @@ class AdminControllerTest {
                 .when(adminValidationService).deleteValidation(99L);
 
         mockMvc.perform(delete("/api/admin/validations/99"))
+                .andExpect(status().isNotFound());
+    }
+
+    // -------------------------------------------------------------------------
+    // Stats
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void getStats_Returns200() throws Exception {
+        when(adminStatsService.getStats())
+                .thenReturn(new AdminStatsResponse(10, 8, 2, 5, 3, 2, 15));
+
+        mockMvc.perform(get("/api/admin/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalUsers").value(10))
+                .andExpect(jsonPath("$.bannedUsers").value(2))
+                .andExpect(jsonPath("$.totalReports").value(5));
+    }
+
+    // -------------------------------------------------------------------------
+    // Single User
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void getUser_Returns200_WhenFound() throws Exception {
+        AdminUserResponse resp = new AdminUserResponse();
+        resp.setId(2L);
+        resp.setEmail("user@test.com");
+        resp.setRole(UserRole.USER);
+        resp.setStatus(UserStatus.ACTIVE);
+
+        when(adminUserService.getUser(2L)).thenReturn(resp);
+
+        mockMvc.perform(get("/api/admin/users/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("user@test.com"))
+                .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void getUser_Returns404_WhenNotFound() throws Exception {
+        doThrow(new ResponseStatusException(NOT_FOUND, "User not found with id: 99"))
+                .when(adminUserService).getUser(99L);
+
+        mockMvc.perform(get("/api/admin/users/99"))
+                .andExpect(status().isNotFound());
+    }
+
+    // -------------------------------------------------------------------------
+    // Comment Listing
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void listComments_Returns200() throws Exception {
+        when(adminCommentService.listComments(any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/api/admin/comments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation Listing
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void listValidations_Returns200() throws Exception {
+        when(adminValidationService.listValidations(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/api/admin/validations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    // -------------------------------------------------------------------------
+    // Report Status Change
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void changeReportStatus_Returns200_OnSuccess() throws Exception {
+        AdminReportStatusRequest req = new AdminReportStatusRequest();
+        req.setStatus(ReportStatus.VERIFIED);
+
+        when(adminReportService.changeStatus(eq(1L), eq(ReportStatus.VERIFIED)))
+                .thenReturn(new ReportResponse());
+
+        mockMvc.perform(patch("/api/admin/reports/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    void changeReportStatus_Returns404_WhenNotFound() throws Exception {
+        AdminReportStatusRequest req = new AdminReportStatusRequest();
+        req.setStatus(ReportStatus.REJECTED);
+
+        doThrow(new ResponseStatusException(NOT_FOUND, "Report not found with id: 99"))
+                .when(adminReportService).changeStatus(eq(99L), any());
+
+        mockMvc.perform(patch("/api/admin/reports/99/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNotFound());
     }
 }

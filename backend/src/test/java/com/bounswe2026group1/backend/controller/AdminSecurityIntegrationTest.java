@@ -47,6 +47,30 @@ class AdminSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void getStats_Returns401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/admin/stats"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getComments_Returns401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/admin/comments"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getValidations_Returns401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/admin/validations"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void changeReportStatus_Returns401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(patch("/api/admin/reports/1/status"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // -------------------------------------------------------------------------
     // Authenticated but USER role → 403
     // -------------------------------------------------------------------------
@@ -79,6 +103,27 @@ class AdminSecurityIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void getStats_Returns403_WhenNotAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/stats")
+                        .with(user("user@test.com").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getComments_Returns403_WhenNotAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/comments")
+                        .with(user("user@test.com").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getValidations_Returns403_WhenNotAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/validations")
+                        .with(user("user@test.com").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
     // -------------------------------------------------------------------------
     // ADMIN role → 200 (empty page when DB is empty)
     // -------------------------------------------------------------------------
@@ -93,6 +138,27 @@ class AdminSecurityIntegrationTest {
     @Test
     void getReports_Returns200_WhenAdmin() throws Exception {
         mockMvc.perform(get("/api/admin/reports")
+                        .with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getStats_Returns200_WhenAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/stats")
+                        .with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getComments_Returns200_WhenAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/comments")
+                        .with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getValidations_Returns200_WhenAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/validations")
                         .with(user("admin@test.com").roles("ADMIN")))
                 .andExpect(status().isOk());
     }
