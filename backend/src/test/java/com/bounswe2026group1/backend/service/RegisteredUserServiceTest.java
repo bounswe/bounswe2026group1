@@ -5,6 +5,8 @@ import com.bounswe2026group1.backend.dto.LoginResponse;
 import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.model.UserStatus;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +50,8 @@ class RegisteredUserServiceTest {
         validRegisterRequest.setEmail("test@test.com");
         validRegisterRequest.setPassword("StrongP@ss1");
 
-        mockUser = new RegisteredUser(1L, "Test User", "test@test.com", "hashedPassword", "USER");
+        mockUser = new RegisteredUser(1L, "Test User", "test@test.com", "hashedPassword", UserRole.USER,
+                UserStatus.ACTIVE, null, 0);
 
         validLoginRequest = new LoginRequest();
         validLoginRequest.setEmail("test@test.com");
@@ -108,7 +111,7 @@ class RegisteredUserServiceTest {
     void loginUser_Success() {
         when(registeredUserRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(validLoginRequest.getPassword(), mockUser.getPassword())).thenReturn(true);
-        when(jwtUtil.generateToken(mockUser.getId(), mockUser.getEmail(), mockUser.getRole())).thenReturn("mockJwtToken");
+        when(jwtUtil.generateToken(mockUser.getId(), mockUser.getEmail(), mockUser.getRole().name())).thenReturn("mockJwtToken");
 
         LoginResponse response = registeredUserService.loginUser(validLoginRequest);
 
