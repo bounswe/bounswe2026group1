@@ -179,7 +179,7 @@ public class ReportService {
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
-        String op = newStatus == ReportStatus.REJECTED ? "reject" : "verify";
+        String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
@@ -214,7 +214,7 @@ public class ReportService {
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
-        String op = newStatus == ReportStatus.REJECTED ? "reject" : "unverify";
+        String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }

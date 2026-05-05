@@ -325,7 +325,7 @@ class ReportServiceTest {
         assertEquals(1, testReport.getDisagrees());
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
         verify(reportRepository).save(testReport);
-        verify(publicSseService).broadcastReportUpdated(testReport, "unverify");
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
@@ -358,7 +358,7 @@ class ReportServiceTest {
         reportService.unverifyReport(1L, "user@test.com");
 
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
-        verify(publicSseService).broadcastReportUpdated(testReport, "unverify");
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
@@ -400,7 +400,7 @@ class ReportServiceTest {
         reportService.verifyReport(1L, "user@test.com");
 
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
-        verify(publicSseService).broadcastReportUpdated(testReport, "verify");
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
@@ -460,7 +460,7 @@ class ReportServiceTest {
         reportService.unverifyReport(1L, "user@test.com");
 
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
-        verify(publicSseService).broadcastReportUpdated(testReport, "unverify");
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
@@ -482,7 +482,7 @@ class ReportServiceTest {
         reportService.verifyReport(1L, "user@test.com");
 
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
-        verify(publicSseService).broadcastReportUpdated(testReport, "verify");
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
