@@ -1,30 +1,47 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
+import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
+import com.bounswe2026group1.backend.service.S3MediaService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class RegisteredUserController {
 
     private final RegisteredUserService registeredUserService;
+    private final S3MediaService s3MediaService;
 
     @GetMapping
-    public List<RegisteredUser> getAll() {
-        return registeredUserService.getAll();
+    public List<UserProfileDTO> getAll() {
+        return registeredUserService.getAllProfiles();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RegisteredUser> getById(@PathVariable Long id) {
-        return registeredUserService.getById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<UserProfileDTO> getById(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(registeredUserService.getProfileById(id));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping
@@ -38,5 +55,101 @@ public class RegisteredUserController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    // ───── Profile endpoints (issue #302) ───────────────────────────────────
+
+    @GetMapping("/me")
+    public ResponseEntity<?> me() {
+        String email = currentUserEmailOrNull();
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication required.");
+        }
+        try {
+            return ResponseEntity.ok(registeredUserService.getProfileByEmail(email));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/profile")
+    public ResponseEntity<?> updateProfile(@PathVariable Long id,
+                                           @RequestBody @Valid UpdateProfileRequest request) {
+        try {
+            requireOwner(id);
+            return ResponseEntity.ok(registeredUserService.updateProfile(id, request));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/profile/avatar")
+    public ResponseEntity<?> uploadAvatar(@PathVariable Long id,
+                                          @RequestParam("file") MultipartFile file) {
+        try {
+            requireOwner(id);
+            String avatarUrl = s3MediaService.uploadFile(file);
+            UserProfileDTO updated = registeredUserService.setAvatar(id, avatarUrl);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of("avatarUrl", updated.getAvatarUrl()));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Avatar upload failed.");
+        }
+    }
+
+    @DeleteMapping("/{id}/profile/avatar")
+    public ResponseEntity<?> deleteAvatar(@PathVariable Long id) {
+        try {
+            requireOwner(id);
+            UserProfileDTO current = registeredUserService.getProfileById(id);
+            String oldUrl = current.getAvatarUrl();
+            registeredUserService.setAvatar(id, null);
+            // Clear DB first, then best-effort S3 delete. If S3 fails the object is orphaned
+            // but the user's avatar field is already cleared, which is what they asked for.
+            if (oldUrl != null && !oldUrl.isBlank()) {
+                try {
+                    s3MediaService.deleteFile(oldUrl);
+                } catch (Exception e) {
+                    log.warn("Failed to delete S3 object for user {} avatar ({}): {}",
+                            id, oldUrl, e.getMessage());
+                }
+            }
+            return ResponseEntity.noContent().build();
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Throws 403 unless the path id matches the authenticated user. Throws 401 if no auth.
+     */
+    private void requireOwner(Long pathId) {
+        String email = currentUserEmailOrNull();
+        if (email == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        UserProfileDTO me = registeredUserService.getProfileByEmail(email);
+        if (!me.getId().equals(pathId)) {
+            throw new AccessDeniedException("You can only modify your own profile.");
+        }
+    }
+
+    private String currentUserEmailOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        // Spring's anonymous token reports isAuthenticated() == true with name "anonymousUser".
+        if (auth == null || auth instanceof AnonymousAuthenticationToken || !auth.isAuthenticated() || auth.getName() == null) {
+            return null;
+        }
+        return auth.getName();
     }
 }

@@ -4,6 +4,7 @@ import com.bounswe2026group1.backend.dto.LoginRequest;
 import com.bounswe2026group1.backend.dto.LoginResponse;
 import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
+import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import com.bounswe2026group1.backend.util.JwtUtil;
@@ -116,7 +117,15 @@ class AuthControllerTest {
 
     @Test
     void login_Returns200_OnSuccess() throws Exception {
-        LoginResponse expectedResponse = new LoginResponse("mocked.jwt.token");
+        UserProfileDTO profile = UserProfileDTO.builder()
+                .id(1L)
+                .name("Test")
+                .email("test@test.com")
+                .role("USER")
+                .contributionStats(UserProfileDTO.ContributionStatsDTO.builder()
+                        .reportsSubmitted(0).routesPlanned(0).build())
+                .build();
+        LoginResponse expectedResponse = new LoginResponse("mocked.jwt.token", profile);
         Mockito.when(registeredUserService.loginUser(any(LoginRequest.class))).thenReturn(expectedResponse);
 
         mockMvc.perform(post("/auth/login")
@@ -124,7 +133,10 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validLoginRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("mocked.jwt.token"));
+                .andExpect(jsonPath("$.token").value("mocked.jwt.token"))
+                .andExpect(jsonPath("$.profile.id").value(1))
+                .andExpect(jsonPath("$.profile.email").value("test@test.com"))
+                .andExpect(jsonPath("$.profile.contributionStats.reportsSubmitted").value(0));
     }
 
     @Test
