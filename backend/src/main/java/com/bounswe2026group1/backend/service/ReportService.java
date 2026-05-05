@@ -11,7 +11,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import com.bounswe2026group1.backend.util.GeoUtils;
+import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +73,44 @@ public class ReportService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Page<ReportResponse> feed(
+            Long categoryId,
+            ReportType reportType,
+            ReportEnvironment environment,
+            Double latitude,
+            Double longitude,
+            Pageable pageable,
+            String email) {
+
+        if (latitude != null ^ longitude != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "latitude and longitude must both be provided for proximity feed");
+        }
+
+        Pageable paged = PageRequest.of(
+                Math.max(0, pageable.getPageNumber()),
+                Math.min(100, Math.max(1, pageable.getPageSize())));
+
+        List<Long> categorySubtreeIds = resolveFeedCategorySubtree(categoryId);
+        List<Long> categoryIdsForFeed = intersectSubtreeWithReportType(categorySubtreeIds, reportType);
+        if (categoryIdsForFeed != null && categoryIdsForFeed.isEmpty()) {
+            return Page.empty(paged);
+        }
+
+        Long userId = resolveUserId(email);
+
+        Page<Report> page = latitude != null
+                ? reportRepository.findFeedWithinRadius(categoryIdsForFeed, environment, latitude, longitude, paged)
+                : reportRepository.findFeedRecent(categoryIdsForFeed, environment, paged);
+
+        Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());
+        List<ReportResponse> responses = page.getContent().stream()
+                .map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), computeWarnings(r)))
+                .toList();
+        return new PageImpl<>(responses, paged, page.getTotalElements());
+    }
+
     @Transactional
     public ReportResponse create(CreateReportRequest request) {
         RegisteredUser user = registeredUserRepository.findById(request.getUserId())
@@ -82,13 +126,14 @@ public class ReportService {
                     "Only leaf categories can be assigned to a report");
         }
 
-        Location location = new Location(request.getLatitude(), request.getLongitude());
-        Report report = new Report(user, location, request.getDescription(), category, request.getEnvironment());
+        Location reportedPoint = new Location(request.getLatitude(), request.getLongitude());
+        Point reportLocation = GeoUtils.point4326(request.getLatitude(), request.getLongitude());
+        Report report = new Report(user, reportLocation, request.getDescription(), category, request.getEnvironment());
 
         if (category.isRoutingRelevant() && category.getSnapType() != null) {
             try {
                 Location[] endpoints = switch (category.getSnapType()) {
-                    case STAIR -> overpassService.snapToNearestStair(location);
+                    case STAIR -> overpassService.snapToNearestStair(reportedPoint);
                 };
                 report.setEntryPoint(endpoints[0]);
                 report.setExitPoint(endpoints[1]);
@@ -145,13 +190,13 @@ public class ReportService {
             report.setEnvironment(request.getEnvironment());
         }
 
-        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getLatitude()) > 1e-9) {
-            diff.put("latitude", new Object[]{report.getLocation().getLatitude(), request.getLatitude()});
-            report.getLocation().setLatitude(request.getLatitude());
+        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getY()) > 1e-9) {
+            diff.put("latitude", new Object[]{report.getLocation().getY(), request.getLatitude()});
+            report.setLocation(GeoUtils.point4326(request.getLatitude(), report.getLocation().getX()));
         }
-        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getLongitude()) > 1e-9) {
-            diff.put("longitude", new Object[]{report.getLocation().getLongitude(), request.getLongitude()});
-            report.getLocation().setLongitude(request.getLongitude());
+        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getX()) > 1e-9) {
+            diff.put("longitude", new Object[]{report.getLocation().getX(), request.getLongitude()});
+            report.setLocation(GeoUtils.point4326(report.getLocation().getY(), request.getLongitude()));
         }
 
         List<MeasurementWarning> warnings = List.of();
@@ -333,6 +378,83 @@ public class ReportService {
         return registeredUserRepository.findByEmail(email)
                 .map(RegisteredUser::getId)
                 .orElse(null);
+    }
+
+    /**
+     * Single category id set for the repository: optional subtree ∩ optional {@link ReportType} filter.
+     *
+     * @return {@code null} if no category/type filtering; non-empty list if constrained; empty list if impossible (no match).
+     */
+    private List<Long> intersectSubtreeWithReportType(List<Long> categorySubtreeIds, ReportType reportType) {
+        if (reportType == null) {
+            return categorySubtreeIds;
+        }
+
+        Set<Long> typeMatchingIds = categoryIdsWithEffectiveReportType(reportType);
+        if (typeMatchingIds.isEmpty()) {
+            return List.of();
+        }
+
+        if (categorySubtreeIds == null) {
+            return new ArrayList<>(typeMatchingIds);
+        }
+
+        return categorySubtreeIds.stream().filter(typeMatchingIds::contains).toList();
+    }
+
+    /** Same effective-type rule as {@link ReportResponse}: walk ancestors until a non-null {@link ReportType}. */
+    private ReportType effectiveReportType(ReportCategory category) {
+        ReportCategory current = category;
+        while (current != null) {
+            if (current.getType() != null) {
+                return current.getType();
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    private Set<Long> categoryIdsWithEffectiveReportType(ReportType reportType) {
+        Set<Long> out = new HashSet<>();
+        for (ReportCategory c : categoryRepository.findAll()) {
+            if (reportType.equals(effectiveReportType(c))) {
+                out.add(c.getId());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * BFS descendant category IDs (includes root). {@code null} means no category filter (all categories).
+     */
+    private List<Long> resolveFeedCategorySubtree(Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        if (!categoryRepository.existsById(categoryId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found with id: " + categoryId);
+        }
+
+        Map<Long, List<Long>> childrenByParent = new HashMap<>();
+        for (ReportCategory c : categoryRepository.findAll()) {
+            if (c.getParent() != null) {
+                childrenByParent
+                        .computeIfAbsent(c.getParent().getId(), k -> new ArrayList<>())
+                        .add(c.getId());
+            }
+        }
+
+        List<Long> out = new ArrayList<>();
+        ArrayDeque<Long> queue = new ArrayDeque<>();
+        queue.add(categoryId);
+        while (!queue.isEmpty()) {
+            Long id = queue.remove();
+            out.add(id);
+            for (Long childId : childrenByParent.getOrDefault(id, List.of())) {
+                queue.add(childId);
+            }
+        }
+        return out;
     }
 
     private VoteType resolveUserVote(Long userId, Long reportId) {

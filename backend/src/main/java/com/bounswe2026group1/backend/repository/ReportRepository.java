@@ -12,7 +12,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Repository
-public interface ReportRepository extends JpaRepository<Report, Long> {
+public interface ReportRepository extends JpaRepository<Report, Long>, ReportRepositoryCustom {
 
     List<Report> findByCreatedById(Long userId);
 
@@ -39,14 +39,14 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             @Param("type") ReportType type,
             @Param("statuses") Collection<ReportStatus> statuses);
 
-    @Query("""
-            SELECT r FROM Report r
-            JOIN FETCH r.category c
-            WHERE r.status IN :statuses
+    @Query(value = """
+            SELECT r.* FROM reports r
+            INNER JOIN report_categories c ON r.category_id = c.id
+            WHERE r.status IN (:statuses)
             AND c.type = :type
-            AND r.location.latitude  BETWEEN :minLat AND :maxLat
-            AND r.location.longitude BETWEEN :minLon AND :maxLon
-            """)
+            AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
+            """,
+            nativeQuery = true)
     List<Report> findByTypeInBoundingBoxWithStatuses(
             @Param("type") ReportType type,
             @Param("minLat") double minLat,
@@ -55,12 +55,12 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             @Param("maxLon") double maxLon,
             @Param("statuses") Collection<ReportStatus> statuses);
 
-    @Query("""
-            SELECT r FROM Report r
-            WHERE r.status IN :statuses
-            AND r.location.latitude  BETWEEN :minLat AND :maxLat
-            AND r.location.longitude BETWEEN :minLon AND :maxLon
-            """)
+    @Query(value = """
+            SELECT r.* FROM reports r
+            WHERE r.status IN (:statuses)
+            AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
+            """,
+            nativeQuery = true)
     List<Report> findReportsInBoundingBoxWithStatuses(
             @Param("minLat") double minLat,
             @Param("maxLat") double maxLat,

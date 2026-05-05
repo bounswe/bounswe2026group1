@@ -3,19 +3,18 @@ package com.bounswe2026group1.backend.repository;
 import com.bounswe2026group1.backend.model.Notification;
 import com.bounswe2026group1.backend.model.NotificationType;
 import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.support.AbstractPostgisIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DataJpaTest
-@ActiveProfiles("test")
-class NotificationRepositoryTest {
+class NotificationRepositoryTest extends AbstractPostgisIntegrationTest {
 
     @Autowired
     private NotificationRepository notificationRepository;

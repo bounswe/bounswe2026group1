@@ -6,12 +6,13 @@ import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportCategoryRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
+import com.bounswe2026group1.backend.support.AbstractPostgisIntegrationTest;
+import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,9 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * This test runs only when ORS_API_KEY is present in the environment.
  */
 @SpringBootTest
-@ActiveProfiles("test")
 @EnabledIfEnvironmentVariable(named = "ORS_API_KEY", matches = "(?s).+")
-class RouteServiceLiveOrsIntegrationTest {
+class RouteServiceLiveOrsIntegrationTest extends AbstractPostgisIntegrationTest {
 
     private static final double START_LAT = 41.085520;
     private static final double START_LON = 29.044523;
@@ -104,7 +104,7 @@ class RouteServiceLiveOrsIntegrationTest {
         // 2) Add negative report and ask route again
         Report negativeReport = new Report(
                 testUser,
-                new Location(NEGATIVE_LAT, NEGATIVE_LON),
+                GeoUtils.point4326(NEGATIVE_LAT, NEGATIVE_LON),
                 "Test negative obstacle near path",
                 obstacleCategory,
                 ReportEnvironment.OUTDOOR);
@@ -126,7 +126,7 @@ class RouteServiceLiveOrsIntegrationTest {
 
         Report rampReport = new Report(
                 testUser,
-                new Location(RAMP_LAT, RAMP_LON),
+                GeoUtils.point4326(RAMP_LAT, RAMP_LON),
                 "Test ramp near path",
                 rampCategory,
                 ReportEnvironment.OUTDOOR);
