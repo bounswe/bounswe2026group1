@@ -1,7 +1,3 @@
--- One-time backfill for rows that predate the status/points columns
-UPDATE registered_users SET status = 'ACTIVE' WHERE status IS NULL;
-UPDATE registered_users SET points = 0        WHERE points IS NULL;
-
 -- Seed data for local development
 -- Plain text password for all users: Test@1234
 -- BCrypt hash: $2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.
