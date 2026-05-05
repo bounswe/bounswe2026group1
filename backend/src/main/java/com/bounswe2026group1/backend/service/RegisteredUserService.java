@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -161,6 +162,7 @@ public class RegisteredUserService {
 
     // ───── Search (issue #310) ──────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public Page<UserSearchDto> searchUsers(String q, Pageable pageable) {
         String query = q == null ? "" : q.trim();
         return registeredUserRepository
