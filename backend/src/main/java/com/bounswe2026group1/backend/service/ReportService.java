@@ -30,6 +30,8 @@ public class ReportService {
     private final RegisteredUserRepository registeredUserRepository;
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
+    private final FixRequestRepository fixRequestRepository;
+    private final FixRequestVoteRepository fixRequestVoteRepository;
     private final PublicSseService publicSseService;
     private final NotificationService notificationService;
     private final S3MediaService s3MediaService;
@@ -44,17 +46,22 @@ public class ReportService {
         List<Report> reports = reportRepository.findAll();
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
         return reports.stream()
-                .map(r -> {
-                    List<ReportObjectResponse> objectResponses = buildObjectResponses(r);
-                    return ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), objectResponses);
-                })
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        votesByReportId.get(r.getReportId()),
+                        buildObjectResponses(r),
+                        resolveActiveFixRequest(userId, r.getReportId())))
                 .toList();
     }
 
     public Optional<ReportResponse> getById(Long id, String email) {
         Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId()), buildObjectResponses(r)));
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        resolveUserVote(userId, r.getReportId()),
+                        buildObjectResponses(r),
+                        resolveActiveFixRequest(userId, r.getReportId())));
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
@@ -339,6 +346,16 @@ public class ReportService {
         } catch (Exception e) {
             // Edit history is audit-only; don't fail the update if serialization breaks
         }
+    }
+
+    private FixRequestResponse resolveActiveFixRequest(Long userId, Long reportId) {
+        return fixRequestRepository.findFirstByReportReportIdAndState(reportId, FixRequestState.OPEN)
+                .map(fr -> {
+                    VoteType userVote = userId == null ? null
+                            : fixRequestVoteRepository.findByUserIdAndFixRequestId(userId, fr.getId())
+                                    .map(FixRequestVote::getVoteType).orElse(null);
+                    return FixRequestResponse.fromEntity(fr, userVote);
+                }).orElse(null);
     }
 
     private Long resolveUserId(String email) {

@@ -48,6 +48,11 @@ public class Report {
 
     private Instant publishDate;
 
+    private Instant fixedAt;
+
+    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FixRequest> fixRequests = new ArrayList<>();
+
     // Nullable — only relevant for FEATURE reports used in wheelchair routing
     @Embedded
     @AttributeOverrides({

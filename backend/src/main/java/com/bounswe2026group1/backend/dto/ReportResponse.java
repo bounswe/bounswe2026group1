@@ -24,9 +24,11 @@ public class ReportResponse {
     private int agrees;
     private int disagrees;
     private Instant publishDate;
+    private Instant fixedAt;
     private List<String> mediaUrls;
     private VoteType userVote;
     private List<ReportObjectResponse> objects;
+    private FixRequestResponse activeFixRequest;
     private Double entryLatitude;
     private Double entryLongitude;
     private Double exitLatitude;
@@ -39,6 +41,14 @@ public class ReportResponse {
 
     public static ReportResponse fromEntity(Report report, VoteType userVote) {
         return fromEntity(report, userVote, Collections.emptyList());
+    }
+
+    public static ReportResponse fromEntity(Report report, VoteType userVote,
+                                            List<ReportObjectResponse> objectResponses,
+                                            FixRequestResponse activeFixRequest) {
+        ReportResponse r = fromEntity(report, userVote, objectResponses);
+        r.setActiveFixRequest(activeFixRequest);
+        return r;
     }
 
     public static ReportResponse fromEntity(Report report, VoteType userVote, List<ReportObjectResponse> objectResponses) {
@@ -54,6 +64,7 @@ public class ReportResponse {
         r.setAgrees(report.getAgrees());
         r.setDisagrees(report.getDisagrees());
         r.setPublishDate(report.getPublishDate());
+        r.setFixedAt(report.getFixedAt());
         r.setMediaUrls(report.getMediaList().stream().map(Media::getFilePath).toList());
         r.setUserVote(userVote);
         r.setObjects(objectResponses != null ? objectResponses : Collections.emptyList());
