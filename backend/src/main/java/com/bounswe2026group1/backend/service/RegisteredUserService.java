@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -164,11 +165,16 @@ public class RegisteredUserService {
 
     @Transactional(readOnly = true)
     public Page<UserSearchDto> searchUsers(String q, Pageable pageable) {
-        String query = q == null ? "" : q.trim();
-        return registeredUserRepository
-                .searchByName(query, pageable)
-                .map(u -> UserSearchDto.fromEntity(
-                        u, reportRepository.countByCreatedById(u.getId())));
+        String trimmed = q == null ? "" : q.trim();
+        String escaped = trimmed.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        Page<RegisteredUser> page = registeredUserRepository.searchByName(escaped, pageable);
+        if (page.isEmpty()) {
+            return page.map(u -> UserSearchDto.fromEntity(u, 0L));
+        }
+        List<Long> ids = page.getContent().stream().map(RegisteredUser::getId).toList();
+        Map<Long, Long> reportCounts = reportRepository.countByCreatedByIdIn(ids).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+        return page.map(u -> UserSearchDto.fromEntity(u, reportCounts.getOrDefault(u.getId(), 0L)));
     }
 
     public UserProfileDTO setAvatar(Long id, String avatarUrl) {

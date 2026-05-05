@@ -455,8 +455,8 @@ class RegisteredUserServiceTest {
 
         when(registeredUserRepository.searchByName("a", pageable))
                 .thenReturn(repoPage);
-        when(reportRepository.countByCreatedById(1L)).thenReturn(7L);
-        when(reportRepository.countByCreatedById(2L)).thenReturn(3L);
+        when(reportRepository.countByCreatedByIdIn(any()))
+                .thenReturn(List.of(new Object[]{1L, 7L}, new Object[]{2L, 3L}));
 
         Page<UserSearchDto> result = registeredUserService.searchUsers("a", pageable);
 
@@ -491,6 +491,17 @@ class RegisteredUserServiceTest {
     }
 
     @Test
+    void searchUsers_escapesLikeWildcardsBeforePassingToRepo() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(registeredUserRepository.searchByName("!%test!_name!!", pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        registeredUserService.searchUsers("%test_name!", pageable);
+
+        verify(registeredUserRepository).searchByName("!%test!_name!!", pageable);
+    }
+
+    @Test
     void searchUsers_emptyResult_returnsEmptyPage_andNeverCallsCount() {
         Pageable pageable = PageRequest.of(0, 20);
         when(registeredUserRepository.searchByName("ghost", pageable))
@@ -500,7 +511,7 @@ class RegisteredUserServiceTest {
 
         assertEquals(0, result.getTotalElements());
         assertTrue(result.getContent().isEmpty());
-        verify(reportRepository, never()).countByCreatedById(any());
+        verify(reportRepository, never()).countByCreatedByIdIn(any());
     }
 
     @Test

@@ -21,15 +21,15 @@ public interface RegisteredUserRepository extends JpaRepository<RegisteredUser, 
      */
     @Query(value = """
             SELECT u FROM RegisteredUser u
-            WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '!'
             ORDER BY
-                CASE WHEN LOWER(u.name) LIKE LOWER(CONCAT(:q, '%')) THEN 0 ELSE 1 END,
+                CASE WHEN LOWER(u.name) LIKE LOWER(CONCAT(:q, '%')) ESCAPE '!' THEN 0 ELSE 1 END,
                 LOWER(u.name) ASC,
                 u.id ASC
             """,
             countQuery = """
             SELECT COUNT(u) FROM RegisteredUser u
-            WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '!'
             """)
     Page<RegisteredUser> searchByName(@Param("q") String q, Pageable pageable);
 }
