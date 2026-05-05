@@ -1,15 +1,12 @@
 package com.bounswe2026group1.backend.dto;
 
-import com.bounswe2026group1.backend.model.Media;
-import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.model.Tag;
-import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.model.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 @Data
@@ -21,44 +18,57 @@ public class ReportResponse {
     private double latitude;
     private double longitude;
     private String description;
-    private Tag tag;
+    private ReportType reportType;
+    private ReportEnvironment environment;
     private ReportStatus status;
     private int agrees;
     private int disagrees;
     private Instant publishDate;
-    private Instant fixedAt;
     private List<String> mediaUrls;
     private VoteType userVote;
-    private FixRequestResponse activeFixRequest;
+    private List<ReportObjectResponse> objects;
+    private Double entryLatitude;
+    private Double entryLongitude;
+    private Double exitLatitude;
+    private Double exitLongitude;
+    private Long lastEditedByUserId;
 
     public static ReportResponse fromEntity(Report report) {
-        return fromEntity(report, null, null);
+        return fromEntity(report, null, Collections.emptyList());
     }
 
     public static ReportResponse fromEntity(Report report, VoteType userVote) {
-        return fromEntity(report, userVote, null);
+        return fromEntity(report, userVote, Collections.emptyList());
     }
 
-    public static ReportResponse fromEntity(Report report, VoteType userVote, FixRequestResponse activeFixRequest) {
-        ReportResponse response = new ReportResponse();
-        response.setReportId(report.getReportId());
-        response.setUserId(report.getCreatedBy().getId());
-        response.setLatitude(report.getLocation().getLatitude());
-        response.setLongitude(report.getLocation().getLongitude());
-        response.setDescription(report.getDescription());
-        response.setTag(report.getTag());
-        response.setStatus(report.getStatus());
-        response.setAgrees(report.getAgrees());
-        response.setDisagrees(report.getDisagrees());
-        response.setPublishDate(report.getPublishDate());
-        response.setFixedAt(report.getFixedAt());
-        response.setMediaUrls(
-                report.getMediaList().stream()
-                        .map(Media::getFilePath)
-                        .toList()
-        );
-        response.setUserVote(userVote);
-        response.setActiveFixRequest(activeFixRequest);
-        return response;
+    public static ReportResponse fromEntity(Report report, VoteType userVote, List<ReportObjectResponse> objectResponses) {
+        ReportResponse r = new ReportResponse();
+        r.setReportId(report.getReportId());
+        r.setUserId(report.getCreatedBy().getId());
+        r.setLatitude(report.getLocation().getLatitude());
+        r.setLongitude(report.getLocation().getLongitude());
+        r.setDescription(report.getDescription());
+        r.setReportType(report.getReportType());
+        r.setEnvironment(report.getEnvironment());
+        r.setStatus(report.getStatus());
+        r.setAgrees(report.getAgrees());
+        r.setDisagrees(report.getDisagrees());
+        r.setPublishDate(report.getPublishDate());
+        r.setMediaUrls(report.getMediaList().stream().map(Media::getFilePath).toList());
+        r.setUserVote(userVote);
+        r.setObjects(objectResponses != null ? objectResponses : Collections.emptyList());
+
+        if (report.getEntryPoint() != null) {
+            r.setEntryLatitude(report.getEntryPoint().getLatitude());
+            r.setEntryLongitude(report.getEntryPoint().getLongitude());
+        }
+        if (report.getExitPoint() != null) {
+            r.setExitLatitude(report.getExitPoint().getLatitude());
+            r.setExitLongitude(report.getExitPoint().getLongitude());
+        }
+        if (report.getLastEditedBy() != null) {
+            r.setLastEditedByUserId(report.getLastEditedBy().getId());
+        }
+        return r;
     }
 }

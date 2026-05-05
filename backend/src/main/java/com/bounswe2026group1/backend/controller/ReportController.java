@@ -45,8 +45,9 @@ public class ReportController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ReportResponse> update(@PathVariable Long id,
-                                                  @RequestBody UpdateReportRequest request) {
-        return ResponseEntity.ok(reportService.update(id, request));
+                                                  @RequestBody UpdateReportRequest request,
+                                                  @AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(reportService.update(id, request, email));
     }
 
     @DeleteMapping("/{id}")

@@ -1,32 +1,22 @@
--- Migrate legacy timestamp columns to TIMESTAMPTZ so the API emits Z-suffixed
--- timestamps via Jackson's Instant serializer. See issue #221.
---
--- Runs after Hibernate (spring.jpa.defer-datasource-initialization=true) and
--- before data.sql. Idempotent: a no-op once the column is already TIMESTAMPTZ.
--- Existing values are reinterpreted as UTC, which matches the production JVM
--- timezone (containers run in UTC) so wall-clock instants are preserved.
+-- Intentionally minimal. Spring's ScriptUtils can't parse PostgreSQL
+-- dollar-quoted blocks (see #404), and rejects comment-only files with
+-- "script must not be null or empty" -- so we keep one no-op statement.
+-- Hibernate creates TIMESTAMPTZ columns directly from Instant entity
+-- fields, so no real migration runs here.
 
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'reports'
-          AND column_name = 'publish_date'
-          AND data_type = 'timestamp without time zone'
-    ) THEN
-        ALTER TABLE reports
-            ALTER COLUMN publish_date TYPE TIMESTAMPTZ
-            USING publish_date AT TIME ZONE 'UTC';
-    END IF;
+-- Add report_type column if missing (idempotent migration from category-based model)
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(255);
 
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'comments'
-          AND column_name = 'created_at'
-          AND data_type = 'timestamp without time zone'
-    ) THEN
-        ALTER TABLE comments
-            ALTER COLUMN created_at TYPE TIMESTAMPTZ
-            USING created_at AT TIME ZONE 'UTC';
-    END IF;
-END $$;
+-- New tables for multi-object report model
+CREATE TABLE IF NOT EXISTS report_objects (
+    id BIGSERIAL PRIMARY KEY,
+    report_id BIGINT REFERENCES reports(report_id) ON DELETE CASCADE,
+    object_type VARCHAR(255) NOT NULL,
+    measurements TEXT
+);
+
+CREATE TABLE IF NOT EXISTS report_object_issues (
+    report_object_id BIGINT REFERENCES report_objects(id) ON DELETE CASCADE,
+    issue_type VARCHAR(255) NOT NULL,
+    PRIMARY KEY (report_object_id, issue_type)
+);

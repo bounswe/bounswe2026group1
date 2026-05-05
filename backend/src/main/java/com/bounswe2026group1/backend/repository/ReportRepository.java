@@ -2,7 +2,7 @@ package com.bounswe2026group1.backend.repository;
 
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.ReportType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,25 +17,43 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     List<Report> findByCreatedById(Long userId);
 
+    long countByCreatedById(Long userId);
+
+    /** Batch variant of {@link #countByCreatedById}: one query, grouped by user.
+     *  Returns rows of {@code [userId, count]}; absent users mean zero. */
+    @Query("""
+            SELECT r.createdBy.id, COUNT(r) FROM Report r
+            WHERE r.createdBy.id IN :userIds
+            GROUP BY r.createdBy.id
+            """)
+    List<Object[]> countByCreatedByIdIn(@Param("userIds") Collection<Long> userIds);
+
     List<Report> findByStatus(ReportStatus status);
 
-    /**
-     * Returns reports whose tag is in {@code tags} and whose status is in {@code statuses}.
-     * Pass the statuses you want (e.g. PENDING, VERIFIED) — not the ones to exclude.
-     */
     @Query("""
             SELECT r FROM Report r
-            WHERE r.tag IN :tags
-            AND r.status IN :statuses
+            WHERE r.status IN :statuses
+            AND r.reportType = :type
             """)
-    List<Report> findByTagInAndStatusIn(
-            @Param("tags") Collection<Tag> tags,
+    List<Report> findByTypeAndStatusIn(
+            @Param("type") ReportType type,
             @Param("statuses") Collection<ReportStatus> statuses);
 
-    /**
-     * Returns reports within the bounding box whose status is in {@code statuses}.
-     * Pass the statuses you want (e.g. PENDING, VERIFIED) — not the ones to exclude.
-     */
+    @Query("""
+            SELECT r FROM Report r
+            WHERE r.status IN :statuses
+            AND r.reportType = :type
+            AND r.location.latitude  BETWEEN :minLat AND :maxLat
+            AND r.location.longitude BETWEEN :minLon AND :maxLon
+            """)
+    List<Report> findByTypeInBoundingBoxWithStatuses(
+            @Param("type") ReportType type,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLon") double minLon,
+            @Param("maxLon") double maxLon,
+            @Param("statuses") Collection<ReportStatus> statuses);
+
     @Query("""
             SELECT r FROM Report r
             WHERE r.status IN :statuses
