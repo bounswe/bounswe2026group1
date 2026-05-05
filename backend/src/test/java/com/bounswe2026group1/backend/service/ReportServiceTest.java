@@ -4,11 +4,7 @@ import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.*;
-import com.bounswe2026group1.backend.model.VoteType;
-import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
-import com.bounswe2026group1.backend.repository.MediaRepository;
-import com.bounswe2026group1.backend.repository.ReportRepository;
-import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
+import com.bounswe2026group1.backend.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,28 +27,21 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 
-    @Mock
-    private ReportRepository reportRepository;
-
-    @Mock
-    private RegisteredUserRepository registeredUserRepository;
-
-    @Mock
-    private MediaRepository mediaRepository;
-
-    @Mock
-    private ReportVerificationRepository verificationRepository;
-
-    @Mock
-    private PublicSseService publicSseService;
-
-    @Mock
-    private S3MediaService s3MediaService;
+    @Mock private ReportRepository reportRepository;
+    @Mock private RegisteredUserRepository registeredUserRepository;
+    @Mock private ReportCategoryRepository categoryRepository;
+    @Mock private MediaRepository mediaRepository;
+    @Mock private ReportVerificationRepository verificationRepository;
+    @Mock private PublicSseService publicSseService;
+    @Mock private S3MediaService s3MediaService;
+    @Mock private MeasurementValidator measurementValidator;
+    @Mock private OverpassService overpassService;
 
     @InjectMocks
     private ReportService reportService;
 
     private RegisteredUser testUser;
+    private ReportCategory testCategory;
     private Report testReport;
     private CreateReportRequest testRequest;
 
@@ -62,14 +51,20 @@ class ReportServiceTest {
         testUser.setId(1L);
         testUser.setEmail("owner@test.com");
 
-        testReport = new Report(testUser, new Location(41.0, 29.0), "Broken ramp", Tag.MISSING_RAMP);
+        testCategory = new ReportCategory();
+        ReflectionTestUtils.setField(testCategory, "id", 6L);
+        testCategory.setName("Too Steep");
+        testCategory.setType(ReportType.OBSTACLE);
+
+        testReport = new Report(testUser, new Location(41.0, 29.0), "Broken ramp", testCategory, ReportEnvironment.OUTDOOR);
 
         testRequest = new CreateReportRequest();
         testRequest.setUserId(1L);
         testRequest.setLatitude(41.0);
         testRequest.setLongitude(29.0);
         testRequest.setDescription("Broken ramp");
-        testRequest.setTag(Tag.MISSING_RAMP);
+        testRequest.setCategoryId(6L);
+        testRequest.setEnvironment(ReportEnvironment.OUTDOOR);
     }
 
     @Test
@@ -85,7 +80,7 @@ class ReportServiceTest {
 
     @Test
     void getAll_includesRejectedReports() {
-        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", Tag.MISSING_RAMP);
+        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", testCategory, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(rejected, "status", ReportStatus.REJECTED);
         when(reportRepository.findAll()).thenReturn(List.of(testReport, rejected));
 
@@ -133,14 +128,16 @@ class ReportServiceTest {
     @Test
     void create_validRequest_returnsCreatedReport() {
         when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(categoryRepository.findById(6L)).thenReturn(Optional.of(testCategory));
+        when(categoryRepository.existsByParentId(6L)).thenReturn(false);
         when(reportRepository.save(any(Report.class))).thenReturn(testReport);
 
         ReportResponse result = reportService.create(testRequest);
 
         assertNotNull(result);
         assertEquals("Broken ramp", result.getDescription());
-        assertEquals(Tag.MISSING_RAMP, result.getTag());
         assertEquals(ReportStatus.PENDING, result.getStatus());
+        assertEquals(6L, result.getCategoryId());
         verify(reportRepository).save(any(Report.class));
         verify(publicSseService).broadcastReportCreated(testReport);
     }
@@ -158,15 +155,32 @@ class ReportServiceTest {
     }
 
     @Test
+    void create_nonLeafCategory_throws400() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(categoryRepository.findById(6L)).thenReturn(Optional.of(testCategory));
+        when(categoryRepository.existsByParentId(6L)).thenReturn(true); // has children → not leaf
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.create(testRequest));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
     void update_existingId_updatesFieldsAndBroadcasts() {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
         when(reportRepository.save(any(Report.class))).thenReturn(testReport);
 
-        UpdateReportRequest updateRequest = new UpdateReportRequest("Updated description", Tag.BROKEN_ELEVATOR, 40.0, 28.0, null);
-        ReportResponse result = reportService.update(1L, updateRequest);
+        UpdateReportRequest updateRequest = new UpdateReportRequest();
+        updateRequest.setDescription("Updated description");
+        updateRequest.setLatitude(40.0);
+        updateRequest.setLongitude(28.0);
+
+        ReportResponse result = reportService.update(1L, updateRequest, "owner@test.com");
 
         assertNotNull(result);
-        assertEquals(Tag.BROKEN_ELEVATOR, testReport.getTag());
         assertEquals("Updated description", testReport.getDescription());
         verify(reportRepository).save(testReport);
         verify(publicSseService).broadcastReportUpdated(testReport, "update");
@@ -176,9 +190,11 @@ class ReportServiceTest {
     void update_reportNotFound_throws404() {
         when(reportRepository.findById(99L)).thenReturn(Optional.empty());
 
-        UpdateReportRequest updateRequest = new UpdateReportRequest("desc", Tag.MISSING_RAMP, 41.0, 29.0, null);
+        UpdateReportRequest updateRequest = new UpdateReportRequest();
+        updateRequest.setDescription("desc");
+
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> reportService.update(99L, updateRequest));
+                () -> reportService.update(99L, updateRequest, "owner@test.com"));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         verify(reportRepository, never()).save(any());
@@ -192,10 +208,13 @@ class ReportServiceTest {
         testReport.getMediaList().add(media);
 
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
         when(reportRepository.save(any(Report.class))).thenReturn(testReport);
 
-        UpdateReportRequest updateRequest = new UpdateReportRequest("desc", Tag.MISSING_RAMP, 41.0, 29.0, List.of(10L));
-        reportService.update(1L, updateRequest);
+        UpdateReportRequest updateRequest = new UpdateReportRequest();
+        updateRequest.setMediaIdsToRemove(List.of(10L));
+
+        reportService.update(1L, updateRequest, "owner@test.com");
 
         verify(s3MediaService).deleteFile("https://bucket.s3.amazonaws.com/file.jpg");
         assertTrue(testReport.getMediaList().isEmpty());
@@ -523,7 +542,7 @@ class ReportServiceTest {
 
     @Test
     void getByUserId_includesRejected() {
-        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", Tag.MISSING_RAMP);
+        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", testCategory, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(rejected, "status", ReportStatus.REJECTED);
 
         when(reportRepository.findByCreatedById(1L)).thenReturn(List.of(testReport, rejected));
