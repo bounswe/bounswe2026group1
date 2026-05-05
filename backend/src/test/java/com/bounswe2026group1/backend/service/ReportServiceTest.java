@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CreateReportRequest;
+import com.bounswe2026group1.backend.dto.ReportObjectRequest;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.*;
@@ -29,7 +30,6 @@ class ReportServiceTest {
 
     @Mock private ReportRepository reportRepository;
     @Mock private RegisteredUserRepository registeredUserRepository;
-    @Mock private ReportCategoryRepository categoryRepository;
     @Mock private MediaRepository mediaRepository;
     @Mock private ReportVerificationRepository verificationRepository;
     @Mock private PublicSseService publicSseService;
@@ -44,7 +44,6 @@ class ReportServiceTest {
     private ReportService reportService;
 
     private RegisteredUser testUser;
-    private ReportCategory testCategory;
     private Report testReport;
     private CreateReportRequest testRequest;
 
@@ -54,20 +53,19 @@ class ReportServiceTest {
         testUser.setId(1L);
         testUser.setEmail("owner@test.com");
 
-        testCategory = new ReportCategory();
-        ReflectionTestUtils.setField(testCategory, "id", 6L);
-        testCategory.setName("Too Steep");
-        testCategory.setType(ReportType.OBSTACLE);
-
-        testReport = new Report(testUser, new Location(41.0, 29.0), "Broken ramp", testCategory, ReportEnvironment.OUTDOOR);
+        testReport = new Report(testUser, new Location(41.0, 29.0), "Broken ramp",
+                ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
 
         testRequest = new CreateReportRequest();
         testRequest.setUserId(1L);
         testRequest.setLatitude(41.0);
         testRequest.setLongitude(29.0);
         testRequest.setDescription("Broken ramp");
-        testRequest.setCategoryId(6L);
+        testRequest.setReportType(ReportType.OBSTACLE);
         testRequest.setEnvironment(ReportEnvironment.OUTDOOR);
+        testRequest.setObjects(List.of(
+                new ReportObjectRequest(ObjectType.RAMP, List.of(IssueType.TOO_STEEP), null)
+        ));
     }
 
     @Test
@@ -93,7 +91,6 @@ class ReportServiceTest {
 
         assertEquals(1, result.size());
         assertEquals(VoteType.AGREE, result.get(0).getUserVote());
-        // Verify batch query is used exactly once (no N+1)
         verify(verificationRepository).findVotesByUserIdAndReportIds(eq(1L), any());
     }
 
@@ -119,8 +116,6 @@ class ReportServiceTest {
     @Test
     void create_validRequest_returnsCreatedReport() {
         when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(categoryRepository.findById(6L)).thenReturn(Optional.of(testCategory));
-        when(categoryRepository.existsByParentId(6L)).thenReturn(false);
         when(reportRepository.save(any(Report.class))).thenReturn(testReport);
 
         ReportResponse result = reportService.create(testRequest);
@@ -128,8 +123,8 @@ class ReportServiceTest {
         assertNotNull(result);
         assertEquals("Broken ramp", result.getDescription());
         assertEquals(ReportStatus.PENDING, result.getStatus());
-        assertEquals(6L, result.getCategoryId());
-        verify(reportRepository).save(any(Report.class));
+        assertEquals(ReportType.OBSTACLE, result.getReportType());
+        verify(reportRepository, atLeastOnce()).save(any(Report.class));
         verify(publicSseService).broadcastReportCreated(testReport);
     }
 
@@ -146,10 +141,12 @@ class ReportServiceTest {
     }
 
     @Test
-    void create_nonLeafCategory_throws400() {
+    void create_invalidIssueForObjectType_throws400() {
         when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(categoryRepository.findById(6L)).thenReturn(Optional.of(testCategory));
-        when(categoryRepository.existsByParentId(6L)).thenReturn(true); // has children → not leaf
+        // OUT_OF_SERVICE is only valid for ELEVATOR, not RAMP
+        testRequest.setObjects(List.of(
+                new ReportObjectRequest(ObjectType.RAMP, List.of(IssueType.OUT_OF_SERVICE), null)
+        ));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> reportService.create(testRequest));
@@ -265,7 +262,7 @@ class ReportServiceTest {
 
     @Test
     void verifyReport_reachesThreshold_changesStatusToVerified() {
-        ReflectionTestUtils.setField(testReport, "agrees", 4); // 4 agrees + 1 new agree = 5 (Threshold)
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
         testUser.setEmail("user@test.com");
 
@@ -284,7 +281,7 @@ class ReportServiceTest {
 
     @Test
     void verifyReport_belowThreshold_statusRemainsPending() {
-        ReflectionTestUtils.setField(testReport, "agrees", 1); // 1 agree + 1 new agree = 2 (Below threshold)
+        ReflectionTestUtils.setField(testReport, "agrees", 1);
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
         testUser.setEmail("user@test.com");
 

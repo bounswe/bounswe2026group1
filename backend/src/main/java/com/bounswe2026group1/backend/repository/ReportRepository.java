@@ -31,9 +31,8 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     @Query("""
             SELECT r FROM Report r
-            JOIN FETCH r.category c
             WHERE r.status IN :statuses
-            AND c.type = :type
+            AND r.reportType = :type
             """)
     List<Report> findByTypeAndStatusIn(
             @Param("type") ReportType type,
@@ -41,9 +40,8 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     @Query("""
             SELECT r FROM Report r
-            JOIN FETCH r.category c
             WHERE r.status IN :statuses
-            AND c.type = :type
+            AND r.reportType = :type
             AND r.location.latitude  BETWEEN :minLat AND :maxLat
             AND r.location.longitude BETWEEN :minLon AND :maxLon
             """)

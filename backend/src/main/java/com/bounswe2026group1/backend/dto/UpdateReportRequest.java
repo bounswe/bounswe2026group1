@@ -12,10 +12,9 @@ import java.util.List;
 @AllArgsConstructor
 public class UpdateReportRequest {
     private String description;
-    private Long categoryId;
     private ReportEnvironment environment;
     private Double latitude;
     private Double longitude;
-    private String measurements;
+    private List<ReportObjectRequest> objects;
     private List<Long> mediaIdsToRemove;
 }

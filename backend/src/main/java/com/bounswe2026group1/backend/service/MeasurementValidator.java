@@ -26,16 +26,17 @@ public class MeasurementValidator {
         }
 
         try {
-            Map<String, Number> measurements = MAPPER.readValue(
+            Map<String, Object> measurements = MAPPER.readValue(
                     measurementsJson, new TypeReference<>() {});
             Map<String, Map<String, Double>> schema = MAPPER.readValue(
                     schemaJson, new TypeReference<>() {});
 
             List<MeasurementWarning> warnings = new ArrayList<>();
 
-            for (Map.Entry<String, Number> entry : measurements.entrySet()) {
+            for (Map.Entry<String, Object> entry : measurements.entrySet()) {
                 String field = entry.getKey();
-                double value = entry.getValue().doubleValue();
+                if (!(entry.getValue() instanceof Number)) continue;
+                double value = ((Number) entry.getValue()).doubleValue();
                 Map<String, Double> fieldSchema = schema.get(field);
 
                 if (fieldSchema == null) continue;

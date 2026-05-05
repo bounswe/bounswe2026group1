@@ -4,7 +4,6 @@ import com.bounswe2026group1.backend.dto.routing.RouteRequest;
 import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
-import com.bounswe2026group1.backend.repository.ReportCategoryRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,14 +52,9 @@ class RouteServiceLiveOrsIntegrationTest {
     private ReportRepository reportRepository;
 
     @Autowired
-    private ReportCategoryRepository categoryRepository;
-
-    @Autowired
     private RegisteredUserRepository registeredUserRepository;
 
     private RegisteredUser testUser;
-    private ReportCategory obstacleCategory;
-    private ReportCategory rampCategory;
 
     @BeforeEach
     void cleanStateAndPrepareUser() {
@@ -72,17 +66,6 @@ class RouteServiceLiveOrsIntegrationTest {
         testUser.setPassword("StrongP@ss1");
         testUser.setRole("USER");
         testUser = registeredUserRepository.save(testUser);
-
-        obstacleCategory = new ReportCategory();
-        obstacleCategory.setName("Test Obstacle");
-        obstacleCategory.setType(ReportType.OBSTACLE);
-        obstacleCategory = categoryRepository.save(obstacleCategory);
-
-        rampCategory = new ReportCategory();
-        rampCategory.setName("Test Ramp");
-        rampCategory.setType(ReportType.FEATURE);
-        rampCategory.setAffectedProfiles("[\"WHEELCHAIR\"]");
-        rampCategory = categoryRepository.save(rampCategory);
     }
 
     @Test
@@ -106,8 +89,9 @@ class RouteServiceLiveOrsIntegrationTest {
                 testUser,
                 new Location(NEGATIVE_LAT, NEGATIVE_LON),
                 "Test negative obstacle near path",
-                obstacleCategory,
+                ReportType.OBSTACLE,
                 ReportEnvironment.OUTDOOR);
+        negativeReport.setStatus(ReportStatus.VERIFIED);
         reportRepository.save(negativeReport);
 
         List<RouteResponse> negativeRoutes = routeService.getRouteOptions(request);
@@ -128,8 +112,9 @@ class RouteServiceLiveOrsIntegrationTest {
                 testUser,
                 new Location(RAMP_LAT, RAMP_LON),
                 "Test ramp near path",
-                rampCategory,
+                ReportType.FEATURE,
                 ReportEnvironment.OUTDOOR);
+        rampReport.setStatus(ReportStatus.VERIFIED);
         rampReport.setEntryPoint(new Location(41.085700, 29.044550));
         rampReport.setExitPoint(new Location(41.085650, 29.044500));
         reportRepository.save(rampReport);

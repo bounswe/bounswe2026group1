@@ -67,7 +67,8 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
                                 "/api/comments", "/api/comments/**",
-                                "/api/categories", "/api/categories/**"
+                                "/api/categories", "/api/categories/**",
+                                "/api/object-types", "/api/object-types/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

@@ -1,9 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
-import com.bounswe2026group1.backend.dto.CreateReportRequest;
-import com.bounswe2026group1.backend.dto.MeasurementWarning;
-import com.bounswe2026group1.backend.dto.ReportResponse;
-import com.bounswe2026group1.backend.dto.UpdateReportRequest;
+import com.bounswe2026group1.backend.dto.*;
 import com.bounswe2026group1.backend.exception.RoutingException;
 import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.repository.*;
@@ -31,7 +28,6 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final RegisteredUserRepository registeredUserRepository;
-    private final ReportCategoryRepository categoryRepository;
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
     private final PublicSseService publicSseService;
@@ -49,8 +45,8 @@ public class ReportService {
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
         return reports.stream()
                 .map(r -> {
-                    List<MeasurementWarning> warnings = computeWarnings(r);
-                    return ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), warnings);
+                    List<ReportObjectResponse> objectResponses = buildObjectResponses(r);
+                    return ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), objectResponses);
                 })
                 .toList();
     }
@@ -58,12 +54,12 @@ public class ReportService {
     public Optional<ReportResponse> getById(Long id, String email) {
         Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId()), computeWarnings(r)));
+                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId()), buildObjectResponses(r)));
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
         return reportRepository.findByCreatedById(userId).stream()
-                .map(r -> ReportResponse.fromEntity(r, null, computeWarnings(r)))
+                .map(r -> ReportResponse.fromEntity(r, null, buildObjectResponses(r)))
                 .toList();
     }
 
@@ -73,23 +69,26 @@ public class ReportService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "User not found with id: " + request.getUserId()));
 
-        ReportCategory category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Category not found with id: " + request.getCategoryId()));
-
-        if (categoryRepository.existsByParentId(category.getId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Only leaf categories can be assigned to a report");
+        if (request.getReportType() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportType is required");
         }
 
         Location location = new Location(request.getLatitude(), request.getLongitude());
-        Report report = new Report(user, location, request.getDescription(), category, request.getEnvironment());
+        Report report = new Report(user, location, request.getDescription(),
+                request.getReportType(), request.getEnvironment());
 
-        if (category.isRoutingRelevant() && category.getSnapType() != null) {
+        List<ReportObjectRequest> objectRequests = request.getObjects() != null
+                ? request.getObjects() : List.of();
+
+        for (ReportObjectRequest objReq : objectRequests) {
+            validateIssues(objReq);
+        }
+
+        // FEATURE reports: snap to nearest stair using the first object's type
+        if (request.getReportType() == ReportType.FEATURE && !objectRequests.isEmpty()
+                && objectRequests.get(0).getObjectType() == ObjectType.RAMP) {
             try {
-                Location[] endpoints = switch (category.getSnapType()) {
-                    case STAIR -> overpassService.snapToNearestStair(location);
-                };
+                Location[] endpoints = overpassService.snapToNearestStair(location);
                 report.setEntryPoint(endpoints[0]);
                 report.setExitPoint(endpoints[1]);
             } catch (RoutingException e) {
@@ -100,16 +99,20 @@ public class ReportService {
             }
         }
 
-        List<MeasurementWarning> warnings = List.of();
-        if (request.getMeasurements() != null) {
-            warnings = measurementValidator.validate(request.getMeasurements(), category.getMeasurementSchema());
-            report.setMeasurements(request.getMeasurements());
+        Report saved = reportRepository.save(report);
+
+        for (ReportObjectRequest objReq : objectRequests) {
+            Set<IssueType> issues = objReq.getIssues() != null
+                    ? new HashSet<>(objReq.getIssues()) : new HashSet<>();
+            ReportObject obj = new ReportObject(saved, objReq.getObjectType(), issues, objReq.getMeasurements());
+            saved.getObjects().add(obj);
         }
 
-        Report saved = reportRepository.save(report);
-        broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(saved));
+        saved = reportRepository.save(saved);
+        Report finalSaved = saved;
+        broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(finalSaved));
 
-        return ReportResponse.fromEntity(saved, null, warnings);
+        return ReportResponse.fromEntity(saved, null, buildObjectResponses(saved));
     }
 
     @Transactional
@@ -128,18 +131,6 @@ public class ReportService {
             report.setDescription(request.getDescription());
         }
 
-        if (request.getCategoryId() != null && !request.getCategoryId().equals(report.getCategory().getId())) {
-            ReportCategory newCategory = categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Category not found with id: " + request.getCategoryId()));
-            if (categoryRepository.existsByParentId(newCategory.getId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Only leaf categories can be assigned to a report");
-            }
-            diff.put("categoryId", new Object[]{report.getCategory().getId(), request.getCategoryId()});
-            report.setCategory(newCategory);
-        }
-
         if (request.getEnvironment() != null && request.getEnvironment() != report.getEnvironment()) {
             diff.put("environment", new Object[]{report.getEnvironment(), request.getEnvironment()});
             report.setEnvironment(request.getEnvironment());
@@ -154,11 +145,17 @@ public class ReportService {
             report.getLocation().setLongitude(request.getLongitude());
         }
 
-        List<MeasurementWarning> warnings = List.of();
-        if (request.getMeasurements() != null) {
-            warnings = measurementValidator.validate(request.getMeasurements(), report.getCategory().getMeasurementSchema());
-            diff.put("measurements", new Object[]{report.getMeasurements(), request.getMeasurements()});
-            report.setMeasurements(request.getMeasurements());
+        if (request.getObjects() != null) {
+            for (ReportObjectRequest objReq : request.getObjects()) {
+                validateIssues(objReq);
+            }
+            diff.put("objects", new Object[]{"<previous>", "<updated>"});
+            report.getObjects().clear();
+            for (ReportObjectRequest objReq : request.getObjects()) {
+                Set<IssueType> issues = objReq.getIssues() != null
+                        ? new HashSet<>(objReq.getIssues()) : new HashSet<>();
+                report.getObjects().add(new ReportObject(report, objReq.getObjectType(), issues, objReq.getMeasurements()));
+            }
         }
 
         if (request.getMediaIdsToRemove() != null && !request.getMediaIdsToRemove().isEmpty()) {
@@ -177,7 +174,7 @@ public class ReportService {
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "update"));
 
-        return ReportResponse.fromEntity(saved, resolveUserVote(editor.getId(), saved.getReportId()), warnings);
+        return ReportResponse.fromEntity(saved, resolveUserVote(editor.getId(), saved.getReportId()), buildObjectResponses(saved));
     }
 
     @Transactional
@@ -209,18 +206,15 @@ public class ReportService {
 
         if (existing.isPresent()) {
             if (existing.get().getVoteType() == VoteType.AGREE) {
-                // Toggle off: remove the vote
                 report.decrementAgrees();
                 verificationRepository.delete(existing.get());
             } else {
-                // Switch from DISAGREE to AGREE
                 report.decrementDisagrees();
                 report.incrementAgrees();
                 existing.get().setVoteType(VoteType.AGREE);
                 verificationRepository.save(existing.get());
             }
         } else {
-            // First vote
             report.incrementAgrees();
             verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
         }
@@ -253,18 +247,15 @@ public class ReportService {
 
         if (existing.isPresent()) {
             if (existing.get().getVoteType() == VoteType.DISAGREE) {
-                // Toggle off: remove the vote
                 report.decrementDisagrees();
                 verificationRepository.delete(existing.get());
             } else {
-                // Switch from AGREE to DISAGREE
                 report.decrementAgrees();
                 report.incrementDisagrees();
                 existing.get().setVoteType(VoteType.DISAGREE);
                 verificationRepository.save(existing.get());
             }
         } else {
-            // First vote
             report.incrementDisagrees();
             verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
         }
@@ -297,9 +288,31 @@ public class ReportService {
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private List<MeasurementWarning> computeWarnings(Report report) {
-        if (report.getMeasurements() == null || report.getCategory() == null) return List.of();
-        return measurementValidator.validate(report.getMeasurements(), report.getCategory().getMeasurementSchema());
+    private void validateIssues(ReportObjectRequest objReq) {
+        if (objReq.getObjectType() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "objectType is required for each object");
+        }
+        if (objReq.getIssues() != null) {
+            for (IssueType issue : objReq.getIssues()) {
+                if (!issue.isValidFor(objReq.getObjectType())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Issue " + issue + " is not valid for object type " + objReq.getObjectType());
+                }
+            }
+        }
+    }
+
+    private List<ReportObjectResponse> buildObjectResponses(Report report) {
+        return report.getObjects().stream()
+                .map(obj -> {
+                    List<MeasurementWarning> warnings = List.of();
+                    String schemaJson = MeasurementSchemas.getSchemaJson(obj.getObjectType());
+                    if (obj.getMeasurements() != null && schemaJson != null) {
+                        warnings = measurementValidator.validate(obj.getMeasurements(), schemaJson);
+                    }
+                    return ReportObjectResponse.fromEntity(obj, warnings);
+                })
+                .toList();
     }
 
     private void appendEditHistory(Report report, Long editorId, Map<String, Object[]> diff) {

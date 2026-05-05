@@ -36,10 +36,7 @@ class PublicSseServiceTest {
         ReflectionTestUtils.invokeMethod(service, "initPermitPool");
         service.addEmitterForTest(new FailingEmitter());
 
-        ReportCategory category = new ReportCategory();
-        category.setName("Test");
-        category.setType(ReportType.OBSTACLE);
-        Report report = new Report(new RegisteredUser(), new Location(41.0, 29.0), "desc", category, ReportEnvironment.OUTDOOR);
+        Report report = new Report(new RegisteredUser(), new Location(41.0, 29.0), "desc", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
         service.broadcastReportUpdated(report, "verify");
 
         assertEquals(0, service.activeEmitterCount());
