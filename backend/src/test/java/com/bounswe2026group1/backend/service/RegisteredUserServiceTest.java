@@ -464,8 +464,8 @@ class RegisteredUserServiceTest {
         assertEquals(1L, result.getContent().get(0).getId());
         assertEquals("Ada Lovelace", result.getContent().get(0).getName());
         assertEquals("https://cdn/ada.jpg", result.getContent().get(0).getAvatarUrl());
-        assertEquals(7L, result.getContent().get(0).getContributionCount());
-        assertEquals(3L, result.getContent().get(1).getContributionCount());
+        assertEquals(7L, result.getContent().get(0).getReportCount());
+        assertEquals(3L, result.getContent().get(1).getReportCount());
     }
 
     @Test

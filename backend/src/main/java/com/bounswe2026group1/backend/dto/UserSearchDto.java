@@ -12,7 +12,7 @@ public class UserSearchDto {
     private Long id;
     private String name;
     private String avatarUrl;
-    private long contributionCount;
+    private long reportCount;
 
     public static UserSearchDto fromEntity(RegisteredUser user, long contributionCount) {
         return new UserSearchDto(

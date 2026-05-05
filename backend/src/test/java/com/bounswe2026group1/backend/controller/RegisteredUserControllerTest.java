@@ -327,7 +327,7 @@ class RegisteredUserControllerTest {
                 .andExpect(jsonPath("$.content[0].id").value(1))
                 .andExpect(jsonPath("$.content[0].name").value("Ada Lovelace"))
                 .andExpect(jsonPath("$.content[0].avatarUrl").value("https://cdn/ada.jpg"))
-                .andExpect(jsonPath("$.content[0].contributionCount").value(7))
+                .andExpect(jsonPath("$.content[0].reportCount").value(7))
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.totalPages").value(1));
     }
