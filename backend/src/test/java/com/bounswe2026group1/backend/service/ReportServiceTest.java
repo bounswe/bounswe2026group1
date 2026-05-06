@@ -5,6 +5,7 @@ import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.*;
 import com.bounswe2026group1.backend.repository.*;
+import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,7 +60,7 @@ class ReportServiceTest {
         testCategory.setName("Too Steep");
         testCategory.setType(ReportType.OBSTACLE);
 
-        testReport = new Report(testUser, new Location(41.0, 29.0), "Broken ramp", testCategory, ReportEnvironment.OUTDOOR);
+        testReport = new Report(testUser, GeoUtils.point4326(41.0, 29.0), "Broken ramp", testCategory, ReportEnvironment.OUTDOOR);
 
         testRequest = new CreateReportRequest();
         testRequest.setUserId(1L);
@@ -83,7 +84,7 @@ class ReportServiceTest {
 
     @Test
     void getAll_includesRejectedReports() {
-        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", testCategory, ReportEnvironment.OUTDOOR);
+        Report rejected = new Report(testUser, GeoUtils.point4326(41.1, 29.1), "Bogus", testCategory, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(rejected, "status", ReportStatus.REJECTED);
         when(reportRepository.findAll()).thenReturn(List.of(testReport, rejected));
 
@@ -545,7 +546,7 @@ class ReportServiceTest {
 
     @Test
     void getByUserId_includesRejected() {
-        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", testCategory, ReportEnvironment.OUTDOOR);
+        Report rejected = new Report(testUser, GeoUtils.point4326(41.1, 29.1), "Bogus", testCategory, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(rejected, "status", ReportStatus.REJECTED);
 
         when(reportRepository.findByCreatedById(1L)).thenReturn(List.of(testReport, rejected));

@@ -16,6 +16,7 @@ import com.bounswe2026group1.backend.repository.NotificationRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportSubscriptionRepository;
 import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
+import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,7 +78,7 @@ class NotificationServiceTest {
         category.setName("Missing Ramp");
         category.setType(ReportType.OBSTACLE);
 
-        report = new Report(author, new Location(41.0, 29.0), "Broken ramp", category, ReportEnvironment.OUTDOOR);
+        report = new Report(author, GeoUtils.point4326(41.0, 29.0), "Broken ramp", category, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(report, "reportId", 100L);
     }
 

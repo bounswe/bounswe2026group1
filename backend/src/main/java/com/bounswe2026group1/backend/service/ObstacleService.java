@@ -5,6 +5,7 @@ import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.repository.ReportRepository;
+import org.locationtech.jts.geom.Point;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -50,11 +51,11 @@ public class ObstacleService {
 
         ArrayNode multiPolygonCoordinates = objectMapper.createArrayNode();
         for (Report report : obstacles) {
-            Location loc = report.getLocation();
-            if (loc == null)
+            Point p = report.getLocation();
+            if (p == null)
                 continue;
             ArrayNode polygon = objectMapper.createArrayNode();
-            polygon.add(squareRingAround(loc.getLongitude(), loc.getLatitude()));
+            polygon.add(squareRingAround(p.getX(), p.getY()));
             multiPolygonCoordinates.add(polygon);
         }
 
@@ -161,6 +162,10 @@ public class ObstacleService {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    private boolean isWithinPathBuffer(Point point, List<Location> path) {
+        return isWithinPathBuffer(new Location(point.getY(), point.getX()), path);
+    }
 
     private boolean isWithinPathBuffer(Location point, List<Location> path) {
         for (int i = 0; i < path.size() - 1; i++) {

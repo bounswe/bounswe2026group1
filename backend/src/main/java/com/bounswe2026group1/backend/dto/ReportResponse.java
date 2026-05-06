@@ -48,8 +48,10 @@ public class ReportResponse {
         ReportResponse r = new ReportResponse();
         r.setReportId(report.getReportId());
         r.setUserId(report.getCreatedBy().getId());
-        r.setLatitude(report.getLocation().getLatitude());
-        r.setLongitude(report.getLocation().getLongitude());
+        if (report.getLocation() != null) {
+            r.setLatitude(report.getLocation().getY());
+            r.setLongitude(report.getLocation().getX());
+        }
         r.setDescription(report.getDescription());
 
         ReportCategory category = report.getCategory();

@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.*;
+import com.bounswe2026group1.backend.util.GeoUtils;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -39,7 +40,7 @@ class PublicSseServiceTest {
         ReportCategory category = new ReportCategory();
         category.setName("Test");
         category.setType(ReportType.OBSTACLE);
-        Report report = new Report(new RegisteredUser(), new Location(41.0, 29.0), "desc", category, ReportEnvironment.OUTDOOR);
+        Report report = new Report(new RegisteredUser(), GeoUtils.point4326(41.0, 29.0), "desc", category, ReportEnvironment.OUTDOOR);
         service.broadcastReportUpdated(report, "verify");
 
         assertEquals(0, service.activeEmitterCount());
