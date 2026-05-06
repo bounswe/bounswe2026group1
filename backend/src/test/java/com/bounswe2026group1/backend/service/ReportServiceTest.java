@@ -80,6 +80,18 @@ class ReportServiceTest {
     }
 
     @Test
+    void getAll_includesRejectedReports() {
+        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
+        ReflectionTestUtils.setField(rejected, "status", ReportStatus.REJECTED);
+        when(reportRepository.findAll()).thenReturn(List.of(testReport, rejected));
+
+        List<ReportResponse> result = reportService.getAll(null);
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(r -> r.getStatus() == ReportStatus.REJECTED));
+    }
+
+    @Test
     void getAll_withAuthenticatedUser_returnsUserVote() {
         testUser.setEmail("user@test.com");
         when(reportRepository.findAll()).thenReturn(List.of(testReport));
@@ -318,6 +330,8 @@ class ReportServiceTest {
     @Test
     void unverifyReport_incrementsDisagrees() {
         ReflectionTestUtils.setField(testReport, "disagrees", 0);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
         testUser.setEmail("user@test.com");
 
         when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
@@ -330,7 +344,7 @@ class ReportServiceTest {
         assertEquals(1, testReport.getDisagrees());
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
         verify(reportRepository).save(testReport);
-        verify(publicSseService).broadcastReportUpdated(testReport, "unverify");
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
@@ -345,10 +359,14 @@ class ReportServiceTest {
     }
 
     @Test
-    void unverifyReport_revertsVerifiedStatusToPending() {
-        ReflectionTestUtils.setField(testReport, "agrees", 4);
+    void unverifyReport_verifiedDropsBelowRatio_revertsToPending() {
+        // Pre-state: VERIFIED report with agrees=5, disagrees=4. New disagree -> 5/10 = 0.5 < 0.6
+        // and disagrees=5 satisfies the count threshold (req 1.2.3.8) -> revert to PENDING.
+        ReflectionTestUtils.setField(testReport, "agrees", 5);
+        ReflectionTestUtils.setField(testReport, "disagrees", 4);
         ReflectionTestUtils.setField(testReport, "status", ReportStatus.VERIFIED);
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
         testUser.setEmail("user@test.com");
 
         when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
@@ -359,6 +377,7 @@ class ReportServiceTest {
         reportService.unverifyReport(1L, "user@test.com");
 
         assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
     }
 
     @Test
@@ -380,4 +399,158 @@ class ReportServiceTest {
         assertThrows(NoSuchElementException.class, () -> reportService.unverifyReport(99L, "user@test.com"));
         verify(reportRepository, never()).save(any());
     }
+
+    // ---------------- Ratio-based status transitions (req 1.2.3.7-9) ----------------
+
+    @Test
+    void verifyReport_meetsCountButBelowRatio_staysPending() {
+        // agrees=4 + 1 new = 5 vs disagrees=4 -> 5/9 = 0.555 < 0.60 -> stays PENDING
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
+        ReflectionTestUtils.setField(testReport, "disagrees", 4);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
+    }
+
+    @Test
+    void verifyReport_meetsCountAndRatio_becomesVerified() {
+        // agrees=4 + 1 new = 5 vs disagrees=2 -> 5/7 = 0.714 >= 0.60 -> VERIFIED
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
+        ReflectionTestUtils.setField(testReport, "disagrees", 2);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.VERIFIED, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "verify");
+    }
+
+    @Test
+    void unverifyReport_disagreesReachThresholdAndRatio_becomesRejected() {
+        // disagrees=4 + 1 new = 5 vs agrees=2 -> 5/7 = 0.714 >= 0.60 -> REJECTED
+        ReflectionTestUtils.setField(testReport, "agrees", 2);
+        ReflectionTestUtils.setField(testReport, "disagrees", 4);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.unverifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.REJECTED, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "reject");
+    }
+
+    @Test
+    void unverifyReport_disagreesAboveCountButBelowRatio_staysPending() {
+        // disagrees=4 + 1 new = 5 vs agrees=4 -> 5/9 = 0.555 < 0.60 -> stays PENDING
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
+        ReflectionTestUtils.setField(testReport, "disagrees", 4);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.unverifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
+    }
+
+    @Test
+    void verifyReport_rejectedRecoversToPending() {
+        // Pre REJECTED, disagrees=5, agrees=4 + 1 new = 5 -> 0.5/0.5 -> neither flip cond holds,
+        // REJECTED-revert branch: agrees>=5 AND disagreeRatio<0.60 -> PENDING
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
+        ReflectionTestUtils.setField(testReport, "disagrees", 5);
+        ReflectionTestUtils.setField(testReport, "status", ReportStatus.REJECTED);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
+    }
+
+    @Test
+    void verifyReport_rejectedRecoversDirectlyToVerified() {
+        // Pre REJECTED, disagrees=5, agrees=7 + 1 new = 8 -> 8/13 = 0.615 >= 0.60 -> VERIFIED
+        ReflectionTestUtils.setField(testReport, "agrees", 7);
+        ReflectionTestUtils.setField(testReport, "disagrees", 5);
+        ReflectionTestUtils.setField(testReport, "status", ReportStatus.REJECTED);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        assertEquals(ReportStatus.VERIFIED, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "verify");
+    }
+
+    // ---------------- REJECTED visibility ----------------
+    // Backend exposes REJECTED reports to all callers; frontend decides
+    // how to render them (e.g., hide pin from public map). See req 1.2.3.9.
+
+    @Test
+    void getById_rejected_returnsToAnyone() {
+        ReflectionTestUtils.setField(testReport, "status", ReportStatus.REJECTED);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+
+        Optional<ReportResponse> result = reportService.getById(1L, null);
+
+        assertTrue(result.isPresent());
+        assertEquals(ReportStatus.REJECTED, result.get().getStatus());
+    }
+
+    @Test
+    void getByUserId_includesRejected() {
+        Report rejected = new Report(testUser, new Location(41.1, 29.1), "Bogus", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
+        ReflectionTestUtils.setField(rejected, "status", ReportStatus.REJECTED);
+
+        when(reportRepository.findByCreatedById(1L)).thenReturn(List.of(testReport, rejected));
+
+        List<ReportResponse> result = reportService.getByUserId(1L);
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(r -> r.getStatus() == ReportStatus.REJECTED));
+    }
+
 }
