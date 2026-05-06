@@ -6,21 +6,26 @@ import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.dto.UserSearchDto;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -154,6 +159,22 @@ public class RegisteredUserService {
 
         RegisteredUser saved = registeredUserRepository.save(user);
         return toProfileDTO(saved, true);
+    }
+
+    // ───── Search (issue #310) ──────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public Page<UserSearchDto> searchUsers(String q, Pageable pageable) {
+        String trimmed = q == null ? "" : q.trim();
+        String escaped = trimmed.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        Page<RegisteredUser> page = registeredUserRepository.searchByName(escaped, pageable);
+        if (page.isEmpty()) {
+            return page.map(u -> UserSearchDto.fromEntity(u, 0L));
+        }
+        List<Long> ids = page.getContent().stream().map(RegisteredUser::getId).toList();
+        Map<Long, Long> reportCounts = reportRepository.countByCreatedByIdIn(ids).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+        return page.map(u -> UserSearchDto.fromEntity(u, reportCounts.getOrDefault(u.getId(), 0L)));
     }
 
     public UserProfileDTO setAvatar(Long id, String avatarUrl) {
