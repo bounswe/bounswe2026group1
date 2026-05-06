@@ -4,6 +4,7 @@ import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Route;
 import com.bounswe2026group1.backend.model.TravelMode;
+import com.bounswe2026group1.backend.model.UserRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -105,7 +106,7 @@ class RouteRepositoryTest {
         u.setName("Test");
         u.setEmail(email);
         u.setPassword("hashedPassword");
-        u.setRole("USER");
+        u.setRole(UserRole.USER);
         return registeredUserRepository.save(u);
     }
 

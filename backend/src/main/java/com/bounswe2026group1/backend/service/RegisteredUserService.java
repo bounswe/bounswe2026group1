@@ -182,7 +182,7 @@ public class RegisteredUserService {
                 .email(includeEmail ? user.getEmail() : null)
                 .bio(user.getBio())
                 .avatarUrl(user.getAvatarUrl())
-                .role(user.getRole())
+                .role(user.getRole().name())
                 .contributionStats(UserProfileDTO.ContributionStatsDTO.builder()
                         .reportsSubmitted(reports)
                         .routesPlanned(routes)

@@ -3,6 +3,7 @@ package com.bounswe2026group1.backend.repository;
 import com.bounswe2026group1.backend.model.Notification;
 import com.bounswe2026group1.backend.model.NotificationType;
 import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.model.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,7 +65,7 @@ class NotificationRepositoryTest {
         user.setName(name);
         user.setEmail(email);
         user.setPassword("StrongP@ss1");
-        user.setRole("USER");
+        user.setRole(UserRole.USER);
         return registeredUserRepository.save(user);
     }
 
