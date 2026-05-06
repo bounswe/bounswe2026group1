@@ -7,6 +7,8 @@ import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.model.UserStatus;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
@@ -59,7 +61,8 @@ class RegisteredUserServiceTest {
         mockUser.setName("Test User");
         mockUser.setEmail("test@test.com");
         mockUser.setPassword("hashedPassword");
-        mockUser.setRole("USER");
+        mockUser.setRole(UserRole.USER);
+        mockUser.setStatus(UserStatus.ACTIVE);
         mockUser.setBio("hello");
         mockUser.setAvatarUrl("https://cdn/old.jpg");
 
@@ -121,7 +124,7 @@ class RegisteredUserServiceTest {
     void loginUser_Success() {
         when(registeredUserRepository.findByEmail(validLoginRequest.getEmail())).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(validLoginRequest.getPassword(), mockUser.getPassword())).thenReturn(true);
-        when(jwtUtil.generateToken(mockUser.getId(), mockUser.getEmail(), mockUser.getRole())).thenReturn("mockJwtToken");
+        when(jwtUtil.generateToken(mockUser.getId(), mockUser.getEmail(), mockUser.getRole().name())).thenReturn("mockJwtToken");
         when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
         when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
 
@@ -160,7 +163,7 @@ class RegisteredUserServiceTest {
         other.setId(2L);
         other.setName("Other");
         other.setEmail("other@test.com");
-        other.setRole("USER");
+        other.setRole(UserRole.USER);
 
         when(registeredUserRepository.findAll()).thenReturn(List.of(mockUser, other));
         // mockUser=1L has 3 reports & 2 routes; user 2L has zero of either (absent rows)
@@ -349,7 +352,7 @@ class RegisteredUserServiceTest {
         persisted.setName("Persisted-Name");
         persisted.setEmail("test@test.com");
         persisted.setBio("persisted-bio");
-        persisted.setRole("USER");
+        persisted.setRole(UserRole.USER);
 
         when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
         when(registeredUserRepository.save(any(RegisteredUser.class))).thenReturn(persisted);

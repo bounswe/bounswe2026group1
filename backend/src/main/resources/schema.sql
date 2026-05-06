@@ -4,3 +4,7 @@
 -- Hibernate creates TIMESTAMPTZ columns directly from Instant entity
 -- fields, so no real migration runs here.
 SELECT 1;
+
+-- One-time backfill for rows that predate the status/points columns
+UPDATE registered_users SET status = 'ACTIVE' WHERE status IS NULL;
+UPDATE registered_users SET points = 0        WHERE points IS NULL;

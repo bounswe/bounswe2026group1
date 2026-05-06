@@ -230,7 +230,7 @@ class ReportServiceTest {
                 () -> reportService.delete(99L, "owner@test.com"));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
-        verify(reportRepository, never()).delete(any());
+        verify(reportRepository, never()).delete(any(Report.class));
     }
 
     @Test
@@ -246,7 +246,7 @@ class ReportServiceTest {
                 () -> reportService.delete(1L, "other@test.com"));
 
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
-        verify(reportRepository, never()).delete(any());
+        verify(reportRepository, never()).delete(any(Report.class));
     }
 
     @Test

@@ -3,10 +3,10 @@
 -- BCrypt hash: $2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.
 
 -- Users: ON CONFLICT works because email has a unique constraint
-INSERT INTO registered_users (name, email, password, role) VALUES
-    ('Ahmet Çetin','admin@test.com',        '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'ADMIN'),
-    ('Ceren Yüksel', 'uskudarli@gmail.com',   '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'USER'),
-    ('Yılmaz Korkmaz',       'user@test.com',         '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'USER')
+INSERT INTO registered_users (name, email, password, role, status, points) VALUES
+    ('Ahmet Çetin',    'admin@test.com',      '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'ADMIN', 'ACTIVE', 0),
+    ('Ceren Yüksel',   'uskudarli@gmail.com', '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'USER',  'ACTIVE', 0),
+    ('Yılmaz Korkmaz', 'user@test.com',       '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'USER',  'ACTIVE', 0)
 ON CONFLICT DO NOTHING;
 
 -- Categories: insert with explicit IDs for self-referencing foreign keys

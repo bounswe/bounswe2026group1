@@ -7,6 +7,7 @@ import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private JwtUtil jwtUtil;
+
+    @MockitoBean
+    private RegisteredUserRepository registeredUserRepository;
 
     @Value("${app.api.key}")
     private String validApiKey;
