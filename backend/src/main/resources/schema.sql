@@ -20,3 +20,7 @@ CREATE TABLE IF NOT EXISTS report_object_issues (
     issue_type VARCHAR(255) NOT NULL,
     PRIMARY KEY (report_object_id, issue_type)
 );
+
+-- One-time backfill for rows that predate the status/points columns
+UPDATE registered_users SET status = 'ACTIVE' WHERE status IS NULL;
+UPDATE registered_users SET points = 0        WHERE points IS NULL;

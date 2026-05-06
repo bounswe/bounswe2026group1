@@ -1,5 +1,9 @@
 package com.bounswe2026group1.backend.config;
 
+import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.model.UserStatus;
+import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
@@ -11,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,17 +38,29 @@ class JwtAuthFilterTest {
     @Mock
     private JwtUtil jwtUtil;
 
+    @Mock
+    private RegisteredUserRepository registeredUserRepository;
+
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
     }
 
+    private RegisteredUser activeUser(String email) {
+        RegisteredUser u = new RegisteredUser();
+        u.setEmail(email);
+        u.setRole(UserRole.USER);
+        u.setStatus(UserStatus.ACTIVE);
+        return u;
+    }
+
     @Test
     void bearerHeader_authenticatesOnNonSsePath() throws Exception {
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
         when(jwtUtil.validateToken("durable")).thenReturn(true);
         when(jwtUtil.isSsePurpose("durable")).thenReturn(false);
         when(jwtUtil.extractEmail("durable")).thenReturn("alice@example.com");
+        when(registeredUserRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(activeUser("alice@example.com")));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/notifications");
         request.addHeader("Authorization", "Bearer durable");
@@ -60,10 +78,11 @@ class JwtAuthFilterTest {
     void bearerHeader_acceptsDurableJwtOnSsePath() throws Exception {
         // Mobile clients can set Authorization on SSE handshakes; the durable
         // JWT remains valid for them.
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
         when(jwtUtil.validateToken("durable")).thenReturn(true);
         when(jwtUtil.isSsePurpose("durable")).thenReturn(false);
         when(jwtUtil.extractEmail("durable")).thenReturn("alice@example.com");
+        when(registeredUserRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(activeUser("alice@example.com")));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/sse/notifications/subscribe");
         request.addHeader("Authorization", "Bearer durable");
@@ -77,10 +96,11 @@ class JwtAuthFilterTest {
 
     @Test
     void cookieWithSsePurpose_authenticatesOnSsePath() throws Exception {
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
         when(jwtUtil.validateToken("sse-jwt")).thenReturn(true);
         when(jwtUtil.isSsePurpose("sse-jwt")).thenReturn(true);
         when(jwtUtil.extractEmail("sse-jwt")).thenReturn("alice@example.com");
+        when(registeredUserRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(activeUser("alice@example.com")));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/sse/notifications/subscribe");
         request.setCookies(new Cookie("sse_token", "sse-jwt"));
@@ -95,7 +115,7 @@ class JwtAuthFilterTest {
     @Test
     void cookieWithDurableJwt_isRejectedOnSsePath() throws Exception {
         // A durable session JWT pasted into the cookie must not authenticate.
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
         when(jwtUtil.validateToken("durable")).thenReturn(true);
         when(jwtUtil.isSsePurpose("durable")).thenReturn(false);
         lenient().when(jwtUtil.extractEmail("durable")).thenReturn("alice@example.com");
@@ -115,7 +135,7 @@ class JwtAuthFilterTest {
     @Test
     void ssePurposeToken_isRejectedInAuthorizationHeaderOnNonSsePath() throws Exception {
         // A leaked sse-purpose token must not authenticate non-SSE traffic.
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
         when(jwtUtil.validateToken("sse-jwt")).thenReturn(true);
         when(jwtUtil.isSsePurpose("sse-jwt")).thenReturn(true);
         lenient().when(jwtUtil.extractEmail("sse-jwt")).thenReturn("alice@example.com");
@@ -135,7 +155,7 @@ class JwtAuthFilterTest {
     void queryParamToken_isNoLongerHonored() throws Exception {
         // The legacy ?token= path is gone; presenting it should not authenticate
         // even on SSE paths.
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/sse/notifications/subscribe");
         request.setParameter("token", "anything");
@@ -150,7 +170,7 @@ class JwtAuthFilterTest {
 
     @Test
     void noToken_continuesUnauthenticated() throws Exception {
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/notifications");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -164,7 +184,7 @@ class JwtAuthFilterTest {
 
     @Test
     void invalidCookieToken_continuesUnauthenticated() throws Exception {
-        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtUtil, registeredUserRepository);
         when(jwtUtil.validateToken("garbage")).thenReturn(false);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/sse/notifications/subscribe");

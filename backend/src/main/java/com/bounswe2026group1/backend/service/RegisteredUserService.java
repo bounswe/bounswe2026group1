@@ -7,6 +7,7 @@ import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
@@ -53,7 +54,9 @@ public class RegisteredUserService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("USER"); // Default role assignment
+        user.setRole(UserRole.USER);
+        user.setStatus(com.bounswe2026group1.backend.model.UserStatus.ACTIVE);
+        user.setPoints(0);
 
         // 4. Save to Database
         RegisteredUser savedUser = registeredUserRepository.save(user);
@@ -63,7 +66,7 @@ public class RegisteredUserService {
                 savedUser.getId(),
                 savedUser.getName(),
                 savedUser.getEmail(),
-                savedUser.getRole()
+                savedUser.getRole().name()
         );
     }
 
@@ -78,7 +81,7 @@ public class RegisteredUserService {
         }
 
         // 3. Generate JWT token
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name());
 
         // 4. Return token + profile in response
         return new LoginResponse(token, toProfileDTO(user, true));
@@ -179,7 +182,7 @@ public class RegisteredUserService {
                 .email(includeEmail ? user.getEmail() : null)
                 .bio(user.getBio())
                 .avatarUrl(user.getAvatarUrl())
-                .role(user.getRole())
+                .role(user.getRole().name())
                 .contributionStats(UserProfileDTO.ContributionStatsDTO.builder()
                         .reportsSubmitted(reports)
                         .routesPlanned(routes)
