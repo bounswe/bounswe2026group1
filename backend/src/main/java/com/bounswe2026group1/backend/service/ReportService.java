@@ -35,6 +35,7 @@ public class ReportService {
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
     private final PublicSseService publicSseService;
+    private final NotificationService notificationService;
     private final S3MediaService s3MediaService;
     private final MeasurementValidator measurementValidator;
     private final OverpassService overpassService;
@@ -227,11 +228,15 @@ public class ReportService {
             verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
         }
 
+        ReportStatus previousStatus = report.getStatus();
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
+        if (newStatus != previousStatus) {
+            notificationService.notifyStatusChange(saved, user.getId());
+        }
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -262,11 +267,15 @@ public class ReportService {
             verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
         }
 
+        ReportStatus previousStatus = report.getStatus();
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
+        if (newStatus != previousStatus) {
+            notificationService.notifyStatusChange(saved, user.getId());
+        }
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
