@@ -4,6 +4,7 @@ import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,9 +13,10 @@ import java.util.Collection;
 import java.util.List;
 
 @Repository
-public interface ReportRepository extends JpaRepository<Report, Long>, ReportRepositoryCustom {
+public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report>, ReportRepositoryCustom {
 
     List<Report> findByCreatedById(Long userId);
+    long countByStatus(ReportStatus status);
 
     long countByCreatedById(Long userId);
 

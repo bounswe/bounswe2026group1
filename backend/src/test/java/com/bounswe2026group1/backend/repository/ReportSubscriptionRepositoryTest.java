@@ -6,6 +6,7 @@ import com.bounswe2026group1.backend.model.ReportCategory;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportSubscription;
 import com.bounswe2026group1.backend.model.ReportType;
+import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.support.AbstractPostgisIntegrationTest;
 import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,7 +98,7 @@ class ReportSubscriptionRepositoryTest extends AbstractPostgisIntegrationTest {
         user.setName(name);
         user.setEmail(email);
         user.setPassword("StrongP@ss1");
-        user.setRole("USER");
+        user.setRole(UserRole.USER);
         return registeredUserRepository.save(user);
     }
 }

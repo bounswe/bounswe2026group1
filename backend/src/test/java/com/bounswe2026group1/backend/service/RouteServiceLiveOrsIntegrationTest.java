@@ -70,7 +70,7 @@ class RouteServiceLiveOrsIntegrationTest extends AbstractPostgisIntegrationTest 
         testUser.setName("Route Tester");
         testUser.setEmail("route.tester+" + UUID.randomUUID() + "@example.com");
         testUser.setPassword("StrongP@ss1");
-        testUser.setRole("USER");
+        testUser.setRole(UserRole.USER);
         testUser = registeredUserRepository.save(testUser);
 
         obstacleCategory = new ReportCategory();
