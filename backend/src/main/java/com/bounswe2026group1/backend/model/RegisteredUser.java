@@ -52,6 +52,13 @@ public class RegisteredUser {
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
     private int points = 0;
 
+    @Size(max = 500, message = "Bio must be at most 500 characters")
+    @Column(length = 500)
+    private String bio;
+
+    @Column(length = 1024)
+    private String avatarUrl;
+
     @PrePersist
     protected void onCreate() {
         if (this.registeredAt == null) {

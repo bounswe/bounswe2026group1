@@ -38,7 +38,9 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Anonymous access: routing API and auth endpoints. */
+    /** Anonymous access: routing API, auth endpoints, and Spring Boot's error dispatcher.
+     *  /error must be public so validation/binding failures forward correctly and surface
+     *  as 400 instead of being masked as 401 by the security chain. */
     private static final String[] ROUTING_AND_AUTH_PUBLIC = {
             "/api/routes", "/api/routes/**",
             "/auth/register", "/auth/login",
@@ -57,6 +59,13 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                         "/api/sse/public/**")
                     .permitAll()
+                        // Follow endpoints must stay authenticated even though they
+                        // live under /api/reports/**. Spring Security matches in order,
+                        // so this rule must come before the permit-all GET on /api/reports/**.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/reports/*/follow",
+                                "/api/reports/*/follow/**")
+                        .authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
                                 "/api/comments", "/api/comments/**",

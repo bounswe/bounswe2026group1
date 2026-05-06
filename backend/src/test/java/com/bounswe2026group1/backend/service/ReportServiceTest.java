@@ -37,6 +37,9 @@ class ReportServiceTest {
     @Mock private MeasurementValidator measurementValidator;
     @Mock private OverpassService overpassService;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ReportService reportService;
 

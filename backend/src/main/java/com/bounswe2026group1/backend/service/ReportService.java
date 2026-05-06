@@ -35,6 +35,7 @@ public class ReportService {
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
     private final PublicSseService publicSseService;
+    private final NotificationService notificationService;
     private final S3MediaService s3MediaService;
     private final MeasurementValidator measurementValidator;
     private final OverpassService overpassService;
@@ -224,6 +225,8 @@ public class ReportService {
             verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
         }
 
+        ReportStatus previousStatus = report.getStatus();
+
         if (report.getAgrees() >= verificationThreshold && report.getStatus() != ReportStatus.VERIFIED) {
             report.setStatus(ReportStatus.VERIFIED);
         }
@@ -233,6 +236,9 @@ public class ReportService {
 
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "verify"));
+        if (saved.getStatus() != previousStatus) {
+            notificationService.notifyStatusChange(saved, user.getId());
+        }
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 
@@ -263,12 +269,17 @@ public class ReportService {
             verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
         }
 
+        ReportStatus previousStatus = report.getStatus();
+
         if (report.getAgrees() < verificationThreshold && report.getStatus() == ReportStatus.VERIFIED) {
             report.setStatus(ReportStatus.PENDING);
         }
 
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "unverify"));
+        if (saved.getStatus() != previousStatus) {
+            notificationService.notifyStatusChange(saved, user.getId());
+        }
         return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
     }
 

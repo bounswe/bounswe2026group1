@@ -30,4 +30,9 @@ public interface ReportVerificationRepository extends JpaRepository<ReportVerifi
             """)
     List<Object[]> findVotesByUserIdAndReportIds(@Param("userId") Long userId,
                                                  @Param("reportIds") Collection<Long> reportIds);
+
+    /** Returns the user ids of everyone who has voted (agree or disagree) on a report.
+     *  Used by the notification audience fan-out, so we project ids only. */
+    @Query("select distinct rv.user.id from ReportVerification rv where rv.report.reportId = :reportId")
+    List<Long> findVoterUserIdsByReportId(@Param("reportId") Long reportId);
 }

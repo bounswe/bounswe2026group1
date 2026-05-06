@@ -20,9 +20,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RouteService {
 
-    /** Average walking speed in m/s — used to estimate ramp traversal duration. */
-    private static final double WALKING_SPEED_MS = 1.4;
-
     private final OrsRoutingClient orsRoutingClient;
     private final ObstacleService obstacleService;
 
@@ -54,8 +51,8 @@ public class RouteService {
                     .build());
         }
 
-        // 2. Accessible walking route — only if the fastest route has obstacles
-        if (hasObstacles && avoidPolygons != null) {
+        // 2. Accessible walking route — always computed when avoid polygons exist
+        if (avoidPolygons != null) {
             RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons);
 
             if (accessibleResult != null) {
@@ -99,10 +96,10 @@ public class RouteService {
             Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
 
             RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
-            RoutingDirectionsResult leg2 = straightLineLeg(rampEntry, rampExit);
+            RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
             RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
 
-            if (leg1 != null && leg3 != null) {
+            if (leg1 != null && leg2 != null && leg3 != null) {
                 double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
                 double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
 
@@ -130,7 +127,7 @@ public class RouteService {
                             .build();
                 }
             } else {
-                log.warn("Ramp-assisted route via ramp skipped; leg 1 or leg 3 returned null.");
+                log.warn("Ramp-assisted route via ramp skipped; leg 1, leg 2, or leg 3 returned null.");
             }
         }
 
@@ -139,22 +136,6 @@ public class RouteService {
         }
 
         return routes;
-    }
-
-    /**
-     * Builds a straight-line leg between two nearby points (e.g. ramp entry → exit)
-     * without calling ORS. Distance is haversine; duration is estimated at walking speed.
-     */
-    private static RoutingDirectionsResult straightLineLeg(Location from, Location to) {
-        double distanceMeters = haversineMeters(from, to);
-        double durationSeconds = distanceMeters / WALKING_SPEED_MS;
-        String geometry = PolylineEncoder.encode(List.of(from, to));
-        return RoutingDirectionsResult.builder()
-                .distanceMeters(distanceMeters)
-                .durationSeconds(durationSeconds)
-                .geometry(geometry)
-                .steps(List.of(RouteStep.builder().instruction("Take the ramp").maneuverType("ramp").build()))
-                .build();
     }
 
     private static double haversineMeters(Location a, Location b) {

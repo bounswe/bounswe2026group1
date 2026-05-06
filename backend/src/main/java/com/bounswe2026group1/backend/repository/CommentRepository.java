@@ -4,6 +4,8 @@ import com.bounswe2026group1.backend.model.Comment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,4 +18,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     Page<Comment> findByAuthorId(Long authorId, Pageable pageable);
     Page<Comment> findByReportReportId(Long reportId, Pageable pageable);
     Page<Comment> findByAuthorIdAndReportReportId(Long authorId, Long reportId, Pageable pageable);
+
+    /** Returns the user ids of everyone who has commented on a report.
+     *  Used by the notification audience fan-out, so we project ids only. */
+    @Query("select distinct c.author.id from Comment c where c.report.reportId = :reportId")
+    List<Long> findCommenterUserIdsByReportId(@Param("reportId") Long reportId);
 }
