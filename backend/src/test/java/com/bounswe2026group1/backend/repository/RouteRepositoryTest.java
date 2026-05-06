@@ -5,10 +5,10 @@ import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Route;
 import com.bounswe2026group1.backend.model.TravelMode;
 import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.support.AbstractPostgisIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,8 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
-@ActiveProfiles("test")
-class RouteRepositoryTest {
+class RouteRepositoryTest extends AbstractPostgisIntegrationTest {
 
     @Autowired
     private RouteRepository routeRepository;

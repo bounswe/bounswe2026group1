@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Repository
-public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report> {
+public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report>, ReportRepositoryCustom {
 
     List<Report> findByCreatedById(Long userId);
     long countByStatus(ReportStatus status);
@@ -40,13 +40,13 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             @Param("type") ReportType type,
             @Param("statuses") Collection<ReportStatus> statuses);
 
-    @Query("""
-            SELECT r FROM Report r
-            WHERE r.status IN :statuses
-            AND r.reportType = :type
-            AND r.location.latitude  BETWEEN :minLat AND :maxLat
-            AND r.location.longitude BETWEEN :minLon AND :maxLon
-            """)
+    @Query(value = """
+            SELECT r.* FROM reports r
+            WHERE r.status IN (:statuses)
+            AND r.report_type = :type
+            AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
+            """,
+            nativeQuery = true)
     List<Report> findByTypeInBoundingBoxWithStatuses(
             @Param("type") ReportType type,
             @Param("minLat") double minLat,
@@ -55,12 +55,12 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             @Param("maxLon") double maxLon,
             @Param("statuses") Collection<ReportStatus> statuses);
 
-    @Query("""
-            SELECT r FROM Report r
-            WHERE r.status IN :statuses
-            AND r.location.latitude  BETWEEN :minLat AND :maxLat
-            AND r.location.longitude BETWEEN :minLon AND :maxLon
-            """)
+    @Query(value = """
+            SELECT r.* FROM reports r
+            WHERE r.status IN (:statuses)
+            AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
+            """,
+            nativeQuery = true)
     List<Report> findReportsInBoundingBoxWithStatuses(
             @Param("minLat") double minLat,
             @Param("maxLat") double maxLat,

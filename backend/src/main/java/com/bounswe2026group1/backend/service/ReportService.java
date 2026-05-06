@@ -8,7 +8,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import com.bounswe2026group1.backend.util.GeoUtils;
+import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +27,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReportService {
@@ -66,6 +74,37 @@ public class ReportService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Page<ReportResponse> feed(
+            ReportType reportType,
+            ReportEnvironment environment,
+            Double latitude,
+            Double longitude,
+            Pageable pageable,
+            String email) {
+
+        if (latitude != null ^ longitude != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "latitude and longitude must both be provided for proximity feed");
+        }
+
+        Pageable paged = PageRequest.of(
+                Math.max(0, pageable.getPageNumber()),
+                Math.min(100, Math.max(1, pageable.getPageSize())));
+
+        Long userId = resolveUserId(email);
+
+        Page<Report> page = latitude != null
+                ? reportRepository.findFeedWithinRadius(reportType, environment, latitude, longitude, paged)
+                : reportRepository.findFeedRecent(reportType, environment, paged);
+
+        Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());
+        List<ReportResponse> responses = page.getContent().stream()
+                .map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), buildObjectResponses(r)))
+                .toList();
+        return new PageImpl<>(responses, paged, page.getTotalElements());
+    }
+
     @Transactional
     public ReportResponse create(CreateReportRequest request) {
         RegisteredUser user = registeredUserRepository.findById(request.getUserId())
@@ -76,8 +115,9 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportType is required");
         }
 
-        Location location = new Location(request.getLatitude(), request.getLongitude());
-        Report report = new Report(user, location, request.getDescription(),
+        Location reportedPoint = new Location(request.getLatitude(), request.getLongitude());
+        Point reportLocation = GeoUtils.point4326(request.getLatitude(), request.getLongitude());
+        Report report = new Report(user, reportLocation, request.getDescription(),
                 request.getReportType(), request.getEnvironment());
 
         List<ReportObjectRequest> objectRequests = request.getObjects() != null
@@ -91,7 +131,7 @@ public class ReportService {
         if (request.getReportType() == ReportType.FEATURE && !objectRequests.isEmpty()
                 && objectRequests.get(0).getObjectType() == ObjectType.RAMP) {
             try {
-                Location[] endpoints = overpassService.snapToNearestStair(location);
+                Location[] endpoints = overpassService.snapToNearestStair(reportedPoint);
                 report.setEntryPoint(endpoints[0]);
                 report.setExitPoint(endpoints[1]);
             } catch (RoutingException e) {
@@ -139,13 +179,13 @@ public class ReportService {
             report.setEnvironment(request.getEnvironment());
         }
 
-        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getLatitude()) > 1e-9) {
-            diff.put("latitude", new Object[]{report.getLocation().getLatitude(), request.getLatitude()});
-            report.getLocation().setLatitude(request.getLatitude());
+        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getY()) > 1e-9) {
+            diff.put("latitude", new Object[]{report.getLocation().getY(), request.getLatitude()});
+            report.setLocation(GeoUtils.point4326(request.getLatitude(), report.getLocation().getX()));
         }
-        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getLongitude()) > 1e-9) {
-            diff.put("longitude", new Object[]{report.getLocation().getLongitude(), request.getLongitude()});
-            report.getLocation().setLongitude(request.getLongitude());
+        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getX()) > 1e-9) {
+            diff.put("longitude", new Object[]{report.getLocation().getX(), request.getLongitude()});
+            report.setLocation(GeoUtils.point4326(report.getLocation().getY(), request.getLongitude()));
         }
 
         if (request.getObjects() != null) {

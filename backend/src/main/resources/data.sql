@@ -10,20 +10,20 @@ INSERT INTO registered_users (name, email, password, role, status, points) VALUE
 ON CONFLICT DO NOTHING;
 
 -- Reports: guard with NOT EXISTS since reports table has no unique constraint
-INSERT INTO reports (user_id, latitude, longitude, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 2, 41.086110, 29.044383, 'This ramp is too steep for wheelchairs', 'OBSTACLE', 'OUTDOOR', 'PENDING', 4, 1, NOW()
+INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 2, ST_SetSRID(ST_MakePoint(29.044383, 41.086110), 4326), 'This ramp is too steep for wheelchairs', 'OBSTACLE', 'OUTDOOR', 'PENDING', 4, 1, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'This ramp is too steep for wheelchairs');
 
-INSERT INTO reports (user_id, latitude, longitude, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 2, 41.085243, 29.045658, 'Elevator of Boğaziçi Metro is broken', 'OBSTACLE', 'INDOOR', 'VERIFIED', 5, 0, NOW()
+INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 2, ST_SetSRID(ST_MakePoint(29.045658, 41.085243), 4326), 'Elevator of Boğaziçi Metro is broken', 'OBSTACLE', 'INDOOR', 'VERIFIED', 5, 0, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'Elevator of Boğaziçi Metro is broken');
 
-INSERT INTO reports (user_id, latitude, longitude, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 3, 41.087167, 29.043898, 'Narrow passage on the route to dormitories', 'OBSTACLE', 'OUTDOOR', 'PENDING', 1, 2, NOW()
+INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 3, ST_SetSRID(ST_MakePoint(29.043898, 41.087167), 4326), 'Narrow passage on the route to dormitories', 'OBSTACLE', 'OUTDOOR', 'PENDING', 1, 2, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'Narrow passage on the route to dormitories');
 
-INSERT INTO reports (user_id, latitude, longitude, description, report_type, environment, status, agrees, disagrees, publish_date, entry_latitude, entry_longitude, exit_latitude, exit_longitude)
-SELECT 1, 41.085693, 29.044523, 'There is actually a ramp in north campus.', 'FEATURE', 'OUTDOOR', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
+INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date, entry_latitude, entry_longitude, exit_latitude, exit_longitude)
+SELECT 1, ST_SetSRID(ST_MakePoint(29.044523, 41.085693), 4326), 'There is actually a ramp in north campus.', 'FEATURE', 'OUTDOOR', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'There is actually a ramp in north campus.');
 
 -- Report objects: resolve report_id by description so this is FK-safe on re-seed

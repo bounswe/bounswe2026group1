@@ -1,17 +1,17 @@
 package com.bounswe2026group1.backend.repository;
 
-import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportSubscription;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.support.AbstractPostgisIntegrationTest;
+import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,8 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
-@ActiveProfiles("test")
-class ReportSubscriptionRepositoryTest {
+class ReportSubscriptionRepositoryTest extends AbstractPostgisIntegrationTest {
 
     @Autowired
     private ReportSubscriptionRepository subscriptionRepository;
@@ -43,7 +42,7 @@ class ReportSubscriptionRepositoryTest {
         bob = persistUser("bob@example.com", "Bob");
 
         report = reportRepository.save(
-                new Report(alice, new Location(41.0, 29.0), "Broken ramp",
+                new Report(alice, GeoUtils.point4326(41.0, 29.0), "Broken ramp",
                         ReportType.OBSTACLE, ReportEnvironment.OUTDOOR));
     }
 

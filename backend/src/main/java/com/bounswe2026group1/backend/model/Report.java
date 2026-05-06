@@ -4,14 +4,17 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "reports",
-        indexes = @Index(name = "idx_report_location", columnList = "latitude, longitude"))
+@Table(name = "reports")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,8 +28,9 @@ public class Report {
     @JoinColumn(name = "user_id", nullable = false)
     private RegisteredUser createdBy;
 
-    @Embedded
-    private Location location;
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
+    @Column(nullable = false, columnDefinition = "geometry(Point,4326)")
+    private Point location;
 
     @Column(nullable = false, length = 1000)
     private String description;
@@ -74,6 +78,7 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
 
+    @BatchSize(size = 32)
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Media> mediaList = new ArrayList<>();
 
@@ -83,7 +88,7 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ReportObject> objects = new ArrayList<>();
 
-    public Report(RegisteredUser createdBy, Location location, String description,
+    public Report(RegisteredUser createdBy, Point location, String description,
                   ReportType reportType, ReportEnvironment environment) {
         this.createdBy = createdBy;
         this.location = location;
