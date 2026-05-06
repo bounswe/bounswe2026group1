@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.bounswe2026group1.backend.util.GeoUtils;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReportService {
@@ -95,6 +97,18 @@ public class ReportService {
         List<Long> categorySubtreeIds = resolveFeedCategorySubtree(categoryId);
         List<Long> categoryIdsForFeed = intersectSubtreeWithReportType(categorySubtreeIds, reportType);
         if (categoryIdsForFeed != null && categoryIdsForFeed.isEmpty()) {
+            if (categoryId != null && reportType != null) {
+                log.warn(
+                        "Feed search short-circuited: subtree for categoryId={} has no overlap with requested reportType={}; "
+                                + "returning empty page without hitting the database.",
+                        categoryId,
+                        reportType);
+            } else if (reportType != null) {
+                log.warn(
+                        "Feed search short-circuited: no report categories match requested reportType={}; "
+                                + "returning empty page without hitting the database.",
+                        reportType);
+            }
             return Page.empty(paged);
         }
 
