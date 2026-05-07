@@ -126,12 +126,33 @@ class NotificationServiceTest {
     }
 
     @Test
-    void notifyStatusChange_skipsTransitionsThatAreNotVerifiedOrRejected() {
+    void notifyStatusChange_skipsTransitionsThatAreNotVerifiedOrRejectedOrFixed() {
         report.setStatus(ReportStatus.PENDING);
 
         notificationService.notifyStatusChange(report, 999L);
 
         verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void notifyStatusChange_persistsStatusChangeForFixedTransition() {
+        stubEmptyAudience();
+        stubSaveAssignsId();
+        stubFindAllByIdReturns(author);
+        report.setStatus(ReportStatus.FIXED);
+
+        notificationService.notifyStatusChange(report, 999L);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        Notification saved = captor.getValue();
+        assertEquals(NotificationType.STATUS_CHANGE, saved.getType());
+        assertEquals(author, saved.getRecipient());
+        assertEquals(100L, saved.getRelatedEntityId());
+        assertTrue(saved.getMessage().contains("fixed"));
+        assertTrue(saved.getMessage().contains("Your report"),
+                "Author should get the personalized 'Your report' phrasing");
     }
 
     @Test
