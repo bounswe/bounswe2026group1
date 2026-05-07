@@ -37,7 +37,7 @@ class RouteServiceTest {
     void accessibleRoute_isComputed_whenAvoidPolygonsExist_evenIfFastestRouteHasNoObstacles() {
         // Avoid polygons exist (some obstacles are reported in the area)
         ObjectNode avoidPolygons = JsonMapper.builder().build().createObjectNode();
-        when(obstacleService.buildAvoidPolygons()).thenReturn(avoidPolygons);
+        when(obstacleService.buildAvoidPolygons(any())).thenReturn(avoidPolygons);
 
         // But the fastest route happens not to cross any of them
         when(obstacleService.findObstaclesOnPath(any())).thenReturn(List.of());
@@ -71,7 +71,7 @@ class RouteServiceTest {
 
         // Avoid polygons exist so the WHEELCHAIR calls receive a non-null arg
         ObjectNode avoidPolygons = JsonMapper.builder().build().createObjectNode();
-        when(obstacleService.buildAvoidPolygons()).thenReturn(avoidPolygons);
+        when(obstacleService.buildAvoidPolygons(any())).thenReturn(avoidPolygons);
 
         // Direct wheelchair + leg1 + leg3 (all WHEELCHAIR) succeed
         RoutingDirectionsResult wheelchairRoute = RoutingDirectionsResult.builder()

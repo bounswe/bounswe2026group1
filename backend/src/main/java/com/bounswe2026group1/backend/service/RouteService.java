@@ -6,6 +6,7 @@ import com.bounswe2026group1.backend.dto.routing.RouteStep;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.TravelMode;
 import tools.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -23,12 +25,36 @@ public class RouteService {
     private final OrsRoutingClient orsRoutingClient;
     private final ObstacleService obstacleService;
 
+    /**
+     * Backwards-compatible signature — anonymous routing path. Equivalent to
+     * {@link #getRouteOptions(RouteRequest, Set, TravelMode)} with no
+     * constraints and no preferred mode (no alternative is flagged
+     * {@code preferred:true}).
+     */
     public List<RouteResponse> getRouteOptions(RouteRequest request) {
+        return getRouteOptions(request, Set.of(), null);
+    }
+
+    /**
+     * Build the route alternatives, optionally filtering avoid polygons by
+     * the caller's accessibility constraints (#365) and flagging the
+     * alternative whose mode matches their preferred travel mode.
+     *
+     * @param request           start/end coordinates from the controller
+     * @param constraints       caller's selected routing constraints; empty for anonymous / NONE preset
+     * @param preferredMode     caller's preferred travel mode; null for no preference
+     */
+    public List<RouteResponse> getRouteOptions(
+            RouteRequest request,
+            Set<RoutingConstraint> constraints,
+            TravelMode preferredMode) {
+
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
 
-        // Build avoid polygons once — reused for routes 2 and 3
-        ObjectNode avoidPolygons = obstacleService.buildAvoidPolygons();
+        // Build avoid polygons once — reused for routes 2 and 3.
+        // Empty constraints preserves the pre-#365 baseline (every VERIFIED obstacle becomes a polygon).
+        ObjectNode avoidPolygons = obstacleService.buildAvoidPolygons(constraints);
 
         List<RouteResponse> routes = new ArrayList<>();
 
@@ -135,7 +161,27 @@ public class RouteService {
             routes.add(bestWheelchair);
         }
 
+        markPreferred(routes, preferredMode);
         return routes;
+    }
+
+    /**
+     * Flag at most one alternative as the user's preferred route. When the
+     * preferred mode is {@code WALKING} and an "Accessible Route" exists, it
+     * wins over the "Fastest Route" (the loop overwrites earlier matches, and
+     * the accessible route is always appended after the fastest one).
+     */
+    private static void markPreferred(List<RouteResponse> routes, TravelMode preferredMode) {
+        if (preferredMode == null) return;
+        RouteResponse winner = null;
+        for (RouteResponse r : routes) {
+            if (r.getMode() == preferredMode) {
+                winner = r; // keep updating — last match wins
+            }
+        }
+        if (winner != null) {
+            winner.setPreferred(true);
+        }
     }
 
     private static double haversineMeters(Location a, Location b) {

@@ -1,9 +1,13 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.model.IssueHazard;
+import com.bounswe2026group1.backend.model.IssueType;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.ReportObject;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import org.locationtech.jts.geom.Point;
 import tools.jackson.databind.ObjectMapper;
@@ -13,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -39,14 +44,43 @@ public class ObstacleService {
     // -------------------------------------------------------------------------
 
     /**
-     * @return a GeoJSON MultiPolygon node for all non-rejected obstacle reports,
-     *         or null if none exist
+     * Backwards-compatible no-arg overload — same as the empty-constraint case,
+     * which preserves the pre-#365 baseline (every VERIFIED obstacle becomes
+     * a polygon).
      */
     public ObjectNode buildAvoidPolygons() {
+        return buildAvoidPolygons(Set.of());
+    }
+
+    /**
+     * Build the GeoJSON MultiPolygon avoid set for routing.
+     *
+     * <p>When {@code constraints} is empty the baseline is preserved: every
+     * VERIFIED obstacle report becomes an avoid polygon (anonymous and
+     * NONE-preset users get the historical "Accessible Route" behaviour).
+     *
+     * <p>When {@code constraints} is non-empty, only VERIFIED obstacle reports
+     * whose objects expose at least one {@link IssueHazard} matching a hazard
+     * in the expanded constraint set become polygons. Constraints can only
+     * narrow the avoid set, never widen it past the baseline.
+     *
+     * @return a GeoJSON MultiPolygon node, or null if no reports survive the filter
+     */
+    public ObjectNode buildAvoidPolygons(Set<RoutingConstraint> constraints) {
         // Fetch only VERIFIED obstacle reports for route avoidance.
         List<Report> obstacles = reportRepository.findByTypeAndStatusIn(ReportType.OBSTACLE, ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
             return null;
+        }
+
+        Set<IssueHazard> hazards = RoutingConstraint.expand(constraints);
+        if (!hazards.isEmpty()) {
+            obstacles = obstacles.stream()
+                    .filter(r -> reportMatchesAnyHazard(r, hazards))
+                    .toList();
+            if (obstacles.isEmpty()) {
+                return null;
+            }
         }
 
         ArrayNode multiPolygonCoordinates = objectMapper.createArrayNode();
@@ -67,6 +101,20 @@ public class ObstacleService {
         avoidPolygons.put("type", "MultiPolygon");
         avoidPolygons.set("coordinates", multiPolygonCoordinates);
         return avoidPolygons;
+    }
+
+    private static boolean reportMatchesAnyHazard(Report report, Set<IssueHazard> hazards) {
+        List<ReportObject> objects = report.getObjects();
+        if (objects == null || objects.isEmpty()) return false;
+        for (ReportObject obj : objects) {
+            if (obj.getObjectType() == null || obj.getIssues() == null) continue;
+            for (IssueType issue : obj.getIssues()) {
+                if (hazards.contains(new IssueHazard(obj.getObjectType(), issue))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // -------------------------------------------------------------------------
