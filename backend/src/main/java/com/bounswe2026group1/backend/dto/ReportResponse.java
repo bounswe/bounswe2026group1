@@ -18,9 +18,7 @@ public class ReportResponse {
     private double latitude;
     private double longitude;
     private String description;
-    private Long categoryId;
-    private String categoryName;
-    private ReportType categoryType;
+    private ReportType reportType;
     private ReportEnvironment environment;
     private ReportStatus status;
     private int agrees;
@@ -28,8 +26,7 @@ public class ReportResponse {
     private Instant publishDate;
     private List<String> mediaUrls;
     private VoteType userVote;
-    private String measurements;
-    private List<MeasurementWarning> warnings;
+    private List<ReportObjectResponse> objects;
     private Double entryLatitude;
     private Double entryLongitude;
     private Double exitLatitude;
@@ -44,7 +41,7 @@ public class ReportResponse {
         return fromEntity(report, userVote, Collections.emptyList());
     }
 
-    public static ReportResponse fromEntity(Report report, VoteType userVote, List<MeasurementWarning> warnings) {
+    public static ReportResponse fromEntity(Report report, VoteType userVote, List<ReportObjectResponse> objectResponses) {
         ReportResponse r = new ReportResponse();
         r.setReportId(report.getReportId());
         r.setUserId(report.getCreatedBy().getId());
@@ -53,13 +50,7 @@ public class ReportResponse {
             r.setLongitude(report.getLocation().getX());
         }
         r.setDescription(report.getDescription());
-
-        ReportCategory category = report.getCategory();
-        r.setCategoryId(category.getId());
-        r.setCategoryName(category.getName());
-        // type may be null on child nodes — traverse up to root to find it
-        r.setCategoryType(resolveType(category));
-
+        r.setReportType(report.getReportType());
         r.setEnvironment(report.getEnvironment());
         r.setStatus(report.getStatus());
         r.setAgrees(report.getAgrees());
@@ -67,8 +58,7 @@ public class ReportResponse {
         r.setPublishDate(report.getPublishDate());
         r.setMediaUrls(report.getMediaList().stream().map(Media::getFilePath).toList());
         r.setUserVote(userVote);
-        r.setMeasurements(report.getMeasurements());
-        r.setWarnings(warnings != null ? warnings : Collections.emptyList());
+        r.setObjects(objectResponses != null ? objectResponses : Collections.emptyList());
 
         if (report.getEntryPoint() != null) {
             r.setEntryLatitude(report.getEntryPoint().getLatitude());
@@ -82,14 +72,5 @@ public class ReportResponse {
             r.setLastEditedByUserId(report.getLastEditedBy().getId());
         }
         return r;
-    }
-
-    private static ReportType resolveType(ReportCategory category) {
-        ReportCategory current = category;
-        while (current != null) {
-            if (current.getType() != null) return current.getType();
-            current = current.getParent();
-        }
-        return null;
     }
 }

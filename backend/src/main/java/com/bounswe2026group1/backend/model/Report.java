@@ -35,9 +35,9 @@ public class Report {
     @Column(nullable = false, length = 1000)
     private String description;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private ReportCategory category;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "report_type", nullable = false)
+    private ReportType reportType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -67,10 +67,6 @@ public class Report {
     })
     private Location exitPoint;
 
-    // JSON object: { "slope_percent": 12, "width_cm": 75 } — null if not submitted
-    @Column(columnDefinition = "TEXT")
-    private String measurements;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "last_edited_by_id")
     private RegisteredUser lastEditedBy;
@@ -89,12 +85,15 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportVerification> verifications = new ArrayList<>();
 
+    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<ReportObject> objects = new ArrayList<>();
+
     public Report(RegisteredUser createdBy, Point location, String description,
-                  ReportCategory category, ReportEnvironment environment) {
+                  ReportType reportType, ReportEnvironment environment) {
         this.createdBy = createdBy;
         this.location = location;
         this.description = description;
-        this.category = category;
+        this.reportType = reportType;
         this.environment = environment;
         this.status = ReportStatus.PENDING;
         this.publishDate = Instant.now();

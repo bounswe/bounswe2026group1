@@ -33,9 +33,8 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     @Query("""
             SELECT r FROM Report r
-            JOIN FETCH r.category c
             WHERE r.status IN :statuses
-            AND c.type = :type
+            AND r.reportType = :type
             """)
     List<Report> findByTypeAndStatusIn(
             @Param("type") ReportType type,
@@ -43,9 +42,8 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     @Query(value = """
             SELECT r.* FROM reports r
-            INNER JOIN report_categories c ON r.category_id = c.id
             WHERE r.status IN (:statuses)
-            AND c.type = :type
+            AND r.report_type = :type
             AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
             """,
             nativeQuery = true)

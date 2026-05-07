@@ -10,8 +10,6 @@ import lombok.Data;
  */
 @Data
 public class ReportFeedQuery {
-    private Long categoryId;
-    /** When set, feed is limited to categories whose effective {@link ReportType} matches (inherited from ancestors). */
     private ReportType reportType;
     private ReportEnvironment environment;
     private Double latitude;

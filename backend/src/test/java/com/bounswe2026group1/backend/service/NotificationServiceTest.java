@@ -7,7 +7,7 @@ import com.bounswe2026group1.backend.model.Notification;
 import com.bounswe2026group1.backend.model.NotificationType;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.ReportCategory;
+
 import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
@@ -73,12 +73,7 @@ class NotificationServiceTest {
         voter = newUser(3L, "carol@example.com", "Carol");
         subscriber = newUser(4L, "dave@example.com", "Dave");
 
-        ReportCategory category = new ReportCategory();
-        ReflectionTestUtils.setField(category, "id", 6L);
-        category.setName("Missing Ramp");
-        category.setType(ReportType.OBSTACLE);
-
-        report = new Report(author, GeoUtils.point4326(41.0, 29.0), "Broken ramp", category, ReportEnvironment.OUTDOOR);
+        report = new Report(author, GeoUtils.point4326(41.0, 29.0), "Broken ramp", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(report, "reportId", 100L);
     }
 
