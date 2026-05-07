@@ -34,7 +34,6 @@ public class ReportController {
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal String email) {
         return reportService.feed(
-                query.getCategoryId(),
                 query.getReportType(),
                 query.getEnvironment(),
                 query.getLatitude(),

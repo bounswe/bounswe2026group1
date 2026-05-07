@@ -2,10 +2,9 @@ package com.bounswe2026group1.backend.repository;
 
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
+import com.bounswe2026group1.backend.model.ReportType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
-import java.util.Collection;
 
 public interface ReportRepositoryCustom {
 
@@ -15,7 +14,7 @@ public interface ReportRepositoryCustom {
      * PostGIS geography distance: filters within radius and sorts by ascending {@code ST_Distance} (meters).
      */
     Page<Report> findFeedWithinRadius(
-            Collection<Long> categoryIds,
+            ReportType reportType,
             ReportEnvironment environment,
             double latitude,
             double longitude,
@@ -25,7 +24,7 @@ public interface ReportRepositoryCustom {
      * Default feed ordering: newest first by {@link com.bounswe2026group1.backend.model.Report#getPublishDate()}.
      */
     Page<Report> findFeedRecent(
-            Collection<Long> categoryIds,
+            ReportType reportType,
             ReportEnvironment environment,
             Pageable pageable);
 }

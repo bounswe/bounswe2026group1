@@ -1,8 +1,9 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.Location;
+import com.bounswe2026group1.backend.model.ObjectType;
 import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.ReportCategory;
+import com.bounswe2026group1.backend.model.ReportObject;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -14,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -86,7 +88,8 @@ class ObstacleServiceTest {
     @Test
     void findClosestRamp_skipsRampsWithNullEntryOrExit() {
         Report bad = new Report();  // no entry/exit set
-        bad.setCategory(wheelchairFeatureCategory());
+        bad.setReportType(ReportType.FEATURE);
+        bad.getObjects().add(new ReportObject(bad, ObjectType.RAMP, Set.of(), null));
         Report good = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
@@ -98,20 +101,22 @@ class ObstacleServiceTest {
     }
 
     @Test
-    void findClosestRamp_skipsRampsWhoseCategoryDoesNotAffectWheelchair() {
-        Report wheelchairRamp = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
-        Report visualOnlyFeature = rampNear(41.0841, 29.0461, 41.0839, 29.0466);
-        ReportCategory visualOnly = new ReportCategory();
-        visualOnly.setType(ReportType.FEATURE);
-        visualOnly.setAffectedProfiles("[\"VISUAL_IMPAIRED\"]");
-        visualOnlyFeature.setCategory(visualOnly);
+    void findClosestRamp_skipsFeatureReportsWithoutRampObject() {
+        Report rampReport = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
+        // FEATURE report with ELEVATOR object — should be skipped (not a RAMP)
+        Report elevatorFeature = new Report();
+        elevatorFeature.setReportType(ReportType.FEATURE);
+        elevatorFeature.setEntryPoint(new Location(41.0841, 29.0461));
+        elevatorFeature.setExitPoint(new Location(41.0839, 29.0466));
+        elevatorFeature.setStatus(ReportStatus.VERIFIED);
+        elevatorFeature.getObjects().add(new ReportObject(elevatorFeature, ObjectType.ELEVATOR, Set.of(), null));
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
                 eq(ReportType.FEATURE),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
-                .thenReturn(List.of(visualOnlyFeature, wheelchairRamp));
+                .thenReturn(List.of(elevatorFeature, rampReport));
 
-        assertSame(wheelchairRamp, obstacleService.findClosestRampInBoundingBox(START, END));
+        assertSame(rampReport, obstacleService.findClosestRampInBoundingBox(START, END));
     }
 
     // -------------------------------------------------------------------------
@@ -133,19 +138,11 @@ class ObstacleServiceTest {
     private static Report rampNear(double entryLat, double entryLon,
                                    double exitLat,  double exitLon) {
         Report r = new Report();
+        r.setReportType(ReportType.FEATURE);
         r.setEntryPoint(new Location(entryLat, entryLon));
         r.setExitPoint(new Location(exitLat, exitLon));
         r.setStatus(ReportStatus.VERIFIED);
-        r.setCategory(wheelchairFeatureCategory());
+        r.getObjects().add(new ReportObject(r, ObjectType.RAMP, Set.of(), null));
         return r;
-    }
-
-    private static ReportCategory wheelchairFeatureCategory() {
-        ReportCategory c = new ReportCategory();
-        c.setType(ReportType.FEATURE);
-        // affectedProfiles is a JSON-string column; the service does a substring
-        // contains("WHEELCHAIR") check on it.
-        c.setAffectedProfiles("[\"WHEELCHAIR\",\"STROLLER\"]");
-        return c;
     }
 }

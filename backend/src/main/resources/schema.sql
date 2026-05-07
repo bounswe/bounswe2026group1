@@ -3,7 +3,23 @@
 -- "script must not be null or empty" -- so we keep one no-op statement.
 -- Hibernate creates TIMESTAMPTZ columns directly from Instant entity
 -- fields, so no real migration runs here.
-SELECT 1;
+
+-- Add report_type column if missing (idempotent migration from category-based model)
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(255);
+
+-- New tables for multi-object report model
+CREATE TABLE IF NOT EXISTS report_objects (
+    id BIGSERIAL PRIMARY KEY,
+    report_id BIGINT REFERENCES reports(report_id) ON DELETE CASCADE,
+    object_type VARCHAR(255) NOT NULL,
+    measurements TEXT
+);
+
+CREATE TABLE IF NOT EXISTS report_object_issues (
+    report_object_id BIGINT REFERENCES report_objects(id) ON DELETE CASCADE,
+    issue_type VARCHAR(255) NOT NULL,
+    PRIMARY KEY (report_object_id, issue_type)
+);
 
 -- One-time backfill for rows that predate the status/points columns
 UPDATE registered_users SET status = 'ACTIVE' WHERE status IS NULL;

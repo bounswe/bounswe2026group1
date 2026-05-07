@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.repository;
 
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
+import com.bounswe2026group1.backend.model.ReportType;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -10,7 +11,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +22,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
 
     @Override
     public Page<Report> findFeedWithinRadius(
-            Collection<Long> categoryIds,
+            ReportType reportType,
             ReportEnvironment environment,
             double latitude,
             double longitude,
@@ -42,7 +42,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         params.put("lon", longitude);
         params.put("radiusMeters", FEED_RADIUS_METERS);
 
-        appendNativeCategoryFilter(fromWhere, params, categoryIds);
+        appendNativeReportTypeFilter(fromWhere, params, reportType);
         appendNativeEnvironmentFilter(fromWhere, params, environment);
 
         String orderBy = """
@@ -71,13 +71,13 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
 
     @Override
     public Page<Report> findFeedRecent(
-            Collection<Long> categoryIds,
+            ReportType reportType,
             ReportEnvironment environment,
             Pageable pageable) {
 
         StringBuilder base = new StringBuilder("FROM Report r WHERE 1=1");
         Map<String, Object> params = new HashMap<>();
-        appendJpqlCategoryFilter(base, params, categoryIds);
+        appendJpqlReportTypeFilter(base, params, reportType);
         appendJpqlEnvironmentFilter(base, params, environment);
 
         String countHql = "SELECT count(r) " + base;
@@ -95,16 +95,12 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         return new PageImpl<>(content, pageable, total);
     }
 
-    private static void appendNativeCategoryFilter(StringBuilder sql, Map<String, Object> params, Collection<Long> categoryIds) {
-        if (categoryIds == null) {
+    private static void appendNativeReportTypeFilter(StringBuilder sql, Map<String, Object> params, ReportType reportType) {
+        if (reportType == null) {
             return;
         }
-        if (categoryIds.isEmpty()) {
-            sql.append(" AND 1=0");
-            return;
-        }
-        sql.append(" AND r.category_id IN (:catIds)");
-        params.put("catIds", categoryIds);
+        sql.append(" AND r.report_type = :reportType");
+        params.put("reportType", reportType.name());
     }
 
     private static void appendNativeEnvironmentFilter(StringBuilder sql, Map<String, Object> params, ReportEnvironment environment) {
@@ -115,16 +111,12 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         params.put("environment", environment.name());
     }
 
-    private static void appendJpqlCategoryFilter(StringBuilder jpql, Map<String, Object> params, Collection<Long> categoryIds) {
-        if (categoryIds == null) {
+    private static void appendJpqlReportTypeFilter(StringBuilder jpql, Map<String, Object> params, ReportType reportType) {
+        if (reportType == null) {
             return;
         }
-        if (categoryIds.isEmpty()) {
-            jpql.append(" AND 1=0");
-            return;
-        }
-        jpql.append(" AND r.category.id IN (:catIds)");
-        params.put("catIds", categoryIds);
+        jpql.append(" AND r.reportType = :reportType");
+        params.put("reportType", reportType);
     }
 
     private static void appendJpqlEnvironmentFilter(StringBuilder jpql, Map<String, Object> params, ReportEnvironment environment) {

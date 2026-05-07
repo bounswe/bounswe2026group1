@@ -93,10 +93,10 @@ public class ObstacleService {
             Location exitPoint = ramp.getExitPoint();
             if (entryPoint == null || exitPoint == null)
                 continue;
-            if (ramp.getCategory() == null || ramp.getCategory().getAffectedProfiles() == null)
-                continue;
-            if (!ramp.getCategory().getAffectedProfiles().contains("WHEELCHAIR"))
-                continue;
+            // Only FEATURE RAMP reports are used for wheelchair routing
+            boolean hasRamp = ramp.getObjects().stream()
+                    .anyMatch(o -> o.getObjectType() == com.bounswe2026group1.backend.model.ObjectType.RAMP);
+            if (!hasRamp) continue;
 
             // Orient: pick whichever endpoint is closer to start as entry
             double distEntryToStart = haversineMeters(entryPoint, start);
@@ -153,7 +153,7 @@ public class ObstacleService {
                 minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
         return candidates.stream()
-                .filter(r -> r.getCategory() != null && r.getCategory().getType() == ReportType.OBSTACLE)
+                .filter(r -> r.getReportType() == ReportType.OBSTACLE)
                 .filter(r -> r.getLocation() != null)
                 .filter(r -> isWithinPathBuffer(r.getLocation(), pathPoints))
                 .toList();
