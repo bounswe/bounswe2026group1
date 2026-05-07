@@ -564,7 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Text(
                   report.tag.label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
@@ -631,12 +631,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 24,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A73E8),
+                        color: AppColors.info,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 3),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1A73E8).withOpacity(0.4),
+                            color: AppColors.info.withOpacity(0.4),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),
@@ -697,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32),
+                            color: AppColors.success,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2.5),
                             boxShadow: [
@@ -717,7 +717,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           width: 2.5,
                           height: 10,
-                          color: const Color(0xFF2E7D32),
+                          color: AppColors.success,
                         ),
                       ],
                     ),
@@ -736,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE53935),
+                            color: AppColors.errorBanner,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2.5),
                             boxShadow: [
@@ -756,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           width: 2.5,
                           height: 10,
-                          color: const Color(0xFFE53935),
+                          color: AppColors.errorBanner,
                         ),
                       ],
                     ),
@@ -830,15 +830,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.location_pin,
-                          color: Colors.white, size: 18),
+                      Icon(Icons.location_pin,
+                          color: AppColors.onPrimarySolid, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         _pickingPin == true
                             ? 'Tap map to set starting point'
                             : 'Tap map to set destination',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.onPrimarySolid,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -846,8 +846,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: () => setState(() => _pickingPin = null),
-                        child: const Icon(Icons.close,
-                            color: Colors.white70, size: 16),
+                        child: Icon(Icons.close,
+                            color: AppColors.onPrimarySolid
+                                .withValues(alpha: 0.7),
+                            size: 16),
                       ),
                     ],
                   ),
@@ -866,17 +868,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardSurface,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: AppColors.shadow,
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.directions,
                     color: AppColors.primary,
                     size: 24,
@@ -905,21 +907,21 @@ class _HomeScreenState extends State<HomeScreen> {
     // Normal search bar (or active search inside route mode)
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Row(
         children: [
           if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              icon: Icon(Icons.arrow_back, color: AppColors.primary),
               onPressed: _routeMode ? () {
                 _closeSearch();
                 setState(() => _editingStart = false);
               } : _closeSearch,
             )
           else
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(12),
               child: Icon(Icons.search, color: AppColors.primary),
             ),
@@ -930,12 +932,12 @@ class _HomeScreenState extends State<HomeScreen> {
               onChanged: _onSearchChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _search,
-              style: const TextStyle(fontSize: 15, color: AppColors.onSurface),
+              style: TextStyle(fontSize: 15, color: AppColors.onSurface),
               decoration: InputDecoration(
                 hintText: _routeMode
                     ? (_editingStart ? 'Search starting point…' : 'Search destination…')
                     : 'Search for a place…',
-                hintStyle: const TextStyle(color: AppColors.onSurfaceVariant),
+                hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -945,7 +947,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (_searchLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: SizedBox(
                 width: 18,
@@ -958,7 +960,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           else if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear,
+              icon: Icon(Icons.clear,
                   color: AppColors.onSurfaceVariant, size: 20),
               onPressed: () {
                 _searchController.clear();
@@ -977,9 +979,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final toLabel = _routeEndLabel.isNotEmpty ? _routeEndLabel : '…';
     return Material(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(14),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: InkWell(
         onTap: () => setState(() => _routePanelExpanded = true),
         borderRadius: BorderRadius.circular(14),
@@ -987,12 +989,12 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
-              const Icon(Icons.route, color: AppColors.primary, size: 16),
+              Icon(Icons.route, color: AppColors.primary, size: 16),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '$fromLabel  →  $toLabel',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.onSurface,
@@ -1002,7 +1004,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.expand_more,
+              Icon(Icons.expand_more,
                   color: AppColors.onSurfaceVariant, size: 18),
             ],
           ),
@@ -1014,9 +1016,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRouteInputPanel() {
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
@@ -1025,7 +1027,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // From row
             _buildRouteField(
               icon: Icons.radio_button_checked,
-              iconColor: const Color(0xFF1A73E8),
+              iconColor: AppColors.info,
               label: _routeStartLabel,
               hint: 'Starting point',
               isSet: true,
@@ -1050,7 +1052,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 32,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.swap_vert,
+                    icon: Icon(Icons.swap_vert,
                         size: 18, color: AppColors.onSurfaceVariant),
                     onPressed: _routeEnd != null ? _swapRoutePoints : null,
                   ),
@@ -1061,7 +1063,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // To row
             _buildRouteField(
               icon: Icons.location_on,
-              iconColor: const Color(0xFFE53935),
+              iconColor: AppColors.errorBanner,
               label: _routeEndLabel.isNotEmpty ? _routeEndLabel : '',
               hint: 'Choose destination',
               isSet: _routeEndLabel.isNotEmpty,
@@ -1184,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
+          title: Text(
             'Location Access Required',
             style: TextStyle(
               fontFamily: 'Plus Jakarta Sans',
@@ -1192,7 +1194,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.onSurface,
             ),
           ),
-          content: const Text(
+          content: Text(
             'Location permission is permanently denied. '
             'Please enable it in Settings to use your current location.',
             style: TextStyle(color: AppColors.onSurfaceVariant),
@@ -1200,7 +1202,7 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
+              child: Text('Cancel',
                   style: TextStyle(color: AppColors.outline)),
             ),
             TextButton(
@@ -1208,7 +1210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pop(ctx);
                 Geolocator.openAppSettings();
               },
-              child: const Text(
+              child: Text(
                 'Open Settings',
                 style: TextStyle(
                     color: AppColors.primary, fontWeight: FontWeight.w700),
@@ -1256,9 +1258,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalItems = _searchResults.length + (showCurrentLocation ? 1 : 0);
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
@@ -1273,17 +1275,17 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: Container(
                 width: 34,
                 height: 34,
-                decoration: const BoxDecoration(
-                  color: Color(0x261A73E8),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.my_location,
-                  color: Color(0xFF1A73E8),
+                  color: AppColors.info,
                   size: 18,
                 ),
               ),
-              title: const Text(
+              title: Text(
                 'Current Location',
                 style: TextStyle(
                   fontSize: 14,
@@ -1295,7 +1297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _userLocation != null
                     ? 'Use your GPS location'
                     : 'Tap to enable location',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppColors.onSurfaceVariant,
                 ),
@@ -1310,7 +1312,7 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 34,
               decoration: BoxDecoration(
                 color: (_routeMode
-                        ? const Color(0xFF1A73E8)
+                        ? AppColors.info
                         : AppColors.primary)
                     .withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -1320,14 +1322,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? Icons.flag_outlined
                     : Icons.location_on_outlined,
                 color: _routeMode
-                    ? const Color(0xFF1A73E8)
+                    ? AppColors.info
                     : AppColors.primary,
                 size: 18,
               ),
             ),
             title: Text(
               place.displayName.split(',').first,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.onSurface,
@@ -1337,7 +1339,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             subtitle: Text(
               place.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: AppColors.onSurfaceVariant,
               ),
@@ -1374,7 +1376,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF95630).withOpacity(0.92),
+            color: AppColors.errorBannerStrong.withOpacity(0.92),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -1410,11 +1412,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: AppColors.shadow,
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -1426,9 +1428,9 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header
             Row(
               children: [
-                const Icon(Icons.route, color: AppColors.primary, size: 18),
+                Icon(Icons.route, color: AppColors.primary, size: 18),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Route Options',
                     style: TextStyle(
@@ -1441,7 +1443,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 GestureDetector(
                   onTap: _cancelRoute,
-                  child: const Icon(Icons.close,
+                  child: Icon(Icons.close,
                       color: AppColors.onSurfaceVariant, size: 20),
                 ),
               ],
@@ -1520,8 +1522,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.only(left: 6),
                             child: Icon(Icons.warning_amber_rounded,
                                 color: selected
-                                    ? const Color(0xFFFFA726)
-                                    : const Color(0xFFFFA726).withOpacity(0.4),
+                                    ? AppColors.warningSoft
+                                    : AppColors.warningSoft.withOpacity(0.4),
                                 size: 18),
                           ),
                         if (selected)
@@ -1548,7 +1550,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF95630).withOpacity(0.92),
+        color: AppColors.errorBannerStrong.withOpacity(0.92),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -1582,7 +1584,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Sign In Required',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
@@ -1590,14 +1592,14 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppColors.onSurface,
           ),
         ),
-        content: const Text(
+        content: Text(
           'You need to log in to use this feature.',
           style: TextStyle(color: AppColors.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.outline)),
           ),
           TextButton(
@@ -1609,7 +1611,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 (r) => false,
               );
             },
-            child: const Text(
+            child: Text(
               'Sign In',
               style: TextStyle(
                   color: AppColors.primary, fontWeight: FontWeight.w700),
@@ -1642,7 +1644,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [AppColors.primary, AppColors.primaryDim],
@@ -1656,7 +1658,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.add_circle, color: AppColors.onPrimary, size: 26),
@@ -1707,11 +1709,11 @@ class _RouteData {
 
   /// Vivid, distinct polyline color per route type.
   Color get color {
-    if (label.contains('Accessible')) return const Color(0xFF1565C0); // deep blue
-    if (label.contains('Wheelchair')) return const Color(0xFF6A1B9A); // deep purple
-    if (label.contains('Ramp'))       return const Color(0xFF00695C); // deep teal
+    if (label.contains('Accessible')) return AppColors.accentBlue; // deep blue
+    if (label.contains('Wheelchair')) return AppColors.accentPurple; // deep purple
+    if (label.contains('Ramp'))       return AppColors.accentTeal; // deep teal
     // Fastest route: amber-orange if has obstacles, vivid green if clear
-    return hasObstacles ? const Color(0xFFE65100) : const Color(0xFF2E7D32);
+    return hasObstacles ? AppColors.warning : AppColors.success;
   }
 
   String get distanceLabel {
@@ -1736,16 +1738,16 @@ class _LoadingChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: AppColors.cardSurface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.shadow,
             blurRadius: 12,
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(

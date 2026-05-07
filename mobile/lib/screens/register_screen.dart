@@ -98,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 40),
-                    const Center(
+                    Center(
                       child: Text(
                         'Mapcess',
                         style: TextStyle(
@@ -110,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    const Text(
+                    Text(
                       'Join our\ncommunity',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
@@ -121,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Take the first step toward a cleaner, safer, and more vibrant city for everyone.',
                       style: TextStyle(
                         fontSize: 15,
@@ -167,7 +167,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Min 8 chars · uppercase · lowercase · digit · special (@#\$%^&+=!)',
                       style: TextStyle(
                         fontSize: 11,
@@ -192,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            side: const BorderSide(
+                            side: BorderSide(
                               color: AppColors.outlineVariant,
                             ),
                           ),
@@ -200,7 +200,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: RichText(
-                            text: const TextSpan(
+                            text: TextSpan(
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppColors.onSurfaceVariant,
@@ -235,19 +235,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFDAD6),
+                          color: AppColors.errorContainer,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFFB4AB)),
+                          border: Border.all(color: AppColors.errorContainerBorder),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Color(0xFFBA1A1A), size: 20),
+                            Icon(Icons.error_outline,
+                                color: AppColors.onErrorContainer, size: 20),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _formError!,
-                                style: const TextStyle(
-                                  color: Color(0xFFBA1A1A),
+                                style: TextStyle(
+                                  color: AppColors.onErrorContainer,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -263,7 +264,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Center(
                       child: RichText(
                         text: TextSpan(
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             color: AppColors.onSurfaceVariant,
                           ),
@@ -272,7 +273,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             WidgetSpan(
                               child: GestureDetector(
                                 onTap: () => widget.onTabSwitch?.call(0),
-                                child: const Text(
+                                child: Text(
                                   'Sign In',
                                   style: TextStyle(
                                     fontSize: 14,
@@ -299,7 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildLabel(String text) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: AppColors.onSurfaceVariant,
@@ -321,16 +322,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(14),
-            border: errorText != null ? Border.all(color: const Color(0xFFBA1A1A)) : null,
+            border: errorText != null ? Border.all(color: AppColors.error) : null,
           ),
           child: TextField(
             controller: controller,
             obscureText: obscure,
             keyboardType: keyboardType,
-            style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
+            style: TextStyle(color: AppColors.onSurface, fontSize: 15),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: AppColors.outlineVariant),
+              hintStyle: TextStyle(color: AppColors.outlineVariant),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 18,
@@ -355,7 +356,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.only(top: 6, left: 12),
             child: Text(
               errorText,
-              style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
+              style: TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
       ],
@@ -369,7 +370,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [AppColors.primary, AppColors.primaryDim],
@@ -384,7 +385,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
         child: _loading
-            ? const Center(
+            ? Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
@@ -394,7 +395,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               )
-            : const Row(
+            : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(

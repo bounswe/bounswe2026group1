@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.service.ReportService;
 import com.bounswe2026group1.backend.service.S3MediaService;
 import com.bounswe2026group1.backend.util.JwtUtil;
@@ -28,6 +29,7 @@ class MediaControllerTest {
     @MockitoBean private S3MediaService s3MediaService;
     @MockitoBean private ReportService  reportService;
     @MockitoBean private JwtUtil jwtUtil;
+    @MockitoBean private RegisteredUserRepository registeredUserRepository;
 
     @Value("${app.api.key}")
     private String validApiKey;

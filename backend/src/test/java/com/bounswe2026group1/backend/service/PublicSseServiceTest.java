@@ -1,9 +1,8 @@
 package com.bounswe2026group1.backend.service;
 
-import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.RegisteredUser;
-import com.bounswe2026group1.backend.model.Report;
-import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.*;
+import com.bounswe2026group1.backend.util.GeoUtils;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -38,7 +37,7 @@ class PublicSseServiceTest {
         ReflectionTestUtils.invokeMethod(service, "initPermitPool");
         service.addEmitterForTest(new FailingEmitter());
 
-        Report report = new Report(new RegisteredUser(), new Location(41.0, 29.0), "desc", Tag.MISSING_RAMP);
+        Report report = new Report(new RegisteredUser(), GeoUtils.point4326(41.0, 29.0), "desc", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
         service.broadcastReportUpdated(report, "verify");
 
         assertEquals(0, service.activeEmitterCount());
