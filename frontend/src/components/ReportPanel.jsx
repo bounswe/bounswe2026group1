@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { agreeReport, disagreeReport, mapReport, getCommentsByReport, createComment, deleteComment } from '../services/reportService.js'
@@ -25,6 +25,50 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [newComment, setNewComment] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [following, setFollowing] = useState(false)
+
+  // Bottom-sheet drag-to-resize (mobile only — desktop layout uses lg: utilities to ignore this).
+  // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
+  const SHEET_SNAP_POINTS = [25, 60, 90]
+  const SHEET_DISMISS_THRESHOLD = 15
+  const SHEET_DEFAULT_DVH = 60
+  const [sheetHeightDvh, setSheetHeightDvh] = useState(SHEET_DEFAULT_DVH)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startY: 0, startHeight: SHEET_DEFAULT_DVH, active: false })
+
+  function handleHandlePointerDown(e) {
+    // Capture pointer so subsequent move/up events fire on this element even
+    // if the finger leaves the handle area.
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startY: e.clientY, startHeight: sheetHeightDvh, active: true }
+    setIsDragging(true)
+  }
+
+  function handleHandlePointerMove(e) {
+    if (!dragRef.current.active) return
+    const deltaY = e.clientY - dragRef.current.startY
+    // Dragging up (smaller clientY → negative deltaY) grows the sheet.
+    const dvhDelta = (deltaY / window.innerHeight) * 100
+    const next = dragRef.current.startHeight - dvhDelta
+    setSheetHeightDvh(Math.max(5, Math.min(95, next)))
+  }
+
+  function handleHandlePointerUp(e) {
+    if (!dragRef.current.active) return
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    dragRef.current.active = false
+    setIsDragging(false)
+    setSheetHeightDvh(prev => {
+      if (prev < SHEET_DISMISS_THRESHOLD) {
+        onClose()
+        return SHEET_DEFAULT_DVH // reset for next open
+      }
+      // Snap to the nearest predefined point.
+      return SHEET_SNAP_POINTS.reduce(
+        (best, p) => (Math.abs(p - prev) < Math.abs(best - prev) ? p : best),
+        SHEET_SNAP_POINTS[0],
+      )
+    })
+  }
 
   useEffect(() => {
     if (!report) return
@@ -101,10 +145,28 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
   return (
     <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
-      <aside className="pointer-events-auto w-full h-[60dvh] max-h-[60dvh] lg:h-full lg:max-h-full lg:w-[500px] bg-surface-container-low flex flex-col rounded-t-[32px] lg:rounded-none border-t border-outline-variant/20 lg:border-t-0 lg:border-l shadow-[0_-10px_40px_rgba(0,0,0,0.2)] lg:shadow-none relative">
-        
-        {/* Mobile Drag Handle */}
-        <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto mt-4 mb-2 lg:hidden flex-shrink-0" />
+      <aside
+        // CSS variable so Tailwind's lg: utilities can still override height on desktop.
+        style={{ '--sheet-h': `${sheetHeightDvh}dvh` }}
+        className={`pointer-events-auto w-full h-[var(--sheet-h)] max-h-[var(--sheet-h)] lg:h-full lg:max-h-full lg:w-[500px] bg-surface-container-low flex flex-col rounded-t-[32px] lg:rounded-none border-t border-outline-variant/20 lg:border-t-0 lg:border-l shadow-[0_-10px_40px_rgba(0,0,0,0.2)] lg:shadow-none relative ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
+      >
+
+        {/* Mobile drag handle — pill is decorative, the wider hit-area below carries the pointer events. */}
+        <div
+          role="slider"
+          aria-label="Resize report panel"
+          aria-valuemin={SHEET_SNAP_POINTS[0]}
+          aria-valuemax={SHEET_SNAP_POINTS[SHEET_SNAP_POINTS.length - 1]}
+          aria-valuenow={Math.round(sheetHeightDvh)}
+          tabIndex={-1}
+          onPointerDown={handleHandlePointerDown}
+          onPointerMove={handleHandlePointerMove}
+          onPointerUp={handleHandlePointerUp}
+          onPointerCancel={handleHandlePointerUp}
+          className="lg:hidden flex-shrink-0 pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none"
+        >
+          <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto" />
+        </div>
 
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 pt-2 lg:pt-6">
