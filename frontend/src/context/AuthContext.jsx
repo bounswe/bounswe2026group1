@@ -32,7 +32,10 @@ export function AuthProvider({ children }) {
     return stored
   })
 
-  const userId = token ? (parseJwt(token).id ?? null) : null
+  const claims = token ? parseJwt(token) : {}
+  const userId = claims.id ?? null
+  const userRole = claims.role ?? null
+  const isAdmin = userRole === 'ADMIN'
 
   useEffect(() => {
     function handleExpired() {
@@ -54,7 +57,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, userId, isAuthenticated: !!token, login, logout }}>
+    <AuthContext.Provider value={{ token, userId, userRole, isAdmin, isAuthenticated: !!token, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
