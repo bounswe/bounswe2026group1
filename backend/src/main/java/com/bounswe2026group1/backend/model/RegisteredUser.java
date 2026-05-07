@@ -10,6 +10,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "registered_users")
@@ -59,6 +61,36 @@ public class RegisteredUser {
     @Column(length = 1024)
     private String avatarUrl;
 
+    // ───── Routing preferences (issue #365) ──────────────────────────────────
+
+    /**
+     * Named bundle the user picked. Constraints are still the source of truth
+     * for filtering — this field exists so the UI can show the preset label
+     * without re-deriving the bundle.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_preset", length = 32, columnDefinition = "VARCHAR(32) DEFAULT 'NONE'")
+    private RoutingPreset preferredPreset = RoutingPreset.NONE;
+
+    /**
+     * The user's selected routing constraints. Source of truth for the avoid-
+     * polygon filter; consulted on every authenticated routing call.
+     */
+    @ElementCollection(fetch = FetchType.EAGER, targetClass = RoutingConstraint.class)
+    @CollectionTable(name = "user_routing_constraints",
+            joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "constraint_value", length = 64)
+    @Enumerated(EnumType.STRING)
+    private Set<RoutingConstraint> routingConstraints = new HashSet<>();
+
+    /**
+     * Optional travel-mode preference. When set, the matching alternative in
+     * the {@code POST /api/routes} response is flagged {@code preferred:true}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_travel_mode", length = 16)
+    private TravelMode preferredTravelMode;
+
     @PrePersist
     protected void onCreate() {
         if (this.registeredAt == null) {
@@ -66,6 +98,12 @@ public class RegisteredUser {
         }
         if (this.status == null) {
             this.status = UserStatus.ACTIVE;
+        }
+        if (this.preferredPreset == null) {
+            this.preferredPreset = RoutingPreset.NONE;
+        }
+        if (this.routingConstraints == null) {
+            this.routingConstraints = new HashSet<>();
         }
     }
 }
