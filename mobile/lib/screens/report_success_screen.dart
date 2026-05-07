@@ -275,10 +275,10 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: r.tag.color.withOpacity(0.12),
+                  color: r.displayColor.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(r.tag.icon, color: r.tag.color, size: 18),
+                child: Icon(r.displayIcon, color: r.displayColor, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -286,7 +286,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      r.tag.label,
+                      r.headline,
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w700,

@@ -540,10 +540,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: report.tag.color,
+                    color: report.displayColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(report.tag.icon, color: Colors.white, size: 17),
+                  child: Icon(report.displayIcon, color: Colors.white, size: 17),
                 ),
               ),
               const SizedBox(height: 4),
@@ -562,7 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 child: Text(
-                  report.tag.label,
+                  report.headline,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 8,

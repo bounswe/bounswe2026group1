@@ -363,6 +363,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       _buildTitleSection(),
                       const SizedBox(height: 24),
                       _buildDescriptionRow(),
+                      if (report.objects.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildObjectsSection(),
+                      ],
                       const SizedBox(height: 24),
                       _buildCommunityConsensus(),
                       const SizedBox(height: 24),
@@ -522,13 +526,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       fit: StackFit.expand,
       children: [
         CustomPaint(
-          painter: _ImagePlaceholderPainter(color: report.tag.color),
+          painter: _ImagePlaceholderPainter(color: report.displayColor),
         ),
         Center(
           child: Icon(
-            report.tag.icon,
+            report.displayIcon,
             size: 80,
-            color: report.tag.color.withOpacity(0.25),
+            color: report.displayColor.withOpacity(0.25),
           ),
         ),
       ],
@@ -605,7 +609,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${report.tag.label} – Report #${report.reportId}',
+          '${report.headline} – Report #${report.reportId}',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontWeight: FontWeight.w800,
@@ -621,12 +625,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: report.tag.color.withOpacity(0.12),
+                color: report.displayColor.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.person_outline,
-                color: report.tag.color,
+                color: report.displayColor,
                 size: 20,
               ),
             ),
@@ -724,7 +728,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    report.tag.label,
+                    report.headline,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -819,6 +823,157 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   // ─── Community consensus ────────────────────────────────────────────────────
+
+  Widget _buildObjectsSection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.category_outlined,
+                  color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                report.objects.length == 1
+                    ? 'Reported Object'
+                    : 'Reported Objects (${report.objects.length})',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (int i = 0; i < report.objects.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _buildObjectCard(report.objects[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObjectCard(ReportObject obj) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: obj.objectType.color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  obj.objectType.icon,
+                  color: obj.objectType.color,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                obj.objectType.label,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (obj.issues.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: obj.issues
+                  .map((issue) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          issue.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onErrorContainer,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (obj.measurements != null && obj.measurements!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.straighten,
+                    size: 14, color: AppColors.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    obj.measurements!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (obj.warnings.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final w in obj.warnings)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 14, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        w.message,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.warning,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget _buildCommunityConsensus() {
     final totalVotes = _agrees + _disagrees;
@@ -1055,7 +1210,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           const SizedBox(height: 12),
           _infoRow(Icons.tag, 'Report ID', '#${report.reportId}'),
-          _infoRow(Icons.category_outlined, 'Category', report.tag.label),
+          _infoRow(Icons.category_outlined, 'Category', report.headline),
           _infoRow(Icons.circle_outlined, 'Status', _currentStatus.label),
           _infoRow(
             Icons.schedule_outlined,

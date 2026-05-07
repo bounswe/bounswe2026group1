@@ -419,7 +419,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(report.tag.icon, color: AppColors.primary, size: 20),
+            child: Icon(report.displayIcon, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -427,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  report.tag.label,
+                  report.headline,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
