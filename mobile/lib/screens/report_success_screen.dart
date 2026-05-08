@@ -92,7 +92,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: const Color(0xFF9DF197).withOpacity(0.2),
+                color: AppColors.primaryAccent.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
             ),
@@ -107,7 +107,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                   borderRadius: BorderRadius.circular(40),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: AppColors.shadow,
                       blurRadius: 40,
                       offset: const Offset(0, 12),
                     ),
@@ -117,11 +117,11 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                   child: Container(
                     width: 72,
                     height: 72,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.check_circle_rounded,
                       color: AppColors.onPrimary,
                       size: 44,
@@ -141,7 +141,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
   Widget _buildTitle() {
     return Column(
       children: [
-        const Text(
+        Text(
           'Report Successfully\nSubmitted!',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -154,7 +154,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Thank you for your contribution\nto the community.',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -173,7 +173,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -183,17 +183,17 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCFE6F2),
+                  color: AppColors.infoContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.eco_outlined,
-                  color: Color(0xFF40555F),
+                  color: AppColors.onInfoContainer,
                   size: 22,
                 ),
               ),
               const SizedBox(width: 14),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -230,9 +230,9 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                   child: Container(
                     width: c.maxWidth * 0.75,
                     height: 8,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF9DF197), AppColors.primary],
+                        colors: [AppColors.primaryAccent, AppColors.primary],
                       ),
                     ),
                   ),
@@ -241,7 +241,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Your report is now visible to the neighborhood team.',
             style: TextStyle(
               fontSize: 11,
@@ -275,10 +275,10 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: r.tag.color.withOpacity(0.12),
+                  color: r.displayColor.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(r.tag.icon, color: r.tag.color, size: 18),
+                child: Icon(r.displayIcon, color: r.displayColor, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -286,8 +286,8 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      r.tag.label,
-                      style: const TextStyle(
+                      r.headline,
+                      style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -296,7 +296,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                     ),
                     Text(
                       'Report #${r.reportId}  ·  ${r.status.label}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -330,7 +330,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
               r.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.onSurfaceVariant,
                 height: 1.5,
@@ -359,7 +359,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
               width: double.infinity,
               height: 56,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [AppColors.primary, AppColors.primaryDim],
@@ -373,7 +373,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
                   ),
                 ],
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'Return to Home',
                   style: TextStyle(
@@ -400,7 +400,7 @@ class _ReportSuccessScreenState extends State<ReportSuccessScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'View Submission Details',
                   style: TextStyle(

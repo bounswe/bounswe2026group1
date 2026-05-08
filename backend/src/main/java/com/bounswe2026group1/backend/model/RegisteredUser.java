@@ -3,10 +3,13 @@ package com.bounswe2026group1.backend.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.Instant;
 
 @Entity
 @Table(name = "registered_users")
@@ -34,7 +37,35 @@ public class RegisteredUser {
     @Column(nullable = false)
     private String password;
 
-    @NotBlank(message = "Role cannot be blank")
-    @Column(nullable = false)
-    private String role;
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserRole role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "VARCHAR(20) DEFAULT 'ACTIVE'")
+    private UserStatus status = UserStatus.ACTIVE;
+
+    @Column(name = "registered_at")
+    private Instant registeredAt;
+
+    @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
+    private int points = 0;
+
+    @Size(max = 500, message = "Bio must be at most 500 characters")
+    @Column(length = 500)
+    private String bio;
+
+    @Column(length = 1024)
+    private String avatarUrl;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.registeredAt == null) {
+            this.registeredAt = Instant.now();
+        }
+        if (this.status == null) {
+            this.status = UserStatus.ACTIVE;
+        }
+    }
 }

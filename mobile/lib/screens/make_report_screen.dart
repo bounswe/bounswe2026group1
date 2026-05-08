@@ -14,10 +14,39 @@ import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../widgets/objects_section.dart';
 import 'report_success_screen.dart';
 
 // Fallback location used before GPS resolves: Mission District, San Francisco
 const LatLng _defaultPin = LatLng(37.7599, -122.4148);
+
+/// Static display config for the two report-type cards at the top of the
+/// form — keeps the icon/title/subtitle together so the picker doesn't have
+/// to interleave a dozen literals.
+class _ReportTypeCard {
+  final ReportType type;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  const _ReportTypeCard({
+    required this.type,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+}
+
+class _EnvOption {
+  final ReportEnvironment env;
+  final IconData icon;
+  final String label;
+  const _EnvOption({
+    required this.env,
+    required this.icon,
+    required this.label,
+  });
+}
+
 
 class MakeReportScreen extends StatefulWidget {
   const MakeReportScreen({super.key});
@@ -28,7 +57,11 @@ class MakeReportScreen extends StatefulWidget {
 
 class _MakeReportScreenState extends State<MakeReportScreen> {
   final _descController = TextEditingController();
-  ReportTag _selectedTag = ReportTag.other;
+
+  ReportType _reportType = ReportType.obstacle;
+  ReportEnvironment _environment = ReportEnvironment.outdoor;
+  final List<ObjectDraft> _objects = [];
+
   File? _selectedMedia;
   bool _isVideo = false;
   bool _converting = false;
@@ -74,6 +107,24 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   }
 
   void _movePin(LatLng pos) => setState(() => _pinLocation = pos);
+
+  /// Drops non-RAMP cards' types and clears all issues when the user flips
+  /// to FEATURE — the shared [ObjectsSection] handles per-card mutations,
+  /// but this cross-list cleanup is screen-level concern.
+  void _onReportTypeChanged(ReportType next) {
+    setState(() {
+      _reportType = next;
+      if (next == ReportType.feature) {
+        for (final o in _objects) {
+          if (o.objectType != ObjectType.ramp) {
+            o.objectType = null;
+            o.measurements.clear();
+          }
+          o.issues.clear();
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -316,7 +367,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               _sheetOption(
                 icon: Icons.delete_outline,
                 label: 'Remove Media',
-                color: const Color(0xFFB02500),
+                color: AppColors.errorStrong,
                 onTap: () {
                   setState(() {
                     _selectedMedia = null;
@@ -355,6 +406,20 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   Future<void> _submit() async {
     final desc = _descController.text.trim();
+    if (_objects.isEmpty) {
+      _showError('Add at least one object to describe the report.');
+      return;
+    }
+    for (final o in _objects) {
+      if (o.objectType == null) {
+        _showError('Select a type for every object card.');
+        return;
+      }
+      if (_reportType == ReportType.obstacle && o.issues.isEmpty) {
+        _showError('Pick at least one issue for the "${o.objectType!.label}" object.');
+        return;
+      }
+    }
     if (desc.length < 10) {
       _showError('Description must be at least 10 characters.');
       return;
@@ -363,12 +428,28 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     setState(() => _submitting = true);
     try {
       final auth = context.read<AuthService>();
+      final reportObjects = _objects.map((o) {
+        // Match the web: serialise the measurements map as JSON so both
+        // clients write the same shape into the backend's free-text field.
+        final filled = <String, num>{};
+        for (final e in o.measurements.entries) {
+          final v = num.tryParse(e.value.trim());
+          if (v != null) filled[e.key] = v;
+        }
+        return ReportObject(
+          objectType: o.objectType!,
+          issues: o.issues.toList(),
+          measurements: filled.isEmpty ? null : jsonEncode(filled),
+        );
+      }).toList();
       final report = await auth.api.createReport(
         userId: auth.userId,
         latitude: _pinLocation.latitude,
         longitude: _pinLocation.longitude,
         description: desc,
-        tag: _selectedTag,
+        reportType: _reportType,
+        environment: _environment,
+        objects: reportObjects,
       );
 
       // Upload media if selected
@@ -408,7 +489,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: const Color(0xFFB02500),
+        backgroundColor: AppColors.errorStrong,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -438,9 +519,15 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   const SizedBox(height: 20),
                   _buildDescriptionField(),
                   const SizedBox(height: 20),
-                  _buildCategorySelector(),
+                  _buildReportTypeSelector(),
                   const SizedBox(height: 20),
-                  _buildImpactCard(),
+                  _buildEnvironmentSelector(),
+                  const SizedBox(height: 20),
+                  ObjectsSection(
+                    objects: _objects,
+                    reportType: _reportType,
+                    onChanged: () => setState(() {}),
+                  ),
                   const SizedBox(height: 120),
                 ],
               ),
@@ -463,11 +550,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.close, color: AppColors.primary),
+              icon: Icon(Icons.close, color: AppColors.primary),
               onPressed: () => Navigator.pop(context),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Mapcess',
               style: TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
@@ -484,7 +571,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 color: AppColors.surfaceContainer,
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Text(
+              child: Text(
                 'DRAFT',
                 style: TextStyle(
                   fontSize: 10,
@@ -511,7 +598,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'NEW REPORT',
                 style: TextStyle(
                   fontSize: 10,
@@ -521,7 +608,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Issue Details',
                 style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
@@ -648,7 +735,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                   const SizedBox(width: 4),
                                   Text(
                                     _converting ? 'Converting...' : (_isVideo ? 'Video added' : 'Tap to change'),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.onSurface,
@@ -669,9 +756,9 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.delete_outline,
-                                  color: Color(0xFFB02500),
+                                  color: AppColors.errorStrong,
                                   size: 18,
                                 ),
                               ),
@@ -683,7 +770,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   ],
                 )
               : Container(
-                  color: const Color(0xFFF0F1F1),
+                  color: AppColors.surfaceContainer,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -691,23 +778,23 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.cardSurface,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: AppColors.shadow,
                               blurRadius: 12,
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.perm_media_outlined,
                           color: AppColors.primary,
                           size: 26,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Add Photo or Video',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
@@ -717,7 +804,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Photo, MP4 or MOV',
                         style: TextStyle(
                           fontSize: 12,
@@ -737,7 +824,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildLocationCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
       ),
       clipBehavior: Clip.hardEdge,
@@ -766,7 +853,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                       markers: [
                         Marker(
                           point: _pinLocation,
-                          child: const Icon(
+                          child: Icon(
                             Icons.location_on,
                             color: AppColors.primary,
                             size: 36,
@@ -801,17 +888,17 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardSurface,
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: AppColors.shadow,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.fullscreen,
                         color: AppColors.primary,
                         size: 22,
@@ -827,13 +914,13 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.near_me_outlined,
                   size: 16,
                   color: AppColors.secondary,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Search or tap the map to set location',
                     style: TextStyle(
@@ -846,7 +933,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 Text(
                   '${_pinLocation.latitude.toStringAsFixed(4)}, '
                   '${_pinLocation.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -862,14 +949,14 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildLocationSearchBar() {
     return Material(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(12),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Row(
         children: [
           if (_locationSearchActive)
             IconButton(
-              icon: const Icon(Icons.arrow_back,
+              icon: Icon(Icons.arrow_back,
                   color: AppColors.primary, size: 20),
               onPressed: () {
                 setState(() {
@@ -881,7 +968,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               },
             )
           else
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 12),
               child: Icon(Icons.search, color: AppColors.primary, size: 20),
             ),
@@ -897,15 +984,15 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               onChanged: _onLocationSearchChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _searchLocation,
-              style: const TextStyle(fontSize: 13, color: AppColors.onSurface),
-              decoration: const InputDecoration(
+              style: TextStyle(fontSize: 13, color: AppColors.onSurface),
+              decoration: InputDecoration(
                 hintText: 'Search for a place…',
                 hintStyle: TextStyle(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 13,
                 ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: 8,
                   vertical: 12,
                 ),
@@ -913,7 +1000,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
           ),
           if (_locationSearchLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
               child: SizedBox(
                 width: 16,
@@ -926,7 +1013,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             )
           else if (_locationSearchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear,
+              icon: Icon(Icons.clear,
                   color: AppColors.onSurfaceVariant, size: 18),
               onPressed: () {
                 _locationSearchController.clear();
@@ -943,9 +1030,9 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildLocationResultsList() {
     return Material(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(12),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
@@ -956,14 +1043,14 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           final place = _locationResults[i];
           return ListTile(
             dense: true,
-            leading: const Icon(
+            leading: Icon(
               Icons.location_on_outlined,
               color: AppColors.primary,
               size: 18,
             ),
             title: Text(
               place.displayName.split(',').first,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.onSurface,
@@ -973,7 +1060,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
             subtitle: Text(
               place.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: AppColors.onSurfaceVariant,
               ),
@@ -993,7 +1080,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'DESCRIBE THE ISSUE',
           style: TextStyle(
             fontSize: 10,
@@ -1020,12 +1107,12 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 controller: _descController,
                 maxLines: 5,
                 maxLength: 1000,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: AppColors.onSurface,
                   height: 1.5,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText:
                       'What\'s happening? Be as specific as possible to help our crews find it…',
                   hintStyle: TextStyle(
@@ -1033,11 +1120,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     fontSize: 14,
                   ),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.fromLTRB(18, 18, 18, 40),
+                  contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 40),
                   counterText: '',
                 ),
               ),
-              const Positioned(
+              Positioned(
                 bottom: 12,
                 right: 14,
                 child: Text(
@@ -1057,251 +1144,198 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     );
   }
 
-  // ─── Category selector ─────────────────────────────────────────────────────
+  // ─── Report type / environment / objects ─────────────────────────────────
 
-  Widget _buildCategorySelector() {
-    final negative = ReportTag.values.where((t) => !t.isPositive).toList();
-    final positive = ReportTag.values.where((t) => t.isPositive).toList();
+  Widget _buildReportTypeSelector() {
+    const cards = [
+      _ReportTypeCard(
+        type: ReportType.obstacle,
+        icon: Icons.construction_outlined,
+        title: 'Obstacle',
+        subtitle: 'Something broken or missing',
+      ),
+      _ReportTypeCard(
+        type: ReportType.feature,
+        icon: Icons.accessible_forward,
+        title: 'Feature',
+        subtitle: 'Something helpful that exists',
+      ),
+    ];
+    return _buildPickerSection(
+      label: 'REPORT TYPE',
+      child: Row(
+        children: [
+          for (int i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _typeCardButton(
+                card: cards[i],
+                selected: _reportType == cards[i].type,
+                onTap: () => _onReportTypeChanged(cards[i].type),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _typeCardButton({
+    required _ReportTypeCard card,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 2),
+        ),
+        child: Column(
+          children: [
+            Icon(card.icon, size: 22, color: fg),
+            const SizedBox(height: 6),
+            Text(
+              card.title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: fg,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              card.subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.25,
+                color: fg.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnvironmentSelector() {
+    const items = [
+      _EnvOption(
+        env: ReportEnvironment.outdoor,
+        icon: Icons.wb_sunny_outlined,
+        label: 'Outdoor',
+      ),
+      _EnvOption(
+        env: ReportEnvironment.indoor,
+        icon: Icons.home_outlined,
+        label: 'Indoor',
+      ),
+    ];
+    return _buildPickerSection(
+      label: 'ENVIRONMENT',
+      child: Row(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _envButton(
+                option: items[i],
+                selected: _environment == items[i].env,
+                onTap: () => setState(() => _environment = items[i].env),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _envButton({
+    required _EnvOption option,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 2),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(option.icon, size: 16, color: fg),
+            const SizedBox(width: 8),
+            Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildPickerSection({
+    required String label,
+    required Widget child,
+    String? hint,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'SELECT CATEGORY',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.4,
-            color: AppColors.secondary,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: negative.map((tag) => _buildTagChip(tag)).toList(),
-        ),
-        const SizedBox(height: 14),
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF176a21).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle, size: 11, color: Color(0xFF176a21)),
-                  SizedBox(width: 4),
-                  Text(
-                    'ACCESSIBILITY FEATURE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: Color(0xFF176a21),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: positive.map((tag) => _buildTagChip(tag)).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTagChip(ReportTag tag) {
-    final selected = _selectedTag == tag;
-    final unselectedBg = tag.isPositive
-        ? const Color(0xFF176a21).withOpacity(0.1)
-        : const Color(0xFFCFE6F2);
-    final unselectedFg = tag.isPositive
-        ? const Color(0xFF176a21)
-        : const Color(0xFF40555F);
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTag = tag),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? tag.color : unselectedBg,
-          borderRadius: BorderRadius.circular(999),
-          border: tag.isPositive && !selected
-              ? Border.all(color: const Color(0xFF176a21).withOpacity(0.35))
-              : null,
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: tag.color.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              tag.icon,
-              size: 16,
-              color: selected ? Colors.white : unselectedFg,
-            ),
-            const SizedBox(width: 6),
             Text(
-              tag.label,
+              label,
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : unselectedFg,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: AppColors.secondary,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Impact card ───────────────────────────────────────────────────────────
-
-  Widget _buildImpactCard() {
-    if (_selectedTag.isPositive) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF176a21).withOpacity(0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF176a21).withOpacity(0.25)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFF176a21).withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.accessible, color: Color(0xFF176a21), size: 24),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ACCESSIBILITY FEATURE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
-                      color: Color(0xFF176a21),
-                    ),
+            if (hint != null) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hint,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.outlineVariant,
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'You\'re reporting something that helps people get around. Thank you!',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF176a21),
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'IMPACT LEVEL',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                  color: AppColors.secondary,
-                ),
-              ),
-              Text(
-                _selectedTag == ReportTag.brokenElevator ||
-                        _selectedTag == ReportTag.missingRamp
-                    ? 'High'
-                    : _selectedTag == ReportTag.construction ||
-                            _selectedTag == ReportTag.wetFloor
-                        ? 'Moderate'
-                        : 'Low',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              height: 8,
-              color: AppColors.surfaceContainerHigh,
-              child: LayoutBuilder(
-                builder: (_, c) {
-                  final frac = _selectedTag == ReportTag.brokenElevator ||
-                          _selectedTag == ReportTag.missingRamp
-                      ? 0.9
-                      : _selectedTag == ReportTag.construction ||
-                              _selectedTag == ReportTag.wetFloor
-                          ? 0.55
-                          : 0.25;
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: c.maxWidth * frac,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF9DF197), AppColors.primary],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'This helps us prioritize based on community safety and infrastructure health.',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
     );
   }
 
@@ -1329,7 +1363,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               child: Container(
                 height: 56,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [AppColors.primary, AppColors.primaryDim],
@@ -1344,7 +1378,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   ],
                 ),
                 child: _submitting
-                    ? const Center(
+                    ? Center(
                         child: SizedBox(
                           width: 22,
                           height: 22,
@@ -1354,7 +1388,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                           ),
                         ),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
@@ -1381,7 +1415,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               color: AppColors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(999),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.bookmark_border,
               color: AppColors.onSurfaceVariant,
             ),
@@ -1501,7 +1535,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
                 markers: [
                   Marker(
                     point: _pin,
-                    child: const Icon(
+                    child: Icon(
                       Icons.location_on,
                       color: AppColors.primary,
                       size: 40,
@@ -1537,7 +1571,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [AppColors.primary, AppColors.primaryDim],
@@ -1551,7 +1585,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
                     ),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.check_circle_outline,
@@ -1579,14 +1613,14 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
   Widget _buildSearchBar() {
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Row(
         children: [
           if (_searchActive)
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              icon: Icon(Icons.arrow_back, color: AppColors.primary),
               onPressed: () {
                 setState(() {
                   _searchActive = false;
@@ -1598,7 +1632,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.close, color: AppColors.primary),
+              icon: Icon(Icons.close, color: AppColors.primary),
               onPressed: () => Navigator.pop(context),
             ),
           Expanded(
@@ -1611,17 +1645,18 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
               onChanged: _onChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _search,
-              style: const TextStyle(fontSize: 15, color: AppColors.onSurface),
-              decoration: const InputDecoration(
+              style: TextStyle(fontSize: 15, color: AppColors.onSurface),
+              decoration: InputDecoration(
                 hintText: 'Search for a place…',
                 hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 14),
               ),
             ),
           ),
           if (_searchLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: SizedBox(
                 width: 18,
@@ -1634,7 +1669,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
             )
           else if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear,
+              icon: Icon(Icons.clear,
                   color: AppColors.onSurfaceVariant, size: 20),
               onPressed: () {
                 _searchController.clear();
@@ -1651,9 +1686,9 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
   Widget _buildResultsList() {
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
@@ -1670,12 +1705,12 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.location_on_outlined,
+              child: Icon(Icons.location_on_outlined,
                   color: AppColors.primary, size: 18),
             ),
             title: Text(
               place.displayName.split(',').first,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.onSurface),
@@ -1684,7 +1719,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
             ),
             subtitle: Text(
               place.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11, color: AppColors.onSurfaceVariant),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

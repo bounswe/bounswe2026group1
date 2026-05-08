@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -22,6 +23,7 @@ import java.util.List;
 @Slf4j
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -36,10 +38,13 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** Anonymous access: routing API and auth endpoints. */
+    /** Anonymous access: routing API, auth endpoints, and Spring Boot's error dispatcher.
+     *  /error must be public so validation/binding failures forward correctly and surface
+     *  as 400 instead of being masked as 401 by the security chain. */
     private static final String[] ROUTING_AND_AUTH_PUBLIC = {
             "/api/routes", "/api/routes/**",
             "/auth/register", "/auth/login",
+            "/error",
     };
 
     @Bean
@@ -54,10 +59,20 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                         "/api/sse/public/**")
                     .permitAll()
+                        // Follow endpoints must stay authenticated even though they
+                        // live under /api/reports/**. Spring Security matches in order,
+                        // so this rule must come before the permit-all GET on /api/reports/**.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/reports/*/follow",
+                                "/api/reports/*/follow/**")
+                        .authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/reports", "/api/reports/**",
-                                "/api/comments", "/api/comments/**"
+                                "/api/comments", "/api/comments/**",
+                                "/api/categories", "/api/categories/**",
+                                "/api/object-types", "/api/object-types/**"
                         ).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 // Before the UsernamePasswordAuthenticationFilter, we want to run our JwtAuthFilter to check for JWT tokens in the request
@@ -84,7 +99,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(allowedOrigins));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

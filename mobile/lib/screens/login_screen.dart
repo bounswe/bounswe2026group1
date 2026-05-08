@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 60),
-                    const Center(
+                    Center(
                       child: Text(
                         'Mapcess',
                         style: TextStyle(
@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    const Text(
+                    Text(
                       'Welcome\nback',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Sign in to continue making your neighborhood a better place.',
                       style: TextStyle(
                         fontSize: 15,
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         _buildLabel('Password'),
                         GestureDetector(
                           onTap: () {},
-                          child: const Text(
+                          child: Text(
                             'Forgot Password?',
                             style: TextStyle(
                               fontSize: 13,
@@ -157,19 +157,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFDAD6),
+                          color: AppColors.errorContainer,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFFB4AB)),
+                          border:
+                              Border.all(color: AppColors.errorContainerBorder),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Color(0xFFBA1A1A), size: 20),
+                            Icon(Icons.error_outline,
+                                color: AppColors.onErrorContainer, size: 20),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _formError!,
-                                style: const TextStyle(
-                                  color: Color(0xFFBA1A1A),
+                                style: TextStyle(
+                                  color: AppColors.onErrorContainer,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -196,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLabel(String text) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: AppColors.onSurfaceVariant,
@@ -218,16 +220,18 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(14),
-            border: errorText != null ? Border.all(color: const Color(0xFFBA1A1A)) : null,
+            border: errorText != null
+                ? Border.all(color: AppColors.error)
+                : null,
           ),
           child: TextField(
             controller: controller,
             obscureText: obscure,
             keyboardType: keyboardType,
-            style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
+            style: TextStyle(color: AppColors.onSurface, fontSize: 15),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: AppColors.outlineVariant),
+              hintStyle: TextStyle(color: AppColors.outlineVariant),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 18,
@@ -251,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.only(top: 6, left: 12),
             child: Text(
               errorText,
-              style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
+              style: TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
       ],
@@ -276,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.surfaceContainerHigh),
         ),
-        child: const Text(
+        child: Text(
           'Continue as Guest',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -297,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [AppColors.primary, AppColors.primaryDim],
@@ -305,14 +309,14 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.25),
+              color: AppColors.primary.withValues(alpha: 0.25),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
           ],
         ),
         child: _loading
-            ? const Center(
+            ? Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
@@ -322,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               )
-            : const Text(
+            : Text(
                 'Sign In',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -346,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
@@ -392,7 +396,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'Google',
               style: TextStyle(
                 fontWeight: FontWeight.w600,

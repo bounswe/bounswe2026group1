@@ -18,6 +18,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final ReportRepository reportRepository;
     private final RegisteredUserRepository registeredUserRepository;
+    private final NotificationService notificationService;
 
     public List<Comment> getAll() {
         return commentRepository.findAll();
@@ -43,7 +44,9 @@ public class CommentService {
         if (comment.getAuthor() != null && comment.getAuthor().getId() != null) {
             comment.setAuthor(registeredUserRepository.getReferenceById(comment.getAuthor().getId()));
         }
-        return commentRepository.save(comment);
+        Comment saved = commentRepository.save(comment);
+        notificationService.notifyNewComment(saved);
+        return saved;
     }
 
     public Optional<Comment> update(Long id, Comment updated) {
