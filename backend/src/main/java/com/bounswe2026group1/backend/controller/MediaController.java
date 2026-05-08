@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
@@ -42,10 +45,8 @@ public class MediaController {
                 uploadedUrls.add(s3MediaService.uploadFile(file));
             }
 
-            // 3. Link all uploaded files to the database
-            for (String mediaUrl : uploadedUrls) {
-                reportService.addMediaToReport(reportId, mediaUrl);
-            }
+            // 3. Link all uploaded files to the database in a single transaction
+            reportService.addMediaToReportBatch(reportId, uploadedUrls);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "mediaUrl", uploadedUrls.isEmpty() ? null : uploadedUrls.get(0),
@@ -60,6 +61,7 @@ public class MediaController {
             }
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
+            log.error("Media upload failed for report {}", reportId, e);
             // If any upload or DB operation fails midway, rollback S3 uploads
             for (String url : uploadedUrls) {
                 try { s3MediaService.deleteFile(url); } catch (Exception ignored) {}

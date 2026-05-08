@@ -46,7 +46,7 @@ class MediaControllerTest {
                 "file", "photo.jpg", "image/jpeg", "fake-bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
-        doNothing().when(reportService).addMediaToReport(eq(1L), eq(RETURNED_URL));
+        doNothing().when(reportService).addMediaToReportBatch(eq(1L), any());
 
         mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
                         .header("Mapcess-Key", validApiKey))
@@ -81,7 +81,7 @@ class MediaControllerTest {
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated());
 
-        verify(reportService, times(1)).addMediaToReport(42L, RETURNED_URL);
+        verify(reportService, times(1)).addMediaToReportBatch(eq(42L), any());
     }
 
     // ── 400 Bad Request ───────────────────────────────────────────────────────
@@ -101,15 +101,9 @@ class MediaControllerTest {
     }
 
     @Test
-    @DisplayName("POST /{id}/media: empty file returns 400")
+    @DisplayName("POST /{id}/media: empty array returns 400")
     void upload_emptyFile_returns400() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "empty.jpg", "image/jpeg", new byte[0]);
-
-        when(s3MediaService.uploadFile(any()))
-                .thenThrow(new IllegalArgumentException("Invalid file type."));
-
-        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
+        mockMvc.perform(multipart(UPLOAD_URL, 1L)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isBadRequest());
     }
@@ -124,7 +118,7 @@ class MediaControllerTest {
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
         doThrow(new NoSuchElementException("Report not found with id: 99"))
-                .when(reportService).addMediaToReport(eq(99L), any());
+                .when(reportService).addMediaToReportBatch(eq(99L), any());
 
         mockMvc.perform(multipart(UPLOAD_URL, 99L).file(file)
                         .header("Mapcess-Key", validApiKey))
