@@ -29,7 +29,9 @@ public enum RoutingConstraint {
                     new IssueHazard(STAIR, RISER_TOO_HIGH),
                     new IssueHazard(STAIR, TREAD_TOO_SHALLOW),
                     new IssueHazard(STAIR, NO_ANTI_SLIP),
-                    new IssueHazard(STAIR, OPEN_RISERS))),
+                    new IssueHazard(STAIR, OPEN_RISERS),
+                    new IssueHazard(STAIR, IRREGULAR_STEPS),
+                    new IssueHazard(STAIR, MISSING_NOSING_STRIP))),
 
     REQUIRE_RAMPS(
             "Prefer routes with ramps over steps",
