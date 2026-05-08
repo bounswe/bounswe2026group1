@@ -12,7 +12,10 @@ vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
   updateReport: vi.fn(),
+  agreeFixRequest: vi.fn(),
+  disagreeFixRequest: vi.fn(),
   mapReport: vi.fn(r => r),
+  mapFixRequest: vi.fn(fr => fr),
   getCommentsByReport: vi.fn(() => Promise.resolve([])),
   createComment: vi.fn(),
   deleteComment: vi.fn(() => Promise.resolve()),
@@ -22,6 +25,7 @@ import {
   agreeReport,
   disagreeReport,
   updateReport,
+  agreeFixRequest,
   getCommentsByReport,
   createComment,
   deleteComment,
@@ -188,6 +192,103 @@ describe('ReportPanel', () => {
 
     await waitFor(() => {
       expect(comment).not.toBeInTheDocument()
+    })
+  })
+
+  // ── fix-flow additions ──────────────────────────────────────────────────
+
+  test('shows the fix CTA for an authenticated user when no active fix exists', () => {
+    renderPanel()
+    expect(screen.getByText(/Has this been fixed\?/i)).toBeInTheDocument()
+  })
+
+  test('hides the fix CTA when the report is already FIXED', () => {
+    renderPanel({ report: { ...report, status: 'fixed' } })
+    expect(screen.queryByText(/Has this been fixed\?/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Fixed')).toBeInTheDocument()
+  })
+
+  test('hides the fix CTA when an active fix request is already in flight', () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99, // different user
+      submittedByName: 'Mehmet',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+    expect(screen.queryByText(/Has this been fixed\?/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Fix Requested/i)).toBeInTheDocument()
+    expect(screen.getByText(/Fix pending/i)).toBeInTheDocument()
+  })
+
+  test('renders the active fix card with vote buttons for non-submitter', () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99,
+      submittedByName: 'Mehmet',
+      description: 'New ramp installed',
+      state: 'OPEN',
+      agrees: 3,
+      disagrees: 1,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    expect(screen.getByText('New ramp installed')).toBeInTheDocument()
+    expect(screen.getByText(/3 agrees/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 disagrees/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Yes, fixed/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /No, still there/i })).toBeInTheDocument()
+  })
+
+  test('hides the vote buttons when the current user submitted the fix', () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 'user123', // matches the mocked auth userId
+      submittedByName: 'You',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    expect(screen.queryByRole('button', { name: /Yes, fixed/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /No, still there/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/You submitted this fix report/i)).toBeInTheDocument()
+  })
+
+  test('clicking Yes, fixed calls agreeFixRequest', async () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99,
+      submittedByName: 'Mehmet',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    agreeFixRequest.mockResolvedValue({ ...activeFix, agrees: 1, userVote: 'AGREE' })
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    await act(async () => { await user.click(screen.getByRole('button', { name: /Yes, fixed/i })) })
+
+    await waitFor(() => {
+      expect(agreeFixRequest).toHaveBeenCalledWith('r1', 11, 'mock-token')
     })
   })
 })

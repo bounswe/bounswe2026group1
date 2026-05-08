@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getReports, getReportById, mapReport, updateReport } from '../services/reportService.js'
+import { getReports, getReportById, mapReport, mapReportStatus, updateReport } from '../services/reportService.js'
 import { useSseStatus } from '../context/SseContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -63,6 +63,10 @@ export function useUpdateMapReport() {
  * Apply a report-updated SSE event to the list cache in-place.
  * Call this from useSseSync instead of a full invalidation for the list,
  * so map markers update without a network round-trip.
+ *
+ * Note: SSE payloads only carry primitives (agrees/disagrees/status) — the
+ * full report (including activeFixRequest) is fetched via detail-query
+ * invalidation in useSseSync.
  */
 export function applyReportUpdatedToCache(queryClient, event) {
   const { reportId, agrees, disagrees, status } = event
@@ -75,7 +79,7 @@ export function applyReportUpdatedToCache(queryClient, event) {
             ...r,
             agrees,
             disagrees,
-            status: status === 'VERIFIED' ? 'verified' : 'unverified',
+            status: mapReportStatus(status),
           }
         : r
     )

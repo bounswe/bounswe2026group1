@@ -146,7 +146,7 @@ describe('Navbar', () => {
       await user.click(screen.getByRole('button', { name: /open profile menu/i }))
       expect(screen.getByRole('menu')).toBeInTheDocument()
 
-      fireEvent.mouseDown(screen.getByTestId('outside'))
+      fireEvent.pointerDown(screen.getByTestId('outside'))
 
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     })
