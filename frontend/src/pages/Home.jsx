@@ -27,31 +27,40 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, tag) {
+function makeMarkerIcon(status, tag, selected = false) {
   const cfg = REPORT_TAGS[tag] ?? { icon: 'warning', color: '#767777' }
   const borderColor = status === 'verified' ? '#176a21' : cfg.color
+  const size = selected ? 56 : 40
+  const iconFontSize = selected ? 28 : 20
+  const borderWidth = selected ? 3.5 : 2.5
+  // Outer halo on selected: a soft colored glow that draws the eye
+  // without obscuring the icon. Built with a layered box-shadow.
+  const shadow = selected
+    ? `0 0 0 4px ${borderColor}33, 0 0 0 8px ${borderColor}1a, 0 6px 18px rgba(0,0,0,0.25)`
+    : `0 4px 12px rgba(0,0,0,0.15)`
   return L.divIcon({
-    className: '',
+    className: selected ? 'mapcess-marker-selected' : '',
     html: `
       <div style="
-        width:40px;height:40px;
+        width:${size}px;height:${size}px;
         background:white;
         border-radius:50%;
-        border:2.5px solid ${borderColor};
-        box-shadow:0 4px 12px rgba(0,0,0,0.15);
+        border:${borderWidth}px solid ${borderColor};
+        box-shadow:${shadow};
         display:flex;align-items:center;justify-content:center;
         cursor:pointer;
+        transition:width 150ms ease, height 150ms ease;
       ">
         <span class="material-symbols-outlined" style="
-          font-size:20px;
+          font-size:${iconFontSize}px;
           color:${borderColor};
           font-variation-settings:'FILL' 1;
           line-height:1;
         ">${cfg.icon}</span>
       </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -24],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size * 0.6],
   })
 }
 
@@ -130,21 +139,23 @@ function MapCenterTracker({ onCenterChange }) {
   return null
 }
 
-function GeolocateOnLoad({ onLocation }) {
+function GeolocateOnLoad({ onLocation, autoPan = true }) {
   const map = useMap()
   useEffect(() => {
     function handleLocation(e) { onLocation(e.latlng) }
     map.on('locationfound', handleLocation)
-    map.locate({ setView: true, maxZoom: 16 })
+    // Skip setView when a deep-link is panning the map to a specific report —
+    // otherwise geolocation resolves later and steals focus from the report.
+    map.locate(autoPan ? { setView: true, maxZoom: 16 } : {})
     return () => { map.off('locationfound', handleLocation) }
-  }, [map, onLocation])
+  }, [map, onLocation, autoPan])
   return null
 }
 
 function MapFlyTo({ target }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lon], 15)
+    if (target) map.flyTo([target.lat, target.lon], target.zoom ?? 15)
   }, [target, map])
   return null
 }
@@ -165,6 +176,10 @@ function Home() {
   })
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
+  // Once the ?report=ID deep-link's report has loaded, fly to it. Guarded so
+  // we only do this once per Home mount — later marker clicks shouldn't yank
+  // the map back.
+  const flewToDeepLinkRef = useRef(false)
   const [mapCenter, setMapCenter] = useState(null)
   const [searchError, setSearchError] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState([])
@@ -182,6 +197,14 @@ function Home() {
   const [toast, setToast] = useState(null)
   const handleToastDismiss = useCallback(() => setToast(null), [])
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
+
+  useEffect(() => {
+    if (flewToDeepLinkRef.current) return
+    if (!searchParams.get('report')) return
+    if (!selectedReport) return
+    setSearchTarget({ lat: selectedReport.latitude, lon: selectedReport.longitude, zoom: 18 })
+    flewToDeepLinkRef.current = true
+  }, [searchParams, selectedReport])
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -424,7 +447,8 @@ function Home() {
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.tags[0])}
+                icon={makeMarkerIcon(report.status, report.tags[0], report.id === selectedReportId)}
+                zIndexOffset={report.id === selectedReportId ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
                     setShowCreatePanel(false)
@@ -437,7 +461,7 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
-            <GeolocateOnLoad onLocation={setUserLocation} />
+            <GeolocateOnLoad onLocation={setUserLocation} autoPan={!searchParams.get('report')} />
             <MapFlyTo target={searchTarget} />
             <MapCenterTracker onCenterChange={setMapCenter} />
             <MapClickHandler
