@@ -14,10 +14,39 @@ import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../widgets/objects_section.dart';
 import 'report_success_screen.dart';
 
 // Fallback location used before GPS resolves: Mission District, San Francisco
 const LatLng _defaultPin = LatLng(37.7599, -122.4148);
+
+/// Static display config for the two report-type cards at the top of the
+/// form — keeps the icon/title/subtitle together so the picker doesn't have
+/// to interleave a dozen literals.
+class _ReportTypeCard {
+  final ReportType type;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  const _ReportTypeCard({
+    required this.type,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+}
+
+class _EnvOption {
+  final ReportEnvironment env;
+  final IconData icon;
+  final String label;
+  const _EnvOption({
+    required this.env,
+    required this.icon,
+    required this.label,
+  });
+}
+
 
 class MakeReportScreen extends StatefulWidget {
   const MakeReportScreen({super.key});
@@ -28,7 +57,11 @@ class MakeReportScreen extends StatefulWidget {
 
 class _MakeReportScreenState extends State<MakeReportScreen> {
   final _descController = TextEditingController();
-  ReportTag _selectedTag = ReportTag.other;
+
+  ReportType _reportType = ReportType.obstacle;
+  ReportEnvironment _environment = ReportEnvironment.outdoor;
+  final List<ObjectDraft> _objects = [];
+
   File? _selectedMedia;
   bool _isVideo = false;
   bool _converting = false;
@@ -74,6 +107,24 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   }
 
   void _movePin(LatLng pos) => setState(() => _pinLocation = pos);
+
+  /// Drops non-RAMP cards' types and clears all issues when the user flips
+  /// to FEATURE — the shared [ObjectsSection] handles per-card mutations,
+  /// but this cross-list cleanup is screen-level concern.
+  void _onReportTypeChanged(ReportType next) {
+    setState(() {
+      _reportType = next;
+      if (next == ReportType.feature) {
+        for (final o in _objects) {
+          if (o.objectType != ObjectType.ramp) {
+            o.objectType = null;
+            o.measurements.clear();
+          }
+          o.issues.clear();
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -355,6 +406,20 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   Future<void> _submit() async {
     final desc = _descController.text.trim();
+    if (_objects.isEmpty) {
+      _showError('Add at least one object to describe the report.');
+      return;
+    }
+    for (final o in _objects) {
+      if (o.objectType == null) {
+        _showError('Select a type for every object card.');
+        return;
+      }
+      if (_reportType == ReportType.obstacle && o.issues.isEmpty) {
+        _showError('Pick at least one issue for the "${o.objectType!.label}" object.');
+        return;
+      }
+    }
     if (desc.length < 10) {
       _showError('Description must be at least 10 characters.');
       return;
@@ -363,12 +428,28 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     setState(() => _submitting = true);
     try {
       final auth = context.read<AuthService>();
+      final reportObjects = _objects.map((o) {
+        // Match the web: serialise the measurements map as JSON so both
+        // clients write the same shape into the backend's free-text field.
+        final filled = <String, num>{};
+        for (final e in o.measurements.entries) {
+          final v = num.tryParse(e.value.trim());
+          if (v != null) filled[e.key] = v;
+        }
+        return ReportObject(
+          objectType: o.objectType!,
+          issues: o.issues.toList(),
+          measurements: filled.isEmpty ? null : jsonEncode(filled),
+        );
+      }).toList();
       final report = await auth.api.createReport(
         userId: auth.userId,
         latitude: _pinLocation.latitude,
         longitude: _pinLocation.longitude,
         description: desc,
-        tag: _selectedTag,
+        reportType: _reportType,
+        environment: _environment,
+        objects: reportObjects,
       );
 
       // Upload media if selected
@@ -438,9 +519,15 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   const SizedBox(height: 20),
                   _buildDescriptionField(),
                   const SizedBox(height: 20),
-                  _buildCategorySelector(),
+                  _buildReportTypeSelector(),
                   const SizedBox(height: 20),
-                  _buildImpactCard(),
+                  _buildEnvironmentSelector(),
+                  const SizedBox(height: 20),
+                  ObjectsSection(
+                    objects: _objects,
+                    reportType: _reportType,
+                    onChanged: () => setState(() {}),
+                  ),
                   const SizedBox(height: 120),
                 ],
               ),
@@ -1057,251 +1144,198 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     );
   }
 
-  // ─── Category selector ─────────────────────────────────────────────────────
+  // ─── Report type / environment / objects ─────────────────────────────────
 
-  Widget _buildCategorySelector() {
-    final negative = ReportTag.values.where((t) => !t.isPositive).toList();
-    final positive = ReportTag.values.where((t) => t.isPositive).toList();
+  Widget _buildReportTypeSelector() {
+    const cards = [
+      _ReportTypeCard(
+        type: ReportType.obstacle,
+        icon: Icons.construction_outlined,
+        title: 'Obstacle',
+        subtitle: 'Something broken or missing',
+      ),
+      _ReportTypeCard(
+        type: ReportType.feature,
+        icon: Icons.accessible_forward,
+        title: 'Feature',
+        subtitle: 'Something helpful that exists',
+      ),
+    ];
+    return _buildPickerSection(
+      label: 'REPORT TYPE',
+      child: Row(
+        children: [
+          for (int i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _typeCardButton(
+                card: cards[i],
+                selected: _reportType == cards[i].type,
+                onTap: () => _onReportTypeChanged(cards[i].type),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _typeCardButton({
+    required _ReportTypeCard card,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 2),
+        ),
+        child: Column(
+          children: [
+            Icon(card.icon, size: 22, color: fg),
+            const SizedBox(height: 6),
+            Text(
+              card.title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: fg,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              card.subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.25,
+                color: fg.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnvironmentSelector() {
+    const items = [
+      _EnvOption(
+        env: ReportEnvironment.outdoor,
+        icon: Icons.wb_sunny_outlined,
+        label: 'Outdoor',
+      ),
+      _EnvOption(
+        env: ReportEnvironment.indoor,
+        icon: Icons.home_outlined,
+        label: 'Indoor',
+      ),
+    ];
+    return _buildPickerSection(
+      label: 'ENVIRONMENT',
+      child: Row(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _envButton(
+                option: items[i],
+                selected: _environment == items[i].env,
+                onTap: () => setState(() => _environment = items[i].env),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _envButton({
+    required _EnvOption option,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 2),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(option.icon, size: 16, color: fg),
+            const SizedBox(width: 8),
+            Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildPickerSection({
+    required String label,
+    required Widget child,
+    String? hint,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'SELECT CATEGORY',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.4,
-            color: AppColors.secondary,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: negative.map((tag) => _buildTagChip(tag)).toList(),
-        ),
-        const SizedBox(height: 14),
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle, size: 11, color: AppColors.primary),
-                  SizedBox(width: 4),
-                  Text(
-                    'ACCESSIBILITY FEATURE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: positive.map((tag) => _buildTagChip(tag)).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTagChip(ReportTag tag) {
-    final selected = _selectedTag == tag;
-    final unselectedBg = tag.isPositive
-        ? AppColors.primary.withOpacity(0.1)
-        : AppColors.infoContainer;
-    final unselectedFg = tag.isPositive
-        ? AppColors.primary
-        : AppColors.onInfoContainer;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTag = tag),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? tag.color : unselectedBg,
-          borderRadius: BorderRadius.circular(999),
-          border: tag.isPositive && !selected
-              ? Border.all(color: AppColors.primary.withOpacity(0.35))
-              : null,
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: tag.color.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              tag.icon,
-              size: 16,
-              color: selected ? AppColors.onPrimarySolid : unselectedFg,
-            ),
-            const SizedBox(width: 6),
             Text(
-              tag.label,
+              label,
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected ? AppColors.onPrimarySolid : unselectedFg,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: AppColors.secondary,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Impact card ───────────────────────────────────────────────────────────
-
-  Widget _buildImpactCard() {
-    if (_selectedTag.isPositive) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.accessible, color: AppColors.primary, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ACCESSIBILITY FEATURE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
-                      color: AppColors.primary,
-                    ),
+            if (hint != null) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hint,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.outlineVariant,
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'You\'re reporting something that helps people get around. Thank you!',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.primary,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'IMPACT LEVEL',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                  color: AppColors.secondary,
-                ),
-              ),
-              Text(
-                _selectedTag == ReportTag.brokenElevator ||
-                        _selectedTag == ReportTag.missingRamp
-                    ? 'High'
-                    : _selectedTag == ReportTag.construction ||
-                            _selectedTag == ReportTag.wetFloor
-                        ? 'Moderate'
-                        : 'Low',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              height: 8,
-              color: AppColors.surfaceContainerHigh,
-              child: LayoutBuilder(
-                builder: (_, c) {
-                  final frac = _selectedTag == ReportTag.brokenElevator ||
-                          _selectedTag == ReportTag.missingRamp
-                      ? 0.9
-                      : _selectedTag == ReportTag.construction ||
-                              _selectedTag == ReportTag.wetFloor
-                          ? 0.55
-                          : 0.25;
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: c.maxWidth * frac,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.primaryAccent, AppColors.primary],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'This helps us prioritize based on community safety and infrastructure health.',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
     );
   }
 

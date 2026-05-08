@@ -70,14 +70,16 @@ public class NotificationService {
         return saved;
     }
 
-    /** Trigger: report status transitioned to VERIFIED or REJECTED.
+    /** Trigger: report status transitioned to VERIFIED, REJECTED, or FIXED.
      *  Notifies the report author, anyone who commented or voted on the report,
      *  and any explicit subscribers, minus the actor whose action triggered the
      *  change. Caller must only invoke this when the status actually changed. */
     public void notifyStatusChange(Report report, Long actorUserId) {
         if (report == null || report.getCreatedBy() == null) return;
         ReportStatus status = report.getStatus();
-        if (status != ReportStatus.VERIFIED && status != ReportStatus.REJECTED) return;
+        if (status != ReportStatus.VERIFIED
+                && status != ReportStatus.REJECTED
+                && status != ReportStatus.FIXED) return;
 
         // Use Locale.ROOT so 'VERIFIED' lowercases to 'verified' even on Turkish JVMs
         // (default-locale toLowerCase would map I -> dotless 'ı').

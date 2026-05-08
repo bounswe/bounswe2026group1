@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,6 +12,7 @@ import '../models/sse_event.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
+import 'edit_report_screen.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -22,7 +24,10 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  ReportModel get report => widget.report;
+  /// Mutable so an in-place edit (PUT /api/reports/{id}) can update what's
+  /// rendered without popping/repushing the route.
+  late ReportModel _report;
+  ReportModel get report => _report;
 
   String? _fetchedUsername;
   bool _usernameLoading = false;
@@ -62,6 +67,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _report = widget.report;
     _agrees = report.agrees;
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
@@ -105,6 +111,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       final fresh = await context.read<AuthService>().api.getReport(report.reportId);
       if (!mounted) return;
       setState(() {
+        _report = fresh;
         _agrees = fresh.agrees;
         _disagrees = fresh.disagrees;
         _myVote = fresh.userVote?.toLowerCase();
@@ -112,6 +119,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     } catch (_) {
       // Non-fatal — stale data from the list is still shown.
     }
+  }
+
+  Future<void> _openEdit() async {
+    final updated = await Navigator.push<ReportModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditReportScreen(report: report),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted || updated == null) return;
+    setState(() => _report = updated);
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
@@ -363,6 +382,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       _buildTitleSection(),
                       const SizedBox(height: 24),
                       _buildDescriptionRow(),
+                      if (report.objects.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildObjectsSection(),
+                      ],
                       const SizedBox(height: 24),
                       _buildCommunityConsensus(),
                       const SizedBox(height: 24),
@@ -431,6 +454,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ),
             ),
+            // Edit affordance — gated to the report's author. Backend
+            // ownership checks still apply, this is just to hide the button
+            // for users who can't act on it.
+            if (context.watch<AuthService>().userId == report.userId)
+              IconButton(
+                icon: Icon(Icons.edit_outlined, color: AppColors.primary),
+                onPressed: _openEdit,
+              ),
             IconButton(
               icon: Icon(Icons.search, color: AppColors.onSurface),
               onPressed: () {},
@@ -522,13 +553,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       fit: StackFit.expand,
       children: [
         CustomPaint(
-          painter: _ImagePlaceholderPainter(color: report.tag.color),
+          painter: _ImagePlaceholderPainter(color: report.displayColor),
         ),
         Center(
           child: Icon(
-            report.tag.icon,
+            report.displayIcon,
             size: 80,
-            color: report.tag.color.withOpacity(0.25),
+            color: report.displayColor.withOpacity(0.25),
           ),
         ),
       ],
@@ -605,7 +636,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${report.tag.label} – Report #${report.reportId}',
+          '${report.headline} – Report #${report.reportId}',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontWeight: FontWeight.w800,
@@ -614,6 +645,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             height: 1.2,
           ),
         ),
+        const SizedBox(height: 10),
+        _buildEnvironmentChip(),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -621,12 +654,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: report.tag.color.withOpacity(0.12),
+                color: report.displayColor.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.person_outline,
-                color: report.tag.color,
+                color: report.displayColor,
                 size: 20,
               ),
             ),
@@ -663,6 +696,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  /// Indoor/outdoor pill rendered under the title.
+  Widget _buildEnvironmentChip() {
+    final env = report.environment;
+    final outdoor = env == ReportEnvironment.outdoor;
+    final fg = outdoor ? AppColors.success : AppColors.info;
+    final bg = outdoor ? AppColors.successContainer : AppColors.infoContainer;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(env.icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            env.label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -724,7 +788,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    report.tag.label,
+                    report.headline,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -819,6 +883,353 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   // ─── Community consensus ────────────────────────────────────────────────────
+
+  Widget _buildObjectsSection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.category_outlined,
+                  color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                report.objects.length == 1
+                    ? 'Reported Object'
+                    : 'Reported Objects (${report.objects.length})',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (int i = 0; i < report.objects.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _buildObjectCard(report.objects[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObjectCard(ReportObject obj) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: obj.objectType.color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  obj.objectType.icon,
+                  color: obj.objectType.color,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                obj.objectType.label,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (obj.issues.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: obj.issues
+                  .map((issue) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          issue.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onErrorContainer,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (obj.measurements != null && obj.measurements!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildMeasurementsBlock(obj),
+          ],
+          if (obj.warnings.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final w in obj.warnings)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 14, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        w.message,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.warning,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Renders an object's measurements. The create/edit forms write a
+  /// JSON-encoded `{key: "value"}` blob into the backend's free-text
+  /// `measurements` field; here we parse it, look up each key in
+  /// [measurementSpecsFor], and render a labelled row with units and an
+  /// accessibility verdict. Free-text strings (anything that isn't valid
+  /// JSON) fall back to a single body line.
+  Widget _buildMeasurementsBlock(ReportObject obj) {
+    final raw = obj.measurements!;
+    final parsed = _tryParseMeasurements(raw);
+    if (parsed == null) {
+      // Free-text fallback for older / non-JSON entries.
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.straighten, size: 14, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                raw,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final specs = measurementSpecsFor(obj.objectType);
+    // Maintain spec order; append any unknown keys at the end so nothing
+    // entered by the user gets silently dropped.
+    final knownKeys = specs.map((s) => s.key).toSet();
+    final unknownKeys = parsed.keys.where((k) => !knownKeys.contains(k));
+    final rows = <Widget>[
+      for (final spec in specs)
+        if (parsed.containsKey(spec.key))
+          _buildMeasurementRow(spec: spec, rawValue: parsed[spec.key]!),
+      for (final k in unknownKeys)
+        _buildMeasurementRow(
+          spec: MeasurementSpec(key: k, label: _humanizeKey(k), unit: ''),
+          rawValue: parsed[k]!,
+        ),
+    ];
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.straighten, size: 14, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'MEASUREMENTS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 12,
+                thickness: 1,
+                color: AppColors.outlineVariant.withValues(alpha: 0.25),
+              ),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeasurementRow({
+    required MeasurementSpec spec,
+    required String rawValue,
+  }) {
+    final parsedValue = double.tryParse(rawValue);
+    final verdict =
+        parsedValue == null ? null : spec.isAccessible(parsedValue);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                spec.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                spec.unit.isEmpty ? rawValue : '$rawValue ${spec.unit}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (verdict != null) ...[
+          const SizedBox(height: 4),
+          _accessibilityVerdict(spec, verdict),
+        ] else if (spec.accessibleMin != null || spec.accessibleMax != null) ...[
+          const SizedBox(height: 4),
+          _accessibilityHintText(_thresholdText(spec),
+              tone: AppColors.onSurfaceVariant, icon: Icons.info_outline),
+        ],
+      ],
+    );
+  }
+
+  Widget _accessibilityVerdict(MeasurementSpec spec, bool ok) {
+    final color = ok ? AppColors.success : AppColors.error;
+    final icon = ok ? Icons.check_circle : Icons.error_outline;
+    final text = ok ? 'Accessible · ${_thresholdText(spec)}'
+                    : 'Below accessible · needs ${_thresholdText(spec)}';
+    return _accessibilityHintText(text, tone: color, icon: icon);
+  }
+
+  Widget _accessibilityHintText(String text,
+      {required Color tone, required IconData icon}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 12, color: tone),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: tone,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _thresholdText(MeasurementSpec s) {
+    final unit = s.unit;
+    if (s.accessibleMin != null && s.accessibleMax != null) {
+      return '${_fmtNum(s.accessibleMin!)}–${_fmtNum(s.accessibleMax!)} $unit';
+    }
+    if (s.accessibleMin != null) return '≥ ${_fmtNum(s.accessibleMin!)} $unit';
+    if (s.accessibleMax != null) return '≤ ${_fmtNum(s.accessibleMax!)} $unit';
+    return '';
+  }
+
+  static String _fmtNum(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  static String _humanizeKey(String key) => key
+      .split('_')
+      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+
+  /// Parses the JSON map written by the create form. Returns null when the
+  /// blob isn't valid JSON or isn't a string-keyed map — those cases are
+  /// rendered as free text.
+  Map<String, String>? _tryParseMeasurements(String raw) {
+    final trimmed = raw.trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is! Map) return null;
+      return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+    } catch (_) {
+      return null;
+    }
+  }
 
   Widget _buildCommunityConsensus() {
     final totalVotes = _agrees + _disagrees;
@@ -1055,7 +1466,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           const SizedBox(height: 12),
           _infoRow(Icons.tag, 'Report ID', '#${report.reportId}'),
-          _infoRow(Icons.category_outlined, 'Category', report.tag.label),
+          _infoRow(Icons.category_outlined, 'Category', report.headline),
           _infoRow(Icons.circle_outlined, 'Status', _currentStatus.label),
           _infoRow(
             Icons.schedule_outlined,

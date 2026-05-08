@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 const AuthContext = createContext(null)
 
@@ -22,6 +23,8 @@ function isTokenExpired(token) {
 }
 
 export function AuthProvider({ children }) {
+  const queryClient = useQueryClient()
+
   // Lazy initializer: read token from localStorage but discard it if already expired.
   const [token, setToken] = useState(() => {
     const stored = localStorage.getItem('token')
@@ -41,10 +44,11 @@ export function AuthProvider({ children }) {
     function handleExpired() {
       localStorage.removeItem('token')
       setToken(null)
+      queryClient.removeQueries({ queryKey: ['currentUser'] })
     }
     window.addEventListener('auth:expired', handleExpired)
     return () => window.removeEventListener('auth:expired', handleExpired)
-  }, [])
+  }, [queryClient])
 
   function login(newToken) {
     localStorage.setItem('token', newToken)
@@ -54,6 +58,7 @@ export function AuthProvider({ children }) {
   function logout() {
     localStorage.removeItem('token')
     setToken(null)
+    queryClient.removeQueries({ queryKey: ['currentUser'] })
   }
 
   return (

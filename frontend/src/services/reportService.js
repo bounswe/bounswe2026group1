@@ -1,5 +1,5 @@
 import { apiFetch } from './api.js'
-import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 
 /**
  * Fetch all reports from the backend.
@@ -38,6 +38,65 @@ export async function disagreeReport(id, token) {
 }
 
 /**
+ * Submit a fix request on a report.
+ * POST /api/reports/{reportId}/fix-requests   (multipart)
+ *
+ * Uses fetch directly because apiFetch sets a JSON Content-Type which would
+ * break the multipart boundary that FormData generates automatically.
+ */
+export async function submitFixRequest(reportId, file, description, token) {
+  const formData = new FormData()
+  formData.append('files', file)
+  if (description && description.trim()) {
+    formData.append('description', description.trim())
+  }
+
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/api/reports/${reportId}/fix-requests`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Mapcess-Key': import.meta.env.VITE_API_KEY,
+      },
+      body: formData,
+    }
+  )
+
+  if (!res.ok) {
+    if (res.status === 401) window.dispatchEvent(new CustomEvent('auth:expired'))
+    const error = await res.json().catch(() => ({ message: res.statusText }))
+    const err = new Error(error.message || res.statusText)
+    err.status = res.status
+    throw err
+  }
+
+  return res.json()
+}
+
+/**
+ * Submit an agree vote on a fix request.
+ * POST /api/reports/{reportId}/fix-requests/{fixId}/agree
+ */
+export async function agreeFixRequest(reportId, fixId, token) {
+  return apiFetch(`/api/reports/${reportId}/fix-requests/${fixId}/agree`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+/**
+ * Submit a disagree vote on a fix request.
+ * POST /api/reports/{reportId}/fix-requests/{fixId}/disagree
+ */
+export async function disagreeFixRequest(reportId, fixId, token) {
+  return apiFetch(`/api/reports/${reportId}/fix-requests/${fixId}/disagree`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+/**
  * Fetch comments for a specific report.
  * GET /api/comments/report/{reportId}
  */
@@ -66,29 +125,98 @@ export async function createComment(reportId, content, token, userId) {
 }
 
 /**
+ * Map an API FixRequestResponse to the shape consumed by ReportPanel's
+ * active-fix card.
+ */
+export function mapFixRequest(fr) {
+  if (!fr) return null
+  return {
+    id: fr.id,
+    reportId: fr.reportId,
+    submittedByUserId: fr.submittedByUserId,
+    submittedByName: fr.submittedByName,
+    description: fr.description,
+    state: fr.state,
+    agrees: fr.agrees,
+    disagrees: fr.disagrees,
+    createdAt: fr.createdAt,
+    resolvedAt: fr.resolvedAt,
+    mediaUrls: fr.mediaUrls || [],
+    userVote: fr.userVote ? fr.userVote.toLowerCase() : null,
+  }
+}
+
+/**
+ * Map an API ReportStatus enum value to the lowercase tag the panel expects.
+ * Anything other than VERIFIED / FIXED / REJECTED is treated as unverified
+ * (covers PENDING and any future additions until they get explicit handling).
+ */
+export function mapReportStatus(apiStatus) {
+  switch (apiStatus) {
+    case 'VERIFIED': return 'verified'
+    case 'FIXED':    return 'fixed'
+    case 'REJECTED': return 'rejected'
+    default:         return 'unverified'
+  }
+}
+
+/**
  * Map API ReportResponse fields to ReportPanel prop shape.
  */
 export function mapReport(r) {
+  const objects = (r.objects || []).map(obj => ({
+    objectType: obj.objectType,
+    issues: obj.issues || [],
+    measurements: obj.measurements
+      ? (() => { try { return JSON.parse(obj.measurements) } catch { return {} } })()
+      : {},
+  }))
+
+  const title = (() => {
+    if (!objects.length) return r.reportType === 'FEATURE' ? 'Feature Report' : 'Obstacle Report'
+    const labels = [...new Set(objects.map(o => OBJECT_TYPE_MAP[o.objectType]?.label || o.objectType))]
+    return r.reportType === 'FEATURE'
+      ? `${labels.join(' & ')} — Feature`
+      : `${labels.join(' & ')} Issue`
+  })()
+
   return {
     id: r.reportId,
-    title: REPORT_TAGS[r.tag]?.label || r.tag,
+    title,
     description: r.description,
-    status: r.status === 'VERIFIED' ? 'verified' : 'unverified',
+    status: mapReportStatus(r.status),
     date: r.publishDate
       ? new Date(r.publishDate).toLocaleDateString('en-GB', {
           day: 'numeric', month: 'long', year: 'numeric',
         })
       : 'Unknown date',
+    fixedAt: r.fixedAt || null,
     location: `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`,
     reportedBy: `User #${r.userId}`,
     agrees: r.agrees,
     disagrees: r.disagrees,
     userVote: r.userVote ? r.userVote.toLowerCase() : null,
-    tags: r.tag ? [r.tag] : [],
+    tags: [],
+    reportType: r.reportType || 'OBSTACLE',
+    environment: r.environment || 'OUTDOOR',
+    objects,
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     latitude: r.latitude,
     longitude: r.longitude,
+    activeFixRequest: mapFixRequest(r.activeFixRequest),
   }
+}
+
+/**
+ * Submit a new report.
+ * POST /api/reports
+ */
+export async function createReport({ userId, latitude, longitude, description, reportType, environment, objects, token }) {
+  return apiFetch('/api/reports', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ userId, latitude, longitude, description, reportType, environment, objects }),
+  })
 }
 
 
