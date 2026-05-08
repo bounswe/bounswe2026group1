@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.IssueType;
+import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.ObjectType;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
@@ -132,6 +133,38 @@ class ObstacleServiceConstraintIntegrationTest extends AbstractPostgisIntegratio
                 EnumSet.of(RoutingConstraint.AVOID_DAMAGED_TACTILE_PAVING));
 
         assertThat(polygons).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // Regression: native-query enum binding (issue: prod /api/routes 500)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void findObstaclesOnPath_executesAgainstPostgisWithoutEnumBindingError() {
+        // findObstaclesOnPath() uses native query findReportsInBoundingBoxWithStatuses,
+        // which historically broke because Hibernate binds Collection<ReportStatus> as
+        // smallint ordinals in native queries (clashing with the varchar status column).
+        // The fix is to pass status names (strings); this test fails if anyone reverts.
+        Location p1 = new Location(41.0850, 29.0451);
+        Location p2 = new Location(41.0852, 29.0453);
+        List<Report> obstacles = obstacleService.findObstaclesOnPath(List.of(p1, p2));
+
+        // We don't assert a specific count — what matters is the call doesn't throw
+        // an InvalidDataAccessResourceUsageException ("operator does not exist:
+        // character varying = smallint"). Returning an empty list is fine; throwing isn't.
+        assertThat(obstacles).isNotNull();
+    }
+
+    @Test
+    void findClosestRampInBoundingBox_executesAgainstPostgisWithoutEnumBindingError() {
+        // findClosestRampInBoundingBox uses native query findByTypeInBoundingBoxWithStatuses,
+        // which has the same enum-binding pitfall on both the type and statuses params.
+        Location start = new Location(41.0840, 29.0440);
+        Location end = new Location(41.0860, 29.0470);
+        // Returning null is a valid outcome (no FEATURE-RAMP reports seeded).
+        // The test guards only against the SQL/Hibernate exception.
+        Report ramp = obstacleService.findClosestRampInBoundingBox(start, end);
+        assertThat(ramp).isNull();
     }
 
     @Test

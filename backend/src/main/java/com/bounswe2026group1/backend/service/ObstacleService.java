@@ -36,6 +36,14 @@ public class ObstacleService {
     /** Only verified reports are used for route calculations. */
     private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.VERIFIED);
 
+    /**
+     * String form of {@link #ACTIVE_STATUSES} for native-query callers — Hibernate
+     * binds {@code Collection<Enum>} as smallint ordinals in native queries, which
+     * doesn't match the varchar column produced by {@code @Enumerated(STRING)}.
+     */
+    private static final List<String> ACTIVE_STATUS_NAMES =
+            ACTIVE_STATUSES.stream().map(Enum::name).toList();
+
     private final ReportRepository reportRepository;
     private final ObjectMapper objectMapper;
 
@@ -130,8 +138,9 @@ public class ObstacleService {
         double maxLon = Math.max(start.getLongitude(), end.getLongitude()) + bufferDeg;
 
         // Fetch only VERIFIED FEATURE reports with entry/exit points for wheelchair routing.
+        // Native query — pass status/type as strings (see method javadoc on the repo).
         List<Report> candidates = reportRepository.findByTypeInBoundingBoxWithStatuses(
-                ReportType.FEATURE, minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
+                ReportType.FEATURE.name(), minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
 
         Report bestRamp = null;
         double minTotalDistance = Double.MAX_VALUE;
@@ -197,8 +206,9 @@ public class ObstacleService {
         double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
 
         // Fetch only VERIFIED reports in the path bounding box for route calculations.
+        // Native query — pass statuses as strings (see method javadoc on the repo).
         List<Report> candidates = reportRepository.findReportsInBoundingBoxWithStatuses(
-                minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
+                minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
 
         return candidates.stream()
                 .filter(r -> r.getReportType() == ReportType.OBSTACLE)

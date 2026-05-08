@@ -51,7 +51,7 @@ class ObstacleServiceTest {
     @Test
     void findClosestRamp_returnsNull_whenNoCandidates() {
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of());
 
@@ -62,7 +62,7 @@ class ObstacleServiceTest {
     void findClosestRamp_returnsSingleRamp_whenOnlyOneCandidate() {
         Report ramp = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(ramp));
 
@@ -80,7 +80,7 @@ class ObstacleServiceTest {
                                 41.0821, 29.0499);  // exit ≈ 14 m from END
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(rampA, rampB));
 
@@ -99,7 +99,7 @@ class ObstacleServiceTest {
         Report good = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(bad, good));
 
@@ -118,7 +118,7 @@ class ObstacleServiceTest {
         elevatorFeature.getObjects().add(new ReportObject(elevatorFeature, ObjectType.ELEVATOR, Set.of(), null));
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(elevatorFeature, rampReport));
 

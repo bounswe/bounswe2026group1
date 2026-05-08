@@ -40,6 +40,13 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             @Param("type") ReportType type,
             @Param("statuses") Collection<ReportStatus> statuses);
 
+    /**
+     * Native query — caller MUST pass status names (e.g.
+     * {@code ReportStatus.VERIFIED.name()}), not enum values. Hibernate binds
+     * {@code Collection<Enum>} as ordinals (smallint) in native queries, which
+     * collides with the varchar column produced by {@code @Enumerated(STRING)}.
+     * Same goes for {@code type}.
+     */
     @Query(value = """
             SELECT r.* FROM reports r
             WHERE r.status IN (:statuses)
@@ -48,13 +55,14 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             """,
             nativeQuery = true)
     List<Report> findByTypeInBoundingBoxWithStatuses(
-            @Param("type") ReportType type,
+            @Param("type") String type,
             @Param("minLat") double minLat,
             @Param("maxLat") double maxLat,
             @Param("minLon") double minLon,
             @Param("maxLon") double maxLon,
-            @Param("statuses") Collection<ReportStatus> statuses);
+            @Param("statuses") Collection<String> statuses);
 
+    /** Native query — caller MUST pass status names. See sibling method above. */
     @Query(value = """
             SELECT r.* FROM reports r
             WHERE r.status IN (:statuses)
@@ -66,5 +74,5 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             @Param("maxLat") double maxLat,
             @Param("minLon") double minLon,
             @Param("maxLon") double maxLon,
-            @Param("statuses") Collection<ReportStatus> statuses);
+            @Param("statuses") Collection<String> statuses);
 }
