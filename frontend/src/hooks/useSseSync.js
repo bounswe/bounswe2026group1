@@ -31,6 +31,13 @@ export function useSseSync() {
         queryClient.invalidateQueries({
           queryKey: reportKeys.detail(event.reportId),
         })
+
+        // 3. Fix-flow ops touch fields the SSE payload doesn't carry
+        // (activeFixRequest, fixedAt). Force a list refetch so the panel,
+        // which reads selectedReport from the list cache, sees them.
+        if (['fix_requested', 'fix_updated', 'fixed'].includes(event.operation)) {
+          queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
+        }
       },
 
       onMediaAdded(event) {
