@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +9,7 @@ import '../models/report_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/objects_section.dart';
 
 /// Author-only edit form. Pre-populates from [report] and saves via
 /// PUT /api/reports/{id}. Pops with the updated [ReportModel] on success.
@@ -25,13 +28,11 @@ class EditReportScreen extends StatefulWidget {
 
 class _EditReportScreenState extends State<EditReportScreen> {
   late final TextEditingController _descController;
-  late final TextEditingController _measurementsController;
   late final MapController _mapController;
 
   late ReportEnvironment _environment;
-  late ObjectType _objectType;
   late LatLng _pin;
-  late Set<IssueType> _selectedIssues;
+  late final List<ObjectDraft> _objects;
 
   bool _saving = false;
   String? _error;
@@ -44,23 +45,20 @@ class _EditReportScreenState extends State<EditReportScreen> {
     _environment = r.environment;
     _pin = LatLng(r.latitude, r.longitude);
     _mapController = MapController();
-
-    final primary = r.primaryObject;
-    _objectType = primary?.objectType ?? ObjectType.ramp;
-    _selectedIssues = primary != null ? {...primary.issues} : <IssueType>{};
-    _measurementsController =
-        TextEditingController(text: primary?.measurements ?? '');
+    // Hydrate one draft per saved object — JSON measurements are decoded
+    // back into the per-spec map by ObjectDraft.fromReportObject.
+    _objects = [
+      for (int i = 0; i < r.objects.length; i++)
+        ObjectDraft.fromReportObject(r.objects[i], id: 'edit_obj_$i'),
+    ];
   }
 
   @override
   void dispose() {
     _descController.dispose();
-    _measurementsController.dispose();
     _mapController.dispose();
     super.dispose();
   }
-
-  // ── Submit ──────────────────────────────────────────────────────────────
 
   bool get _isFeature => widget.report.reportType == ReportType.feature;
 
@@ -70,9 +68,21 @@ class _EditReportScreenState extends State<EditReportScreen> {
       setState(() => _error = 'Description must be at least 10 characters.');
       return;
     }
-    if (!_isFeature && _selectedIssues.isEmpty) {
-      setState(() => _error = 'Pick at least one issue for this object.');
+    if (_objects.isEmpty) {
+      setState(
+          () => _error = 'Add at least one object to describe the report.');
       return;
+    }
+    for (final o in _objects) {
+      if (o.objectType == null) {
+        setState(() => _error = 'Select a type for every object card.');
+        return;
+      }
+      if (!_isFeature && o.issues.isEmpty) {
+        setState(() => _error =
+            'Pick at least one issue for the "${o.objectType!.label}" object.');
+        return;
+      }
     }
 
     setState(() {
@@ -82,19 +92,26 @@ class _EditReportScreenState extends State<EditReportScreen> {
 
     try {
       final auth = context.read<AuthService>();
-      final measurements = _measurementsController.text.trim();
-      final updatedObject = ReportObject(
-        objectType: _objectType,
-        issues: _selectedIssues.toList(),
-        measurements: measurements.isEmpty ? null : measurements,
-      );
+      final reportObjects = _objects.map((o) {
+        // Same JSON-encoded measurements shape the create form writes — keeps
+        // the backend's free-text field consistent across clients.
+        final filled = Map.fromEntries(
+          o.measurements.entries.where((e) => e.value.trim().isNotEmpty),
+        );
+        return ReportObject(
+          objectType: o.objectType!,
+          issues: o.issues.toList(),
+          measurements: filled.isEmpty ? null : jsonEncode(filled),
+        );
+      }).toList();
+
       final updated = await auth.api.updateReport(
         reportId: widget.report.reportId,
         description: desc,
         environment: _environment,
         latitude: _pin.latitude,
         longitude: _pin.longitude,
-        objects: [updatedObject],
+        objects: reportObjects,
       );
       if (!mounted) return;
       Navigator.pop(context, updated);
@@ -105,7 +122,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
           _error = e.userMessage;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _saving = false;
@@ -114,8 +131,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
       }
     }
   }
-
-  // ── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -136,13 +151,11 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   const SizedBox(height: 20),
                   _buildEnvironmentSelector(),
                   const SizedBox(height: 20),
-                  _buildObjectSelector(),
-                  if (!_isFeature) ...[
-                    const SizedBox(height: 20),
-                    _buildIssueSelector(),
-                  ],
-                  const SizedBox(height: 20),
-                  _buildMeasurementsField(),
+                  ObjectsSection(
+                    objects: _objects,
+                    reportType: widget.report.reportType,
+                    onChanged: () => setState(() {}),
+                  ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     _buildErrorBanner(),
@@ -233,11 +246,8 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   markers: [
                     Marker(
                       point: _pin,
-                      child: Icon(
-                        Icons.location_on,
-                        color: AppColors.primary,
-                        size: 36,
-                      ),
+                      child: Icon(Icons.location_on,
+                          color: AppColors.primary, size: 36),
                     ),
                   ],
                 ),
@@ -302,156 +312,71 @@ class _EditReportScreenState extends State<EditReportScreen> {
   }
 
   Widget _buildEnvironmentSelector() {
+    const items = [
+      _EnvOption(
+        env: ReportEnvironment.outdoor,
+        icon: Icons.wb_sunny_outlined,
+        label: 'Outdoor',
+      ),
+      _EnvOption(
+        env: ReportEnvironment.indoor,
+        icon: Icons.home_outlined,
+        label: 'Indoor',
+      ),
+    ];
     return _section(
       label: 'ENVIRONMENT',
       child: Row(
-        children: ReportEnvironment.values
-            .map((e) => Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                        right: e == ReportEnvironment.values.last ? 0 : 8),
-                    child: _segmentChip(
-                      icon: e.icon,
-                      label: e.label,
-                      selected: _environment == e,
-                      onTap: () => setState(() => _environment = e),
-                    ),
-                  ),
-                ))
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _buildObjectSelector() {
-    return _section(
-      label: 'OBJECT',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: ObjectType.values.map((type) {
-          final selected = _objectType == type;
-          return GestureDetector(
-            onTap: () => setState(() {
-              _objectType = type;
-              _selectedIssues.removeWhere((i) => !i.isValidFor(type));
-            }),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: selected ? type.color : AppColors.surfaceContainer,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    type.icon,
-                    size: 16,
-                    color: selected
-                        ? AppColors.onPrimarySolid
-                        : AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    type.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? AppColors.onPrimarySolid
-                          : AppColors.onSurface,
-                    ),
-                  ),
-                ],
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _envButton(
+                option: items[i],
+                selected: _environment == items[i].env,
+                onTap: () => setState(() => _environment = items[i].env),
               ),
             ),
-          );
-        }).toList(),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildIssueSelector() {
-    final issues = IssueType.issuesFor(_objectType);
-    return _section(
-      label: 'ISSUES (${_selectedIssues.length})',
-      hint: 'Pick all that apply',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: issues.map((issue) {
-          final selected = _selectedIssues.contains(issue);
-          return GestureDetector(
-            onTap: () => setState(() {
-              if (selected) {
-                _selectedIssues.remove(issue);
-              } else {
-                _selectedIssues.add(issue);
-              }
-            }),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color:
-                    selected ? AppColors.primary : AppColors.surfaceContainer,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    selected ? Icons.check : Icons.add,
-                    size: 14,
-                    color: selected
-                        ? AppColors.onPrimarySolid
-                        : AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    issue.label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? AppColors.onPrimarySolid
-                          : AppColors.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildMeasurementsField() {
-    return _section(
-      label: 'MEASUREMENTS',
-      hint: 'Optional — e.g. width 80cm, slope 12%',
-      child: Container(
+  Widget _envButton({
+    required _EnvOption option,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.surfaceContainerHigh),
+          border: Border.all(color: borderColor, width: 2),
         ),
-        child: TextField(
-          controller: _measurementsController,
-          maxLines: 2,
-          style: TextStyle(fontSize: 14, color: AppColors.onSurface),
-          decoration: InputDecoration(
-            hintText: 'Add dimensions, slope, clearance…',
-            hintStyle: TextStyle(color: AppColors.outlineVariant, fontSize: 13),
-            border: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(option.icon, size: 16, color: fg),
+            const SizedBox(width: 8),
+            Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -551,8 +476,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
     );
   }
 
-  // ── Shared chips / sections ─────────────────────────────────────────────
-
   Widget _section({
     required String label,
     required Widget child,
@@ -591,45 +514,15 @@ class _EditReportScreenState extends State<EditReportScreen> {
       ],
     );
   }
+}
 
-  Widget _segmentChip({
-    required IconData icon,
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surfaceContainer,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected
-                  ? AppColors.onPrimarySolid
-                  : AppColors.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color:
-                    selected ? AppColors.onPrimarySolid : AppColors.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class _EnvOption {
+  final ReportEnvironment env;
+  final IconData icon;
+  final String label;
+  const _EnvOption({
+    required this.env,
+    required this.icon,
+    required this.label,
+  });
 }

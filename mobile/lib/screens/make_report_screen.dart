@@ -14,10 +14,39 @@ import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../widgets/objects_section.dart';
 import 'report_success_screen.dart';
 
 // Fallback location used before GPS resolves: Mission District, San Francisco
 const LatLng _defaultPin = LatLng(37.7599, -122.4148);
+
+/// Static display config for the two report-type cards at the top of the
+/// form — keeps the icon/title/subtitle together so the picker doesn't have
+/// to interleave a dozen literals.
+class _ReportTypeCard {
+  final ReportType type;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  const _ReportTypeCard({
+    required this.type,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+}
+
+class _EnvOption {
+  final ReportEnvironment env;
+  final IconData icon;
+  final String label;
+  const _EnvOption({
+    required this.env,
+    required this.icon,
+    required this.label,
+  });
+}
+
 
 class MakeReportScreen extends StatefulWidget {
   const MakeReportScreen({super.key});
@@ -28,12 +57,10 @@ class MakeReportScreen extends StatefulWidget {
 
 class _MakeReportScreenState extends State<MakeReportScreen> {
   final _descController = TextEditingController();
-  final _measurementsController = TextEditingController();
 
   ReportType _reportType = ReportType.obstacle;
   ReportEnvironment _environment = ReportEnvironment.outdoor;
-  ObjectType? _objectType;
-  final Set<IssueType> _selectedIssues = {};
+  final List<ObjectDraft> _objects = [];
 
   File? _selectedMedia;
   bool _isVideo = false;
@@ -81,10 +108,27 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   void _movePin(LatLng pos) => setState(() => _pinLocation = pos);
 
+  /// Drops non-RAMP cards' types and clears all issues when the user flips
+  /// to FEATURE — the shared [ObjectsSection] handles per-card mutations,
+  /// but this cross-list cleanup is screen-level concern.
+  void _onReportTypeChanged(ReportType next) {
+    setState(() {
+      _reportType = next;
+      if (next == ReportType.feature) {
+        for (final o in _objects) {
+          if (o.objectType != ObjectType.ramp) {
+            o.objectType = null;
+            o.measurements.clear();
+          }
+          o.issues.clear();
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _descController.dispose();
-    _measurementsController.dispose();
     _mapController.dispose();
     _locationSearchController.dispose();
     _locationSearchFocus.dispose();
@@ -362,28 +406,40 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   Future<void> _submit() async {
     final desc = _descController.text.trim();
+    if (_objects.isEmpty) {
+      _showError('Add at least one object to describe the report.');
+      return;
+    }
+    for (final o in _objects) {
+      if (o.objectType == null) {
+        _showError('Select a type for every object card.');
+        return;
+      }
+      if (_reportType == ReportType.obstacle && o.issues.isEmpty) {
+        _showError('Pick at least one issue for the "${o.objectType!.label}" object.');
+        return;
+      }
+    }
     if (desc.length < 10) {
       _showError('Description must be at least 10 characters.');
-      return;
-    }
-    if (_objectType == null) {
-      _showError('Pick an object (ramp, elevator, etc.) for this report.');
-      return;
-    }
-    if (_reportType == ReportType.obstacle && _selectedIssues.isEmpty) {
-      _showError('Pick at least one issue for the selected object.');
       return;
     }
 
     setState(() => _submitting = true);
     try {
       final auth = context.read<AuthService>();
-      final measurements = _measurementsController.text.trim();
-      final reportObject = ReportObject(
-        objectType: _objectType!,
-        issues: _selectedIssues.toList(),
-        measurements: measurements.isEmpty ? null : measurements,
-      );
+      final reportObjects = _objects.map((o) {
+        // Match the web: serialise the measurements map as JSON so both
+        // clients write the same shape into the backend's free-text field.
+        final filled = Map.fromEntries(
+          o.measurements.entries.where((e) => e.value.trim().isNotEmpty),
+        );
+        return ReportObject(
+          objectType: o.objectType!,
+          issues: o.issues.toList(),
+          measurements: filled.isEmpty ? null : jsonEncode(filled),
+        );
+      }).toList();
       final report = await auth.api.createReport(
         userId: auth.userId,
         latitude: _pinLocation.latitude,
@@ -391,7 +447,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         description: desc,
         reportType: _reportType,
         environment: _environment,
-        objects: [reportObject],
+        objects: reportObjects,
       );
 
       // Upload media if selected
@@ -465,13 +521,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   const SizedBox(height: 20),
                   _buildEnvironmentSelector(),
                   const SizedBox(height: 20),
-                  _buildObjectSelector(),
-                  if (_objectType != null) ...[
-                    const SizedBox(height: 20),
-                    _buildIssueSelector(),
-                    const SizedBox(height: 20),
-                    _buildMeasurementsField(),
-                  ],
+                  ObjectsSection(
+                    objects: _objects,
+                    reportType: _reportType,
+                    onChanged: () => setState(() {}),
+                  ),
                   const SizedBox(height: 120),
                 ],
               ),
@@ -1088,206 +1142,161 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     );
   }
 
-  // ─── Report type / environment / object / issues selectors ────────────────
+  // ─── Report type / environment / objects ─────────────────────────────────
 
   Widget _buildReportTypeSelector() {
+    const cards = [
+      _ReportTypeCard(
+        type: ReportType.obstacle,
+        icon: Icons.construction_outlined,
+        title: 'Obstacle',
+        subtitle: 'Something broken or missing',
+      ),
+      _ReportTypeCard(
+        type: ReportType.feature,
+        icon: Icons.accessible_forward,
+        title: 'Feature',
+        subtitle: 'Something helpful that exists',
+      ),
+    ];
     return _buildPickerSection(
       label: 'REPORT TYPE',
       child: Row(
-        children: ReportType.values
-            .map(
-              (t) => Expanded(
-                child: Padding(
-                  padding:
-                      EdgeInsets.only(right: t == ReportType.values.last ? 0 : 8),
-                  child: _segmentChip(
-                    icon: t.icon,
-                    label: t.label,
-                    selected: _reportType == t,
-                    onTap: () => setState(() {
-                      _reportType = t;
-                      // Features don't list issues; clear them when flipping
-                      // to FEATURE.
-                      if (t == ReportType.feature) _selectedIssues.clear();
-                    }),
-                  ),
-                ),
+        children: [
+          for (int i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _typeCardButton(
+                card: cards[i],
+                selected: _reportType == cards[i].type,
+                onTap: () => _onReportTypeChanged(cards[i].type),
               ),
-            )
-            .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _typeCardButton({
+    required _ReportTypeCard card,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 2),
+        ),
+        child: Column(
+          children: [
+            Icon(card.icon, size: 22, color: fg),
+            const SizedBox(height: 6),
+            Text(
+              card.title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: fg,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              card.subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.25,
+                color: fg.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEnvironmentSelector() {
+    const items = [
+      _EnvOption(
+        env: ReportEnvironment.outdoor,
+        icon: Icons.wb_sunny_outlined,
+        label: 'Outdoor',
+      ),
+      _EnvOption(
+        env: ReportEnvironment.indoor,
+        icon: Icons.home_outlined,
+        label: 'Indoor',
+      ),
+    ];
     return _buildPickerSection(
       label: 'ENVIRONMENT',
       child: Row(
-        children: ReportEnvironment.values
-            .map(
-              (e) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                      right: e == ReportEnvironment.values.last ? 0 : 8),
-                  child: _segmentChip(
-                    icon: e.icon,
-                    label: e.label,
-                    selected: _environment == e,
-                    onTap: () => setState(() => _environment = e),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _buildObjectSelector() {
-    return _buildPickerSection(
-      label: 'OBJECT',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: ObjectType.values.map((type) {
-          final selected = _objectType == type;
-          return GestureDetector(
-            onTap: () => setState(() {
-              _objectType = type;
-              // Drop any issues that no longer apply to the new object type.
-              _selectedIssues.removeWhere((i) => !i.isValidFor(type));
-            }),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: selected ? type.color : AppColors.surfaceContainer,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: type.color.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    type.icon,
-                    size: 16,
-                    color: selected
-                        ? AppColors.onPrimarySolid
-                        : AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    type.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? AppColors.onPrimarySolid
-                          : AppColors.onSurface,
-                    ),
-                  ),
-                ],
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _envButton(
+                option: items[i],
+                selected: _environment == items[i].env,
+                onTap: () => setState(() => _environment = items[i].env),
               ),
             ),
-          );
-        }).toList(),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildIssueSelector() {
-    if (_reportType == ReportType.feature) return const SizedBox.shrink();
-    final type = _objectType!;
-    final issues = IssueType.issuesFor(type);
-    return _buildPickerSection(
-      label: 'ISSUES (${_selectedIssues.length})',
-      hint: 'Pick all that apply',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: issues.map((issue) {
-          final selected = _selectedIssues.contains(issue);
-          return GestureDetector(
-            onTap: () => setState(() {
-              if (selected) {
-                _selectedIssues.remove(issue);
-              } else {
-                _selectedIssues.add(issue);
-              }
-            }),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color:
-                    selected ? AppColors.primary : AppColors.surfaceContainer,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    selected ? Icons.check : Icons.add,
-                    size: 14,
-                    color: selected
-                        ? AppColors.onPrimarySolid
-                        : AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    issue.label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? AppColors.onPrimarySolid
-                          : AppColors.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildMeasurementsField() {
-    return _buildPickerSection(
-      label: 'MEASUREMENTS',
-      hint: 'Optional — e.g. width 80cm, slope 12%',
-      child: Container(
+  Widget _envButton({
+    required _EnvOption option,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.outlineVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : AppColors.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.surfaceContainerHigh),
+          border: Border.all(color: borderColor, width: 2),
         ),
-        child: TextField(
-          controller: _measurementsController,
-          maxLines: 2,
-          style: TextStyle(fontSize: 14, color: AppColors.onSurface),
-          decoration: InputDecoration(
-            hintText: 'Add dimensions, slope, clearance…',
-            hintStyle: TextStyle(color: AppColors.outlineVariant, fontSize: 13),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(option.icon, size: 16, color: fg),
+            const SizedBox(width: 8),
+            Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
 
   Widget _buildPickerSection({
     required String label,
@@ -1325,56 +1334,6 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         const SizedBox(height: 10),
         child,
       ],
-    );
-  }
-
-  Widget _segmentChip({
-    required IconData icon,
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surfaceContainer,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected
-                  ? AppColors.onPrimarySolid
-                  : AppColors.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color:
-                    selected ? AppColors.onPrimarySolid : AppColors.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

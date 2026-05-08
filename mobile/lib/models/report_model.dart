@@ -104,6 +104,104 @@ enum ObjectType {
       };
 }
 
+/// One numeric measurement that can be entered for an object (e.g. ramp
+/// slope, door clear width). Thresholds come straight from the backend's
+/// `IssueType` enum descriptions, so the on-device "≥ 100 cm is accessible"
+/// hints align with the warnings the server emits.
+class MeasurementSpec {
+  final String key;
+  final String label;
+  final String unit;
+  final double? accessibleMin;
+  final double? accessibleMax;
+
+  const MeasurementSpec({
+    required this.key,
+    required this.label,
+    required this.unit,
+    this.accessibleMin,
+    this.accessibleMax,
+  });
+
+  /// Whether [value] satisfies the spec's accessibility constraints. Returns
+  /// `null` when no constraint is defined or the value can't be parsed —
+  /// callers can decide whether to render that as "no constraint" or hide
+  /// the verdict entirely.
+  bool? isAccessible(double value) {
+    if (accessibleMin == null && accessibleMax == null) return null;
+    if (accessibleMin != null && value < accessibleMin!) return false;
+    if (accessibleMax != null && value > accessibleMax!) return false;
+    return true;
+  }
+}
+
+/// Per-object measurement specs. Single source of truth for both the create
+/// form (input fields + hints) and the detail view (rendering values with
+/// units and accessibility verdicts).
+List<MeasurementSpec> measurementSpecsFor(ObjectType type) => switch (type) {
+      ObjectType.ramp => const [
+          MeasurementSpec(
+              key: 'slope', label: 'Slope', unit: '%', accessibleMax: 10),
+          MeasurementSpec(
+              key: 'width', label: 'Width', unit: 'cm', accessibleMin: 100),
+          MeasurementSpec(key: 'height', label: 'Height', unit: 'cm'),
+        ],
+      ObjectType.elevator => const [
+          MeasurementSpec(
+              key: 'door_width',
+              label: 'Door Width',
+              unit: 'cm',
+              accessibleMin: 90),
+          MeasurementSpec(
+              key: 'cabin_width',
+              label: 'Cabin Width',
+              unit: 'cm',
+              accessibleMin: 120),
+          MeasurementSpec(
+              key: 'cabin_depth', label: 'Cabin Depth', unit: 'cm'),
+          MeasurementSpec(
+              key: 'landing_depth',
+              label: 'Landing Depth',
+              unit: 'cm',
+              accessibleMin: 120),
+        ],
+      ObjectType.sidewalk => const [
+          MeasurementSpec(
+              key: 'width', label: 'Width', unit: 'cm', accessibleMin: 150),
+          MeasurementSpec(
+              key: 'clearance',
+              label: 'Vertical Clearance',
+              unit: 'cm',
+              accessibleMin: 220),
+        ],
+      ObjectType.door => const [
+          MeasurementSpec(
+              key: 'clear_width',
+              label: 'Clear Width',
+              unit: 'cm',
+              accessibleMin: 90),
+          MeasurementSpec(
+              key: 'threshold_height',
+              label: 'Threshold Height',
+              unit: 'cm',
+              accessibleMax: 0.6),
+        ],
+      ObjectType.stair => const [
+          MeasurementSpec(
+              key: 'riser_height',
+              label: 'Riser Height',
+              unit: 'cm',
+              accessibleMax: 16),
+          MeasurementSpec(
+              key: 'tread_depth',
+              label: 'Tread Depth',
+              unit: 'cm',
+              accessibleMin: 27),
+          MeasurementSpec(
+              key: 'width', label: 'Width', unit: 'cm', accessibleMin: 100),
+        ],
+    };
+
 /// Mirrors the backend's IssueType enum, including the ObjectType set each
 /// issue is valid for. Used to filter issue pickers per selected object.
 enum IssueType {
