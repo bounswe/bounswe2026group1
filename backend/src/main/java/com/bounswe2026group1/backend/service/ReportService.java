@@ -38,6 +38,8 @@ public class ReportService {
     private final RegisteredUserRepository registeredUserRepository;
     private final MediaRepository mediaRepository;
     private final ReportVerificationRepository verificationRepository;
+    private final FixRequestRepository fixRequestRepository;
+    private final FixRequestVoteRepository fixRequestVoteRepository;
     private final PublicSseService publicSseService;
     private final NotificationService notificationService;
     private final S3MediaService s3MediaService;
@@ -54,23 +56,33 @@ public class ReportService {
         Long userId = resolveUserId(email);
         List<Report> reports = reportRepository.findAll();
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
+        Map<Long, FixRequestResponse> activeFixByReportId = resolveActiveFixRequests(userId, reports);
         return reports.stream()
-                .map(r -> {
-                    List<ReportObjectResponse> objectResponses = buildObjectResponses(r);
-                    return ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), objectResponses);
-                })
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        votesByReportId.get(r.getReportId()),
+                        buildObjectResponses(r),
+                        activeFixByReportId.get(r.getReportId())))
                 .toList();
     }
 
     public Optional<ReportResponse> getById(Long id, String email) {
         Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(r -> ReportResponse.fromEntity(r, resolveUserVote(userId, r.getReportId()), buildObjectResponses(r)));
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        resolveUserVote(userId, r.getReportId()),
+                        buildObjectResponses(r),
+                        resolveActiveFixRequest(userId, r.getReportId())));
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
         return reportRepository.findByCreatedById(userId).stream()
-                .map(r -> ReportResponse.fromEntity(r, null, buildObjectResponses(r)))
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        resolveUserVote(userId, r.getReportId()),
+                        buildObjectResponses(r),
+                        resolveActiveFixRequest(userId, r.getReportId())))
                 .toList();
     }
 
@@ -99,8 +111,13 @@ public class ReportService {
                 : reportRepository.findFeedRecent(reportType, environment, paged);
 
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());
+        Map<Long, FixRequestResponse> activeFixByReportId = resolveActiveFixRequests(userId, page.getContent());
         List<ReportResponse> responses = page.getContent().stream()
-                .map(r -> ReportResponse.fromEntity(r, votesByReportId.get(r.getReportId()), buildObjectResponses(r)))
+                .map(r -> ReportResponse.fromEntity(
+                        r,
+                        votesByReportId.get(r.getReportId()),
+                        buildObjectResponses(r),
+                        activeFixByReportId.get(r.getReportId())))
                 .toList();
         return new PageImpl<>(responses, paged, page.getTotalElements());
     }
@@ -155,7 +172,8 @@ public class ReportService {
         Report finalSaved = saved;
         broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(finalSaved));
 
-        return ReportResponse.fromEntity(saved, null, buildObjectResponses(saved));
+        return ReportResponse.fromEntity(saved, null, buildObjectResponses(saved),
+                resolveActiveFixRequest(user.getId(), saved.getReportId()));
     }
 
     @Transactional
@@ -217,7 +235,10 @@ public class ReportService {
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "update"));
 
-        return ReportResponse.fromEntity(saved, resolveUserVote(editor.getId(), saved.getReportId()), buildObjectResponses(saved));
+        return ReportResponse.fromEntity(saved,
+                resolveUserVote(editor.getId(), saved.getReportId()),
+                buildObjectResponses(saved),
+                resolveActiveFixRequest(editor.getId(), saved.getReportId()));
     }
 
     @Transactional
@@ -234,6 +255,8 @@ public class ReportService {
         }
 
         report.getMediaList().stream().map(Media::getFilePath).forEach(s3MediaService::deleteFile);
+        report.getFixRequests().forEach(fr ->
+                fr.getMediaList().forEach(frm -> s3MediaService.deleteFile(frm.getFilePath())));
         reportRepository.delete(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportDeleted(id));
     }
@@ -244,6 +267,10 @@ public class ReportService {
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + email));
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + id));
+
+        if (report.getStatus() == ReportStatus.FIXED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Report is already fixed");
+        }
 
         var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
@@ -271,7 +298,10 @@ public class ReportService {
         if (newStatus != previousStatus) {
             notificationService.notifyStatusChange(saved, user.getId());
         }
-        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
+        return ReportResponse.fromEntity(saved,
+                resolveUserVote(user.getId(), saved.getReportId()),
+                buildObjectResponses(saved),
+                resolveActiveFixRequest(user.getId(), saved.getReportId()));
     }
 
     @Transactional
@@ -280,6 +310,10 @@ public class ReportService {
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + email));
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + id));
+
+        if (report.getStatus() == ReportStatus.FIXED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Report is already fixed");
+        }
 
         var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
@@ -307,7 +341,10 @@ public class ReportService {
         if (newStatus != previousStatus) {
             notificationService.notifyStatusChange(saved, user.getId());
         }
-        return ReportResponse.fromEntity(saved, resolveUserVote(user.getId(), saved.getReportId()));
+        return ReportResponse.fromEntity(saved,
+                resolveUserVote(user.getId(), saved.getReportId()),
+                buildObjectResponses(saved),
+                resolveActiveFixRequest(user.getId(), saved.getReportId()));
     }
 
     private ReportStatus evaluateStatus(Report report) {
@@ -429,6 +466,45 @@ public class ReportService {
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (VoteType) row[1]));
+    }
+
+    private FixRequestResponse resolveActiveFixRequest(Long userId, Long reportId) {
+        return fixRequestRepository.findFirstByReportReportIdAndState(reportId, FixRequestState.OPEN)
+                .map(fr -> {
+                    VoteType userVote = userId == null ? null
+                            : fixRequestVoteRepository.findByUserIdAndFixRequestId(userId, fr.getId())
+                                    .map(v -> v.getVoteType())
+                                    .orElse(null);
+                    return FixRequestResponse.fromEntity(fr, userVote);
+                })
+                .orElse(null);
+    }
+
+    private Map<Long, FixRequestResponse> resolveActiveFixRequests(Long userId, List<Report> reports) {
+        if (reports.isEmpty()) return Collections.emptyMap();
+        List<Long> reportIds = reports.stream().map(Report::getReportId).toList();
+        List<Object[]> rows = fixRequestRepository.findOpenFixRequestIdsByReportIds(reportIds);
+        if (rows.isEmpty()) return Collections.emptyMap();
+
+        List<Long> fixRequestIds = rows.stream().map(row -> (Long) row[1]).toList();
+        Map<Long, FixRequest> byId = fixRequestRepository.findAllById(fixRequestIds).stream()
+                .collect(Collectors.toMap(FixRequest::getId, fr -> fr));
+
+        Map<Long, VoteType> userVotesByFixId = userId == null ? Collections.emptyMap()
+                : fixRequestVoteRepository.findVotesByUserIdAndFixRequestIds(userId, fixRequestIds).stream()
+                        .collect(Collectors.toMap(
+                                row -> (Long) row[0],
+                                row -> (VoteType) row[1]));
+
+        Map<Long, FixRequestResponse> result = new HashMap<>();
+        for (Object[] row : rows) {
+            Long reportId = (Long) row[0];
+            Long fixId = (Long) row[1];
+            FixRequest fr = byId.get(fixId);
+            if (fr == null) continue;
+            result.put(reportId, FixRequestResponse.fromEntity(fr, userVotesByFixId.get(fixId)));
+        }
+        return result;
     }
 
     private void broadcastAfterCommit(Runnable action) {

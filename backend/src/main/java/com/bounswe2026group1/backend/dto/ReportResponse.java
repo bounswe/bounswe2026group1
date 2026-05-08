@@ -24,8 +24,10 @@ public class ReportResponse {
     private int agrees;
     private int disagrees;
     private Instant publishDate;
+    private Instant fixedAt;
     private List<String> mediaUrls;
     private VoteType userVote;
+    private FixRequestResponse activeFixRequest;
     private List<ReportObjectResponse> objects;
     private Double entryLatitude;
     private Double entryLongitude;
@@ -34,14 +36,20 @@ public class ReportResponse {
     private Long lastEditedByUserId;
 
     public static ReportResponse fromEntity(Report report) {
-        return fromEntity(report, null, Collections.emptyList());
+        return fromEntity(report, null, Collections.emptyList(), null);
     }
 
     public static ReportResponse fromEntity(Report report, VoteType userVote) {
-        return fromEntity(report, userVote, Collections.emptyList());
+        return fromEntity(report, userVote, Collections.emptyList(), null);
     }
 
     public static ReportResponse fromEntity(Report report, VoteType userVote, List<ReportObjectResponse> objectResponses) {
+        return fromEntity(report, userVote, objectResponses, null);
+    }
+
+    public static ReportResponse fromEntity(Report report, VoteType userVote,
+                                            List<ReportObjectResponse> objectResponses,
+                                            FixRequestResponse activeFixRequest) {
         ReportResponse r = new ReportResponse();
         r.setReportId(report.getReportId());
         r.setUserId(report.getCreatedBy().getId());
@@ -56,8 +64,10 @@ public class ReportResponse {
         r.setAgrees(report.getAgrees());
         r.setDisagrees(report.getDisagrees());
         r.setPublishDate(report.getPublishDate());
+        r.setFixedAt(report.getFixedAt());
         r.setMediaUrls(report.getMediaList().stream().map(Media::getFilePath).toList());
         r.setUserVote(userVote);
+        r.setActiveFixRequest(activeFixRequest);
         r.setObjects(objectResponses != null ? objectResponses : Collections.emptyList());
 
         if (report.getEntryPoint() != null) {

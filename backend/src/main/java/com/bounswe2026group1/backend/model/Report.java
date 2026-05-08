@@ -52,6 +52,9 @@ public class Report {
 
     private Instant publishDate;
 
+    // Set when the report transitions to FIXED; consumed by the scheduled deletion job.
+    private Instant fixedAt;
+
     // Nullable — only relevant for FEATURE reports used in wheelchair routing
     @Embedded
     @AttributeOverrides({
@@ -87,6 +90,10 @@ public class Report {
 
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ReportObject> objects = new ArrayList<>();
+
+    // Cascade so deleting a Report drops its fix requests (and their votes/media).
+    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FixRequest> fixRequests = new ArrayList<>();
 
     public Report(RegisteredUser createdBy, Point location, String description,
                   ReportType reportType, ReportEnvironment environment) {
