@@ -1,12 +1,17 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.model.IssueType;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.ObjectType;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportObject;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.repository.ReportRepository;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.PrecisionModel;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -45,7 +51,7 @@ class ObstacleServiceTest {
     @Test
     void findClosestRamp_returnsNull_whenNoCandidates() {
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of());
 
@@ -56,7 +62,7 @@ class ObstacleServiceTest {
     void findClosestRamp_returnsSingleRamp_whenOnlyOneCandidate() {
         Report ramp = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(ramp));
 
@@ -74,7 +80,7 @@ class ObstacleServiceTest {
                                 41.0821, 29.0499);  // exit ≈ 14 m from END
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(rampA, rampB));
 
@@ -93,7 +99,7 @@ class ObstacleServiceTest {
         Report good = rampNear(41.0840, 29.0460, 41.0838, 29.0465);
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(bad, good));
 
@@ -112,7 +118,7 @@ class ObstacleServiceTest {
         elevatorFeature.getObjects().add(new ReportObject(elevatorFeature, ObjectType.ELEVATOR, Set.of(), null));
 
         when(reportRepository.findByTypeInBoundingBoxWithStatuses(
-                eq(ReportType.FEATURE),
+                eq(ReportType.FEATURE.name()),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
                 .thenReturn(List.of(elevatorFeature, rampReport));
 
@@ -132,6 +138,96 @@ class ObstacleServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // buildAvoidPolygons(constraints) — preference-aware filtering (#365)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void buildAvoidPolygons_emptyConstraints_includesEveryVerifiedObstacle() {
+        // Anonymous / NONE-preset baseline: all VERIFIED obstacles become polygons.
+        Report stairsReport = obstacleAt(41.0850, 29.0451, ObjectType.STAIR, IssueType.MISSING_HANDRAIL);
+        Report blockedSidewalk = obstacleAt(41.0851, 29.0452, ObjectType.SIDEWALK, IssueType.BLOCKED);
+        when(reportRepository.findByTypeAndStatusIn(eq(ReportType.OBSTACLE), anyList()))
+                .thenReturn(List.of(stairsReport, blockedSidewalk));
+
+        ObjectNode polygons = obstacleService.buildAvoidPolygons(Set.of());
+
+        assertNotNull(polygons);
+        assertEquals(2, polygons.get("coordinates").size(),
+                "Empty constraints must preserve baseline (every VERIFIED obstacle becomes a polygon)");
+    }
+
+    @Test
+    void buildAvoidPolygons_withConstraintMatchingOnlyOneReport_filtersOutTheRest() {
+        Report stairsReport = obstacleAt(41.0850, 29.0451, ObjectType.STAIR, IssueType.MISSING_HANDRAIL);
+        Report blockedSidewalk = obstacleAt(41.0851, 29.0452, ObjectType.SIDEWALK, IssueType.BLOCKED);
+        when(reportRepository.findByTypeAndStatusIn(eq(ReportType.OBSTACLE), anyList()))
+                .thenReturn(List.of(stairsReport, blockedSidewalk));
+
+        // Only AVOID_BLOCKED_OR_MISSING_SIDEWALKS should match the blocked sidewalk; the stairs
+        // report's hazards aren't in this constraint's set.
+        ObjectNode polygons = obstacleService.buildAvoidPolygons(
+                EnumSet.of(RoutingConstraint.AVOID_BLOCKED_OR_MISSING_SIDEWALKS));
+
+        assertNotNull(polygons);
+        assertEquals(1, polygons.get("coordinates").size(),
+                "Constraint should narrow the avoid set to reports whose objects match a hazard");
+    }
+
+    @Test
+    void buildAvoidPolygons_withConstraintMatchingNoReports_returnsNull() {
+        Report blockedSidewalk = obstacleAt(41.0851, 29.0452, ObjectType.SIDEWALK, IssueType.BLOCKED);
+        when(reportRepository.findByTypeAndStatusIn(eq(ReportType.OBSTACLE), anyList()))
+                .thenReturn(List.of(blockedSidewalk));
+
+        // REQUIRE_HANDRAILS only cares about (RAMP|STAIR, MISSING_HANDRAIL); blocked sidewalks
+        // don't match. With no surviving reports the polygon set should collapse to null
+        // (which lets ORS skip the avoidance call entirely).
+        ObjectNode polygons = obstacleService.buildAvoidPolygons(
+                EnumSet.of(RoutingConstraint.REQUIRE_HANDRAILS));
+
+        assertNull(polygons);
+    }
+
+    @Test
+    void buildAvoidPolygons_withWheelchairUserPresetConstraints_filtersBlindOnlyHazardsOut() {
+        // A blind-user-relevant report: tactile paving missing
+        Report tactileReport = obstacleAt(41.0850, 29.0451, ObjectType.SIDEWALK, IssueType.NO_TACTILE_PAVING);
+        // A wheelchair-user-relevant report: missing ramp
+        Report rampReport = obstacleAt(41.0852, 29.0453, ObjectType.RAMP, IssueType.MISSING);
+        when(reportRepository.findByTypeAndStatusIn(eq(ReportType.OBSTACLE), anyList()))
+                .thenReturn(List.of(tactileReport, rampReport));
+
+        // Apply the WHEELCHAIR_USER preset's constraints. Only the ramp report should
+        // contribute a polygon — tactile paving isn't in this preset's hazard set.
+        ObjectNode polygons = obstacleService.buildAvoidPolygons(
+                com.bounswe2026group1.backend.model.RoutingPreset.WHEELCHAIR_USER.getConstraints());
+
+        assertNotNull(polygons);
+        assertEquals(1, polygons.get("coordinates").size());
+    }
+
+    @Test
+    void buildAvoidPolygons_constraintsCannotWidenSetPastBaseline() {
+        // The baseline includes every VERIFIED obstacle. Constraints can only narrow,
+        // never widen — so the count with constraints applied must always be ≤ baseline.
+        Report stairsReport = obstacleAt(41.0850, 29.0451, ObjectType.STAIR, IssueType.MISSING_HANDRAIL);
+        Report tactileReport = obstacleAt(41.0851, 29.0452, ObjectType.SIDEWALK, IssueType.NO_TACTILE_PAVING);
+        Report rampReport = obstacleAt(41.0852, 29.0453, ObjectType.RAMP, IssueType.TOO_STEEP);
+        when(reportRepository.findByTypeAndStatusIn(eq(ReportType.OBSTACLE), anyList()))
+                .thenReturn(List.of(stairsReport, tactileReport, rampReport));
+
+        int baseline = obstacleService.buildAvoidPolygons(Set.of()).get("coordinates").size();
+        int withConstraints = obstacleService.buildAvoidPolygons(
+                EnumSet.of(RoutingConstraint.AVOID_STAIRS)).get("coordinates").size();
+
+        assertEquals(3, baseline);
+        assertTrue(withConstraints <= baseline,
+                "Applying a constraint must never widen the avoid set past the baseline");
+        assertEquals(1, withConstraints,
+                "AVOID_STAIRS should match only the stair report");
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -143,6 +239,18 @@ class ObstacleServiceTest {
         r.setExitPoint(new Location(exitLat, exitLon));
         r.setStatus(ReportStatus.VERIFIED);
         r.getObjects().add(new ReportObject(r, ObjectType.RAMP, Set.of(), null));
+        return r;
+    }
+
+    private static final GeometryFactory GEOMETRY_FACTORY =
+            new GeometryFactory(new PrecisionModel(), 4326);
+
+    private static Report obstacleAt(double lat, double lon, ObjectType objectType, IssueType issue) {
+        Report r = new Report();
+        r.setReportType(ReportType.OBSTACLE);
+        r.setStatus(ReportStatus.VERIFIED);
+        r.setLocation(GEOMETRY_FACTORY.createPoint(new org.locationtech.jts.geom.Coordinate(lon, lat)));
+        r.getObjects().add(new ReportObject(r, objectType, EnumSet.of(issue), null));
         return r;
     }
 }
