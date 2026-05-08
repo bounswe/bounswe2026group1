@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.service.ReportService;
 import com.bounswe2026group1.backend.service.S3MediaService;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.NoSuchElementException;
@@ -39,18 +41,27 @@ class MediaControllerTest {
 
     // ── 201 Created ───────────────────────────────────────────────────────────
 
+    private Media stubMedia(Long id, String url) {
+        Media m = new Media();
+        ReflectionTestUtils.setField(m, "mediaId", id);
+        m.setFilePath(url);
+        return m;
+    }
+
     @Test
-    @DisplayName("POST /{id}/media: valid JPEG returns 201 with mediaUrl")
+    @DisplayName("POST /{id}/media: valid JPEG returns 201 with mediaId and mediaUrl")
     void upload_validJpeg_returns201() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.jpg", "image/jpeg", "fake-bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
-        doNothing().when(reportService).addMediaToReport(eq(1L), eq(RETURNED_URL));
+        when(reportService.addMediaToReport(eq(1L), eq(RETURNED_URL)))
+                .thenReturn(stubMedia(10L, RETURNED_URL));
 
         mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.mediaId").value(10))
                 .andExpect(jsonPath("$.mediaUrl").value(RETURNED_URL));
     }
 
@@ -62,10 +73,13 @@ class MediaControllerTest {
         String expectedUrl = "https://bucket.s3.amazonaws.com/some-uuid_pic.png";
 
         when(s3MediaService.uploadFile(any())).thenReturn(expectedUrl);
+        when(reportService.addMediaToReport(eq(5L), eq(expectedUrl)))
+                .thenReturn(stubMedia(20L, expectedUrl));
 
         mockMvc.perform(multipart(UPLOAD_URL, 5L).file(file)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.mediaId").value(20))
                 .andExpect(jsonPath("$.mediaUrl").value(expectedUrl));
     }
 
@@ -76,6 +90,8 @@ class MediaControllerTest {
                 "file", "photo.jpg", "image/jpeg", "bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
+        when(reportService.addMediaToReport(eq(42L), eq(RETURNED_URL)))
+                .thenReturn(stubMedia(30L, RETURNED_URL));
 
         mockMvc.perform(multipart(UPLOAD_URL, 42L).file(file)
                         .header("Mapcess-Key", validApiKey))

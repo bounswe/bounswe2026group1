@@ -374,7 +374,7 @@ public class ReportService {
         return target;
     }
 
-    public void addMediaToReport(Long reportId, String mediaUrl) {
+    public Media addMediaToReport(Long reportId, String mediaUrl) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
         Media media = new Media();
@@ -382,6 +382,7 @@ public class ReportService {
         media.setFilePath(mediaUrl);
         Media savedMedia = mediaRepository.save(media);
         broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
+        return savedMedia;
     }
 
     // -------------------------------------------------------------------------

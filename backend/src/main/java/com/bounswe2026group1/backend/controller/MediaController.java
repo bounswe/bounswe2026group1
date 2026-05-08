@@ -28,9 +28,12 @@ public class MediaController {
             // Sends the file to AWS S3 and gets the public URL back
             String mediaUrl = s3MediaService.uploadFile(file);
             // Saves that URL to the database by linking it to a specified report
-            reportService.addMediaToReport(reportId, mediaUrl);
+            com.bounswe2026group1.backend.model.Media media = reportService.addMediaToReport(reportId, mediaUrl);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("mediaUrl", mediaUrl));
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "mediaId", media.getId(),
+                    "mediaUrl", mediaUrl
+            ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (NoSuchElementException e){
