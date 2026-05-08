@@ -11,9 +11,11 @@ import AdminReportsPage from './pages/admin/AdminReportsPage.jsx'
 import AdminCommentsPage from './pages/admin/AdminCommentsPage.jsx'
 import AdminValidationsPage from './pages/admin/AdminValidationsPage.jsx'
 import { useSseSync } from './hooks/useSseSync.js'
+import { useNotificationSseSync } from './hooks/useNotificationSseSync.js'
 
 function App() {
   useSseSync()
+  useNotificationSseSync()
 
   return (
     <Routes>

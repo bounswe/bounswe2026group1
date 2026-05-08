@@ -230,3 +230,23 @@ export async function deleteComment(commentId, token) {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
+
+export async function followReport(reportId, token) {
+  return apiFetch(`/api/reports/${reportId}/follow`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export async function unfollowReport(reportId, token) {
+  return apiFetch(`/api/reports/${reportId}/follow`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export async function getFollowStatus(reportId, token) {
+  return apiFetch(`/api/reports/${reportId}/follow/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}

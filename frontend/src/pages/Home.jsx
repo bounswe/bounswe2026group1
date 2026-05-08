@@ -7,7 +7,7 @@ import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
@@ -152,9 +152,35 @@ function MapFlyTo({ target }) {
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
-  const [selectedReportId, setSelectedReportId] = useState(null)
+  const [selectedReportId, setSelectedReportId] = useState(() => {
+    const raw = searchParams.get('report')
+    const id = Number(raw)
+    return Number.isFinite(id) && id > 0 ? id : null
+  })
+  // true when the selection came from a URL param (notification click) and we
+  // still need to fly the map to that report once report data is available
+  const shouldFlyRef = useRef(!!searchParams.get('report'))
+
+  useEffect(() => {
+    const raw = searchParams.get('report')
+    const id = Number(raw)
+    if (Number.isFinite(id) && id > 0) {
+      shouldFlyRef.current = true
+      setSelectedReportId(id)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!shouldFlyRef.current || !selectedReportId) return
+    const report = reports.find((r) => r.id === selectedReportId)
+    if (report) {
+      setSearchTarget({ lat: report.latitude, lon: report.longitude })
+      shouldFlyRef.current = false
+    }
+  }, [selectedReportId, reports])
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
   const [mapCenter, setMapCenter] = useState(null)
@@ -618,7 +644,7 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReportId(null)}
+            onClose={() => { setSelectedReportId(null); navigate('/', { replace: true }) }}
             onVoteUpdate={(updatedReport) => {
               setSelectedReportId(updatedReport.id)
               queryClient.setQueryData(reportKeys.lists(), (prev) =>

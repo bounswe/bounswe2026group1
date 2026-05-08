@@ -1,19 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
+import NotificationDropdown from './NotificationDropdown.jsx'
 import logo from '../assets/mapcess-transparent.png'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
+import { useUnreadCount } from '../hooks/useNotifications.js'
 
 function Navbar() {
   const { isAuthenticated, isAdmin, logout } = useAuth()
   const { data: user } = useCurrentUser()
   const navigate = useNavigate()
 
+  const unreadCount = useUnreadCount()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
   const [failedAvatarUrl, setFailedAvatarUrl] = useState(null)
   const menuRef = useRef(null)
   const buttonRef = useRef(null)
+  const notifButtonRef = useRef(null)
 
   const avatarUrl = user?.avatarUrl
   const showAvatarImage = !!avatarUrl && failedAvatarUrl !== avatarUrl
@@ -109,12 +114,27 @@ function Navbar() {
 
       <div className="flex items-center gap-1 sm:gap-2">
         <SseStatusIndicator />
-        <button
-          className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
-          aria-label="Notifications"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
-        </button>
+        {isAuthenticated && (
+          <div className="relative hidden sm:block">
+            <button
+              ref={notifButtonRef}
+              type="button"
+              onClick={() => { setNotifOpen((prev) => !prev); setMenuOpen(false) }}
+              className="flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
+              aria-label="Notifications"
+            >
+              <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] rounded-full bg-error text-on-error text-[10px] font-bold flex items-center justify-center px-1 leading-none pointer-events-none">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+            {notifOpen && (
+              <NotificationDropdown onClose={() => setNotifOpen(false)} />
+            )}
+          </div>
+        )}
         <button
           className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
           aria-label="Settings"

@@ -11,6 +11,9 @@ import {
   getCommentsByReport,
   createComment,
   deleteComment,
+  followReport,
+  unfollowReport,
+  getFollowStatus,
 } from '../services/reportService.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -39,6 +42,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [newComment, setNewComment] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [following, setFollowing] = useState(false)
+  const [followLoading, setFollowLoading] = useState(false)
   const [showCreateFix, setShowCreateFix] = useState(false)
 
   useEffect(() => {
@@ -49,6 +53,13 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       .catch(err => { console.error('[ReportPanel] Failed to load comments:', err); setComments([]) })
       .finally(() => setCommentsLoading(false))
   }, [report?.id])
+
+  useEffect(() => {
+    if (!report || !isAuthenticated || !token) return
+    getFollowStatus(report.id, token)
+      .then(data => setFollowing(data?.following ?? false))
+      .catch(() => {})
+  }, [report?.id, isAuthenticated])
 
 
   
@@ -604,23 +615,38 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           {/* Follow Updates */}
           <div className="pt-4">
             <button
-              onClick={() => {
+              disabled={followLoading}
+              onClick={async () => {
                 if (!isAuthenticated) { navigate('/login'); return }
-                setFollowing(prev => {
-                  const next = !prev
-                  onFollowChange?.(next)
-                  return next
-                })
+                setFollowLoading(true)
+                try {
+                  if (following) {
+                    await unfollowReport(report.id, token)
+                    setFollowing(false)
+                    onFollowChange?.(false)
+                  } else {
+                    await followReport(report.id, token)
+                    setFollowing(true)
+                    onFollowChange?.(true)
+                  }
+                } catch (err) {
+                  console.error('[ReportPanel] Follow toggle failed:', err)
+                } finally {
+                  setFollowLoading(false)
+                }
               }}
-              className={`w-full py-5 rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${
+              className={`w-full py-5 rounded-xl font-extrabold text-lg font-headline shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed ${
                 following
                   ? 'bg-surface-container-high text-on-surface border border-outline-variant/20'
                   : 'bg-gradient-to-b from-primary to-primary-dim text-on-primary'
               }`}
             >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {following ? 'notifications_off' : 'notifications_active'}
-              </span>
+              {followLoading
+                ? <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                : <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {following ? 'notifications_off' : 'notifications_active'}
+                  </span>
+              }
               {following ? 'Unfollow' : 'Follow Updates'}
             </button>
             <p className="text-center text-xs text-on-surface-variant mt-4 px-6">
