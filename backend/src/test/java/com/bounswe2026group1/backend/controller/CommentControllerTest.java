@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
+import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.service.CommentService;
 import com.bounswe2026group1.backend.util.JwtUtil;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -173,6 +175,76 @@ class CommentControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(commentService, never()).create(any(CreateCommentRequest.class));
+    }
+
+    // ───── PUT /api/comments/{id} ────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void update_acceptsContentOnlyBody_andReturnsSlimResponse() throws Exception {
+        when(commentService.update(eq(99L), any(UpdateCommentRequest.class)))
+                .thenReturn(Optional.of(savedCommentStub()));
+
+        mockMvc.perform(put("/api/comments/99")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "content": "edited" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(99))
+                .andExpect(jsonPath("$.author.id").value(3))
+                .andExpect(jsonPath("$.author.password").doesNotExist())
+                .andExpect(jsonPath("$.author.email").doesNotExist())
+                .andExpect(jsonPath("$.author.hibernateLazyInitializer").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void update_returns404WhenMissing() throws Exception {
+        when(commentService.update(eq(404L), any(UpdateCommentRequest.class)))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(put("/api/comments/404")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "content": "edited" }
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void update_rejectsBlankContent_with400() throws Exception {
+        mockMvc.perform(put("/api/comments/99")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "content": "" }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(commentService, never()).update(any(Long.class), any(UpdateCommentRequest.class));
+    }
+
+    // The original prod-failure body for POST contained nested `author` and `report`
+    // objects that triggered Jackson 3's primitive-int blow-up. Make sure the PUT
+    // endpoint is no longer reachable through that legacy entity-shaped body — it
+    // should fail validation cleanly (no 5xx, no leaked fields) since the new DTO
+    // only declares `content`.
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void update_rejectsLegacyEntityBody_with400() throws Exception {
+        mockMvc.perform(put("/api/comments/99")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "author": { "id": 3 }, "report": { "reportId": 18 } }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(commentService, never()).update(any(Long.class), any(UpdateCommentRequest.class));
     }
 
 }
