@@ -11,6 +11,7 @@ import '../models/sse_event.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
+import 'edit_report_screen.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -22,7 +23,10 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  ReportModel get report => widget.report;
+  /// Mutable so an in-place edit (PUT /api/reports/{id}) can update what's
+  /// rendered without popping/repushing the route.
+  late ReportModel _report;
+  ReportModel get report => _report;
 
   String? _fetchedUsername;
   bool _usernameLoading = false;
@@ -62,6 +66,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _report = widget.report;
     _agrees = report.agrees;
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
@@ -105,6 +110,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       final fresh = await context.read<AuthService>().api.getReport(report.reportId);
       if (!mounted) return;
       setState(() {
+        _report = fresh;
         _agrees = fresh.agrees;
         _disagrees = fresh.disagrees;
         _myVote = fresh.userVote?.toLowerCase();
@@ -112,6 +118,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     } catch (_) {
       // Non-fatal — stale data from the list is still shown.
     }
+  }
+
+  Future<void> _openEdit() async {
+    final updated = await Navigator.push<ReportModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditReportScreen(report: report),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted || updated == null) return;
+    setState(() => _report = updated);
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
@@ -435,6 +453,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ),
             ),
+            // Edit affordance — gated to the report's author. Backend
+            // ownership checks still apply, this is just to hide the button
+            // for users who can't act on it.
+            if (context.watch<AuthService>().userId == report.userId)
+              IconButton(
+                icon: Icon(Icons.edit_outlined, color: AppColors.primary),
+                onPressed: _openEdit,
+              ),
             IconButton(
               icon: Icon(Icons.search, color: AppColors.onSurface),
               onPressed: () {},
