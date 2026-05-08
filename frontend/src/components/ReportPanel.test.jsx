@@ -18,6 +18,9 @@ vi.mock('../services/reportService.js', () => ({
   getCommentsByReport: vi.fn(() => Promise.resolve([])),
   createComment: vi.fn(),
   deleteComment: vi.fn(() => Promise.resolve()),
+  getFollowStatus: vi.fn(() => Promise.resolve({ following: false })),
+  followReport: vi.fn(() => Promise.resolve({ following: true })),
+  unfollowReport: vi.fn(() => Promise.resolve({ following: false })),
 }))
 
 import {

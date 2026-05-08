@@ -9,8 +9,14 @@ vi.mock('../context/AuthContext.jsx', () => ({
 vi.mock('../hooks/useCurrentUser.js', () => ({
   useCurrentUser: vi.fn(),
 }))
+vi.mock('../hooks/useNotifications.js', () => ({
+  useUnreadCount: vi.fn(() => 0),
+}))
 vi.mock('./SseStatusIndicator.jsx', () => ({
   default: () => <div data-testid="sse-status" />,
+}))
+vi.mock('./NotificationDropdown.jsx', () => ({
+  default: () => <div data-testid="notif-dropdown" />,
 }))
 
 import { useAuth } from '../context/AuthContext.jsx'
