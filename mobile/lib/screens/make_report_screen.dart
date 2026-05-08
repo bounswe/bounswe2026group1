@@ -431,9 +431,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       final reportObjects = _objects.map((o) {
         // Match the web: serialise the measurements map as JSON so both
         // clients write the same shape into the backend's free-text field.
-        final filled = Map.fromEntries(
-          o.measurements.entries.where((e) => e.value.trim().isNotEmpty),
-        );
+        final filled = <String, num>{};
+        for (final e in o.measurements.entries) {
+          final v = num.tryParse(e.value.trim());
+          if (v != null) filled[e.key] = v;
+        }
         return ReportObject(
           objectType: o.objectType!,
           issues: o.issues.toList(),
