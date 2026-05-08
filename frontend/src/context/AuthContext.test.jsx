@@ -1,7 +1,17 @@
 import { renderHook, act } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './AuthContext.jsx'
 
-const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>
+function makeWrapper() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return ({ children }) => (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  )
+}
+
+const wrapper = makeWrapper()
 
 describe('AuthContext', () => {
   beforeEach(() => {

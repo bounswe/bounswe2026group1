@@ -5,7 +5,8 @@ import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.dto.routing.RouteStep;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.RampReport;
+import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.TravelMode;
 import tools.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
@@ -14,24 +15,46 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RouteService {
 
-    /** Average walking speed in m/s — used to estimate ramp traversal duration. */
-    private static final double WALKING_SPEED_MS = 1.4;
-
     private final OrsRoutingClient orsRoutingClient;
     private final ObstacleService obstacleService;
 
+    /**
+     * Backwards-compatible signature — anonymous routing path. Equivalent to
+     * {@link #getRouteOptions(RouteRequest, Set, TravelMode)} with no
+     * constraints and no preferred mode (no alternative is flagged
+     * {@code preferred:true}).
+     */
     public List<RouteResponse> getRouteOptions(RouteRequest request) {
+        return getRouteOptions(request, Set.of(), null);
+    }
+
+    /**
+     * Build the route alternatives, optionally filtering avoid polygons by
+     * the caller's accessibility constraints (#365) and flagging the
+     * alternative whose mode matches their preferred travel mode.
+     *
+     * @param request           start/end coordinates from the controller
+     * @param constraints       caller's selected routing constraints; empty for anonymous / NONE preset
+     * @param preferredMode     caller's preferred travel mode; null for no preference
+     */
+    public List<RouteResponse> getRouteOptions(
+            RouteRequest request,
+            Set<RoutingConstraint> constraints,
+            TravelMode preferredMode) {
+
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
 
-        // Build avoid polygons once — reused for routes 2 and 3
-        ObjectNode avoidPolygons = obstacleService.buildAvoidPolygons();
+        // Build avoid polygons once — reused for routes 2 and 3.
+        // Empty constraints preserves the pre-#365 baseline (every VERIFIED obstacle becomes a polygon).
+        ObjectNode avoidPolygons = obstacleService.buildAvoidPolygons(constraints);
 
         List<RouteResponse> routes = new ArrayList<>();
 
@@ -41,7 +64,10 @@ public class RouteService {
 
         if (fastestResult != null) {
             List<Location> pathPoints = PolylineDecoder.decode(fastestResult.getGeometry());
-            hasObstacles = !obstacleService.findObstaclesOnPath(pathPoints).isEmpty();
+            // hasObstacles must respect the user's constraints — otherwise a
+            // ⭐ preferred Fastest Route can warn about an obstacle the user
+            // already declared they don't care about.
+            hasObstacles = !obstacleService.findObstaclesOnPath(pathPoints, constraints).isEmpty();
 
             routes.add(RouteResponse.builder()
                     .routeLabel("Fastest Route")
@@ -54,8 +80,8 @@ public class RouteService {
                     .build());
         }
 
-        // 2. Accessible walking route — only if the fastest route has obstacles
-        if (hasObstacles && avoidPolygons != null) {
+        // 2. Accessible walking route — always computed when avoid polygons exist
+        if (avoidPolygons != null) {
             RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons);
 
             if (accessibleResult != null) {
@@ -89,7 +115,7 @@ public class RouteService {
         }
 
         // Candidate B: multi-leg route through nearest ramp entry/exit
-        RampReport ramp = obstacleService.findClosestRampInBoundingBox(start, end);
+        Report ramp = obstacleService.findClosestRampInBoundingBox(start, end);
         if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
             Location rampA = ramp.getEntryPoint();
             Location rampB = ramp.getExitPoint();
@@ -99,10 +125,10 @@ public class RouteService {
             Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
 
             RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
-            RoutingDirectionsResult leg2 = straightLineLeg(rampEntry, rampExit);
+            RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
             RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
 
-            if (leg1 != null && leg3 != null) {
+            if (leg1 != null && leg2 != null && leg3 != null) {
                 double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
                 double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
 
@@ -130,7 +156,7 @@ public class RouteService {
                             .build();
                 }
             } else {
-                log.warn("Ramp-assisted route via ramp skipped; leg 1 or leg 3 returned null.");
+                log.warn("Ramp-assisted route via ramp skipped; leg 1, leg 2, or leg 3 returned null.");
             }
         }
 
@@ -138,23 +164,27 @@ public class RouteService {
             routes.add(bestWheelchair);
         }
 
+        markPreferred(routes, preferredMode);
         return routes;
     }
 
     /**
-     * Builds a straight-line leg between two nearby points (e.g. ramp entry → exit)
-     * without calling ORS. Distance is haversine; duration is estimated at walking speed.
+     * Flag at most one alternative as the user's preferred route. When the
+     * preferred mode is {@code WALKING} and an "Accessible Route" exists, it
+     * wins over the "Fastest Route" (the loop overwrites earlier matches, and
+     * the accessible route is always appended after the fastest one).
      */
-    private static RoutingDirectionsResult straightLineLeg(Location from, Location to) {
-        double distanceMeters = haversineMeters(from, to);
-        double durationSeconds = distanceMeters / WALKING_SPEED_MS;
-        String geometry = PolylineEncoder.encode(List.of(from, to));
-        return RoutingDirectionsResult.builder()
-                .distanceMeters(distanceMeters)
-                .durationSeconds(durationSeconds)
-                .geometry(geometry)
-                .steps(List.of(RouteStep.builder().instruction("Take the ramp").maneuverType("ramp").build()))
-                .build();
+    private static void markPreferred(List<RouteResponse> routes, TravelMode preferredMode) {
+        if (preferredMode == null) return;
+        RouteResponse winner = null;
+        for (RouteResponse r : routes) {
+            if (r.getMode() == preferredMode) {
+                winner = r; // keep updating — last match wins
+            }
+        }
+        if (winner != null) {
+            winner.setPreferred(true);
+        }
     }
 
     private static double haversineMeters(Location a, Location b) {

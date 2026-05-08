@@ -15,7 +15,7 @@ import java.util.Set;
 public class LoggingAspect {
 
     // Controllers whose request bodies contain PII and must not be logged
-    private static final Set<String> REDACTED_CONTROLLERS = Set.of("AuthController");
+    private static final Set<String> REDACTED_CONTROLLERS = Set.of("AuthController", "AdminController");
 
     // Intercept every method in every class inside the controller package
     @Around("execution(* com.bounswe2026group1.backend.controller..*(..))")

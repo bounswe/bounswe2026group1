@@ -108,23 +108,63 @@ class ApiService {
     required double latitude,
     required double longitude,
     required String description,
-    required ReportTag tag,
+    required ReportType reportType,
+    required ReportEnvironment environment,
+    required List<ReportObject> objects,
   }) async {
-    final isRamp = tag == ReportTag.ramp;
-    final endpoint = isRamp ? '$_baseUrl/api/reports/ramp' : '$_baseUrl/api/reports';
-    final body = isRamp
-        ? {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description}
-        : {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description, 'tag': tag.jsonValue};
+    final body = {
+      'userId': userId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'description': description,
+      'reportType': reportType.jsonValue,
+      'environment': environment.jsonValue,
+      'objects': objects.map((o) => o.toJson()).toList(),
+    };
 
     final response = await http
         .post(
-          Uri.parse(endpoint),
+          Uri.parse('$_baseUrl/api/reports'),
           headers: _headers,
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
+      return ReportModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<ReportModel> updateReport({
+    required int reportId,
+    String? description,
+    ReportEnvironment? environment,
+    double? latitude,
+    double? longitude,
+    List<ReportObject>? objects,
+    List<int>? mediaIdsToRemove,
+  }) async {
+    final body = <String, dynamic>{
+      if (description != null) 'description': description,
+      if (environment != null) 'environment': environment.jsonValue,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (objects != null) 'objects': objects.map((o) => o.toJson()).toList(),
+      if (mediaIdsToRemove != null) 'mediaIdsToRemove': mediaIdsToRemove,
+    };
+
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/api/reports/$reportId'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
       return ReportModel.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,
       );

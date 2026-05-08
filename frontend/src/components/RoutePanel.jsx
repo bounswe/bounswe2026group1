@@ -116,7 +116,7 @@ function RoutePanel({
 
   return (
     <aside className="
-      w-[360px] flex-shrink-0 h-full
+      w-full sm:w-[360px] flex-shrink-0 h-full
       bg-surface-container-low
       border-r border-outline-variant/10
       flex flex-col overflow-y-auto z-10

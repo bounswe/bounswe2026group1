@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,6 +12,7 @@ import '../models/sse_event.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
+import 'edit_report_screen.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -22,7 +24,10 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  ReportModel get report => widget.report;
+  /// Mutable so an in-place edit (PUT /api/reports/{id}) can update what's
+  /// rendered without popping/repushing the route.
+  late ReportModel _report;
+  ReportModel get report => _report;
 
   String? _fetchedUsername;
   bool _usernameLoading = false;
@@ -62,6 +67,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _report = widget.report;
     _agrees = report.agrees;
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
@@ -105,6 +111,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       final fresh = await context.read<AuthService>().api.getReport(report.reportId);
       if (!mounted) return;
       setState(() {
+        _report = fresh;
         _agrees = fresh.agrees;
         _disagrees = fresh.disagrees;
         _myVote = fresh.userVote?.toLowerCase();
@@ -112,6 +119,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     } catch (_) {
       // Non-fatal — stale data from the list is still shown.
     }
+  }
+
+  Future<void> _openEdit() async {
+    final updated = await Navigator.push<ReportModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditReportScreen(report: report),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted || updated == null) return;
+    setState(() => _report = updated);
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
@@ -246,7 +265,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Sign In Required',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
@@ -254,14 +273,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             color: AppColors.onSurface,
           ),
         ),
-        content: const Text(
+        content: Text(
           'You need to log in to use this feature.',
           style: TextStyle(color: AppColors.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.outline)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.outline)),
           ),
           TextButton(
             onPressed: () {
@@ -272,7 +291,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 (r) => false,
               );
             },
-            child: const Text(
+            child: Text(
               'Sign In',
               style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
             ),
@@ -363,6 +382,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       _buildTitleSection(),
                       const SizedBox(height: 24),
                       _buildDescriptionRow(),
+                      if (report.objects.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildObjectsSection(),
+                      ],
                       const SizedBox(height: 24),
                       _buildCommunityConsensus(),
                       const SizedBox(height: 24),
@@ -402,10 +425,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       bottom: false,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F7F4),
+          color: AppColors.surfaceTint,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: AppColors.shadow,
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -415,10 +438,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              icon: Icon(Icons.arrow_back, color: AppColors.primary),
               onPressed: () => Navigator.pop(context),
             ),
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Text(
                   'Mapcess',
@@ -431,8 +454,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ),
             ),
+            // Edit affordance — gated to the report's author. Backend
+            // ownership checks still apply, this is just to hide the button
+            // for users who can't act on it.
+            if (context.watch<AuthService>().userId == report.userId)
+              IconButton(
+                icon: Icon(Icons.edit_outlined, color: AppColors.primary),
+                onPressed: _openEdit,
+              ),
             IconButton(
-              icon: const Icon(Icons.search, color: AppColors.onSurface),
+              icon: Icon(Icons.search, color: AppColors.onSurface),
               onPressed: () {},
             ),
           ],
@@ -522,13 +553,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       fit: StackFit.expand,
       children: [
         CustomPaint(
-          painter: _ImagePlaceholderPainter(color: report.tag.color),
+          painter: _ImagePlaceholderPainter(color: report.displayColor),
         ),
         Center(
           child: Icon(
-            report.tag.icon,
+            report.displayIcon,
             size: 80,
-            color: report.tag.color.withOpacity(0.25),
+            color: report.displayColor.withOpacity(0.25),
           ),
         ),
       ],
@@ -605,8 +636,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${report.tag.label} – Report #${report.reportId}',
-          style: const TextStyle(
+          '${report.headline} – Report #${report.reportId}',
+          style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontWeight: FontWeight.w800,
             fontSize: 24,
@@ -614,6 +645,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             height: 1.2,
           ),
         ),
+        const SizedBox(height: 10),
+        _buildEnvironmentChip(),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -621,12 +654,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: report.tag.color.withOpacity(0.12),
+                color: report.displayColor.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.person_outline,
-                color: report.tag.color,
+                color: report.displayColor,
                 size: 20,
               ),
             ),
@@ -645,7 +678,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       )
                     : Text(
                         _displayUsername,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.onSurface,
@@ -653,7 +686,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                 Text(
                   'Reported ${report.timeAgo}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -663,6 +696,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  /// Indoor/outdoor pill rendered under the title.
+  Widget _buildEnvironmentChip() {
+    final env = report.environment;
+    final outdoor = env == ReportEnvironment.outdoor;
+    final fg = outdoor ? AppColors.success : AppColors.info;
+    final bg = outdoor ? AppColors.successContainer : AppColors.infoContainer;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(env.icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            env.label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -685,13 +749,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.description_outlined,
                       color: AppColors.primary,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Issue Details',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
@@ -707,7 +771,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   report.description.isNotEmpty
                       ? report.description
                       : 'No description provided.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     color: AppColors.onSurfaceVariant,
                     height: 1.55,
@@ -720,15 +784,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCFE6F2),
+                    color: AppColors.infoContainer,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    report.tag.label,
-                    style: const TextStyle(
+                    report.headline,
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF40555F),
+                      color: AppColors.onInfoContainer,
                     ),
                   ),
                 ),
@@ -776,7 +840,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 report.latitude,
                                 report.longitude,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.location_on,
                                 color: AppColors.primary,
                                 size: 32,
@@ -791,7 +855,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 const SizedBox(height: 10),
                 Text(
                   '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: AppColors.onSurface,
@@ -800,7 +864,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 3),
-                const Text(
+                Text(
                   'GPS COORDINATES',
                   style: TextStyle(
                     fontSize: 8,
@@ -820,6 +884,353 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   // ─── Community consensus ────────────────────────────────────────────────────
 
+  Widget _buildObjectsSection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.category_outlined,
+                  color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                report.objects.length == 1
+                    ? 'Reported Object'
+                    : 'Reported Objects (${report.objects.length})',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (int i = 0; i < report.objects.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _buildObjectCard(report.objects[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObjectCard(ReportObject obj) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: obj.objectType.color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  obj.objectType.icon,
+                  color: obj.objectType.color,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                obj.objectType.label,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (obj.issues.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: obj.issues
+                  .map((issue) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          issue.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onErrorContainer,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (obj.measurements != null && obj.measurements!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildMeasurementsBlock(obj),
+          ],
+          if (obj.warnings.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final w in obj.warnings)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 14, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        w.message,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.warning,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Renders an object's measurements. The create/edit forms write a
+  /// JSON-encoded `{key: "value"}` blob into the backend's free-text
+  /// `measurements` field; here we parse it, look up each key in
+  /// [measurementSpecsFor], and render a labelled row with units and an
+  /// accessibility verdict. Free-text strings (anything that isn't valid
+  /// JSON) fall back to a single body line.
+  Widget _buildMeasurementsBlock(ReportObject obj) {
+    final raw = obj.measurements!;
+    final parsed = _tryParseMeasurements(raw);
+    if (parsed == null) {
+      // Free-text fallback for older / non-JSON entries.
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.straighten, size: 14, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                raw,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final specs = measurementSpecsFor(obj.objectType);
+    // Maintain spec order; append any unknown keys at the end so nothing
+    // entered by the user gets silently dropped.
+    final knownKeys = specs.map((s) => s.key).toSet();
+    final unknownKeys = parsed.keys.where((k) => !knownKeys.contains(k));
+    final rows = <Widget>[
+      for (final spec in specs)
+        if (parsed.containsKey(spec.key))
+          _buildMeasurementRow(spec: spec, rawValue: parsed[spec.key]!),
+      for (final k in unknownKeys)
+        _buildMeasurementRow(
+          spec: MeasurementSpec(key: k, label: _humanizeKey(k), unit: ''),
+          rawValue: parsed[k]!,
+        ),
+    ];
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.straighten, size: 14, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'MEASUREMENTS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 12,
+                thickness: 1,
+                color: AppColors.outlineVariant.withValues(alpha: 0.25),
+              ),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeasurementRow({
+    required MeasurementSpec spec,
+    required String rawValue,
+  }) {
+    final parsedValue = double.tryParse(rawValue);
+    final verdict =
+        parsedValue == null ? null : spec.isAccessible(parsedValue);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                spec.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                spec.unit.isEmpty ? rawValue : '$rawValue ${spec.unit}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (verdict != null) ...[
+          const SizedBox(height: 4),
+          _accessibilityVerdict(spec, verdict),
+        ] else if (spec.accessibleMin != null || spec.accessibleMax != null) ...[
+          const SizedBox(height: 4),
+          _accessibilityHintText(_thresholdText(spec),
+              tone: AppColors.onSurfaceVariant, icon: Icons.info_outline),
+        ],
+      ],
+    );
+  }
+
+  Widget _accessibilityVerdict(MeasurementSpec spec, bool ok) {
+    final color = ok ? AppColors.success : AppColors.error;
+    final icon = ok ? Icons.check_circle : Icons.error_outline;
+    final text = ok ? 'Accessible · ${_thresholdText(spec)}'
+                    : 'Below accessible · needs ${_thresholdText(spec)}';
+    return _accessibilityHintText(text, tone: color, icon: icon);
+  }
+
+  Widget _accessibilityHintText(String text,
+      {required Color tone, required IconData icon}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 12, color: tone),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: tone,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _thresholdText(MeasurementSpec s) {
+    final unit = s.unit;
+    if (s.accessibleMin != null && s.accessibleMax != null) {
+      return '${_fmtNum(s.accessibleMin!)}–${_fmtNum(s.accessibleMax!)} $unit';
+    }
+    if (s.accessibleMin != null) return '≥ ${_fmtNum(s.accessibleMin!)} $unit';
+    if (s.accessibleMax != null) return '≤ ${_fmtNum(s.accessibleMax!)} $unit';
+    return '';
+  }
+
+  static String _fmtNum(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  static String _humanizeKey(String key) => key
+      .split('_')
+      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+
+  /// Parses the JSON map written by the create form. Returns null when the
+  /// blob isn't valid JSON or isn't a string-keyed map — those cases are
+  /// rendered as free text.
+  Map<String, String>? _tryParseMeasurements(String raw) {
+    final trimmed = raw.trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is! Map) return null;
+      return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Widget _buildCommunityConsensus() {
     final totalVotes = _agrees + _disagrees;
     final consensusPercent =
@@ -828,7 +1239,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -841,7 +1252,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Community Consensus',
                     style: TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
@@ -853,7 +1264,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   const SizedBox(height: 4),
                   Text(
                     '$totalVotes ${totalVotes == 1 ? 'person has' : 'people have'} voted.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -865,7 +1276,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   _voteCount(Icons.thumb_up, _agrees, AppColors.primary),
                   const SizedBox(height: 4),
-                  _voteCount(Icons.thumb_down, _disagrees, const Color(0xFFB02500)),
+                  _voteCount(Icons.thumb_down, _disagrees, AppColors.errorStrong),
                 ],
               ),
             ],
@@ -892,8 +1303,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       : Icons.thumb_down_outlined,
                   label: 'Disagree',
                   active: _myVote == 'disagree',
-                  activeColor: const Color(0xFFB02500),
-                  activeTextColor: const Color(0xFFFFCDD2),
+                  activeColor: AppColors.errorStrong,
+                  activeTextColor: AppColors.errorContainer,
                   loading: _voteLoading && _myVote != 'disagree',
                   onTap: () => _vote('disagree'),
                 ),
@@ -904,7 +1315,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'VALIDATION PROGRESS',
                 style: TextStyle(
                   fontSize: 10,
@@ -915,7 +1326,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
               Text(
                 '$consensusPercent% Agree',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: AppColors.onSurfaceVariant,
@@ -938,8 +1349,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       (consensusPercent / 100).clamp(0.0, 1.0),
                   height: 10,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF9DF197), AppColors.primary],
+                    gradient: LinearGradient(
+                      colors: [AppColors.primaryAccent, AppColors.primary],
                     ),
                     borderRadius: BorderRadius.circular(999),
                   ),
@@ -976,9 +1387,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     required bool active,
     required bool loading,
     required VoidCallback onTap,
-    Color activeColor = AppColors.primary,
-    Color activeTextColor = AppColors.onPrimary,
+    Color? activeColor,
+    Color? activeTextColor,
   }) {
+    activeColor ??= AppColors.primary;
+    activeTextColor ??= AppColors.onPrimary;
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
@@ -1042,7 +1455,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Report Info',
             style: TextStyle(
               fontFamily: 'Plus Jakarta Sans',
@@ -1053,7 +1466,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           const SizedBox(height: 12),
           _infoRow(Icons.tag, 'Report ID', '#${report.reportId}'),
-          _infoRow(Icons.category_outlined, 'Category', report.tag.label),
+          _infoRow(Icons.category_outlined, 'Category', report.headline),
           _infoRow(Icons.circle_outlined, 'Status', _currentStatus.label),
           _infoRow(
             Icons.schedule_outlined,
@@ -1076,7 +1489,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           const SizedBox(width: 10),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: AppColors.onSurfaceVariant,
             ),
@@ -1084,7 +1497,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.onSurface,
@@ -1111,11 +1524,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 18),
+              Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
               Text(
                 'Comments (${_comments.length})',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -1128,7 +1541,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
           // Comment list
           if (_commentsLoading)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
@@ -1139,16 +1552,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.wifi_off, size: 14, color: AppColors.outline),
+                  Icon(Icons.wifi_off, size: 14, color: AppColors.outline),
                   const SizedBox(width: 8),
                   Text(
                     _commentsError!,
-                    style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                    style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
                   ),
                   const Spacer(),
                   GestureDetector(
                     onTap: _loadComments,
-                    child: const Text(
+                    child: Text(
                       'Retry',
                       style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
                     ),
@@ -1157,7 +1570,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
             )
           else if (_comments.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'No comments yet. Be the first to comment!',
@@ -1180,10 +1593,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     controller: _commentController,
                     maxLines: 3,
                     minLines: 1,
-                    style: const TextStyle(fontSize: 13, color: AppColors.onSurface),
+                    style: TextStyle(fontSize: 13, color: AppColors.onSurface),
                     decoration: InputDecoration(
                       hintText: 'Add a comment…',
-                      hintStyle: const TextStyle(
+                      hintStyle: TextStyle(
                         fontSize: 13,
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -1211,7 +1624,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: _commentSubmitting
-                        ? const Center(
+                        ? Center(
                             child: SizedBox(
                               width: 18,
                               height: 18,
@@ -1221,7 +1634,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               ),
                             ),
                           )
-                        : const Icon(Icons.send_rounded, color: AppColors.onPrimary, size: 18),
+                        : Icon(Icons.send_rounded, color: AppColors.onPrimary, size: 18),
                   ),
                 ),
               ],
@@ -1241,11 +1654,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           Container(
             width: 32,
             height: 32,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surfaceContainerHigh,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.person_outline, size: 16, color: AppColors.secondary),
+            child: Icon(Icons.person_outline, size: 16, color: AppColors.secondary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1256,7 +1669,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   children: [
                     Text(
                       comment.username,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: AppColors.onSurface,
@@ -1265,7 +1678,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     const SizedBox(width: 8),
                     Text(
                       comment.timeAgo,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -1275,7 +1688,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 const SizedBox(height: 3),
                 Text(
                   comment.text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     color: AppColors.onSurfaceVariant,
                     height: 1.4,
@@ -1308,7 +1721,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.notifications_active_outlined, color: AppColors.onPrimary, size: 20),
@@ -1394,7 +1807,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           children: [
             Icon(
               active ? activeIcon : inactiveIcon,
-              color: active ? Colors.white : AppColors.secondary,
+              color: active ? AppColors.onPrimarySolid : AppColors.secondary,
               size: 22,
             ),
             const SizedBox(height: 3),
@@ -1404,7 +1817,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
-                color: active ? Colors.white : AppColors.secondary,
+                color: active ? AppColors.onPrimarySolid : AppColors.secondary,
               ),
             ),
           ],

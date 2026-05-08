@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
 import CreateReportPanel from './CreateReportPanel.jsx'
 import * as api from '../services/api.js'
@@ -15,15 +16,38 @@ vi.mock('react-leaflet', () => ({
 
 const FAKE_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
 
-function renderPanel({ token = FAKE_TOKEN, onClose = vi.fn(), onCreated = vi.fn() } = {}) {
+const FAKE_REPORT_RESPONSE = {
+  reportId: 99,
+  userId: 1,
+  latitude: 41.0,
+  longitude: 29.0,
+  description: 'test',
+  reportType: 'OBSTACLE',
+  environment: 'OUTDOOR',
+  objects: [{ objectType: 'RAMP', issues: ['TOO_STEEP'], measurements: '{}' }],
+  status: 'PENDING',
+  agrees: 0,
+  disagrees: 0,
+  publishDate: '2026-04-04',
+  mediaUrls: [],
+}
+
+function renderPanel({ token = FAKE_TOKEN, onClose = vi.fn(), onCreated = vi.fn(), position = null } = {}) {
   if (token) localStorage.setItem('token', token)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <CreateReportPanel position={null} onClose={onClose} onCreated={onCreated} />
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <CreateReportPanel position={position} onClose={onClose} onCreated={onCreated} />
+        </AuthProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   )
+}
+
+function renderPanelWithPosition(props = {}) {
+  return renderPanel({ position: { lat: 41.0, lng: 29.0 }, ...props })
 }
 
 describe('CreateReportPanel', () => {
@@ -40,14 +64,21 @@ describe('CreateReportPanel', () => {
       expect(screen.getByText('New Report')).toBeInTheDocument()
     })
 
-    it('renders all category buttons', () => {
+    it('renders the Obstacle and Feature report type buttons', () => {
       renderPanel()
-      expect(screen.getByRole('button', { name: /missing ramp/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /broken elevator/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /narrow passage/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /wet floor/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /construction/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /ramp available/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /obstacle/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /feature/i })).toBeInTheDocument()
+    })
+
+    it('renders the Outdoor and Indoor environment buttons', () => {
+      renderPanel()
+      expect(screen.getByRole('button', { name: /outdoor/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /indoor/i })).toBeInTheDocument()
+    })
+
+    it('renders the Add Object button', () => {
+      renderPanel()
+      expect(screen.getByRole('button', { name: /add object/i })).toBeInTheDocument()
     })
 
     it('renders the description textarea', () => {
@@ -77,53 +108,87 @@ describe('CreateReportPanel', () => {
       expect(screen.getByText(/click on the map to set a location/i)).toBeInTheDocument()
     })
 
-    it('shows error when submitting without a category', async () => {
+    it('shows error when submitting without any objects', async () => {
       const user = userEvent.setup()
-      localStorage.setItem('token', FAKE_TOKEN)
-      render(
-        <MemoryRouter>
-          <AuthProvider>
-            <CreateReportPanel
-              position={{ lat: 41.0, lng: 29.0 }}
-              onClose={vi.fn()}
-              onCreated={vi.fn()}
-            />
-          </AuthProvider>
-        </MemoryRouter>
-      )
+      renderPanelWithPosition()
       await user.click(screen.getByRole('button', { name: /submit report/i }))
-      expect(screen.getByText(/select a category/i)).toBeInTheDocument()
+      expect(screen.getByText(/add at least one object/i)).toBeInTheDocument()
+    })
+
+    it('shows error when submitting with an object but no type selected', async () => {
+      const user = userEvent.setup()
+      renderPanelWithPosition()
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /submit report/i }))
+      expect(screen.getByText(/select a type for every object/i)).toBeInTheDocument()
     })
 
     it('shows error when submitting without a description', async () => {
       const user = userEvent.setup()
-      localStorage.setItem('token', FAKE_TOKEN)
-      render(
-        <MemoryRouter>
-          <AuthProvider>
-            <CreateReportPanel
-              position={{ lat: 41.0, lng: 29.0 }}
-              onClose={vi.fn()}
-              onCreated={vi.fn()}
-            />
-          </AuthProvider>
-        </MemoryRouter>
-      )
-      await user.click(screen.getByRole('button', { name: /construction/i }))
+      renderPanelWithPosition()
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      await user.click(screen.getByRole('checkbox', { name: /too steep/i }))
       await user.click(screen.getByRole('button', { name: /submit report/i }))
       expect(screen.getByText(/provide a description/i)).toBeInTheDocument()
     })
   })
 
-  // ─── Category selection ───────────────────────────────────────────────────────
+  // ─── Object card behaviour ────────────────────────────────────────────────────
 
-  describe('category selection', () => {
-    it('highlights selected category', async () => {
+  describe('object cards', () => {
+    it('adds an object card when Add Object is clicked', async () => {
       const user = userEvent.setup()
       renderPanel()
-      const btn = screen.getByRole('button', { name: /construction/i })
-      await user.click(btn)
-      expect(btn.className).toContain('border-primary')
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      expect(screen.getByText(/select a type…/i)).toBeInTheDocument()
+    })
+
+    it('shows object type buttons inside the card after adding', async () => {
+      const user = userEvent.setup()
+      renderPanel()
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      expect(screen.getByRole('button', { name: /^ramp$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^elevator$/i })).toBeInTheDocument()
+    })
+
+    it('shows issues after selecting an object type (Obstacle mode)', async () => {
+      const user = userEvent.setup()
+      renderPanel()
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      expect(screen.getByRole('checkbox', { name: /too steep/i })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /missing handrail/i })).toBeInTheDocument()
+    })
+
+    it('does not show issues in Feature mode', async () => {
+      const user = userEvent.setup()
+      renderPanel()
+      await user.click(screen.getByRole('button', { name: /feature/i }))
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      expect(screen.queryByRole('checkbox', { name: /too steep/i })).not.toBeInTheDocument()
+    })
+
+    it('disables duplicate object type buttons', async () => {
+      const user = userEvent.setup()
+      renderPanel()
+      // Add first object and select RAMP
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      // Add second object — RAMP button should be disabled
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      const rampButtons = screen.getAllByRole('button', { name: /^ramp$/i })
+      expect(rampButtons[1]).toBeDisabled()
+    })
+
+    it('removes an object card when delete button is clicked', async () => {
+      const user = userEvent.setup()
+      renderPanel()
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      expect(screen.getByText(/select a type…/i)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /remove object/i }))
+      expect(screen.queryByText(/select a type…/i)).not.toBeInTheDocument()
     })
   })
 
@@ -151,38 +216,17 @@ describe('CreateReportPanel', () => {
 
   describe('successful submission', () => {
     it('calls onCreated and onClose after successful submit', async () => {
-      api.apiFetch.mockResolvedValue({
-        reportId: 99,
-        userId: 1,
-        latitude: 41.0,
-        longitude: 29.0,
-        description: 'test',
-        tag: 'CONSTRUCTION',
-        status: 'PENDING',
-        agrees: 0,
-        disagrees: 0,
-        publishDate: '2026-04-04',
-        mediaUrls: [],
-      })
+      api.apiFetch.mockResolvedValue(FAKE_REPORT_RESPONSE)
 
       const onClose = vi.fn()
       const onCreated = vi.fn()
       const user = userEvent.setup()
 
-      localStorage.setItem('token', FAKE_TOKEN)
-      render(
-        <MemoryRouter>
-          <AuthProvider>
-            <CreateReportPanel
-              position={{ lat: 41.0, lng: 29.0 }}
-              onClose={onClose}
-              onCreated={onCreated}
-            />
-          </AuthProvider>
-        </MemoryRouter>
-      )
+      renderPanelWithPosition({ onClose, onCreated })
 
-      await user.click(screen.getByRole('button', { name: /construction/i }))
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      await user.click(screen.getByRole('checkbox', { name: /too steep/i }))
       await user.type(screen.getByPlaceholderText(/provide a brief description/i), 'test description')
       await user.click(screen.getByRole('button', { name: /submit report/i }))
 
@@ -196,20 +240,11 @@ describe('CreateReportPanel', () => {
       api.apiFetch.mockRejectedValue(new Error('Server error'))
       const user = userEvent.setup()
 
-      localStorage.setItem('token', FAKE_TOKEN)
-      render(
-        <MemoryRouter>
-          <AuthProvider>
-            <CreateReportPanel
-              position={{ lat: 41.0, lng: 29.0 }}
-              onClose={vi.fn()}
-              onCreated={vi.fn()}
-            />
-          </AuthProvider>
-        </MemoryRouter>
-      )
+      renderPanelWithPosition()
 
-      await user.click(screen.getByRole('button', { name: /construction/i }))
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      await user.click(screen.getByRole('checkbox', { name: /too steep/i }))
       await user.type(screen.getByPlaceholderText(/provide a brief description/i), 'test')
       await user.click(screen.getByRole('button', { name: /submit report/i }))
 
