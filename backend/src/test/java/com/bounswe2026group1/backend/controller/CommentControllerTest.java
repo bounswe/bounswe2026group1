@@ -1,9 +1,7 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
-import com.bounswe2026group1.backend.model.Comment;
-import com.bounswe2026group1.backend.model.RegisteredUser;
-import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.service.CommentService;
 import com.bounswe2026group1.backend.util.JwtUtil;
@@ -17,12 +15,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -46,19 +48,12 @@ class CommentControllerTest {
             { "content": "looks good", "author": { "id": 3 }, "report": { "reportId": 18 } }
             """;
 
-    private Comment savedCommentStub() {
-        RegisteredUser author = new RegisteredUser();
-        author.setId(3L);
-        Report report = new Report();
-        report.setReportId(18L);
-
-        Comment c = new Comment();
-        c.setId(99L);
-        c.setContent("looks good");
-        c.setAuthor(author);
-        c.setReport(report);
-        c.setCreatedAt(Instant.parse("2026-05-08T20:00:00Z"));
-        return c;
+    private CommentResponse savedCommentStub() {
+        return new CommentResponse(
+                99L,
+                "looks good",
+                Instant.parse("2026-05-08T20:00:00Z"),
+                new CommentResponse.AuthorRef(3L, "Alice", null));
     }
 
     // ───── Happy path ────────────────────────────────────────────────────────
@@ -75,7 +70,65 @@ class CommentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(99))
                 .andExpect(jsonPath("$.content").value("looks good"))
-                .andExpect(jsonPath("$.author.id").value(3));
+                .andExpect(jsonPath("$.author.id").value(3))
+                .andExpect(jsonPath("$.author.name").value("Alice"));
+    }
+
+    // ───── Response leak regression (issue #435) ────────────────────────────
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void create_responseDoesNotLeakAuthFields() throws Exception {
+        when(commentService.create(any(CreateCommentRequest.class))).thenReturn(savedCommentStub());
+
+        String body = mockMvc.perform(post("/api/comments")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.author.password").doesNotExist())
+                .andExpect(jsonPath("$.author.email").doesNotExist())
+                .andExpect(jsonPath("$.author.role").doesNotExist())
+                .andExpect(jsonPath("$.author.status").doesNotExist())
+                .andExpect(jsonPath("$.author.points").doesNotExist())
+                .andExpect(jsonPath("$.author.registeredAt").doesNotExist())
+                .andExpect(jsonPath("$.author.bio").doesNotExist())
+                .andExpect(jsonPath("$.author.hibernateLazyInitializer").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+
+        // Belt-and-suspenders: BCrypt hashes always start with $2a$, $2b$, or $2y$.
+        // If any leaks back in, this catches it regardless of the field name.
+        if (body.matches("(?s).*\\$2[aby]\\$\\d{2}\\$.*")) {
+            throw new AssertionError("Response leaks a BCrypt-shaped string: " + body);
+        }
+    }
+
+    @Test
+    void getByReport_responseDoesNotLeakAuthFields() throws Exception {
+        when(commentService.getByReport(eq(18L))).thenReturn(java.util.List.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments/report/18")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(99))
+                .andExpect(jsonPath("$[0].author.id").value(3))
+                .andExpect(jsonPath("$[0].author.name").value("Alice"))
+                .andExpect(jsonPath("$[0].author.password").doesNotExist())
+                .andExpect(jsonPath("$[0].author.email").doesNotExist())
+                .andExpect(jsonPath("$[0].author.hibernateLazyInitializer").doesNotExist());
+    }
+
+    @Test
+    void getById_responseDoesNotLeakAuthFields() throws Exception {
+        when(commentService.getById(eq(99L))).thenReturn(Optional.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments/99")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.author.password").doesNotExist())
+                .andExpect(jsonPath("$.author.email").doesNotExist())
+                .andExpect(jsonPath("$.author.hibernateLazyInitializer").doesNotExist())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("$2a$"))));
     }
 
     // ───── Validation ────────────────────────────────────────────────────────
