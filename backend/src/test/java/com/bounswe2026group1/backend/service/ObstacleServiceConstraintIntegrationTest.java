@@ -156,6 +156,47 @@ class ObstacleServiceConstraintIntegrationTest extends AbstractPostgisIntegratio
     }
 
     @Test
+    void findObstaclesOnPath_emptyConstraints_returnsEveryNearbyObstacle() {
+        // Path that brushes past all three seeded VERIFIED OUTDOOR obstacles
+        // (stair, sidewalk, ramp at 41.0850/0851/0852).
+        Location p1 = new Location(41.0850, 29.0450);
+        Location p2 = new Location(41.0853, 29.0454);
+
+        List<Report> obstacles = obstacleService.findObstaclesOnPath(List.of(p1, p2), Set.of());
+
+        assertThat(obstacles).hasSize(3);
+    }
+
+    @Test
+    void findObstaclesOnPath_withNonMatchingConstraint_filtersOutObstaclesUserDoesntCareAbout() {
+        // The user only cares about low overhead clearance — none of the seeded
+        // reports match that hazard. The fastest route may still graze them, but
+        // the response's hasObstacles flag should be false: warning the user about
+        // an obstacle they explicitly don't care about contradicts the prefs design.
+        Location p1 = new Location(41.0850, 29.0450);
+        Location p2 = new Location(41.0853, 29.0454);
+
+        List<Report> obstacles = obstacleService.findObstaclesOnPath(List.of(p1, p2),
+                EnumSet.of(RoutingConstraint.AVOID_LOW_CLEARANCE));
+
+        assertThat(obstacles).isEmpty();
+    }
+
+    @Test
+    void findObstaclesOnPath_withMatchingConstraint_keepsRelevantObstaclesOnly() {
+        // The user has AVOID_BLOCKED_OR_MISSING_SIDEWALKS — only the seeded
+        // sidewalk-blocked report should survive.
+        Location p1 = new Location(41.0850, 29.0450);
+        Location p2 = new Location(41.0853, 29.0454);
+
+        List<Report> obstacles = obstacleService.findObstaclesOnPath(List.of(p1, p2),
+                EnumSet.of(RoutingConstraint.AVOID_BLOCKED_OR_MISSING_SIDEWALKS));
+
+        assertThat(obstacles).hasSize(1);
+        assertThat(obstacles.get(0).getDescription()).contains("BLOCKED");
+    }
+
+    @Test
     void findClosestRampInBoundingBox_executesAgainstPostgisWithoutEnumBindingError() {
         // findClosestRampInBoundingBox uses native query findByTypeInBoundingBoxWithStatuses,
         // which has the same enum-binding pitfall on both the type and statuses params.

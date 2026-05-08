@@ -40,7 +40,7 @@ class RouteServiceTest {
         when(obstacleService.buildAvoidPolygons(any())).thenReturn(avoidPolygons);
 
         // But the fastest route happens not to cross any of them
-        when(obstacleService.findObstaclesOnPath(any())).thenReturn(List.of());
+        when(obstacleService.findObstaclesOnPath(any(), any())).thenReturn(List.of());
         when(obstacleService.findClosestRampInBoundingBox(any(), any())).thenReturn(null);
 
         RoutingDirectionsResult anyRoute = RoutingDirectionsResult.builder()

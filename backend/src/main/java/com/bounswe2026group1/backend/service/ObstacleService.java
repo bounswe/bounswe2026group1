@@ -190,11 +190,28 @@ public class ObstacleService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns all active negative reports that lie within
-     * {@value PATH_BUFFER_METERS} m
-     * of any segment of the given decoded path.
+     * Backwards-compatible overload — same as the empty-constraint case.
+     * Used by callers that don't have a user identity (e.g. anonymous routing,
+     * existing tests that pre-date the constraint mechanism).
      */
     public List<Report> findObstaclesOnPath(List<Location> pathPoints) {
+        return findObstaclesOnPath(pathPoints, Set.of());
+    }
+
+    /**
+     * Return VERIFIED OUTDOOR obstacle reports that lie within
+     * {@value PATH_BUFFER_METERS} m of any segment of the given decoded path
+     * AND are relevant to the caller's accessibility constraints.
+     *
+     * <p>When {@code constraints} is empty the baseline applies: every nearby
+     * VERIFIED OUTDOOR obstacle is returned (anonymous and NONE-preset users
+     * get the full set). When non-empty, the result is filtered to obstacles
+     * whose objects expose at least one hazard the user actually cares about
+     * — same predicate that {@link #buildAvoidPolygons(Set)} uses, so the
+     * {@code hasObstacles} flag on a route response stays consistent with
+     * which polygons would have been avoided.
+     */
+    public List<Report> findObstaclesOnPath(List<Location> pathPoints, Set<RoutingConstraint> constraints) {
         if (pathPoints.size() < 2) {
             return List.of();
         }
@@ -210,9 +227,12 @@ public class ObstacleService {
         List<Report> candidates = reportRepository.findReportsInBoundingBoxWithStatuses(
                 minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
 
+        Set<IssueHazard> hazards = RoutingConstraint.expand(constraints);
+
         return candidates.stream()
                 .filter(r -> r.getReportType() == ReportType.OBSTACLE)
                 .filter(r -> r.getLocation() != null)
+                .filter(r -> hazards.isEmpty() || reportMatchesAnyHazard(r, hazards))
                 .filter(r -> isWithinPathBuffer(r.getLocation(), pathPoints))
                 .toList();
     }

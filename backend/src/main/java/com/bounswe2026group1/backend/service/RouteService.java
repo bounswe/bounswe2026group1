@@ -64,7 +64,10 @@ public class RouteService {
 
         if (fastestResult != null) {
             List<Location> pathPoints = PolylineDecoder.decode(fastestResult.getGeometry());
-            hasObstacles = !obstacleService.findObstaclesOnPath(pathPoints).isEmpty();
+            // hasObstacles must respect the user's constraints — otherwise a
+            // ⭐ preferred Fastest Route can warn about an obstacle the user
+            // already declared they don't care about.
+            hasObstacles = !obstacleService.findObstaclesOnPath(pathPoints, constraints).isEmpty();
 
             routes.add(RouteResponse.builder()
                     .routeLabel("Fastest Route")
