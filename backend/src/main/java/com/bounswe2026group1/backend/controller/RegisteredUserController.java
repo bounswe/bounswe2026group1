@@ -10,9 +10,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.SchemaProperty;
-// Note: do not import io.swagger.v3.oas.annotations.parameters.RequestBody — it would
-// shadow Spring's @RequestBody (used on updateProfile) and silently disable body binding
-// and bean validation on this controller. Use the fully-qualified name on the avatar method.
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
