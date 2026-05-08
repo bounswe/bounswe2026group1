@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.model.Comment;
 import com.bounswe2026group1.backend.repository.CommentRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -37,13 +38,11 @@ public class CommentService {
     }
 
     @Transactional
-    public Comment create(Comment comment) {
-        if (comment.getReport() != null && comment.getReport().getReportId() != null) {
-            comment.setReport(reportRepository.getReferenceById(comment.getReport().getReportId()));
-        }
-        if (comment.getAuthor() != null && comment.getAuthor().getId() != null) {
-            comment.setAuthor(registeredUserRepository.getReferenceById(comment.getAuthor().getId()));
-        }
+    public Comment create(CreateCommentRequest req) {
+        Comment comment = new Comment();
+        comment.setContent(req.content());
+        comment.setReport(reportRepository.getReferenceById(req.report().reportId()));
+        comment.setAuthor(registeredUserRepository.getReferenceById(req.author().id()));
         Comment saved = commentRepository.save(comment);
         notificationService.notifyNewComment(saved);
         return saved;

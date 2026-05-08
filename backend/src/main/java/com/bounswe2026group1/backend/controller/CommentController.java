@@ -1,7 +1,9 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.model.Comment;
 import com.bounswe2026group1.backend.service.CommentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,8 +40,8 @@ public class CommentController {
     }
 
     @PostMapping
-    public Comment create(@RequestBody Comment comment) {
-        return commentService.create(comment);
+    public Comment create(@RequestBody @Valid CreateCommentRequest req) {
+        return commentService.create(req);
     }
 
     @PutMapping("/{id}")
