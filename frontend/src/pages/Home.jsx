@@ -7,7 +7,7 @@ import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { REPORT_TAGS } from '../utils/reportTagConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
@@ -152,9 +152,17 @@ function MapFlyTo({ target }) {
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
-  const [selectedReportId, setSelectedReportId] = useState(null)
+  // Honor /?report=ID — used by the Profile page's "Open on map" link.
+  // Lazy initial state pulls the id from the URL once; the panel opens as soon as the
+  // matching report is in the loaded list.
+  const [selectedReportId, setSelectedReportId] = useState(() => {
+    const raw = searchParams.get('report')
+    const id = raw ? Number(raw) : NaN
+    return Number.isFinite(id) ? id : null
+  })
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
   const [mapCenter, setMapCenter] = useState(null)
