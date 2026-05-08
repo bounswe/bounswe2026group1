@@ -53,6 +53,22 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [isDragging, setIsDragging] = useState(false)
   const dragRef = useRef({ startY: 0, startHeight: SHEET_DEFAULT_DVH, active: false })
 
+  // Inline height has to be conditional — applying it unconditionally would
+  // override Tailwind's `lg:h-full` (inline > class). Track viewport via
+  // matchMedia so desktop keeps the right-sidebar layout.
+  const [isMobileSheet, setIsMobileSheet] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(max-width: 1023px)').matches
+      : true
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mql = window.matchMedia('(max-width: 1023px)')
+    function onChange() { setIsMobileSheet(mql.matches) }
+    mql.addEventListener?.('change', onChange)
+    return () => mql.removeEventListener?.('change', onChange)
+  }, [])
+
   function handleHandlePointerDown(e) {
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = { startY: e.clientY, startHeight: sheetHeightDvh, active: true }
@@ -210,9 +226,23 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
     <>
       <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
         <aside
-          // CSS variable so Tailwind's lg: utilities can still override height on desktop.
-          style={{ '--sheet-h': `${sheetHeightDvh}dvh` }}
-          className={`pointer-events-auto w-full h-[var(--sheet-h)] max-h-[var(--sheet-h)] lg:h-full lg:max-h-full lg:w-[500px] bg-surface-container-low flex flex-col rounded-t-[32px] lg:rounded-none border-t border-outline-variant/20 lg:border-t-0 lg:border-l shadow-[0_-10px_40px_rgba(0,0,0,0.2)] lg:shadow-none relative overflow-y-auto ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
+          style={isMobileSheet
+            ? {
+                height: `${sheetHeightDvh}dvh`,
+                maxHeight: `${sheetHeightDvh}dvh`,
+                width: '100%',
+                borderTopLeftRadius: '32px',
+                borderTopRightRadius: '32px',
+                borderTop: '1px solid rgba(172,173,173,.2)',
+                boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+              }
+            : {
+                width: '500px',
+                height: '100%',
+                maxHeight: '100%',
+                borderLeft: '1px solid rgba(172,173,173,.1)',
+              }}
+          className={`pointer-events-auto bg-surface-container-low flex flex-col relative overflow-y-auto ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
         >
 
           {/* Mobile drag handle — pill is decorative, the wider hit-area carries the pointer events. */}

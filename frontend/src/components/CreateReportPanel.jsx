@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
@@ -17,6 +17,57 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
+
+  // Bottom-sheet drag-to-resize (mobile only — desktop keeps right-sidebar layout).
+  // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
+  const SHEET_SNAP_POINTS = [25, 60, 90]
+  const SHEET_DISMISS_THRESHOLD = 15
+  const SHEET_DEFAULT_DVH = 60
+  const [sheetHeightDvh, setSheetHeightDvh] = useState(SHEET_DEFAULT_DVH)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startY: 0, startHeight: SHEET_DEFAULT_DVH, active: false })
+
+  const [isMobileSheet, setIsMobileSheet] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(max-width: 1023px)').matches
+      : true
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mql = window.matchMedia('(max-width: 1023px)')
+    function onChange() { setIsMobileSheet(mql.matches) }
+    mql.addEventListener?.('change', onChange)
+    return () => mql.removeEventListener?.('change', onChange)
+  }, [])
+
+  function handleHandlePointerDown(e) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startY: e.clientY, startHeight: sheetHeightDvh, active: true }
+    setIsDragging(true)
+  }
+  function handleHandlePointerMove(e) {
+    if (!dragRef.current.active) return
+    const deltaY = e.clientY - dragRef.current.startY
+    const dvhDelta = (deltaY / window.innerHeight) * 100
+    const next = dragRef.current.startHeight - dvhDelta
+    setSheetHeightDvh(Math.max(5, Math.min(95, next)))
+  }
+  function handleHandlePointerUp(e) {
+    if (!dragRef.current.active) return
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    dragRef.current.active = false
+    setIsDragging(false)
+    setSheetHeightDvh(prev => {
+      if (prev < SHEET_DISMISS_THRESHOLD) {
+        onClose()
+        return SHEET_DEFAULT_DVH
+      }
+      return SHEET_SNAP_POINTS.reduce(
+        (best, p) => (Math.abs(p - prev) < Math.abs(best - prev) ? p : best),
+        SHEET_SNAP_POINTS[0],
+      )
+    })
+  }
 
   // Recomputed every render — drives duplicate-type prevention
   const selectedTypes = new Set(objects.map(o => o.objectType).filter(Boolean))
@@ -167,10 +218,48 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   // ── render ─────────────────────────────────────────────────────────────────
 
   return (
-    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[500px] bg-surface-container-low overflow-y-auto border-l border-outline-variant/10 flex flex-col">
+    <div className="fixed inset-0 z-[1200] pointer-events-none flex" style={{ flexDirection: isMobileSheet ? 'column' : 'row', justifyContent: 'flex-end' }}>
+      <aside
+        style={isMobileSheet
+          ? {
+              height: `${sheetHeightDvh}dvh`,
+              maxHeight: `${sheetHeightDvh}dvh`,
+              width: '100%',
+              borderTopLeftRadius: '32px',
+              borderTopRightRadius: '32px',
+              borderTop: '1px solid rgba(172,173,173,.2)',
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+            }
+          : {
+              width: '500px',
+              height: '100%',
+              maxHeight: '100%',
+              borderLeft: '1px solid rgba(172,173,173,.1)',
+            }}
+        className={`pointer-events-auto bg-surface-container-low flex flex-col relative overflow-y-auto ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
+      >
+
+        {/* Mobile drag handle — pill is decorative, the wider hit-area carries the pointer events. */}
+        {isMobileSheet && (
+          <div
+            role="slider"
+            aria-label="Resize report panel"
+            aria-valuemin={SHEET_SNAP_POINTS[0]}
+            aria-valuemax={SHEET_SNAP_POINTS[SHEET_SNAP_POINTS.length - 1]}
+            aria-valuenow={Math.round(sheetHeightDvh)}
+            tabIndex={-1}
+            onPointerDown={handleHandlePointerDown}
+            onPointerMove={handleHandlePointerMove}
+            onPointerUp={handleHandlePointerUp}
+            onPointerCancel={handleHandlePointerUp}
+            className="flex-shrink-0 pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none"
+          >
+            <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto" />
+          </div>
+        )}
 
       {/* Header */}
-      <div className="px-8 pt-8 pb-4 flex items-start justify-between flex-shrink-0">
+      <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
         <div>
           <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
           <p className="text-sm text-on-surface-variant mt-1">
@@ -463,7 +552,8 @@ function CreateReportPanel({ position, onClose, onCreated }) {
         </div>
 
       </div>
-    </aside>
+      </aside>
+    </div>
   )
 }
 
