@@ -7,6 +7,12 @@ import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import com.bounswe2026group1.backend.service.S3MediaService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.SchemaProperty;
+// Note: do not import io.swagger.v3.oas.annotations.parameters.RequestBody — it would
+// shadow Spring's @RequestBody (used on updateProfile) and silently disable body binding
+// and bean validation on this controller. Use the fully-qualified name on the avatar method.
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -15,6 +21,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -131,18 +138,32 @@ public class RegisteredUserController {
         }
     }
 
-    @PostMapping("/{id}/profile/avatar")
+    @PostMapping(value = "/{id}/profile/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Upload a new avatar for the authenticated user",
             description = "Replaces the current avatar with the uploaded image (multipart form data, " +
-                    "field name `file`). The path id must match the caller's id."
+                    "field name `file`). The path id must match the caller's id.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                            schemaProperties = @SchemaProperty(
+                                    name = "file",
+                                    schema = @Schema(type = "string", format = "binary",
+                                            description = "The avatar image to upload (≤ 15 MB)."))
+                    )
+            )
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Avatar uploaded; returns `{ avatarUrl }`."),
-            @ApiResponse(responseCode = "400", description = "Invalid or oversized file."),
-            @ApiResponse(responseCode = "401", description = "Authentication required."),
-            @ApiResponse(responseCode = "403", description = "Path id does not match the caller."),
-            @ApiResponse(responseCode = "404", description = "No user with that id.")
+            @ApiResponse(responseCode = "400", description = "Invalid or oversized file.",
+                    content = @Content),
+            @ApiResponse(responseCode = "401", description = "Authentication required.",
+                    content = @Content),
+            @ApiResponse(responseCode = "403", description = "Path id does not match the caller.",
+                    content = @Content),
+            @ApiResponse(responseCode = "404", description = "No user with that id.",
+                    content = @Content)
     })
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     public ResponseEntity<Object> uploadAvatar(@PathVariable Long id,

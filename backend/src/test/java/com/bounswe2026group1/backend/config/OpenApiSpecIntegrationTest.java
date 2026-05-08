@@ -86,4 +86,30 @@ class OpenApiSpecIntegrationTest {
         mockMvc.perform(get("/swagger-ui/index.html"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void apiDocs_multipartUploadsAdvertiseBinaryFileFields() throws Exception {
+        // Each file-upload endpoint must declare multipart/form-data with a binary `file` field
+        // so Swagger UI's "Try it out" renders an actual file picker.
+        mockMvc.perform(get("/api-docs"))
+                .andExpect(status().isOk())
+                // Avatar upload — single file under "file"
+                .andExpect(jsonPath(
+                        "$.paths./api/users/{id}/profile/avatar.post.requestBody.content.['multipart/form-data'].schema.properties.file.format")
+                        .value("binary"))
+                // Report media upload — single file under "file"
+                .andExpect(jsonPath(
+                        "$.paths./api/reports/{id}/media.post.requestBody.content.['multipart/form-data'].schema.properties.file.format")
+                        .value("binary"))
+                // Fix request — array of files under "files", with optional "description" string
+                .andExpect(jsonPath(
+                        "$.paths./api/reports/{reportId}/fix-requests.post.requestBody.content.['multipart/form-data'].schema.properties.files.type")
+                        .value("array"))
+                .andExpect(jsonPath(
+                        "$.paths./api/reports/{reportId}/fix-requests.post.requestBody.content.['multipart/form-data'].schema.properties.files.items.format")
+                        .value("binary"))
+                .andExpect(jsonPath(
+                        "$.paths./api/reports/{reportId}/fix-requests.post.requestBody.content.['multipart/form-data'].schema.properties.description.type")
+                        .value("string"));
+    }
 }
