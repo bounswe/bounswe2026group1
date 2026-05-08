@@ -246,7 +246,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Sign In Required',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
@@ -254,14 +254,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             color: AppColors.onSurface,
           ),
         ),
-        content: const Text(
+        content: Text(
           'You need to log in to use this feature.',
           style: TextStyle(color: AppColors.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.outline)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.outline)),
           ),
           TextButton(
             onPressed: () {
@@ -272,7 +272,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 (r) => false,
               );
             },
-            child: const Text(
+            child: Text(
               'Sign In',
               style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
             ),
@@ -402,10 +402,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       bottom: false,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F7F4),
+          color: AppColors.surfaceTint,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: AppColors.shadow,
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -415,10 +415,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              icon: Icon(Icons.arrow_back, color: AppColors.primary),
               onPressed: () => Navigator.pop(context),
             ),
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Text(
                   'Mapcess',
@@ -432,7 +432,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.search, color: AppColors.onSurface),
+              icon: Icon(Icons.search, color: AppColors.onSurface),
               onPressed: () {},
             ),
           ],
@@ -606,7 +606,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       children: [
         Text(
           '${report.tag.label} – Report #${report.reportId}',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontWeight: FontWeight.w800,
             fontSize: 24,
@@ -645,7 +645,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       )
                     : Text(
                         _displayUsername,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.onSurface,
@@ -653,7 +653,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                 Text(
                   'Reported ${report.timeAgo}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -685,13 +685,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.description_outlined,
                       color: AppColors.primary,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Issue Details',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
@@ -707,7 +707,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   report.description.isNotEmpty
                       ? report.description
                       : 'No description provided.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     color: AppColors.onSurfaceVariant,
                     height: 1.55,
@@ -720,15 +720,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCFE6F2),
+                    color: AppColors.infoContainer,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     report.tag.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF40555F),
+                      color: AppColors.onInfoContainer,
                     ),
                   ),
                 ),
@@ -776,7 +776,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 report.latitude,
                                 report.longitude,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.location_on,
                                 color: AppColors.primary,
                                 size: 32,
@@ -791,7 +791,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 const SizedBox(height: 10),
                 Text(
                   '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: AppColors.onSurface,
@@ -800,7 +800,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 3),
-                const Text(
+                Text(
                   'GPS COORDINATES',
                   style: TextStyle(
                     fontSize: 8,
@@ -828,7 +828,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -841,7 +841,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Community Consensus',
                     style: TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
@@ -853,7 +853,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   const SizedBox(height: 4),
                   Text(
                     '$totalVotes ${totalVotes == 1 ? 'person has' : 'people have'} voted.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -865,7 +865,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   _voteCount(Icons.thumb_up, _agrees, AppColors.primary),
                   const SizedBox(height: 4),
-                  _voteCount(Icons.thumb_down, _disagrees, const Color(0xFFB02500)),
+                  _voteCount(Icons.thumb_down, _disagrees, AppColors.errorStrong),
                 ],
               ),
             ],
@@ -892,8 +892,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       : Icons.thumb_down_outlined,
                   label: 'Disagree',
                   active: _myVote == 'disagree',
-                  activeColor: const Color(0xFFB02500),
-                  activeTextColor: const Color(0xFFFFCDD2),
+                  activeColor: AppColors.errorStrong,
+                  activeTextColor: AppColors.errorContainer,
                   loading: _voteLoading && _myVote != 'disagree',
                   onTap: () => _vote('disagree'),
                 ),
@@ -904,7 +904,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'VALIDATION PROGRESS',
                 style: TextStyle(
                   fontSize: 10,
@@ -915,7 +915,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
               Text(
                 '$consensusPercent% Agree',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: AppColors.onSurfaceVariant,
@@ -938,8 +938,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       (consensusPercent / 100).clamp(0.0, 1.0),
                   height: 10,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF9DF197), AppColors.primary],
+                    gradient: LinearGradient(
+                      colors: [AppColors.primaryAccent, AppColors.primary],
                     ),
                     borderRadius: BorderRadius.circular(999),
                   ),
@@ -976,9 +976,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     required bool active,
     required bool loading,
     required VoidCallback onTap,
-    Color activeColor = AppColors.primary,
-    Color activeTextColor = AppColors.onPrimary,
+    Color? activeColor,
+    Color? activeTextColor,
   }) {
+    activeColor ??= AppColors.primary;
+    activeTextColor ??= AppColors.onPrimary;
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
@@ -1042,7 +1044,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Report Info',
             style: TextStyle(
               fontFamily: 'Plus Jakarta Sans',
@@ -1076,7 +1078,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           const SizedBox(width: 10),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: AppColors.onSurfaceVariant,
             ),
@@ -1084,7 +1086,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.onSurface,
@@ -1111,11 +1113,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 18),
+              Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
               Text(
                 'Comments (${_comments.length})',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -1128,7 +1130,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
           // Comment list
           if (_commentsLoading)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
@@ -1139,16 +1141,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.wifi_off, size: 14, color: AppColors.outline),
+                  Icon(Icons.wifi_off, size: 14, color: AppColors.outline),
                   const SizedBox(width: 8),
                   Text(
                     _commentsError!,
-                    style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                    style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
                   ),
                   const Spacer(),
                   GestureDetector(
                     onTap: _loadComments,
-                    child: const Text(
+                    child: Text(
                       'Retry',
                       style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
                     ),
@@ -1157,7 +1159,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
             )
           else if (_comments.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'No comments yet. Be the first to comment!',
@@ -1180,10 +1182,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     controller: _commentController,
                     maxLines: 3,
                     minLines: 1,
-                    style: const TextStyle(fontSize: 13, color: AppColors.onSurface),
+                    style: TextStyle(fontSize: 13, color: AppColors.onSurface),
                     decoration: InputDecoration(
                       hintText: 'Add a comment…',
-                      hintStyle: const TextStyle(
+                      hintStyle: TextStyle(
                         fontSize: 13,
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -1211,7 +1213,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: _commentSubmitting
-                        ? const Center(
+                        ? Center(
                             child: SizedBox(
                               width: 18,
                               height: 18,
@@ -1221,7 +1223,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               ),
                             ),
                           )
-                        : const Icon(Icons.send_rounded, color: AppColors.onPrimary, size: 18),
+                        : Icon(Icons.send_rounded, color: AppColors.onPrimary, size: 18),
                   ),
                 ),
               ],
@@ -1241,11 +1243,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           Container(
             width: 32,
             height: 32,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surfaceContainerHigh,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.person_outline, size: 16, color: AppColors.secondary),
+            child: Icon(Icons.person_outline, size: 16, color: AppColors.secondary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1256,7 +1258,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   children: [
                     Text(
                       comment.username,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: AppColors.onSurface,
@@ -1265,7 +1267,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     const SizedBox(width: 8),
                     Text(
                       comment.timeAgo,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -1275,7 +1277,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 const SizedBox(height: 3),
                 Text(
                   comment.text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     color: AppColors.onSurfaceVariant,
                     height: 1.4,
@@ -1308,7 +1310,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.notifications_active_outlined, color: AppColors.onPrimary, size: 20),
@@ -1394,7 +1396,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           children: [
             Icon(
               active ? activeIcon : inactiveIcon,
-              color: active ? Colors.white : AppColors.secondary,
+              color: active ? AppColors.onPrimarySolid : AppColors.secondary,
               size: 22,
             ),
             const SizedBox(height: 3),
@@ -1404,7 +1406,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
-                color: active ? Colors.white : AppColors.secondary,
+                color: active ? AppColors.onPrimarySolid : AppColors.secondary,
               ),
             ),
           ],

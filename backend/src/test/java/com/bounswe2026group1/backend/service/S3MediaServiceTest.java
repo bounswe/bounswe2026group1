@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
@@ -145,6 +146,49 @@ class S3MediaServiceTest {
                 "file", "empty.jpg", "image/jpeg", new byte[0]);
 
         assertThrows(IllegalArgumentException.class, () -> s3MediaService.uploadFile(file));
+        verifyNoInteractions(s3Client);
+    }
+
+    // ── Deletes ───────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("deleteFile: extracts key and calls S3 deleteObject")
+    void deleteFile_callsS3WithCorrectKey() {
+        String url = "https://" + BUCKET_NAME + ".s3.amazonaws.com/abc-uuid_photo.jpg";
+
+        s3MediaService.deleteFile(url);
+
+        org.mockito.ArgumentCaptor<DeleteObjectRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        verify(s3Client, times(1)).deleteObject(captor.capture());
+        assertEquals(BUCKET_NAME, captor.getValue().bucket());
+        assertEquals("abc-uuid_photo.jpg", captor.getValue().key());
+    }
+
+    @Test
+    @DisplayName("deleteFile: null and blank URLs are no-ops")
+    void deleteFile_nullOrBlank_noop() {
+        s3MediaService.deleteFile(null);
+        s3MediaService.deleteFile("");
+        s3MediaService.deleteFile("   ");
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    @DisplayName("deleteFile: rejects URLs from a different bucket")
+    void deleteFile_wrongBucket_throws() {
+        String url = "https://other-bucket.s3.amazonaws.com/some-file.jpg";
+
+        assertThrows(IllegalArgumentException.class, () -> s3MediaService.deleteFile(url));
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    @DisplayName("deleteFile: rejects URL with empty key")
+    void deleteFile_emptyKey_throws() {
+        String url = "https://" + BUCKET_NAME + ".s3.amazonaws.com/";
+
+        assertThrows(IllegalArgumentException.class, () -> s3MediaService.deleteFile(url));
         verifyNoInteractions(s3Client);
     }
 }

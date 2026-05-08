@@ -21,7 +21,7 @@ import java.util.List;
 public class OverpassService {
 
     private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-    private static final int SEARCH_RADIUS_METERS = 5;
+    private static final int SEARCH_RADIUS_METERS = 15;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
