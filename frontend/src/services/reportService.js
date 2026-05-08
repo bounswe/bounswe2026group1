@@ -81,11 +81,14 @@ export function mapReport(r) {
       : 'Unknown date',
     location: `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`,
     reportedBy: `User #${r.userId}`,
+    ownerId: r.userId,
+    environment: r.environment,
     agrees: r.agrees,
     disagrees: r.disagrees,
     userVote: r.userVote ? r.userVote.toLowerCase() : null,
     tags: r.tag ? [r.tag] : [],
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
+    mediaUrls: r.mediaUrls ?? [],
     latitude: r.latitude,
     longitude: r.longitude,
   }
@@ -98,6 +101,25 @@ export function mapReport(r) {
  */
 export async function deleteComment(commentId, token) {
   return apiFetch(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export async function getReportsByUserId(userId) {
+  return apiFetch(`/api/reports/user/${userId}`)
+}
+
+export async function updateReport(id, body, token) {
+  return apiFetch(`/api/reports/${id}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+}
+
+export async function deleteReport(id, token) {
+  return apiFetch(`/api/reports/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   })
