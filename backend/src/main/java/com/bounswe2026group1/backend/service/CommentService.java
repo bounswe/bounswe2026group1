@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.model.Comment;
 import com.bounswe2026group1.backend.repository.CommentRepository;
@@ -21,37 +22,37 @@ public class CommentService {
     private final RegisteredUserRepository registeredUserRepository;
     private final NotificationService notificationService;
 
-    public List<Comment> getAll() {
-        return commentRepository.findAll();
+    public List<CommentResponse> getAll() {
+        return commentRepository.findAll().stream().map(CommentResponse::fromEntity).toList();
     }
 
-    public Optional<Comment> getById(Long id) {
-        return commentRepository.findById(id);
+    public Optional<CommentResponse> getById(Long id) {
+        return commentRepository.findById(id).map(CommentResponse::fromEntity);
     }
 
-    public List<Comment> getByAuthor(Long id) {
-        return commentRepository.findByAuthorId(id);
+    public List<CommentResponse> getByAuthor(Long id) {
+        return commentRepository.findByAuthorId(id).stream().map(CommentResponse::fromEntity).toList();
     }
 
-    public List<Comment> getByReport(Long reportId) {
-        return commentRepository.findByReportReportId(reportId);
+    public List<CommentResponse> getByReport(Long reportId) {
+        return commentRepository.findByReportReportId(reportId).stream().map(CommentResponse::fromEntity).toList();
     }
 
     @Transactional
-    public Comment create(CreateCommentRequest req) {
+    public CommentResponse create(CreateCommentRequest req) {
         Comment comment = new Comment();
         comment.setContent(req.content());
         comment.setReport(reportRepository.getReferenceById(req.report().reportId()));
         comment.setAuthor(registeredUserRepository.getReferenceById(req.author().id()));
         Comment saved = commentRepository.save(comment);
         notificationService.notifyNewComment(saved);
-        return saved;
+        return CommentResponse.fromEntity(saved);
     }
 
-    public Optional<Comment> update(Long id, Comment updated) {
+    public Optional<CommentResponse> update(Long id, Comment updated) {
         return commentRepository.findById(id).map(existing -> {
             existing.setContent(updated.getContent());
-            return commentRepository.save(existing);
+            return CommentResponse.fromEntity(commentRepository.save(existing));
         });
     }
 

@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.model.Comment;
 import com.bounswe2026group1.backend.service.CommentService;
@@ -18,34 +19,34 @@ public class CommentController {
     private final CommentService commentService;
 
     @GetMapping
-    public List<Comment> getAll() {
+    public List<CommentResponse> getAll() {
         return commentService.getAll();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Comment> getById(@PathVariable Long id) {
+    public ResponseEntity<CommentResponse> getById(@PathVariable Long id) {
         return commentService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/author/{authorId}")
-    public List<Comment> getByAuthor(@PathVariable Long authorId) {
+    public List<CommentResponse> getByAuthor(@PathVariable Long authorId) {
         return commentService.getByAuthor(authorId);
     }
 
     @GetMapping("/report/{reportId}")
-    public List<Comment> getByReport(@PathVariable Long reportId) {
+    public List<CommentResponse> getByReport(@PathVariable Long reportId) {
         return commentService.getByReport(reportId);
     }
 
     @PostMapping
-    public Comment create(@RequestBody @Valid CreateCommentRequest req) {
+    public CommentResponse create(@RequestBody @Valid CreateCommentRequest req) {
         return commentService.create(req);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Comment> update(@PathVariable Long id, @RequestBody Comment comment) {
+    public ResponseEntity<CommentResponse> update(@PathVariable Long id, @RequestBody Comment comment) {
         return commentService.update(id, comment)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
