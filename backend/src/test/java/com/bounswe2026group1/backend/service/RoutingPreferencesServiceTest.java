@@ -277,6 +277,27 @@ class RoutingPreferencesServiceTest {
     // ── CUSTOM preset semantics ──────────────────────────────────────────────
 
     @Test
+    void update_withCustomPresetOnly_freshUserNoConstraints_resolvesToNonePreset() {
+        // Regression for EnumSet.copyOf rejecting empty non-EnumSet collections.
+        // A fresh user's routingConstraints is an empty HashSet; sending
+        // {"preferredPreset":"CUSTOM"} used to throw IllegalArgumentException.
+        // The empty set then auto-detects as NONE (not CUSTOM) per detectFromConstraints.
+        stubHappyPathRepo();
+        UpdateRoutingPreferencesRequest req = new UpdateRoutingPreferencesRequest();
+        req.setPreferredPreset(RoutingPreset.CUSTOM);
+
+        RoutingPreferencesResponse resp = assertDoesNotThrow(
+                () -> service.update("user@test.com", req));
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        RegisteredUser saved = captor.getValue();
+        assertTrue(saved.getRoutingConstraints().isEmpty());
+        assertEquals(RoutingPreset.NONE, saved.getPreferredPreset());
+        assertEquals(RoutingPreset.NONE, resp.getPreferredPreset());
+    }
+
+    @Test
     void update_withCustomPresetOnly_keepsExistingConstraintsAndDetectsCustom() {
         // The user previously set CUSTOM with two arbitrary constraints. Sending
         // CUSTOM as the preset (and nothing else) should keep those constraints.

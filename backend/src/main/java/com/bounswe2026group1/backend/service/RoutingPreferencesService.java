@@ -59,10 +59,14 @@ public class RoutingPreferencesService {
             // Constraints win when both fields are sent — see UpdateRoutingPreferencesRequest contract.
             resolvedConstraints = sanitize(request.getConstraints());
         } else if (request.getPreferredPreset() != null) {
-            resolvedConstraints = EnumSet.copyOf(
-                    request.getPreferredPreset() == RoutingPreset.CUSTOM
-                            ? user.getRoutingConstraints()
-                            : request.getPreferredPreset().getConstraints());
+            Set<RoutingConstraint> source = request.getPreferredPreset() == RoutingPreset.CUSTOM
+                    ? user.getRoutingConstraints()
+                    : request.getPreferredPreset().getConstraints();
+            // EnumSet.copyOf rejects empty non-EnumSet collections; a fresh user
+            // sending {"preferredPreset":"CUSTOM"} hits exactly that path.
+            resolvedConstraints = (source == null || source.isEmpty())
+                    ? EnumSet.noneOf(RoutingConstraint.class)
+                    : EnumSet.copyOf(source);
         } else {
             resolvedConstraints = user.getRoutingConstraints();
         }
