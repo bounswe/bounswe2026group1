@@ -1,5 +1,5 @@
 import { apiFetch } from './api.js'
-import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 
 /**
  * Fetch all reports from the backend.
@@ -164,9 +164,25 @@ export function mapReportStatus(apiStatus) {
  * Map API ReportResponse fields to ReportPanel prop shape.
  */
 export function mapReport(r) {
+  const objects = (r.objects || []).map(obj => ({
+    objectType: obj.objectType,
+    issues: obj.issues || [],
+    measurements: obj.measurements
+      ? (() => { try { return JSON.parse(obj.measurements) } catch { return {} } })()
+      : {},
+  }))
+
+  const title = (() => {
+    if (!objects.length) return r.reportType === 'FEATURE' ? 'Feature Report' : 'Obstacle Report'
+    const labels = [...new Set(objects.map(o => OBJECT_TYPE_MAP[o.objectType]?.label || o.objectType))]
+    return r.reportType === 'FEATURE'
+      ? `${labels.join(' & ')} — Feature`
+      : `${labels.join(' & ')} Issue`
+  })()
+
   return {
     id: r.reportId,
-    title: REPORT_TAGS[r.tag]?.label || r.tag,
+    title,
     description: r.description,
     status: mapReportStatus(r.status),
     date: r.publishDate
@@ -180,12 +196,27 @@ export function mapReport(r) {
     agrees: r.agrees,
     disagrees: r.disagrees,
     userVote: r.userVote ? r.userVote.toLowerCase() : null,
-    tags: r.tag ? [r.tag] : [],
+    tags: [],
+    reportType: r.reportType || 'OBSTACLE',
+    environment: r.environment || 'OUTDOOR',
+    objects,
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     latitude: r.latitude,
     longitude: r.longitude,
     activeFixRequest: mapFixRequest(r.activeFixRequest),
   }
+}
+
+/**
+ * Submit a new report.
+ * POST /api/reports
+ */
+export async function createReport({ userId, latitude, longitude, description, reportType, environment, objects, token }) {
+  return apiFetch('/api/reports', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ userId, latitude, longitude, description, reportType, environment, objects }),
+  })
 }
 
 
