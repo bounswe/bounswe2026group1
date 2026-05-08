@@ -4,17 +4,17 @@ import { useUserReports } from '../hooks/useUserReports.js'
 import MyReportDetailModal from './MyReportDetailModal.jsx'
 
 const STATUS_STYLES = {
-  PENDING: 'bg-yellow-100 text-yellow-900',
-  VERIFIED: 'bg-green-100 text-green-900',
-  REJECTED: 'bg-red-100 text-red-900',
-  FIXED: 'bg-blue-100 text-blue-900',
+  unverified: 'bg-yellow-100 text-yellow-900',
+  verified:   'bg-green-100 text-green-900',
+  rejected:   'bg-red-100 text-red-900',
+  fixed:      'bg-blue-100 text-blue-900',
 }
 
-function formatDate(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  })
+const STATUS_LABELS = {
+  unverified: 'Pending',
+  verified:   'Verified',
+  rejected:   'Rejected',
+  fixed:      'Fixed',
 }
 
 function truncate(text, max = 120) {
@@ -22,17 +22,11 @@ function truncate(text, max = 120) {
   return text.length > max ? `${text.slice(0, max)}…` : text
 }
 
-function reportLabel(report) {
-  const objectType = report.objects?.[0]?.objectType
-  if (objectType) return objectType.replaceAll('_', ' ').toLowerCase()
-  return report.reportType?.toLowerCase() ?? 'report'
-}
-
 function MyReportsSection({ userId }) {
   const { data: reports, isPending, isError, error } = useUserReports(userId)
   const [selectedId, setSelectedId] = useState(null)
 
-  const selected = reports?.find((r) => r.reportId === selectedId) ?? null
+  const selected = reports?.find((r) => r.id === selectedId) ?? null
 
   return (
     <section className="bg-white rounded-2xl shadow-sm p-6">
@@ -62,15 +56,15 @@ function MyReportsSection({ userId }) {
       {!isPending && !isError && reports && reports.length > 0 && (
         <ul className="flex flex-col gap-3">
           {reports.map((report) => (
-            <li key={report.reportId}>
+            <li key={report.id}>
               <button
                 type="button"
-                onClick={() => setSelectedId(report.reportId)}
+                onClick={() => setSelectedId(report.id)}
                 className="w-full flex gap-3 items-start text-left p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer"
               >
-                {report.mediaUrls?.[0] ? (
+                {report.image ? (
                   <img
-                    src={report.mediaUrls[0]}
+                    src={report.image}
                     alt=""
                     className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                     onError={(e) => { e.currentTarget.style.display = 'none' }}
@@ -82,20 +76,20 @@ function MyReportsSection({ userId }) {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="text-sm font-semibold text-on-surface capitalize">
-                      {reportLabel(report)}
+                    <span className="text-sm font-semibold text-on-surface">
+                      {report.title}
                     </span>
                     <span
                       className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-gray-100 text-gray-900'}`}
                     >
-                      {report.status}
+                      {STATUS_LABELS[report.status] ?? report.status}
                     </span>
                   </div>
                   <p className="text-sm text-on-surface-variant break-words">
                     {truncate(report.description) || <em>(no description)</em>}
                   </p>
                   <p className="text-xs text-on-surface-variant mt-1">
-                    {formatDate(report.publishDate)}
+                    {report.date}
                   </p>
                 </div>
               </button>
@@ -106,7 +100,7 @@ function MyReportsSection({ userId }) {
 
       {selected && (
         <MyReportDetailModal
-          key={selected.reportId}
+          key={selected.id}
           report={selected}
           userId={userId}
           onClose={() => setSelectedId(null)}

@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDeleteReport } from '../hooks/useUserReports.js'
+import ReportObjectsList from './ReportObjectsList.jsx'
 
-function formatDateTime(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
+const STATUS_STYLES = {
+  unverified: 'bg-yellow-100 text-yellow-900',
+  verified:   'bg-green-100 text-green-900',
+  rejected:   'bg-red-100 text-red-900',
+  fixed:      'bg-blue-100 text-blue-900',
+}
+
+const STATUS_LABELS = {
+  unverified: 'Pending',
+  verified:   'Verified',
+  rejected:   'Rejected',
+  fixed:      'Fixed',
 }
 
 function MyReportDetailModal({ report, userId, onClose }) {
@@ -29,13 +37,13 @@ function MyReportDetailModal({ report, userId, onClose }) {
   }
 
   function handleEditOnMap() {
-    navigate(`/?report=${report.reportId}`)
+    navigate(`/?report=${report.id}`)
   }
 
   async function handleDelete() {
     if (!window.confirm('Delete this report? This cannot be undone.')) return
     try {
-      await deleteMutation.mutateAsync(report.reportId)
+      await deleteMutation.mutateAsync(report.id)
       onClose()
     } catch (e) {
       setError(e.message || 'Failed to delete report.')
@@ -52,7 +60,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
     >
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-outline-variant/20">
-          <h3 className="text-lg font-bold font-headline text-on-surface">Report details</h3>
+          <h3 className="text-lg font-bold font-headline text-on-surface">{report.title}</h3>
           <button
             ref={closeButtonRef}
             type="button"
@@ -66,14 +74,14 @@ function MyReportDetailModal({ report, userId, onClose }) {
 
         <div className="p-6 flex flex-col gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-surface-container text-on-surface">
-              {report.status}
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-gray-100 text-gray-900'}`}>
+              {STATUS_LABELS[report.status] ?? report.status}
             </span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant">
-              {report.reportType}
-            </span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant">
-              {report.environment}
+            <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg">
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                {report.environment === 'INDOOR' ? 'home' : 'wb_sunny'}
+              </span>
+              {report.environment === 'INDOOR' ? 'Indoor' : 'Outdoor'}
             </span>
           </div>
 
@@ -81,18 +89,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
             {report.description || <em>(no description)</em>}
           </p>
 
-          {report.objects && report.objects.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {report.objects.map((obj, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold capitalize"
-                >
-                  {obj.objectType?.replaceAll('_', ' ').toLowerCase()}
-                </span>
-              ))}
-            </div>
-          )}
+          <ReportObjectsList objects={report.objects} />
 
           {report.mediaUrls && report.mediaUrls.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -109,8 +106,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
           )}
 
           <p className="text-xs text-on-surface-variant">
-            {formatDateTime(report.publishDate)}{' · '}
-            {report.latitude?.toFixed(4)}, {report.longitude?.toFixed(4)}
+            {report.date}{' · '}{report.location}
           </p>
 
           {error && (

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import {
   deleteReport as deleteReportRequest,
   getReportsByUserId,
+  mapReport,
   updateReport as updateReportRequest,
 } from '../services/reportService.js'
 import { currentUserKey } from './useCurrentUser.js'
@@ -12,7 +13,7 @@ export const userReportsKey = (userId) => ['userReports', userId]
 export function useUserReports(userId) {
   return useQuery({
     queryKey: userReportsKey(userId),
-    queryFn: () => getReportsByUserId(userId),
+    queryFn: () => getReportsByUserId(userId).then(data => data.map(mapReport)),
     enabled: !!userId,
   })
 }

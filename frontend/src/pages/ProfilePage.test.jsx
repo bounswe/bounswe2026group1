@@ -55,20 +55,28 @@ const SAMPLE_USER = {
   contributionStats: { reportsSubmitted: 3, routesPlanned: 1 },
 }
 
+// Shape produced by useUserReports → mapReport (see services/reportService.js).
 const SAMPLE_REPORT = {
-  reportId: 100,
-  userId: 7,
+  id: 100,
+  title: 'Sidewalk Issue',
   description: 'Broken sidewalk near campus.',
-  reportType: 'OBSTACLE',
+  status: 'verified',
+  date: '1 April 2026',
+  fixedAt: null,
+  location: '41.0000, 29.0000',
+  reportedBy: 'User #7',
+  ownerId: 7,
   environment: 'OUTDOOR',
-  status: 'VERIFIED',
   agrees: 6,
   disagrees: 1,
-  publishDate: '2026-04-01T10:00:00Z',
+  userVote: null,
+  reportType: 'OBSTACLE',
+  objects: [{ objectType: 'SIDEWALK', issues: [], measurements: {} }],
+  image: null,
   mediaUrls: [],
-  objects: [{ objectType: 'SIDEWALK', issues: [] }],
   latitude: 41.0,
   longitude: 29.0,
+  activeFixRequest: null,
 }
 
 describe('ProfilePage', () => {
@@ -220,7 +228,8 @@ describe('ProfilePage', () => {
     it('renders rows with description preview, status, and date', () => {
       renderPage()
       expect(screen.getByText('Broken sidewalk near campus.')).toBeInTheDocument()
-      expect(screen.getByText('VERIFIED')).toBeInTheDocument()
+      // Status pill uses mapReport's lowercased status mapped to a display label.
+      expect(screen.getAllByText('Verified').length).toBeGreaterThan(0)
     })
 
     it('opens the detail modal when a row is clicked', async () => {
