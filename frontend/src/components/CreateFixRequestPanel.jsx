@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { submitFixRequest } from '../services/reportService.js'
@@ -23,19 +23,28 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview) }, [imagePreview])
+
+  function setImage(file) {
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
   function handleImageChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    setImage(file)
   }
 
   function handleDrop(e) {
     e.preventDefault()
     const file = e.dataTransfer.files?.[0]
     if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setError('Only JPG or PNG files are accepted.')
+      return
+    }
+    setImage(file)
   }
 
   async function handleSubmit() {
