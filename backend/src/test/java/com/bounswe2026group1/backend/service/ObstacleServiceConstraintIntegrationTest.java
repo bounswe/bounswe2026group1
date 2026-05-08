@@ -185,6 +185,26 @@ class ObstacleServiceConstraintIntegrationTest extends AbstractPostgisIntegratio
         assertThat(polygons.get("coordinates")).hasSize(1);
     }
 
+    @Test
+    void buildAvoidPolygons_indoorObstacles_areFilteredOutOfTheBaselineToo() {
+        // Indoor obstacles (broken elevators, heavy doors) must never become avoid
+        // polygons — ORS foot-walking can't navigate inside buildings, so a polygon
+        // around an indoor point is geometrically meaningless.
+        Report indoorElevator = new Report(author, GeoUtils.point4326(41.0855, 29.0456),
+                "Indoor broken elevator", ReportType.OBSTACLE, ReportEnvironment.INDOOR);
+        indoorElevator.setStatus(ReportStatus.VERIFIED);
+        indoorElevator.getObjects().add(new ReportObject(indoorElevator,
+                ObjectType.ELEVATOR, EnumSet.of(IssueType.OUT_OF_SERVICE), null));
+        reportRepository.save(indoorElevator);
+
+        // Empty constraints → baseline behaviour (every VERIFIED OUTDOOR obstacle).
+        ObjectNode polygons = obstacleService.buildAvoidPolygons(Set.of());
+
+        assertThat(polygons).isNotNull();
+        // Still 3 (the original seeded OUTDOOR obstacles) — the new INDOOR one is excluded.
+        assertThat(polygons.get("coordinates")).hasSize(3);
+    }
+
     private void persistObstacle(double lat, double lon, ObjectType objectType, IssueType issue) {
         Report r = new Report(author, GeoUtils.point4326(lat, lon),
                 objectType + " " + issue, ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
