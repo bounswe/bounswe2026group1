@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
 import CreateReportPanel from './CreateReportPanel.jsx'
 import * as api from '../services/api.js'
@@ -33,11 +34,14 @@ const FAKE_REPORT_RESPONSE = {
 
 function renderPanel({ token = FAKE_TOKEN, onClose = vi.fn(), onCreated = vi.fn(), position = null } = {}) {
   if (token) localStorage.setItem('token', token)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <CreateReportPanel position={position} onClose={onClose} onCreated={onCreated} />
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <CreateReportPanel position={position} onClose={onClose} onCreated={onCreated} />
+        </AuthProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   )
 }
