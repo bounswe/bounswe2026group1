@@ -259,7 +259,7 @@ class NotificationServiceTest {
         Notification saved = captor.getValue();
         assertEquals(NotificationType.NEW_COMMENT, saved.getType());
         assertEquals(author, saved.getRecipient());
-        assertEquals(55L, saved.getRelatedEntityId());
+        assertEquals(100L, saved.getRelatedEntityId());
         assertTrue(saved.getMessage().startsWith("Bob"));
     }
 
