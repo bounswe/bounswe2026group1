@@ -141,64 +141,60 @@ class MeasurementSpec {
 List<MeasurementSpec> measurementSpecsFor(ObjectType type) => switch (type) {
       ObjectType.ramp => const [
           MeasurementSpec(
-              key: 'slope', label: 'Slope', unit: '%', accessibleMax: 10),
+              key: 'slope_percent', label: 'Slope', unit: '%', accessibleMax: 10),
           MeasurementSpec(
-              key: 'width', label: 'Width', unit: 'cm', accessibleMin: 100),
-          MeasurementSpec(key: 'height', label: 'Height', unit: 'cm'),
+              key: 'width_cm', label: 'Width', unit: 'cm', accessibleMin: 100),
+          MeasurementSpec(key: 'height_cm', label: 'Height', unit: 'cm'),
         ],
       ObjectType.elevator => const [
           MeasurementSpec(
-              key: 'door_width',
+              key: 'door_width_cm',
               label: 'Door Width',
               unit: 'cm',
               accessibleMin: 90),
           MeasurementSpec(
-              key: 'cabin_width',
+              key: 'cabin_width_cm',
               label: 'Cabin Width',
               unit: 'cm',
               accessibleMin: 120),
           MeasurementSpec(
-              key: 'cabin_depth', label: 'Cabin Depth', unit: 'cm'),
-          MeasurementSpec(
-              key: 'landing_depth',
-              label: 'Landing Depth',
+              key: 'cabin_depth_cm',
+              label: 'Cabin Depth',
               unit: 'cm',
-              accessibleMin: 120),
+              accessibleMin: 140),
         ],
       ObjectType.sidewalk => const [
           MeasurementSpec(
-              key: 'width', label: 'Width', unit: 'cm', accessibleMin: 150),
+              key: 'width_cm', label: 'Width', unit: 'cm', accessibleMin: 150),
           MeasurementSpec(
-              key: 'clearance',
-              label: 'Vertical Clearance',
+              key: 'height_cm',
+              label: 'Step Height',
               unit: 'cm',
-              accessibleMin: 220),
+              accessibleMax: 15),
         ],
       ObjectType.door => const [
           MeasurementSpec(
-              key: 'clear_width',
+              key: 'width_cm',
               label: 'Clear Width',
               unit: 'cm',
               accessibleMin: 90),
           MeasurementSpec(
-              key: 'threshold_height',
+              key: 'threshold_height_cm',
               label: 'Threshold Height',
               unit: 'cm',
               accessibleMax: 0.6),
         ],
       ObjectType.stair => const [
           MeasurementSpec(
-              key: 'riser_height',
+              key: 'riser_cm',
               label: 'Riser Height',
               unit: 'cm',
               accessibleMax: 16),
           MeasurementSpec(
-              key: 'tread_depth',
+              key: 'tread_cm',
               label: 'Tread Depth',
               unit: 'cm',
               accessibleMin: 27),
-          MeasurementSpec(
-              key: 'width', label: 'Width', unit: 'cm', accessibleMin: 100),
         ],
     };
 
