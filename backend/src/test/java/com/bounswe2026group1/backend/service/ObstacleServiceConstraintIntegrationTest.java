@@ -116,7 +116,7 @@ class ObstacleServiceConstraintIntegrationTest extends AbstractPostgisIntegratio
     @Test
     void buildAvoidPolygons_blindOrLowVisionPreset_filtersOutWheelchairOnlyReports() {
         // BLIND_OR_LOW_VISION bundles AVOID_LOW_CLEARANCE, AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
-        // AVOID_DAMAGED_TACTILE_PAVING. Only the blocked-sidewalk report matches; the
+        // AVOID_MISSING_TACTILE_PAVING. Only the blocked-sidewalk report matches; the
         // wheelchair-relevant stair and ramp reports are filtered out.
         ObjectNode polygons = obstacleService.buildAvoidPolygons(
                 RoutingPreset.BLIND_OR_LOW_VISION.getConstraints());
@@ -130,7 +130,7 @@ class ObstacleServiceConstraintIntegrationTest extends AbstractPostgisIntegratio
         // None of the seeded reports have NO_TACTILE_PAVING, so the constraint set is empty
         // after filtering and the polygon set collapses to null.
         ObjectNode polygons = obstacleService.buildAvoidPolygons(
-                EnumSet.of(RoutingConstraint.AVOID_DAMAGED_TACTILE_PAVING));
+                EnumSet.of(RoutingConstraint.AVOID_MISSING_TACTILE_PAVING));
 
         assertThat(polygons).isNull();
     }

@@ -88,11 +88,9 @@ public enum RoutingConstraint {
                     new IssueHazard(STAIR, TREAD_TOO_SHALLOW),
                     new IssueHazard(STAIR, NO_LANDING))),
 
-    AVOID_DAMAGED_TACTILE_PAVING(
-            "Avoid damaged tactile paving",
-            "Routes will avoid sidewalks with reported tactile-paving issues that may misdirect visually impaired users.",
-            // Currently maps to NO_TACTILE_PAVING. The IssueType will be renamed to
-            // TACTILE_PAVING_DAMAGED in a follow-up; only this hazard set updates.
+    AVOID_MISSING_TACTILE_PAVING(
+            "Avoid sidewalks lacking tactile paving",
+            "Routes will avoid sidewalks reported as missing tactile guidance strips for visually impaired users.",
             Set.of(new IssueHazard(SIDEWALK, NO_TACTILE_PAVING)));
 
     private final String label;

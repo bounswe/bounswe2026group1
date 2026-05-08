@@ -34,7 +34,7 @@ public enum RoutingPreset {
             EnumSet.of(
                     AVOID_LOW_CLEARANCE,
                     AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
-                    AVOID_DAMAGED_TACTILE_PAVING),
+                    AVOID_MISSING_TACTILE_PAVING),
             TravelMode.WALKING),
 
     MOBILITY_LIMITED("Mobility limited (cane, walker, elderly)",
