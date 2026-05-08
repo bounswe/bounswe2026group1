@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'models/notification_model.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/report_detail_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 import 'services/sse_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_colors.dart';
@@ -23,19 +26,27 @@ void main() async {
   ));
   final sse = SseService();
   sse.connect();
-  runApp(MapcessApp(auth: auth, sse: sse, theme: theme));
+  final notifications = NotificationService(auth);
+  runApp(MapcessApp(
+    auth: auth,
+    sse: sse,
+    theme: theme,
+    notifications: notifications,
+  ));
 }
 
 class MapcessApp extends StatelessWidget {
   final AuthService auth;
   final SseService sse;
   final ThemeService theme;
+  final NotificationService notifications;
 
   const MapcessApp({
     super.key,
     required this.auth,
     required this.sse,
     required this.theme,
+    required this.notifications,
   });
 
   @override
@@ -45,6 +56,7 @@ class MapcessApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: sse),
         ChangeNotifierProvider.value(value: theme),
+        ChangeNotifierProvider.value(value: notifications),
       ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, _) {
@@ -325,6 +337,43 @@ class _MainShellState extends State<MainShell>
     );
   }
 
+  void _showNotificationsSheet(BuildContext context) {
+    // Re-fetch on open so the sheet always reflects what the server has.
+    context.read<NotificationService>().refresh();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _NotificationsSheet(
+        onOpenReport: (reportId) => _openReportFromNotification(context, reportId),
+      ),
+    );
+  }
+
+  Future<void> _openReportFromNotification(
+    BuildContext sourceContext,
+    int reportId,
+  ) async {
+    // The sheet pops itself before this runs. Resolve the report through
+    // the api so we can push the existing ReportDetailScreen, which expects
+    // a full ReportModel rather than just an id.
+    final auth = sourceContext.read<AuthService>();
+    try {
+      final report = await auth.api.getReport(reportId);
+      if (!sourceContext.mounted) return;
+      Navigator.of(sourceContext).push(
+        MaterialPageRoute(
+          builder: (_) => ReportDetailScreen(report: report),
+        ),
+      );
+    } catch (_) {
+      if (!sourceContext.mounted) return;
+      ScaffoldMessenger.of(sourceContext).showSnackBar(
+        const SnackBar(content: Text('Could not load that report.')),
+      );
+    }
+  }
+
   Widget _buildSharedTopBar() {
     return Container(
       decoration: BoxDecoration(
@@ -340,9 +389,8 @@ class _MainShellState extends State<MainShell>
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
       child: Row(
         children: [
-          IconButton(
-            icon: Icon(Icons.menu, color: AppColors.onSurface),
-            onPressed: () {},
+          _NotificationBellButton(
+            onTap: () => _showNotificationsSheet(context),
           ),
           Expanded(
             child: Center(
@@ -737,6 +785,320 @@ class _ThemeModeTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Notification bell + sheet ───────────────────────────────────────────────
+
+class _NotificationBellButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _NotificationBellButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final unread = context.watch<NotificationService>().unreadCount;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: Icon(Icons.notifications_outlined, color: AppColors.onSurface),
+          onPressed: onTap,
+          tooltip: 'Notifications',
+        ),
+        if (unread > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: IgnorePointer(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.surfaceTint, width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  unread > 99 ? '99+' : '$unread',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Modal sheet listing the user's notifications. Tapping a row marks it
+/// read and routes back through `onOpenReport` so the parent can navigate
+/// to the report detail with proper context.
+class _NotificationsSheet extends StatelessWidget {
+  final void Function(int reportId) onOpenReport;
+  const _NotificationsSheet({required this.onOpenReport});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scrollController) {
+        return Consumer<NotificationService>(
+          builder: (context, service, _) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Notifications',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        if (service.unreadCount > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${service.unreadCount} new',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.onPrimarySolid,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        IconButton(
+                          tooltip: 'Refresh',
+                          icon: Icon(Icons.refresh,
+                              color: AppColors.onSurfaceVariant),
+                          onPressed:
+                              service.isLoading ? null : service.refresh,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.surfaceContainerHigh,
+                  ),
+                  Expanded(
+                    child: _buildBody(context, service, scrollController),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(BuildContext context, NotificationService service,
+      ScrollController controller) {
+    if (service.isLoading && service.items.isEmpty) {
+      return Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (service.error != null && service.items.isEmpty) {
+      return _emptyState(
+        icon: Icons.wifi_off,
+        title: 'Could not load notifications',
+        subtitle: 'Pull to retry, or check your connection.',
+      );
+    }
+    if (service.items.isEmpty) {
+      return _emptyState(
+        icon: Icons.notifications_none,
+        title: 'You\'re all caught up',
+        subtitle: 'New activity on reports you follow shows up here.',
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: service.refresh,
+      child: ListView.separated(
+        controller: controller,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: service.items.length,
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          indent: 64,
+          color: AppColors.surfaceContainerHigh.withValues(alpha: 0.6),
+        ),
+        itemBuilder: (_, i) {
+          final n = service.items[i];
+          return _notificationTile(context, service, n);
+        },
+      ),
+    );
+  }
+
+  Widget _notificationTile(
+    BuildContext context,
+    NotificationService service,
+    NotificationModel n,
+  ) {
+    final accent = !n.read ? AppColors.primary : AppColors.onSurfaceVariant;
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).pop();
+        // Fire and forget — read marker shouldn't block navigation.
+        if (!n.read) service.markRead(n.id);
+        final id = n.relatedEntityId;
+        if (id != null) onOpenReport(id);
+      },
+      child: Container(
+        color: n.read ? null : AppColors.primary.withValues(alpha: 0.04),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(n.type.icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        n.type.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: accent,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        n.timeAgo,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    n.message,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          n.read ? FontWeight.w500 : FontWeight.w700,
+                      color: AppColors.onSurface,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!n.read)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 4),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 48, color: AppColors.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: AppColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ],
         ),
       ),
     );
