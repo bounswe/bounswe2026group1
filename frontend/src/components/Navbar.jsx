@@ -1,10 +1,61 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
 import logo from '../assets/mapcess-transparent.png'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useCurrentUser } from '../hooks/useCurrentUser.js'
 
 function Navbar() {
-  const { isAdmin } = useAuth()
+  const { isAuthenticated, isAdmin, logout } = useAuth()
+  const { data: user } = useCurrentUser()
+  const navigate = useNavigate()
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState(null)
+  const menuRef = useRef(null)
+  const buttonRef = useRef(null)
+
+  const avatarUrl = user?.avatarUrl
+  const showAvatarImage = !!avatarUrl && failedAvatarUrl !== avatarUrl
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    function handlePointerDown(event) {
+      if (
+        menuRef.current?.contains(event.target) ||
+        buttonRef.current?.contains(event.target)
+      ) {
+        return
+      }
+      setMenuOpen(false)
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false)
+        buttonRef.current?.focus()
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuOpen])
+
+  function handleProfileClick() {
+    setMenuOpen(false)
+    navigate('/profile')
+  }
+
+  function handleLogoutClick() {
+    setMenuOpen(false)
+    logout()
+    navigate('/')
+  }
 
   return (
     <header className="w-full sticky top-0 z-[1001] bg-white/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
@@ -70,9 +121,80 @@ function Navbar() {
         >
           <span className="material-symbols-outlined text-on-surface-variant">settings</span>
         </button>
-        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary ml-1 sm:ml-2 flex items-center justify-center">
-          <span className="material-symbols-outlined text-white" style={{ fontSize: '20px' }}>person</span>
-        </div>
+
+        {isAuthenticated ? (
+          <div className="relative ml-1 sm:ml-2">
+            <button
+              ref={buttonRef}
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              aria-label="Open profile menu"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary flex items-center justify-center overflow-hidden cursor-pointer ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {showAvatarImage ? (
+                <img
+                  src={avatarUrl}
+                  alt={user?.name ? `${user.name}'s avatar` : 'User avatar'}
+                  className="w-full h-full object-cover"
+                  onError={() => setFailedAvatarUrl(avatarUrl)}
+                />
+              ) : (
+                <span className="material-symbols-outlined text-white" style={{ fontSize: '20px' }}>
+                  person
+                </span>
+              )}
+            </button>
+
+            {menuOpen && (
+              <div
+                ref={menuRef}
+                role="menu"
+                aria-label="Profile menu"
+                className="absolute right-0 mt-2 w-44 rounded-md bg-white shadow-lg ring-1 ring-black/5 py-1 z-[1100]"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleProfileClick}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>
+                    person
+                  </span>
+                  Profile
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogoutClick}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>
+                    logout
+                  </span>
+                  Log Out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 ml-1 sm:ml-2">
+            <Link
+              to="/login"
+              className="text-on-surface-variant hover:text-primary transition-colors font-medium text-sm sm:text-base"
+            >
+              Log In
+            </Link>
+            <Link
+              to="/signup"
+              className="bg-primary text-white rounded-full px-3 py-1.5 sm:px-4 sm:py-2 hover:bg-primary/90 transition-colors font-semibold text-sm sm:text-base"
+            >
+              Sign Up
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   )

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
 import Signup from './Signup.jsx'
 import * as authService from '../services/authService.js'
@@ -14,11 +15,14 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 function renderSignup() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <Signup />
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Signup />
+        </AuthProvider>
+      </QueryClientProvider>
     </MemoryRouter>,
   )
 }
