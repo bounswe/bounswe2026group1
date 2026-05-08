@@ -116,7 +116,7 @@ public class NotificationService {
             RegisteredUser recipient = recipientsById.get(recipientId);
             if (recipient == null) continue;
             String message = buildCommentMessage(recipientId, authorId, reportId, commenterName);
-            create(recipient, message, NotificationType.NEW_COMMENT, comment.getId());
+            create(recipient, message, NotificationType.NEW_COMMENT, reportId);
         }
     }
 
