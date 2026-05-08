@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.config.OpenApiConfig;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.admin.*;
 import com.bounswe2026group1.backend.model.VoteType;
@@ -8,6 +9,11 @@ import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.model.UserStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springdoc.core.annotations.ParameterObject;
 import com.bounswe2026group1.backend.service.*;
 import jakarta.validation.Valid;
@@ -28,6 +34,13 @@ import java.time.Instant;
 @RequestMapping("/api/admin")
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
+@Tag(name = "Admin",
+        description = "Administrative operations — user/report/comment moderation and stats. Requires the ADMIN role.")
+@SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+@ApiResponses({
+        @ApiResponse(responseCode = "401", description = "Authentication required."),
+        @ApiResponse(responseCode = "403", description = "Caller is not an admin.")
+})
 public class AdminController {
 
     private final AdminUserService adminUserService;
@@ -37,10 +50,11 @@ public class AdminController {
     private final AdminStatsService adminStatsService;
 
     // -------------------------------------------------------------------------
-    // User Management
+    // Stats
     // -------------------------------------------------------------------------
 
     @GetMapping("/stats")
+    @Operation(summary = "Aggregate moderation stats — user, report, and comment counts.")
     public AdminStatsResponse getStats() {
         return adminStatsService.getStats();
     }
@@ -50,6 +64,7 @@ public class AdminController {
     // -------------------------------------------------------------------------
 
     @GetMapping("/users")
+    @Operation(summary = "List users (paginated, filterable by status and role)")
     public Page<AdminUserResponse> listUsers(
             @RequestParam(required = false) UserStatus status,
             @RequestParam(required = false) UserRole role,
@@ -58,11 +73,22 @@ public class AdminController {
     }
 
     @GetMapping("/users/{id}")
+    @Operation(summary = "Get a single user (admin view)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found."),
+            @ApiResponse(responseCode = "404", description = "No user with that id.")
+    })
     public AdminUserResponse getUser(@PathVariable Long id) {
         return adminUserService.getUser(id);
     }
 
     @PostMapping("/users")
+    @Operation(summary = "Create a user with a specific role (admin-only)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User created."),
+            @ApiResponse(responseCode = "400", description = "Validation error."),
+            @ApiResponse(responseCode = "409", description = "Email already in use.")
+    })
     public ResponseEntity<AdminUserResponse> createUser(
             @Valid @RequestBody AdminCreateUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -70,6 +96,7 @@ public class AdminController {
     }
 
     @PatchMapping("/users/{id}/ban")
+    @Operation(summary = "Ban a user")
     public ResponseEntity<Void> banUser(@PathVariable Long id,
                                         @AuthenticationPrincipal String adminEmail) {
         adminUserService.ban(id, adminEmail);
@@ -77,12 +104,14 @@ public class AdminController {
     }
 
     @PatchMapping("/users/{id}/unban")
+    @Operation(summary = "Lift a ban")
     public ResponseEntity<Void> unbanUser(@PathVariable Long id) {
         adminUserService.unban(id);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/users/{id}")
+    @Operation(summary = "Delete a user account")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id,
                                            @AuthenticationPrincipal String adminEmail) {
         adminUserService.deleteUser(id, adminEmail);
@@ -90,6 +119,7 @@ public class AdminController {
     }
 
     @PatchMapping("/users/{id}/role")
+    @Operation(summary = "Change a user's role")
     public AdminUserResponse changeRole(@PathVariable Long id,
                                         @Valid @RequestBody AdminChangeRoleRequest request,
                                         @AuthenticationPrincipal String adminEmail) {
@@ -101,6 +131,11 @@ public class AdminController {
     // -------------------------------------------------------------------------
 
     @GetMapping("/reports")
+    @Operation(
+            summary = "List reports (paginated, filterable)",
+            description = "Filters: `status`, `categoryId`, `environment`, `type`, and an ISO-8601 " +
+                    "`dateFrom` / `dateTo` window."
+    )
     public Page<ReportResponse> listReports(
             @RequestParam(required = false) ReportStatus status,
             @RequestParam(required = false) Long categoryId,
@@ -113,12 +148,14 @@ public class AdminController {
     }
 
     @PatchMapping("/reports/{id}/status")
+    @Operation(summary = "Force a report into a specific status")
     public ReportResponse changeReportStatus(@PathVariable Long id,
                                              @Valid @RequestBody AdminReportStatusRequest request) {
         return adminReportService.changeStatus(id, request.getStatus());
     }
 
     @DeleteMapping("/reports/{id}")
+    @Operation(summary = "Delete a report")
     public ResponseEntity<Void> deleteReport(@PathVariable Long id) {
         adminReportService.deleteReport(id);
         return ResponseEntity.noContent().build();
@@ -129,6 +166,7 @@ public class AdminController {
     // -------------------------------------------------------------------------
 
     @GetMapping("/comments")
+    @Operation(summary = "List comments (paginated, filterable by reportId / authorId)")
     public Page<AdminCommentResponse> listComments(
             @RequestParam(required = false) Long reportId,
             @RequestParam(required = false) Long authorId,
@@ -137,6 +175,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/comments/{id}")
+    @Operation(summary = "Delete a comment")
     public ResponseEntity<Void> deleteComment(@PathVariable Long id) {
         adminCommentService.deleteComment(id);
         return ResponseEntity.noContent().build();
@@ -147,6 +186,7 @@ public class AdminController {
     // -------------------------------------------------------------------------
 
     @GetMapping("/validations")
+    @Operation(summary = "List verification votes (paginated, filterable by reportId / userId / voteType)")
     public Page<AdminValidationResponse> listValidations(
             @RequestParam(required = false) Long reportId,
             @RequestParam(required = false) Long userId,
@@ -156,6 +196,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/validations/{id}")
+    @Operation(summary = "Delete a verification vote")
     public ResponseEntity<Void> deleteValidation(@PathVariable Long id) {
         adminValidationService.deleteValidation(id);
         return ResponseEntity.noContent().build();

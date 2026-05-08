@@ -9,6 +9,10 @@ import com.bounswe2026group1.backend.model.Route;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.service.RouteService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/routes")
 @RequiredArgsConstructor
+@Tag(name = "Routing", description = "Accessible route planning that detours around verified obstacles.")
 public class RouteController {
 
     private final RouteService routeService;
@@ -34,6 +39,18 @@ public class RouteController {
     private final RegisteredUserRepository registeredUserRepository;
 
     @PostMapping
+    @Operation(
+            summary = "Plan accessible routes between two points",
+            description = "Returns one or more route options from `(startLat, startLon)` to " +
+                    "`(endLat, endLon)` for the requested travel mode, detouring around verified " +
+                    "obstacle reports. Anonymous; if a Bearer token is supplied, the planned route " +
+                    "is also recorded against the caller's contribution stats."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One or more route options."),
+            @ApiResponse(responseCode = "400", description = "Invalid coordinates or travel mode."),
+            @ApiResponse(responseCode = "502", description = "Upstream routing provider failure.")
+    })
     public ResponseEntity<List<RouteResponse>> getRouteOptions(@RequestBody RouteRequest request) {
         List<RouteResponse> options = routeService.getRouteOptions(request);
         recordPlannedRouteIfAuthenticated(request, options);
@@ -41,6 +58,7 @@ public class RouteController {
     }
 
     @GetMapping("/user/{userId}")
+    @Operation(summary = "List routes a given user has planned")
     public List<RouteSummaryDTO> getByUserId(@PathVariable Long userId) {
         return routeRepository.findByCreatedByIdOrderByIdDesc(userId).stream()
                 .map(RouteSummaryDTO::from)
