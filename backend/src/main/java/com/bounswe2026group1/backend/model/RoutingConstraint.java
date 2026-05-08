@@ -91,7 +91,28 @@ public enum RoutingConstraint {
     AVOID_MISSING_TACTILE_PAVING(
             "Avoid sidewalks lacking tactile paving",
             "Routes will avoid sidewalks reported as missing tactile guidance strips for visually impaired users.",
-            Set.of(new IssueHazard(SIDEWALK, NO_TACTILE_PAVING)));
+            Set.of(new IssueHazard(SIDEWALK, NO_TACTILE_PAVING))),
+
+    REQUIRE_CURB_RAMPS(
+            "Prefer crossings with curb ramps",
+            "Routes will avoid crossings reported as missing curb ramps, having unsafe slopes, or with raised lips.",
+            Set.of(
+                    new IssueHazard(CURB_RAMP, MISSING),
+                    new IssueHazard(CURB_RAMP, TOO_STEEP),
+                    new IssueHazard(CURB_RAMP, TOO_NARROW),
+                    new IssueHazard(CURB_RAMP, RAISED_LIP))),
+
+    AVOID_INACCESSIBLE_CROSSINGS(
+            "Avoid inaccessible pedestrian crossings",
+            "Routes will avoid pedestrian crossings reported as missing, blocked, lacking dropped curbs, lacking tactile paving, or lacking audio signals.",
+            Set.of(
+                    new IssueHazard(PEDESTRIAN_CROSSING, MISSING),
+                    new IssueHazard(PEDESTRIAN_CROSSING, BLOCKED),
+                    new IssueHazard(PEDESTRIAN_CROSSING, NO_DROPPED_CURB),
+                    new IssueHazard(PEDESTRIAN_CROSSING, NO_TACTILE_PAVING),
+                    new IssueHazard(PEDESTRIAN_CROSSING, NO_AUDIO_SIGNAL),
+                    new IssueHazard(PEDESTRIAN_CROSSING, SIGNAL_TOO_SHORT),
+                    new IssueHazard(PEDESTRIAN_CROSSING, FADED_MARKINGS)));
 
     private final String label;
     private final String description;

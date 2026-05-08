@@ -27,14 +27,17 @@ public enum RoutingPreset {
                     REQUIRE_RAMPS,
                     AVOID_UNSAFE_RAMPS,
                     AVOID_NARROW_SIDEWALKS,
-                    AVOID_BLOCKED_OR_MISSING_SIDEWALKS),
+                    AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
+                    REQUIRE_CURB_RAMPS,
+                    AVOID_INACCESSIBLE_CROSSINGS),
             TravelMode.WHEELCHAIR),
 
     BLIND_OR_LOW_VISION("Blind or low vision",
             EnumSet.of(
                     AVOID_LOW_CLEARANCE,
                     AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
-                    AVOID_MISSING_TACTILE_PAVING),
+                    AVOID_MISSING_TACTILE_PAVING,
+                    AVOID_INACCESSIBLE_CROSSINGS),
             TravelMode.WALKING),
 
     MOBILITY_LIMITED("Mobility limited (cane, walker, elderly)",
