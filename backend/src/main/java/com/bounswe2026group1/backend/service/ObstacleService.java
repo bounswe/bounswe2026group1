@@ -1,12 +1,11 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.Location;
-import com.bounswe2026group1.backend.model.RampReport;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.model.Tag;
-import com.bounswe2026group1.backend.repository.RampReportRepository;
+import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.repository.ReportRepository;
+import org.locationtech.jts.geom.Point;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -14,20 +13,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ObstacleService {
 
-    private static final Set<Tag> OBSTACLE_TAGS = Set.of(
-            Tag.MISSING_RAMP, Tag.BROKEN_ELEVATOR, Tag.NARROW_PASSAGE,
-            Tag.WET_FLOOR, Tag.CONSTRUCTION, Tag.OTHER);
-
-    /**
-     * ~10 m buffer around a reported obstacle → 20×20 m square (degrees,
-     * approximate at mid-latitudes).
-     */
+    /** ~10 m buffer around a reported obstacle in the latitude direction (degrees). */
     private static final double AVOID_BUFFER_DEGREES = 0.00009;
 
     /**
@@ -37,11 +28,10 @@ public class ObstacleService {
 
     private static final double METERS_PER_DEGREE = 111_000.0;
 
-    /** Statuses considered active — reports we act on. REJECTED reports are ignored. */
-    private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.PENDING, ReportStatus.VERIFIED);
+    /** Only verified reports are used for route calculations. */
+    private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.VERIFIED);
 
     private final ReportRepository reportRepository;
-    private final RampReportRepository rampReportRepository;
     private final ObjectMapper objectMapper;
 
     // -------------------------------------------------------------------------
@@ -53,19 +43,19 @@ public class ObstacleService {
      *         or null if none exist
      */
     public ObjectNode buildAvoidPolygons() {
-        // Fetch only PENDING and VERIFIED obstacle reports — REJECTED reports are ignored.
-        List<Report> obstacles = reportRepository.findByTagInAndStatusIn(List.copyOf(OBSTACLE_TAGS), ACTIVE_STATUSES);
+        // Fetch only VERIFIED obstacle reports for route avoidance.
+        List<Report> obstacles = reportRepository.findByTypeAndStatusIn(ReportType.OBSTACLE, ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
             return null;
         }
 
         ArrayNode multiPolygonCoordinates = objectMapper.createArrayNode();
         for (Report report : obstacles) {
-            Location loc = report.getLocation();
-            if (loc == null)
+            Point p = report.getLocation();
+            if (p == null)
                 continue;
             ArrayNode polygon = objectMapper.createArrayNode();
-            polygon.add(squareRingAround(loc.getLongitude(), loc.getLatitude()));
+            polygon.add(squareRingAround(p.getX(), p.getY()));
             multiPolygonCoordinates.add(polygon);
         }
 
@@ -83,7 +73,7 @@ public class ObstacleService {
     // Ramp routing: find closest ramp report
     // -------------------------------------------------------------------------
 
-    public RampReport findClosestRampInBoundingBox(Location start, Location end) {
+    public Report findClosestRampInBoundingBox(Location start, Location end) {
         // ~1 km padding roughly matches 0.01 degrees in latitude/longitude
         double bufferDeg = 0.01;
         double minLat = Math.min(start.getLatitude(), end.getLatitude()) - bufferDeg;
@@ -91,29 +81,51 @@ public class ObstacleService {
         double minLon = Math.min(start.getLongitude(), end.getLongitude()) - bufferDeg;
         double maxLon = Math.max(start.getLongitude(), end.getLongitude()) + bufferDeg;
 
-        // Fetch only PENDING and VERIFIED ramp reports — REJECTED reports are ignored.
-        List<RampReport> candidates = rampReportRepository.findRampsInBoundingBoxWithStatuses(
-                minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
+        // Fetch only VERIFIED FEATURE reports with entry/exit points for wheelchair routing.
+        List<Report> candidates = reportRepository.findByTypeInBoundingBoxWithStatuses(
+                ReportType.FEATURE, minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
-        RampReport closestRamp = null;
-        double minDistance = Double.MAX_VALUE;
+        Report bestRamp = null;
+        double minTotalDistance = Double.MAX_VALUE;
 
-        for (RampReport ramp : candidates) {
-            Location entry = ramp.getEntryPoint();
-            if (entry == null)
+        for (Report ramp : candidates) {
+            Location entryPoint = ramp.getEntryPoint();
+            Location exitPoint = ramp.getExitPoint();
+            if (entryPoint == null || exitPoint == null)
                 continue;
+            // Only FEATURE RAMP reports are used for wheelchair routing
+            boolean hasRamp = ramp.getObjects().stream()
+                    .anyMatch(o -> o.getObjectType() == com.bounswe2026group1.backend.model.ObjectType.RAMP);
+            if (!hasRamp) continue;
 
-            double dLat = entry.getLatitude() - start.getLatitude();
-            double dLon = entry.getLongitude() - start.getLongitude();
-            double distSq = dLat * dLat + dLon * dLon;
+            // Orient: pick whichever endpoint is closer to start as entry
+            double distEntryToStart = haversineMeters(entryPoint, start);
+            double distExitToStart  = haversineMeters(exitPoint, start);
+            Location rampEntry = distEntryToStart <= distExitToStart ? entryPoint : exitPoint;
+            Location rampExit  = distEntryToStart <= distExitToStart ? exitPoint  : entryPoint;
 
-            if (distSq < minDistance) {
-                minDistance = distSq;
-                closestRamp = ramp;
+            // Proxy for total route cost: straight-line start→entry + exit→end
+            double totalEstimate = haversineMeters(start, rampEntry) + haversineMeters(rampExit, end);
+
+            if (totalEstimate < minTotalDistance) {
+                minTotalDistance = totalEstimate;
+                bestRamp = ramp;
             }
         }
 
-        return closestRamp;
+        return bestRamp;
+    }
+
+    private static double haversineMeters(Location a, Location b) {
+        final double R = 6_371_000.0;
+        double dLat = Math.toRadians(b.getLatitude()  - a.getLatitude());
+        double dLon = Math.toRadians(b.getLongitude() - a.getLongitude());
+        double sinDLat = Math.sin(dLat / 2);
+        double sinDLon = Math.sin(dLon / 2);
+        double h = sinDLat * sinDLat
+                + Math.cos(Math.toRadians(a.getLatitude())) * Math.cos(Math.toRadians(b.getLatitude()))
+                * sinDLon * sinDLon;
+        return 2 * R * Math.asin(Math.sqrt(h));
     }
 
     // -------------------------------------------------------------------------
@@ -136,12 +148,12 @@ public class ObstacleService {
         double minLon = pathPoints.stream().mapToDouble(Location::getLongitude).min().orElseThrow() - bufferDeg;
         double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
 
-        // Fetch only PENDING and VERIFIED reports in the path bounding box — REJECTED reports are ignored.
+        // Fetch only VERIFIED reports in the path bounding box for route calculations.
         List<Report> candidates = reportRepository.findReportsInBoundingBoxWithStatuses(
                 minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
 
         return candidates.stream()
-                .filter(r -> OBSTACLE_TAGS.contains(r.getTag()))
+                .filter(r -> r.getReportType() == ReportType.OBSTACLE)
                 .filter(r -> r.getLocation() != null)
                 .filter(r -> isWithinPathBuffer(r.getLocation(), pathPoints))
                 .toList();
@@ -150,6 +162,10 @@ public class ObstacleService {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    private boolean isWithinPathBuffer(Point point, List<Location> path) {
+        return isWithinPathBuffer(new Location(point.getY(), point.getX()), path);
+    }
 
     private boolean isWithinPathBuffer(Location point, List<Location> path) {
         for (int i = 0; i < path.size() - 1; i++) {
@@ -190,12 +206,15 @@ public class ObstacleService {
     }
 
     private ArrayNode squareRingAround(double lon, double lat) {
+        double dLat = AVOID_BUFFER_DEGREES;
+        // Cosine correction so the buffer is geographically square, not rectangular
+        double dLon = dLat / Math.cos(Math.toRadians(lat));
         ArrayNode ring = objectMapper.createArrayNode();
-        ring.add(coordinatePair(lon - AVOID_BUFFER_DEGREES, lat - AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon + AVOID_BUFFER_DEGREES, lat - AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon + AVOID_BUFFER_DEGREES, lat + AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon - AVOID_BUFFER_DEGREES, lat + AVOID_BUFFER_DEGREES));
-        ring.add(coordinatePair(lon - AVOID_BUFFER_DEGREES, lat - AVOID_BUFFER_DEGREES));
+        ring.add(coordinatePair(lon - dLon, lat - dLat));
+        ring.add(coordinatePair(lon + dLon, lat - dLat));
+        ring.add(coordinatePair(lon + dLon, lat + dLat));
+        ring.add(coordinatePair(lon - dLon, lat + dLat));
+        ring.add(coordinatePair(lon - dLon, lat - dLat));
         return ring;
     }
 

@@ -1,22 +1,32 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { apiFetch } from '../services/api.js'
-import { mapReport } from '../services/reportService.js'
-import { REPORT_TAGS } from '../utils/reportTagConfig.js'
-
-const TAGS = Object.entries(REPORT_TAGS).map(([value, cfg]) => ({ value, ...cfg }))
+import { createReport, mapReport } from '../services/reportService.js'
+import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 
 function CreateReportPanel({ position, onClose, onCreated }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
-  const [tag, setTag] = useState('')
+
+  const [reportType, setReportType] = useState('OBSTACLE')
+  const [environment, setEnvironment] = useState('OUTDOOR')
+  const [objects, setObjects] = useState([])
   const [description, setDescription] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
+
+  // Recomputed every render — drives duplicate-type prevention
+  const selectedTypes = new Set(objects.map(o => o.objectType).filter(Boolean))
+
+  // Which OBJECT_TYPES are visible given the current reportType
+  const visibleTypes = reportType === 'FEATURE'
+    ? OBJECT_TYPES.filter(t => t.type === 'RAMP')
+    : OBJECT_TYPES
+
+  // ── image ──────────────────────────────────────────────────────────────────
 
   function handleImageChange(e) {
     const file = e.target.files[0]
@@ -33,26 +43,100 @@ function CreateReportPanel({ position, onClose, onCreated }) {
     setImagePreview(URL.createObjectURL(file))
   }
 
+  // ── report type toggle ─────────────────────────────────────────────────────
+
+  function handleReportTypeChange(newType) {
+    setReportType(newType)
+    if (newType === 'FEATURE') {
+      // Clear objectType on any non-RAMP card; RAMP cards lose their issues
+      setObjects(prev => prev.map(o =>
+        o.objectType && o.objectType !== 'RAMP'
+          ? { ...o, objectType: null, issues: [], measurements: {} }
+          : { ...o, issues: [] }
+      ))
+    }
+  }
+
+  // ── object management ──────────────────────────────────────────────────────
+
+  function addObject() {
+    setObjects(prev => [
+      ...prev,
+      { id: crypto.randomUUID(), objectType: null, issues: [], measurements: {}, expanded: true, showMeasurements: false },
+    ])
+  }
+
+  function removeObject(id) {
+    setObjects(prev => prev.filter(o => o.id !== id))
+  }
+
+  function toggleExpanded(id) {
+    setObjects(prev => prev.map(o => o.id === id ? { ...o, expanded: !o.expanded } : o))
+  }
+
+  function selectObjectType(id, type) {
+    setObjects(prev => prev.map(o =>
+      o.id === id ? { ...o, objectType: type, issues: [], measurements: {} } : o
+    ))
+  }
+
+  function toggleIssue(id, issueKey) {
+    setObjects(prev => prev.map(o => {
+      if (o.id !== id) return o
+      const has = o.issues.includes(issueKey)
+      return { ...o, issues: has ? o.issues.filter(k => k !== issueKey) : [...o.issues, issueKey] }
+    }))
+  }
+
+  function setMeasurement(id, key, value) {
+    setObjects(prev => prev.map(o =>
+      o.id === id ? { ...o, measurements: { ...o.measurements, [key]: value } } : o
+    ))
+  }
+
+  function toggleShowMeasurements(id) {
+    setObjects(prev => prev.map(o =>
+      o.id === id ? { ...o, showMeasurements: !o.showMeasurements } : o
+    ))
+  }
+
+  // ── submit ─────────────────────────────────────────────────────────────────
+
   async function handleSubmit() {
     if (!token) { onClose(); navigate('/login'); return }
     if (!position) return setError('Click on the map to set a location.')
-    if (!tag) return setError('Please select a category.')
+    if (objects.length === 0) return setError('Add at least one object to describe the issue.')
+
+    for (const obj of objects) {
+      if (!obj.objectType) return setError('Select a type for every object card.')
+      if (reportType === 'OBSTACLE' && obj.issues.length === 0) {
+        const label = OBJECT_TYPES.find(t => t.type === obj.objectType)?.label ?? obj.objectType
+        return setError(`Select at least one issue for the "${label}" object.`)
+      }
+    }
+
     if (!description.trim()) return setError('Please provide a description.')
 
     setSubmitting(true)
     setError('')
     try {
-      const created = await apiFetch('/api/reports', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          userId,
-          latitude: position.lat,
-          longitude: position.lng,
-          description: description.trim(),
-          tag,
-        }),
-      })
+      const body = {
+        userId,
+        latitude: position.lat,
+        longitude: position.lng,
+        description: description.trim(),
+        reportType,
+        environment,
+        objects: objects.map(o => ({
+          objectType: o.objectType,
+          issues: o.issues,
+          measurements: JSON.stringify(
+            Object.fromEntries(Object.entries(o.measurements).filter(([, v]) => v !== ''))
+          ),
+        })),
+        token,
+      }
+      const created = await createReport(body)
 
       let imageUrl = null
       if (imageFile) {
@@ -74,14 +158,16 @@ function CreateReportPanel({ position, onClose, onCreated }) {
       onCreated(mapped)
       onClose()
     } catch (err) {
-      setError('Failed to submit report. Please try again.')
+      setError(err.message || 'Failed to submit report. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
+  // ── render ─────────────────────────────────────────────────────────────────
+
   return (
-    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[480px] bg-white overflow-y-auto border-l border-outline-variant/10 flex flex-col">
+    <aside className="fixed top-0 right-0 h-full z-[1200] w-full lg:w-[500px] bg-surface-container-low overflow-y-auto border-l border-outline-variant/10 flex flex-col">
 
       {/* Header */}
       <div className="px-8 pt-8 pb-4 flex items-start justify-between flex-shrink-0">
@@ -119,7 +205,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
               <>
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
                 <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
-                <p className="text-xs text-outline">Maximum file size: 10MB (JPG, PNG)</p>
+                <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG)</p>
               </>
             )}
           </div>
@@ -132,34 +218,226 @@ function CreateReportPanel({ position, onClose, onCreated }) {
           />
         </div>
 
-        {/* Category */}
+        {/* Report Type */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Category</p>
-          <div className="grid grid-cols-3 gap-2">
-            {TAGS.map(t => (
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Report Type</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: 'OBSTACLE', icon: 'construction',      label: 'Obstacle', desc: 'Something broken or missing' },
+              { value: 'FEATURE',  icon: 'accessible_forward', label: 'Feature',  desc: 'Something helpful that exists' },
+            ].map(t => (
               <button
                 key={t.value}
-                onClick={() => setTag(t.value)}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40"
-                style={tag === t.value ? { borderColor: t.color, backgroundColor: t.color + '1a', color: t.color } : {}}
+                aria-label={t.label}
+                onClick={() => handleReportTypeChange(t.value)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold"
+                style={reportType === t.value
+                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
+                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '', color: '#5a5c5c' }}
               >
                 <span className="material-symbols-outlined text-xl">{t.icon}</span>
-                {t.label}
+                <span className="font-bold text-xs">{t.label}</span>
+                <span className="text-[10px] opacity-70 text-center leading-tight">{t.desc}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Details */}
+        {/* Environment */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Environment</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: 'OUTDOOR', icon: 'wb_sunny', label: 'Outdoor' },
+              { value: 'INDOOR',  icon: 'home',     label: 'Indoor' },
+            ].map(e => (
+              <button
+                key={e.value}
+                aria-label={e.label}
+                onClick={() => setEnvironment(e.value)}
+                className="flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all"
+                style={environment === e.value
+                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
+                  : { borderColor: 'rgba(172,173,173,.25)', color: '#5a5c5c' }}
+              >
+                <span className="material-symbols-outlined text-base">{e.icon}</span>
+                {e.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Objects */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
+            Objects <span className="text-error text-[10px] font-normal normal-case tracking-normal">required</span>
+          </p>
+
+          <div className="flex flex-col gap-2 mb-2">
+            {objects.map((obj, idx) => {
+              const cfg = OBJECT_TYPES.find(t => t.type === obj.objectType) ?? null
+              return (
+                <div
+                  key={obj.id}
+                  className="rounded-2xl border-2 bg-surface-container overflow-hidden transition-colors"
+                  style={{ borderColor: obj.objectType ? 'rgba(23,106,33,.2)' : 'rgba(172,173,173,.2)' }}
+                >
+                  {/* Card header */}
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                    onClick={() => toggleExpanded(obj.id)}
+                  >
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                      <span className="text-on-primary text-[10px] font-bold">{idx + 1}</span>
+                    </div>
+                    <span className={`flex-1 text-sm font-semibold ${obj.objectType ? 'text-on-surface' : 'text-on-surface-variant italic'}`}>
+                      {cfg ? cfg.label : 'Select a type…'}
+                    </span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform" style={{ transform: obj.expanded ? 'rotate(180deg)' : '' }}>
+                      expand_more
+                    </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); removeObject(obj.id) }}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors"
+                      aria-label="Remove object"
+                    >
+                      <span className="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
+
+                  {obj.expanded && (
+                    <div className="px-4 pb-4 flex flex-col gap-4 border-t border-outline-variant/20 pt-3">
+
+                      {/* Object type picker */}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Object Type</p>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {visibleTypes.map(t => {
+                            const isSelected = obj.objectType === t.type
+                            const isDisabled = !isSelected && selectedTypes.has(t.type)
+                            return (
+                              <button
+                                key={t.type}
+                                aria-label={t.label}
+                                disabled={isDisabled}
+                                onClick={() => selectObjectType(obj.id, t.type)}
+                                title={isDisabled ? `${t.label} already added` : t.label}
+                                className="flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed"
+                                style={isSelected
+                                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.08)', color: '#176a21' }
+                                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '#f0f1f1', color: '#5a5c5c' }}
+                              >
+                                <span className="material-symbols-outlined text-xl">{t.icon}</span>
+                                {t.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Issues — only for OBSTACLE and when type is selected */}
+                      {cfg && reportType === 'OBSTACLE' && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                            Issues <span className="text-error">*</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-1">
+                            {cfg.issues.map(issue => (
+                              <label
+                                key={issue.key}
+                                className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={obj.issues.includes(issue.key)}
+                                  onChange={() => toggleIssue(obj.id, issue.key)}
+                                  className="w-3.5 h-3.5 accent-primary"
+                                />
+                                <span className="text-xs font-medium text-on-surface">{issue.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Measurements — optional, collapsible */}
+                      {cfg && cfg.measurements.length > 0 && (
+                        <div>
+                          <button
+                            onClick={() => toggleShowMeasurements(obj.id)}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2"
+                          >
+                            <span className="material-symbols-outlined text-base">straighten</span>
+                            {obj.showMeasurements ? 'Hide measurements' : 'Show measurements (optional)'}
+                          </button>
+                          {obj.showMeasurements && (
+                            <div className="flex flex-col gap-3">
+                              {cfg.measurements.map(m => (
+                                <div key={m.key}>
+                                  <p className="text-[10px] font-semibold text-on-surface-variant mb-1">{m.label}</p>
+                                  <div className="flex items-center rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden focus-within:border-primary/50">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.1"
+                                      value={obj.measurements[m.key] ?? ''}
+                                      onChange={e => setMeasurement(obj.id, m.key, e.target.value)}
+                                      className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-on-surface"
+                                      placeholder="—"
+                                    />
+                                    <span className="px-2.5 text-xs text-on-surface-variant font-medium border-l border-outline-variant/25 bg-surface-container">
+                                      {m.unit}
+                                    </span>
+                                  </div>
+                                  {m.accessible_min !== undefined && (
+                                    <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                                      ≥ {m.accessible_min} {m.unit} is accessible
+                                    </p>
+                                  )}
+                                  {m.accessible_max !== undefined && (
+                                    <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                                      ≤ {m.accessible_max} {m.unit} is accessible
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <button
+            onClick={addObject}
+            className="w-full py-3 rounded-xl border-2 border-dashed border-primary/35 text-primary text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/5 hover:border-primary/50 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">add_circle</span>
+            Add Object
+          </button>
+        </div>
+
+        {/* Description */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
           <textarea
             value={description}
-            onChange={e => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value.slice(0, 1000))}
             rows={4}
+            maxLength={1000}
             placeholder="Provide a brief description of the issue..."
             className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
+          <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
+            {description.length}/1000
+          </p>
         </div>
 
         {/* Error */}
@@ -180,7 +458,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
             disabled={submitting}
             className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
           >
-            {submitting ? 'Submitting...' : 'Submit Report'}
+            {submitting ? 'Submitting…' : 'Submit Report'}
           </button>
         </div>
 

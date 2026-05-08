@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -154,7 +155,52 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
 
   // ─── Media picking ─────────────────────────────────────────────────────────
 
+  /// Returns true if the required permission is granted.
+  /// Requests it if not yet determined; shows a Settings dialog if denied.
+  Future<bool> _ensurePermission(Permission permission) async {
+    var status = await permission.status;
+    if (status.isGranted) return true;
+
+    if (status.isDenied) {
+      status = await permission.request();
+      if (status.isGranted) return true;
+    }
+
+    if (status.isPermanentlyDenied || status.isDenied) {
+      if (!mounted) return false;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Permission required'),
+          content: const Text(
+            'Camera access was denied. Please enable it in Settings to take photos or videos.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+
+    return false;
+  }
+
   Future<void> _pickImage(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final granted = await _ensurePermission(Permission.camera);
+      if (!granted) return;
+    }
     try {
       final picked = await _picker.pickImage(
         source: source,
@@ -171,6 +217,12 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final camGranted = await _ensurePermission(Permission.camera);
+      if (!camGranted) return;
+      final micGranted = await _ensurePermission(Permission.microphone);
+      if (!micGranted) return;
+    }
     try {
       final picked = await _picker.pickVideo(source: source);
       if (picked == null) return;
@@ -264,7 +316,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               _sheetOption(
                 icon: Icons.delete_outline,
                 label: 'Remove Media',
-                color: const Color(0xFFB02500),
+                color: AppColors.errorStrong,
                 onTap: () {
                   setState(() {
                     _selectedMedia = null;
@@ -356,7 +408,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: const Color(0xFFB02500),
+        backgroundColor: AppColors.errorStrong,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -411,11 +463,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.close, color: AppColors.primary),
+              icon: Icon(Icons.close, color: AppColors.primary),
               onPressed: () => Navigator.pop(context),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Mapcess',
               style: TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
@@ -432,7 +484,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 color: AppColors.surfaceContainer,
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Text(
+              child: Text(
                 'DRAFT',
                 style: TextStyle(
                   fontSize: 10,
@@ -459,7 +511,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'NEW REPORT',
                 style: TextStyle(
                   fontSize: 10,
@@ -469,7 +521,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Issue Details',
                 style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
@@ -596,7 +648,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                   const SizedBox(width: 4),
                                   Text(
                                     _converting ? 'Converting...' : (_isVideo ? 'Video added' : 'Tap to change'),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.onSurface,
@@ -617,9 +669,9 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.delete_outline,
-                                  color: Color(0xFFB02500),
+                                  color: AppColors.errorStrong,
                                   size: 18,
                                 ),
                               ),
@@ -631,7 +683,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   ],
                 )
               : Container(
-                  color: const Color(0xFFF0F1F1),
+                  color: AppColors.surfaceContainer,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -639,23 +691,23 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.cardSurface,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: AppColors.shadow,
                               blurRadius: 12,
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.perm_media_outlined,
                           color: AppColors.primary,
                           size: 26,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Add Photo or Video',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
@@ -665,7 +717,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Photo, MP4 or MOV',
                         style: TextStyle(
                           fontSize: 12,
@@ -685,7 +737,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildLocationCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
       ),
       clipBehavior: Clip.hardEdge,
@@ -714,7 +766,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                       markers: [
                         Marker(
                           point: _pinLocation,
-                          child: const Icon(
+                          child: Icon(
                             Icons.location_on,
                             color: AppColors.primary,
                             size: 36,
@@ -749,17 +801,17 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardSurface,
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: AppColors.shadow,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.fullscreen,
                         color: AppColors.primary,
                         size: 22,
@@ -775,13 +827,13 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.near_me_outlined,
                   size: 16,
                   color: AppColors.secondary,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Search or tap the map to set location',
                     style: TextStyle(
@@ -794,7 +846,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 Text(
                   '${_pinLocation.latitude.toStringAsFixed(4)}, '
                   '${_pinLocation.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -810,14 +862,14 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildLocationSearchBar() {
     return Material(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(12),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Row(
         children: [
           if (_locationSearchActive)
             IconButton(
-              icon: const Icon(Icons.arrow_back,
+              icon: Icon(Icons.arrow_back,
                   color: AppColors.primary, size: 20),
               onPressed: () {
                 setState(() {
@@ -829,7 +881,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               },
             )
           else
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 12),
               child: Icon(Icons.search, color: AppColors.primary, size: 20),
             ),
@@ -845,15 +897,15 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               onChanged: _onLocationSearchChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _searchLocation,
-              style: const TextStyle(fontSize: 13, color: AppColors.onSurface),
-              decoration: const InputDecoration(
+              style: TextStyle(fontSize: 13, color: AppColors.onSurface),
+              decoration: InputDecoration(
                 hintText: 'Search for a place…',
                 hintStyle: TextStyle(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 13,
                 ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: 8,
                   vertical: 12,
                 ),
@@ -861,7 +913,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
           ),
           if (_locationSearchLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
               child: SizedBox(
                 width: 16,
@@ -874,7 +926,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             )
           else if (_locationSearchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear,
+              icon: Icon(Icons.clear,
                   color: AppColors.onSurfaceVariant, size: 18),
               onPressed: () {
                 _locationSearchController.clear();
@@ -891,9 +943,9 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildLocationResultsList() {
     return Material(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(12),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
@@ -904,14 +956,14 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           final place = _locationResults[i];
           return ListTile(
             dense: true,
-            leading: const Icon(
+            leading: Icon(
               Icons.location_on_outlined,
               color: AppColors.primary,
               size: 18,
             ),
             title: Text(
               place.displayName.split(',').first,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.onSurface,
@@ -921,7 +973,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
             subtitle: Text(
               place.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: AppColors.onSurfaceVariant,
               ),
@@ -941,7 +993,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'DESCRIBE THE ISSUE',
           style: TextStyle(
             fontSize: 10,
@@ -968,12 +1020,12 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 controller: _descController,
                 maxLines: 5,
                 maxLength: 1000,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: AppColors.onSurface,
                   height: 1.5,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText:
                       'What\'s happening? Be as specific as possible to help our crews find it…',
                   hintStyle: TextStyle(
@@ -981,11 +1033,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     fontSize: 14,
                   ),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.fromLTRB(18, 18, 18, 40),
+                  contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 40),
                   counterText: '',
                 ),
               ),
-              const Positioned(
+              Positioned(
                 bottom: 12,
                 right: 14,
                 child: Text(
@@ -1013,7 +1065,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'SELECT CATEGORY',
           style: TextStyle(
             fontSize: 10,
@@ -1034,13 +1086,13 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF176a21).withOpacity(0.1),
+                color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_circle, size: 11, color: Color(0xFF176a21)),
+                  Icon(Icons.check_circle, size: 11, color: AppColors.primary),
                   SizedBox(width: 4),
                   Text(
                     'ACCESSIBILITY FEATURE',
@@ -1048,7 +1100,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
-                      color: Color(0xFF176a21),
+                      color: AppColors.primary,
                     ),
                   ),
                 ],
@@ -1069,11 +1121,11 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   Widget _buildTagChip(ReportTag tag) {
     final selected = _selectedTag == tag;
     final unselectedBg = tag.isPositive
-        ? const Color(0xFF176a21).withOpacity(0.1)
-        : const Color(0xFFCFE6F2);
+        ? AppColors.primary.withOpacity(0.1)
+        : AppColors.infoContainer;
     final unselectedFg = tag.isPositive
-        ? const Color(0xFF176a21)
-        : const Color(0xFF40555F);
+        ? AppColors.primary
+        : AppColors.onInfoContainer;
     return GestureDetector(
       onTap: () => setState(() => _selectedTag = tag),
       child: AnimatedContainer(
@@ -1083,7 +1135,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           color: selected ? tag.color : unselectedBg,
           borderRadius: BorderRadius.circular(999),
           border: tag.isPositive && !selected
-              ? Border.all(color: const Color(0xFF176a21).withOpacity(0.35))
+              ? Border.all(color: AppColors.primary.withOpacity(0.35))
               : null,
           boxShadow: selected
               ? [
@@ -1101,7 +1153,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             Icon(
               tag.icon,
               size: 16,
-              color: selected ? Colors.white : unselectedFg,
+              color: selected ? AppColors.onPrimarySolid : unselectedFg,
             ),
             const SizedBox(width: 6),
             Text(
@@ -1109,7 +1161,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : unselectedFg,
+                color: selected ? AppColors.onPrimarySolid : unselectedFg,
               ),
             ),
           ],
@@ -1125,9 +1177,9 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF176a21).withOpacity(0.08),
+          color: AppColors.primary.withOpacity(0.08),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF176a21).withOpacity(0.25)),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
         ),
         child: Row(
           children: [
@@ -1135,13 +1187,13 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF176a21).withOpacity(0.15),
+                color: AppColors.primary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.accessible, color: Color(0xFF176a21), size: 24),
+              child: Icon(Icons.accessible, color: AppColors.primary, size: 24),
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1151,7 +1203,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.4,
-                      color: Color(0xFF176a21),
+                      color: AppColors.primary,
                     ),
                   ),
                   SizedBox(height: 4),
@@ -1159,7 +1211,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     'You\'re reporting something that helps people get around. Thank you!',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF176a21),
+                      color: AppColors.primary,
                       height: 1.5,
                     ),
                   ),
@@ -1174,7 +1226,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F1),
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -1183,7 +1235,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'IMPACT LEVEL',
                 style: TextStyle(
                   fontSize: 10,
@@ -1200,7 +1252,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                             _selectedTag == ReportTag.wetFloor
                         ? 'Moderate'
                         : 'Low',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
@@ -1228,9 +1280,9 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                     child: Container(
                       width: c.maxWidth * frac,
                       height: 8,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF9DF197), AppColors.primary],
+                          colors: [AppColors.primaryAccent, AppColors.primary],
                         ),
                       ),
                     ),
@@ -1240,7 +1292,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'This helps us prioritize based on community safety and infrastructure health.',
             style: TextStyle(
               fontSize: 11,
@@ -1277,7 +1329,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               child: Container(
                 height: 56,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [AppColors.primary, AppColors.primaryDim],
@@ -1292,7 +1344,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   ],
                 ),
                 child: _submitting
-                    ? const Center(
+                    ? Center(
                         child: SizedBox(
                           width: 22,
                           height: 22,
@@ -1302,7 +1354,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                           ),
                         ),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
@@ -1329,7 +1381,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               color: AppColors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(999),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.bookmark_border,
               color: AppColors.onSurfaceVariant,
             ),
@@ -1449,7 +1501,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
                 markers: [
                   Marker(
                     point: _pin,
-                    child: const Icon(
+                    child: Icon(
                       Icons.location_on,
                       color: AppColors.primary,
                       size: 40,
@@ -1485,7 +1537,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [AppColors.primary, AppColors.primaryDim],
@@ -1499,7 +1551,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
                     ),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.check_circle_outline,
@@ -1527,14 +1579,14 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
   Widget _buildSearchBar() {
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Row(
         children: [
           if (_searchActive)
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+              icon: Icon(Icons.arrow_back, color: AppColors.primary),
               onPressed: () {
                 setState(() {
                   _searchActive = false;
@@ -1546,7 +1598,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.close, color: AppColors.primary),
+              icon: Icon(Icons.close, color: AppColors.primary),
               onPressed: () => Navigator.pop(context),
             ),
           Expanded(
@@ -1559,17 +1611,18 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
               onChanged: _onChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _search,
-              style: const TextStyle(fontSize: 15, color: AppColors.onSurface),
-              decoration: const InputDecoration(
+              style: TextStyle(fontSize: 15, color: AppColors.onSurface),
+              decoration: InputDecoration(
                 hintText: 'Search for a place…',
                 hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 14),
               ),
             ),
           ),
           if (_searchLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: SizedBox(
                 width: 18,
@@ -1582,7 +1635,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
             )
           else if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear,
+              icon: Icon(Icons.clear,
                   color: AppColors.onSurfaceVariant, size: 20),
               onPressed: () {
                 _searchController.clear();
@@ -1599,9 +1652,9 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
   Widget _buildResultsList() {
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
@@ -1618,12 +1671,12 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.location_on_outlined,
+              child: Icon(Icons.location_on_outlined,
                   color: AppColors.primary, size: 18),
             ),
             title: Text(
               place.displayName.split(',').first,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.onSurface),
@@ -1632,7 +1685,7 @@ class _LocationPickerScreenState extends State<_LocationPickerScreen> {
             ),
             subtitle: Text(
               place.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11, color: AppColors.onSurfaceVariant),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

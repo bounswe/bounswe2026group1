@@ -11,7 +11,9 @@ import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import 'report_detail_screen.dart';
 import 'make_report_screen.dart';
-import 'login_screen.dart';
+import '../main.dart' show AuthShell;
+import '../models/sse_event.dart';
+import '../services/sse_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -24,9 +26,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final MapController _mapController = MapController();
+  List<ReportModel> _reports = [];
   List<Marker> _markers = [];
   bool _loading = true;
   String? _errorMessage;
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  StreamSubscription<SseEvent>? _sseSub;
+  bool _wasConnected = false;
 
   // ── Search state ──────────────────────────────────────────────────────────
   bool _searchActive = false;
@@ -56,6 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _routeEndLabel = '';
   bool _editingStart = false;   // which field is open for search
   bool _routePanelExpanded = true; // collapsed when routes are loaded
+  // null = not in pin-pick mode; true = picking start; false = picking end
+  bool? _pickingPin;
 
   static const LatLng _defaultCenter = LatLng(37.7599, -122.4148);
 
@@ -64,6 +73,85 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _initLocation();
     _loadReports();
+    _initSse();
+  }
+
+  void _initSse() {
+    final sse = context.read<SseService>();
+    _wasConnected = sse.connected;
+    sse.addListener(_onSseConnectivity);
+    _sseSub = sse.events.listen(_onSseEvent);
+  }
+
+  void _onSseConnectivity() {
+    final sse = context.read<SseService>();
+    final connected = sse.connected;
+
+    // Reconnected after a gap → full refresh to catch missed events
+    if (connected && !_wasConnected) _loadReports();
+    _wasConnected = connected;
+
+    // Fallback threshold exceeded → force reload
+    if (sse.needsFullRefresh) {
+      sse.clearFullRefreshFlag();
+      _loadReports();
+    }
+  }
+
+  void _onSseEvent(SseEvent event) {
+    if (event.eventType == 'REPORT_CREATED') {
+      _silentRefresh();
+      return;
+    }
+
+    if (event.eventType == 'REPORT_DELETED') {
+      setState(() {
+        _reports = _reports.where((r) => r.reportId != event.reportId).toList();
+        _markers = _buildMarkers(_reports);
+      });
+      return;
+    }
+
+    final idx = _reports.indexWhere((r) => r.reportId == event.reportId);
+    if (idx < 0) return;
+
+    final old = _reports[idx];
+    ReportModel updated;
+
+    if (event.eventType == 'REPORT_UPDATED') {
+      updated = old.copyWith(
+        agrees: event.agrees,
+        disagrees: event.disagrees,
+        status: event.status != null
+            ? ReportStatus.fromJson(event.status!)
+            : null,
+      );
+    } else if (event.eventType == 'MEDIA_ADDED') {
+      if (event.mediaUrl == null || old.mediaUrls.contains(event.mediaUrl)) {
+        return;
+      }
+      updated = old.copyWith(
+        mediaUrls: [...old.mediaUrls, event.mediaUrl!],
+      );
+    } else {
+      return;
+    }
+
+    setState(() {
+      _reports = List.of(_reports)..[idx] = updated;
+      _markers = _buildMarkers(_reports);
+    });
+  }
+
+  Future<void> _silentRefresh() async {
+    try {
+      final reports = await context.read<AuthService>().api.getReports();
+      if (!mounted) return;
+      setState(() {
+        _reports = reports;
+        _markers = _buildMarkers(reports);
+      });
+    } catch (_) {}
   }
 
   Future<void> _initLocation() async {
@@ -106,6 +194,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    context.read<SseService>().removeListener(_onSseConnectivity);
+    _sseSub?.cancel();
     _locationStream?.cancel();
     _mapController.dispose();
     _searchController.dispose();
@@ -244,6 +334,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _closeSearch();
   }
 
+  void _onMapTap(TapPosition _, LatLng latlng) {
+    if (!_routeMode || _pickingPin == null) return;
+    final label =
+        '${latlng.latitude.toStringAsFixed(4)}, ${latlng.longitude.toStringAsFixed(4)}';
+    final isStart = _pickingPin!;
+    setState(() {
+      _pickingPin = null;
+      if (isStart) {
+        _routeStart = latlng;
+        _routeStartLabel = label;
+      } else {
+        _routeEnd = latlng;
+        _routeEndLabel = label;
+      }
+    });
+    if (_routeEnd != null) _fetchRoute(_routeEnd!);
+  }
+
   void _swapRoutePoints() {
     final swappedStart = _routeEnd;
     final swappedStartLabel = _routeEndLabel.isNotEmpty ? _routeEndLabel : 'Current Location';
@@ -331,14 +439,16 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // Fit map to show the first route
+      // Fit map to show the full route
       final allPoints = decoded.first.points;
       if (allPoints.isNotEmpty) {
-        final lats = allPoints.map((p) => p.latitude);
-        final lons = allPoints.map((p) => p.longitude);
-        final centerLat = lats.reduce((a, b) => a + b) / allPoints.length;
-        final centerLon = lons.reduce((a, b) => a + b) / allPoints.length;
-        _mapController.move(LatLng(centerLat, centerLon), 13);
+        final bounds = LatLngBounds.fromPoints(allPoints);
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(60),
+          ),
+        );
       }
 
       setState(() {
@@ -369,6 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final reports = await api.getReports();
       if (!mounted) return;
       setState(() {
+        _reports = reports;
         _markers = _buildMarkers(reports);
         _loading = false;
       });
@@ -398,7 +509,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return Marker(
         point: LatLng(report.latitude, report.longitude),
         width: 88,
-        height: 72,
+        height: 80,
         child: GestureDetector(
           onTap: () => Navigator.push(
             context,
@@ -407,6 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(4),
@@ -451,7 +563,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Text(
                   report.tag.label,
-                  style: const TextStyle(
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
@@ -476,9 +589,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // ── Full-screen map ─────────────────────────────────────────────
           FlutterMap(
             mapController: _mapController,
-            options: const MapOptions(
+            options: MapOptions(
               initialCenter: _defaultCenter,
               initialZoom: 14,
+              onTap: _onMapTap,
             ),
             children: [
               TileLayer(
@@ -517,12 +631,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 24,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A73E8),
+                        color: AppColors.info,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 3),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1A73E8).withOpacity(0.4),
+                            color: AppColors.info.withOpacity(0.4),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),
@@ -569,8 +683,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                // Route start pin
-                if (_routeMode && _routes.isNotEmpty)
+                // Route start pin (shown at picked location or current location)
+                if (_routeMode && (_routeStart != null || _userLocation != null))
                   Marker(
                     point: _routeStart ?? _userLocation!,
                     width: 36,
@@ -583,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32),
+                            color: AppColors.success,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2.5),
                             boxShadow: [
@@ -603,7 +717,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           width: 2.5,
                           height: 10,
-                          color: const Color(0xFF2E7D32),
+                          color: AppColors.success,
                         ),
                       ],
                     ),
@@ -622,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE53935),
+                            color: AppColors.errorBanner,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2.5),
                             boxShadow: [
@@ -642,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           width: 2.5,
                           height: 10,
-                          color: const Color(0xFFE53935),
+                          color: AppColors.errorBanner,
                         ),
                       ],
                     ),
@@ -691,6 +805,58 @@ class _HomeScreenState extends State<HomeScreen> {
           // ── Route info card ─────────────────────────────────────────────
           _buildRouteInfoCard(),
 
+          // ── Pin-pick hint ───────────────────────────────────────────────
+          if (_pickingPin != null)
+            Positioned(
+              bottom: 100,
+              left: 40,
+              right: 40,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.location_pin,
+                          color: AppColors.onPrimarySolid, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        _pickingPin == true
+                            ? 'Tap map to set starting point'
+                            : 'Tap map to set destination',
+                        style: TextStyle(
+                          color: AppColors.onPrimarySolid,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => setState(() => _pickingPin = null),
+                        child: Icon(Icons.close,
+                            color: AppColors.onPrimarySolid
+                                .withValues(alpha: 0.7),
+                            size: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // ── Navigate button (when NOT in route mode) ────────────────────
           if (!_routeMode)
             Positioned(
@@ -702,17 +868,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardSurface,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: AppColors.shadow,
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.directions,
                     color: AppColors.primary,
                     size: 24,
@@ -741,32 +907,37 @@ class _HomeScreenState extends State<HomeScreen> {
     // Normal search bar (or active search inside route mode)
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-            onPressed: _routeMode ? () {
-              _closeSearch();
-              setState(() => _editingStart = false);
-            } : _closeSearch,
-          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.arrow_back, color: AppColors.primary),
+              onPressed: _routeMode ? () {
+                _closeSearch();
+                setState(() => _editingStart = false);
+              } : _closeSearch,
+            )
+          else
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: Icon(Icons.search, color: AppColors.primary),
+            ),
           Expanded(
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocus,
-              autofocus: true,
               onChanged: _onSearchChanged,
               textInputAction: TextInputAction.search,
               onSubmitted: _search,
-              style: const TextStyle(fontSize: 15, color: AppColors.onSurface),
+              style: TextStyle(fontSize: 15, color: AppColors.onSurface),
               decoration: InputDecoration(
                 hintText: _routeMode
                     ? (_editingStart ? 'Search starting point…' : 'Search destination…')
                     : 'Search for a place…',
-                hintStyle: const TextStyle(color: AppColors.onSurfaceVariant),
+                hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -776,7 +947,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (_searchLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: SizedBox(
                 width: 18,
@@ -789,7 +960,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           else if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear,
+              icon: Icon(Icons.clear,
                   color: AppColors.onSurfaceVariant, size: 20),
               onPressed: () {
                 _searchController.clear();
@@ -808,9 +979,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final toLabel = _routeEndLabel.isNotEmpty ? _routeEndLabel : '…';
     return Material(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(14),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: InkWell(
         onTap: () => setState(() => _routePanelExpanded = true),
         borderRadius: BorderRadius.circular(14),
@@ -818,12 +989,12 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
-              const Icon(Icons.route, color: AppColors.primary, size: 16),
+              Icon(Icons.route, color: AppColors.primary, size: 16),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '$fromLabel  →  $toLabel',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.onSurface,
@@ -833,7 +1004,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.expand_more,
+              Icon(Icons.expand_more,
                   color: AppColors.onSurfaceVariant, size: 18),
             ],
           ),
@@ -845,9 +1016,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRouteInputPanel() {
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
@@ -856,14 +1027,18 @@ class _HomeScreenState extends State<HomeScreen> {
             // From row
             _buildRouteField(
               icon: Icons.radio_button_checked,
-              iconColor: const Color(0xFF1A73E8),
+              iconColor: AppColors.info,
               label: _routeStartLabel,
               hint: 'Starting point',
               isSet: true,
+              isPicking: _pickingPin == true,
               onTap: () {
-                setState(() => _editingStart = true);
+                setState(() { _editingStart = true; _pickingPin = null; });
                 _openSearch();
               },
+              onPinTap: () => setState(() {
+                _pickingPin = _pickingPin == true ? null : true;
+              }),
             ),
             // Divider + swap
             Row(
@@ -877,7 +1052,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 32,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.swap_vert,
+                    icon: Icon(Icons.swap_vert,
                         size: 18, color: AppColors.onSurfaceVariant),
                     onPressed: _routeEnd != null ? _swapRoutePoints : null,
                   ),
@@ -888,14 +1063,18 @@ class _HomeScreenState extends State<HomeScreen> {
             // To row
             _buildRouteField(
               icon: Icons.location_on,
-              iconColor: const Color(0xFFE53935),
+              iconColor: AppColors.errorBanner,
               label: _routeEndLabel.isNotEmpty ? _routeEndLabel : '',
               hint: 'Choose destination',
               isSet: _routeEndLabel.isNotEmpty,
+              isPicking: _pickingPin == false,
               onTap: () {
-                setState(() => _editingStart = false);
+                setState(() { _editingStart = false; _pickingPin = null; });
                 _openSearch();
               },
+              onPinTap: () => setState(() {
+                _pickingPin = _pickingPin == false ? null : false;
+              }),
             ),
             // Cancel button
             Padding(
@@ -930,6 +1109,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String hint,
     required bool isSet,
     required VoidCallback onTap,
+    required VoidCallback onPinTap,
+    bool isPicking = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -952,12 +1133,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (isSet && label.isNotEmpty && label != 'Current Location')
-              GestureDetector(
-                onTap: onTap,
-                child: const Icon(Icons.edit_outlined,
-                    size: 14, color: AppColors.onSurfaceVariant),
+            GestureDetector(
+              onTap: onPinTap,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isPicking
+                      ? AppColors.primary.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.location_pin,
+                  size: 16,
+                  color: isPicking
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant,
+                ),
               ),
+            ),
           ],
         ),
       ),
@@ -992,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
+          title: Text(
             'Location Access Required',
             style: TextStyle(
               fontFamily: 'Plus Jakarta Sans',
@@ -1000,7 +1194,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.onSurface,
             ),
           ),
-          content: const Text(
+          content: Text(
             'Location permission is permanently denied. '
             'Please enable it in Settings to use your current location.',
             style: TextStyle(color: AppColors.onSurfaceVariant),
@@ -1008,7 +1202,7 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
+              child: Text('Cancel',
                   style: TextStyle(color: AppColors.outline)),
             ),
             TextButton(
@@ -1016,7 +1210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pop(ctx);
                 Geolocator.openAppSettings();
               },
-              child: const Text(
+              child: Text(
                 'Open Settings',
                 style: TextStyle(
                     color: AppColors.primary, fontWeight: FontWeight.w700),
@@ -1064,9 +1258,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalItems = _searchResults.length + (showCurrentLocation ? 1 : 0);
     return Material(
       elevation: 6,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.shadow,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: AppColors.cardSurface,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         shrinkWrap: true,
@@ -1081,17 +1275,17 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: Container(
                 width: 34,
                 height: 34,
-                decoration: const BoxDecoration(
-                  color: Color(0x261A73E8),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.my_location,
-                  color: Color(0xFF1A73E8),
+                  color: AppColors.info,
                   size: 18,
                 ),
               ),
-              title: const Text(
+              title: Text(
                 'Current Location',
                 style: TextStyle(
                   fontSize: 14,
@@ -1103,7 +1297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _userLocation != null
                     ? 'Use your GPS location'
                     : 'Tap to enable location',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppColors.onSurfaceVariant,
                 ),
@@ -1118,7 +1312,7 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 34,
               decoration: BoxDecoration(
                 color: (_routeMode
-                        ? const Color(0xFF1A73E8)
+                        ? AppColors.info
                         : AppColors.primary)
                     .withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -1128,14 +1322,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? Icons.flag_outlined
                     : Icons.location_on_outlined,
                 color: _routeMode
-                    ? const Color(0xFF1A73E8)
+                    ? AppColors.info
                     : AppColors.primary,
                 size: 18,
               ),
             ),
             title: Text(
               place.displayName.split(',').first,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.onSurface,
@@ -1145,7 +1339,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             subtitle: Text(
               place.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: AppColors.onSurfaceVariant,
               ),
@@ -1182,7 +1376,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF95630).withOpacity(0.92),
+            color: AppColors.errorBannerStrong.withOpacity(0.92),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -1218,11 +1412,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: AppColors.shadow,
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -1234,9 +1428,9 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header
             Row(
               children: [
-                const Icon(Icons.route, color: AppColors.primary, size: 18),
+                Icon(Icons.route, color: AppColors.primary, size: 18),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Route Options',
                     style: TextStyle(
@@ -1249,7 +1443,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 GestureDetector(
                   onTap: _cancelRoute,
-                  child: const Icon(Icons.close,
+                  child: Icon(Icons.close,
                       color: AppColors.onSurfaceVariant, size: 20),
                 ),
               ],
@@ -1328,8 +1522,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.only(left: 6),
                             child: Icon(Icons.warning_amber_rounded,
                                 color: selected
-                                    ? const Color(0xFFFFA726)
-                                    : const Color(0xFFFFA726).withOpacity(0.4),
+                                    ? AppColors.warningSoft
+                                    : AppColors.warningSoft.withOpacity(0.4),
                                 size: 18),
                           ),
                         if (selected)
@@ -1356,7 +1550,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF95630).withOpacity(0.92),
+        color: AppColors.errorBannerStrong.withOpacity(0.92),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -1390,7 +1584,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Sign In Required',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
@@ -1398,14 +1592,14 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppColors.onSurface,
           ),
         ),
-        content: const Text(
+        content: Text(
           'You need to log in to use this feature.',
           style: TextStyle(color: AppColors.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.outline)),
           ),
           TextButton(
@@ -1413,11 +1607,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(ctx);
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthShell()),
                 (r) => false,
               );
             },
-            child: const Text(
+            child: Text(
               'Sign In',
               style: TextStyle(
                   color: AppColors.primary, fontWeight: FontWeight.w700),
@@ -1450,7 +1644,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [AppColors.primary, AppColors.primaryDim],
@@ -1464,7 +1658,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.add_circle, color: AppColors.onPrimary, size: 26),
@@ -1515,11 +1709,11 @@ class _RouteData {
 
   /// Vivid, distinct polyline color per route type.
   Color get color {
-    if (label.contains('Accessible')) return const Color(0xFF1565C0); // deep blue
-    if (label.contains('Wheelchair')) return const Color(0xFF6A1B9A); // deep purple
-    if (label.contains('Ramp'))       return const Color(0xFF00695C); // deep teal
+    if (label.contains('Accessible')) return AppColors.accentBlue; // deep blue
+    if (label.contains('Wheelchair')) return AppColors.accentPurple; // deep purple
+    if (label.contains('Ramp'))       return AppColors.accentTeal; // deep teal
     // Fastest route: amber-orange if has obstacles, vivid green if clear
-    return hasObstacles ? const Color(0xFFE65100) : const Color(0xFF2E7D32);
+    return hasObstacles ? AppColors.warning : AppColors.success;
   }
 
   String get distanceLabel {
@@ -1544,16 +1738,16 @@ class _LoadingChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: AppColors.cardSurface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.shadow,
             blurRadius: 12,
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(

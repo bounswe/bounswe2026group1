@@ -33,13 +33,13 @@ enum ReportTag {
   };
 
   IconData get icon => switch (this) {
-    ReportTag.missingRamp => Icons.accessible_forward,
+    ReportTag.missingRamp => Icons.not_accessible,
     ReportTag.brokenElevator => Icons.elevator_outlined,
     ReportTag.narrowPassage => Icons.compress,
     ReportTag.wetFloor => Icons.water_drop_outlined,
     ReportTag.construction => Icons.construction,
     ReportTag.other => Icons.warning_rounded,
-    ReportTag.ramp => Icons.accessible,
+    ReportTag.ramp => Icons.accessible_forward,
   };
 
   /// Backend enum string (e.g. MISSING_RAMP).
@@ -143,6 +143,29 @@ class ReportModel {
       mediaUrls:
           (json['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
       userVote: json['userVote'] as String?,
+    );
+  }
+
+  ReportModel copyWith({
+    int? agrees,
+    int? disagrees,
+    ReportStatus? status,
+    List<String>? mediaUrls,
+  }) {
+    return ReportModel(
+      reportId: reportId,
+      userId: userId,
+      username: username,
+      latitude: latitude,
+      longitude: longitude,
+      description: description,
+      tag: tag,
+      status: status ?? this.status,
+      agrees: agrees ?? this.agrees,
+      disagrees: disagrees ?? this.disagrees,
+      publishDate: publishDate,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
+      userVote: userVote,
     );
   }
 

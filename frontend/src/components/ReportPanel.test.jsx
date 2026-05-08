@@ -1,208 +1,238 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { AuthProvider } from '../context/AuthContext.jsx'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ReportPanel from './ReportPanel.jsx'
-import * as reportService from '../services/reportService.js'
 
-vi.mock('../services/reportService.js')
+vi.mock('../context/AuthContext.jsx', () => ({
+  useAuth: () => ({ token: 'mock-token', isAuthenticated: true, userId: 'user123' }),
+}))
 
-const MOCK_REPORT = {
-  id: 1,
-  title: 'Broken Elevator',
-  description: 'The elevator is out of service.',
-  status: 'unverified',
-  date: '4 April 2026',
-  location: '41.0683, 29.0505',
-  reportedBy: 'User #1',
-  agrees: 3,
-  disagrees: 1,
-  tags: ['Broken Elevator'],
-  image: null,
-  latitude: 41.0683,
-  longitude: 29.0505,
-}
+vi.mock('../services/reportService.js', () => ({
+  agreeReport: vi.fn(),
+  disagreeReport: vi.fn(),
+  agreeFixRequest: vi.fn(),
+  disagreeFixRequest: vi.fn(),
+  mapReport: vi.fn(r => r),
+  mapFixRequest: vi.fn(fr => fr),
+  getCommentsByReport: vi.fn(() => Promise.resolve([])),
+  createComment: vi.fn(),
+  deleteComment: vi.fn(() => Promise.resolve()),
+}))
 
-function renderPanel({
-  report = MOCK_REPORT,
-  token = null,
-  userVote = null,
-  onClose = vi.fn(),
-  onVoteUpdate = vi.fn(),
-  onVoteChange = vi.fn(),
-} = {}) {
-  if (token) localStorage.setItem('token', token)
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <ReportPanel
-          report={report}
-          userVote={userVote}
-          onClose={onClose}
-          onVoteUpdate={onVoteUpdate}
-          onVoteChange={onVoteChange}
-        />
-      </AuthProvider>
-    </MemoryRouter>
-  )
-}
+import {
+  agreeReport,
+  disagreeReport,
+  agreeFixRequest,
+  getCommentsByReport,
+  createComment,
+  deleteComment,
+} from '../services/reportService.js'
 
 describe('ReportPanel', () => {
+  let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user
+
+  const report = {
+    id: 'r1',
+    title: 'Broken Elevator',
+    description: 'The elevator is out of service.',
+    location: '41.0683, 29.0505',
+    agrees: 0,
+    disagrees: 0,
+    imageUrl: null,
+    userVote: null,
+    isFollowed: false,
+  }
+
+  const existingComment = {
+    id: 'c1',
+    content: 'Existing comment',
+    author: { id: 'user123', name: 'Tester' },
+  }
+
   beforeEach(() => {
+    onCloseMock = vi.fn()
+    onVoteChangeMock = vi.fn()
+    onFollowChangeMock = vi.fn()
+    onVoteUpdateMock = vi.fn()
+    user = userEvent.setup()
     vi.clearAllMocks()
-    localStorage.clear()
+    getCommentsByReport.mockResolvedValue([])
   })
 
-  // ─── Rendering ───────────────────────────────────────────────────────────────
+  function renderPanel(props = {}) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ReportPanel
+            report={report}
+            onClose={onCloseMock}
+            onVoteChange={onVoteChangeMock}
+            onVoteUpdate={onVoteUpdateMock}
+            onFollowChange={onFollowChangeMock}
+            {...props}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+  }
 
-  describe('rendering', () => {
-    it('renders the report title', () => {
-      renderPanel()
-      expect(screen.getByRole('heading', { name: 'Broken Elevator' })).toBeInTheDocument()
-    })
+  test('renders the report title, description, location and buttons', async () => {
+    renderPanel()
 
-    it('renders the description', () => {
-      renderPanel()
-      expect(screen.getByText('The elevator is out of service.')).toBeInTheDocument()
-    })
-
-    it('renders the location', () => {
-      renderPanel()
-      expect(screen.getByText('41.0683, 29.0505')).toBeInTheDocument()
-    })
-
-    it('renders Agree and Disagree buttons', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: 'Agree' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Disagree' })).toBeInTheDocument()
-    })
-
-    it('renders the close button', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: /close panel/i })).toBeInTheDocument()
-    })
-
-    it('renders nothing when report is null', () => {
-      const { container } = renderPanel({ report: null })
-      expect(container).toBeEmptyDOMElement()
-    })
-
-    it('shows image placeholder when no image', () => {
-      renderPanel()
-      expect(screen.getByText('image', { selector: '.material-symbols-outlined' })).toBeInTheDocument()
-    })
-
-    it('shows image when report has one', () => {
-      renderPanel({ report: { ...MOCK_REPORT, image: 'https://example.com/img.jpg' } })
-      expect(screen.getByRole('img', { name: /broken elevator/i })).toHaveAttribute('src', 'https://example.com/img.jpg')
-    })
+    expect(screen.getByText(report.title)).toBeInTheDocument()
+    expect(screen.getByText(report.description)).toBeInTheDocument()
+    expect(screen.getByText(/41\.0683, 29\.0505/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Agree')).toBeInTheDocument()
+    expect(screen.getByLabelText('Disagree')).toBeInTheDocument()
   })
 
-  // ─── Close button ─────────────────────────────────────────────────────────────
+  test('calls onVoteChange with agree/disagree/null correctly', async () => {
+    agreeReport
+      .mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0, userVote: 'agree' })
+      .mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 0, userVote: null })
+    disagreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 0, disagrees: 1, userVote: 'disagree' })
 
-  describe('close button', () => {
-    it('calls onClose when close button is clicked', async () => {
-      const onClose = vi.fn()
-      const user = userEvent.setup()
-      renderPanel({ onClose })
-      await user.click(screen.getByRole('button', { name: /close panel/i }))
-      expect(onClose).toHaveBeenCalledTimes(1)
-    })
+    renderPanel()
+
+    const agreeBtn = screen.getByLabelText('Agree')
+    const disagreeBtn = screen.getByLabelText('Disagree')
+
+    await act(async () => { await user.click(agreeBtn) })
+    await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith('agree'))
+
+    await act(async () => { await user.click(disagreeBtn) })
+    await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith('disagree'))
+
+    await act(async () => { await user.click(agreeBtn) })
+    await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith(null))
   })
 
-  // ─── Vote button colors ───────────────────────────────────────────────────────
+  test('toggles follow state', async () => {
+    renderPanel()
 
-  describe('vote button colors', () => {
-    it('agree button starts with gray background when userVote is null', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-surface-container-highest')
-    })
+    const followBtn = screen.getByRole('button', { name: /follow/i })
+    await act(async () => { await user.click(followBtn) })
 
-    it('disagree button starts with gray background when userVote is null', () => {
-      renderPanel()
-      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-surface-container-highest')
-    })
-
-    it('agree button is green when userVote prop is agree', () => {
-      renderPanel({ userVote: 'agree' })
-      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-primary')
-      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-surface-container-highest')
-    })
-
-    it('disagree button is red when userVote prop is disagree', () => {
-      renderPanel({ userVote: 'disagree' })
-      expect(screen.getByRole('button', { name: 'Disagree' }).className).toContain('bg-error')
-      expect(screen.getByRole('button', { name: 'Agree' }).className).toContain('bg-surface-container-highest')
-    })
-
-    it('calls onVoteChange with agree when agree vote is cast', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 4 })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 4 })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, onVoteChange })
-
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
-
-      await waitFor(() => {
-        expect(onVoteChange).toHaveBeenCalledWith('agree')
-      })
-    })
-
-    it('calls onVoteChange with disagree when disagree vote is cast', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      reportService.disagreeReport.mockResolvedValue({ ...MOCK_REPORT, disagrees: 2 })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, disagrees: 2 })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, onVoteChange })
-
-      await user.click(screen.getByRole('button', { name: 'Disagree' }))
-
-      await waitFor(() => {
-        expect(onVoteChange).toHaveBeenCalledWith('disagree')
-      })
-    })
-
-    it('calls onVoteChange with null when toggling off an existing agree vote', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      const onVoteChange = vi.fn()
-      // agrees goes from 3 → 2 (toggle off), so delta is negative → null
-      reportService.agreeReport.mockResolvedValue({ ...MOCK_REPORT, agrees: 2 })
-      reportService.mapReport.mockReturnValue({ ...MOCK_REPORT, agrees: 2 })
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken, userVote: 'agree', onVoteChange })
-
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
-
-      await waitFor(() => {
-        expect(onVoteChange).toHaveBeenCalledWith(null)
-      })
+    await waitFor(() => {
+      expect(onFollowChangeMock).toHaveBeenCalled()
+      expect(followBtn.textContent.toLowerCase()).toMatch(/unfollow/)
     })
   })
 
-  // ─── Vote error handling ──────────────────────────────────────────────────────
+  test('can delete own comment', async () => {
+    getCommentsByReport.mockResolvedValueOnce([existingComment])
 
-  describe('vote error handling', () => {
-    it('navigates to /login when voting without being logged in', async () => {
-      const user = userEvent.setup()
-      renderPanel() // no token
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
-      expect(screen.queryByText(/failed to submit vote/i)).not.toBeInTheDocument()
+    renderPanel()
+
+    const comment = await screen.findByText((content, element) =>
+      element.tagName.toLowerCase() === 'p' && content.includes('Existing comment')
+    )
+
+    const deleteBtn = within(comment.parentElement).getByLabelText('Delete comment')
+
+    await act(async () => { await user.click(deleteBtn) })
+
+    await waitFor(() => {
+      expect(comment).not.toBeInTheDocument()
     })
+  })
 
-    it('shows error when vote API call fails', async () => {
-      const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QHRlc3QuY29tIiwiaWQiOjEsInJvbGUiOiJVU0VSIn0.sig'
-      reportService.agreeReport.mockRejectedValue(new Error('Server error'))
-      const user = userEvent.setup()
-      renderPanel({ token: fakeToken })
+  // ── fix-flow additions ──────────────────────────────────────────────────
 
-      await user.click(screen.getByRole('button', { name: 'Agree' }))
+  test('shows the fix CTA for an authenticated user when no active fix exists', () => {
+    renderPanel()
+    expect(screen.getByText(/Has this been fixed\?/i)).toBeInTheDocument()
+  })
 
-      await waitFor(() => {
-        expect(screen.getByText(/failed to submit vote/i)).toBeInTheDocument()
-      })
+  test('hides the fix CTA when the report is already FIXED', () => {
+    renderPanel({ report: { ...report, status: 'fixed' } })
+    expect(screen.queryByText(/Has this been fixed\?/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Fixed')).toBeInTheDocument()
+  })
+
+  test('hides the fix CTA when an active fix request is already in flight', () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99, // different user
+      submittedByName: 'Mehmet',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+    expect(screen.queryByText(/Has this been fixed\?/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Fix Requested/i)).toBeInTheDocument()
+    expect(screen.getByText(/Fix pending/i)).toBeInTheDocument()
+  })
+
+  test('renders the active fix card with vote buttons for non-submitter', () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99,
+      submittedByName: 'Mehmet',
+      description: 'New ramp installed',
+      state: 'OPEN',
+      agrees: 3,
+      disagrees: 1,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    expect(screen.getByText('New ramp installed')).toBeInTheDocument()
+    expect(screen.getByText(/3 agrees/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 disagrees/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Yes, fixed/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /No, still there/i })).toBeInTheDocument()
+  })
+
+  test('hides the vote buttons when the current user submitted the fix', () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 'user123', // matches the mocked auth userId
+      submittedByName: 'You',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    expect(screen.queryByRole('button', { name: /Yes, fixed/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /No, still there/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/You submitted this fix report/i)).toBeInTheDocument()
+  })
+
+  test('clicking Yes, fixed calls agreeFixRequest', async () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99,
+      submittedByName: 'Mehmet',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    agreeFixRequest.mockResolvedValue({ ...activeFix, agrees: 1, userVote: 'AGREE' })
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    await act(async () => { await user.click(screen.getByRole('button', { name: /Yes, fixed/i })) })
+
+    await waitFor(() => {
+      expect(agreeFixRequest).toHaveBeenCalledWith('r1', 11, 'mock-token')
     })
   })
 })

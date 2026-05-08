@@ -1,25 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
-import { ThemeProvider } from '../context/ThemeContext.jsx'
+import { SseProvider } from '../context/SseContext.jsx'
 import Home from './Home.jsx'
 
-beforeAll(() => {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(), // deprecated
-      removeListener: vi.fn(), // deprecated
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  })
-})
+// useSseSync opens a real EventSource — mock it out in tests
+vi.mock('../hooks/useSseSync.js', () => ({ useSseSync: vi.fn() }))
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
@@ -42,14 +30,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 function renderHome() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <Home />
-        </AuthProvider>
-      </ThemeProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <SseProvider>
+        <MemoryRouter>
+          <AuthProvider>
+            <Home />
+          </AuthProvider>
+        </MemoryRouter>
+      </SseProvider>
+    </QueryClientProvider>
   )
 }
 

@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../models/report_model.dart';
-import 'login_screen.dart';
-import 'register_screen.dart';
+import '../main.dart' show AuthShell;
 import 'report_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -59,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Sign In Required',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
@@ -67,24 +66,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: AppColors.onSurface,
           ),
         ),
-        content: const Text(
+        content: Text(
           'You need to log in to access this feature.',
           style: TextStyle(color: AppColors.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.outline)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.outline)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthShell()),
               );
             },
-            child: const Text(
+            child: Text(
               'Sign In',
               style: TextStyle(
                 color: AppColors.primary,
@@ -102,10 +101,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final auth = context.watch<AuthService>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7F4),
+      backgroundColor: AppColors.surfaceTint,
       body: SafeArea(
         child: _loading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               )
             : auth.isAuthenticated
@@ -123,13 +122,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.wifi_off, color: AppColors.outlineVariant, size: 40),
+            Icon(Icons.wifi_off, color: AppColors.outlineVariant, size: 40),
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: AppColors.onSurfaceVariant)),
+            Text(_error!, style: TextStyle(color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 16),
             GestureDetector(
               onTap: _loadData,
-              child: const Text('Retry', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              child: Text('Retry', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -156,16 +155,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.surfaceContainerHigh,
-                        border: Border.all(color: Colors.white, width: 3),
+                        border: Border.all(
+                            color: AppColors.cardSurface, width: 3),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: AppColors.shadow,
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.person, size: 44, color: AppColors.secondary),
+                      child: Icon(Icons.person, size: 44, color: AppColors.secondary),
                     ),
                     Positioned(
                       bottom: 2,
@@ -173,11 +173,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Container(
                         width: 24,
                         height: 24,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.verified, color: Colors.white, size: 14),
+                        child: Icon(Icons.verified,
+                            color: AppColors.onPrimarySolid, size: 14),
                       ),
                     ),
                   ],
@@ -185,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 14),
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontWeight: FontWeight.w700,
                     fontSize: 22,
@@ -195,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 4),
                 Text(
                   email,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -218,7 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 28),
 
           // Manage Account
-          const Text(
+          Text(
             'Manage Account',
             style: TextStyle(
               fontFamily: 'Plus Jakarta Sans',
@@ -244,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Recent Reports',
                 style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
@@ -262,10 +263,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardSurface,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'No reports yet. Start contributing!',
                   style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 14),
@@ -293,11 +294,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: AppColors.shadow,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -307,7 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
@@ -321,7 +322,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontWeight: FontWeight.w800,
                   fontSize: 28,
@@ -334,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     suffix,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.onSurfaceVariant,
@@ -355,11 +356,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: AppColors.shadow,
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -372,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -399,11 +400,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: AppColors.shadow,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -427,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   report.tag.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                     color: AppColors.onSurface,
@@ -436,7 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 2),
                 Text(
                   desc,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -450,7 +451,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: verified ? const Color(0xFF4CAF50) : const Color(0xFFFFA726),
+                  color: verified ? AppColors.success : AppColors.warningSoft,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -461,7 +462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.6,
-                  color: verified ? const Color(0xFF4CAF50) : const Color(0xFFFFA726),
+                  color: verified ? AppColors.success : AppColors.warningSoft,
                 ),
               ),
             ],
@@ -491,19 +492,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.surfaceContainerHigh,
-                    border: Border.all(color: Colors.white, width: 3),
+                    border:
+                        Border.all(color: AppColors.cardSurface, width: 3),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: AppColors.shadow,
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.person_outline, size: 44, color: AppColors.secondary),
+                  child: Icon(Icons.person_outline, size: 44, color: AppColors.secondary),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'Guest Account',
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
@@ -513,7 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Sign in to access your full profile',
                   style: TextStyle(
                     fontSize: 14,
@@ -530,11 +532,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardSurface,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: AppColors.shadow,
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -543,7 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'With an account you can:',
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
@@ -567,13 +569,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           GestureDetector(
             onTap: () => Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              MaterialPageRoute(builder: (_) => const AuthShell()),
             ),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 18),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [AppColors.primary, AppColors.primaryDim],
@@ -587,7 +589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
-              child: const Text(
+              child: Text(
                 'Sign In',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -606,16 +608,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 "Don't have an account? ",
                 style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
               ),
               GestureDetector(
                 onTap: () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  MaterialPageRoute(builder: (_) => const AuthShell(initialTab: 1)),
                 ),
-                child: const Text(
+                child: Text(
                   'Sign Up',
                   style: TextStyle(
                     fontSize: 14,
@@ -648,7 +650,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 12),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               color: AppColors.onSurface,
               fontWeight: FontWeight.w500,

@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart';
 import '../main.dart' show MainShell;
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final void Function(int)? onTabSwitch;
+  const RegisterScreen({super.key, this.onTabSwitch});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -20,6 +20,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _agreedToTerms = false;
   bool _loading = false;
+
+  String? _nameError;
+  String? _emailError;
+  String? _passwordError;
+  String? _formError;
 
   @override
   void dispose() {
@@ -34,12 +39,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showError('Please fill in all fields.');
-      return;
+    String? validatePassword(String pass) {
+      if (pass.isEmpty) return 'Password is required';
+      if (pass.length < 8) return 'Min 8 characters required';
+      if (!RegExp(r'[A-Z]').hasMatch(pass)) return 'Must contain at least 1 uppercase letter';
+      if (!RegExp(r'[a-z]').hasMatch(pass)) return 'Must contain at least 1 lowercase letter';
+      if (!RegExp(r'\d').hasMatch(pass)) return 'Must contain at least 1 digit';
+      if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>+=\-\[\]\\]').hasMatch(pass)) return 'Must contain at least 1 special character';
+      return null;
     }
+
+    setState(() {
+      _nameError = name.isEmpty ? 'Name is required' : null;
+      _emailError = email.isEmpty ? 'Email is required' : null;
+      _passwordError = validatePassword(password);
+      _formError = null;
+    });
+
+    if (_nameError != null || _emailError != null || _passwordError != null) return;
+    
     if (!_agreedToTerms) {
-      _showError('Please accept the Terms of Service to continue.');
+      setState(() => _formError = 'Please accept the Terms of Service to continue.');
       return;
     }
 
@@ -55,23 +75,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } on ApiException catch (e) {
-      if (mounted) _showError(e.userMessage);
+      if (mounted) setState(() => _formError = e.userMessage);
     } catch (_) {
-      if (mounted) _showError('Cannot reach server. Check your connection.');
+      if (mounted) setState(() => _formError = 'Cannot reach server. Check your connection.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFFB02500),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
   }
 
   @override
@@ -89,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 40),
-                    const Center(
+                    Center(
                       child: Text(
                         'Mapcess',
                         style: TextStyle(
@@ -101,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    const Text(
+                    Text(
                       'Join our\ncommunity',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
@@ -112,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Take the first step toward a cleaner, safer, and more vibrant city for everyone.',
                       style: TextStyle(
                         fontSize: 15,
@@ -126,6 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _buildTextField(
                       controller: _nameController,
                       hint: 'Enter your name',
+                      errorText: _nameError,
                     ),
                     const SizedBox(height: 14),
                     _buildLabel('Email Address'),
@@ -134,6 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _emailController,
                       hint: 'you@example.com',
                       keyboardType: TextInputType.emailAddress,
+                      errorText: _emailError,
                     ),
                     const SizedBox(height: 14),
                     _buildLabel('Password'),
@@ -142,6 +153,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _passwordController,
                       hint: '••••••••',
                       obscure: _obscurePassword,
+                      errorText: _passwordError,
                       suffix: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -155,7 +167,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Min 8 chars · uppercase · lowercase · digit · special (@#\$%^&+=!)',
                       style: TextStyle(
                         fontSize: 11,
@@ -172,13 +184,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           height: 22,
                           child: Checkbox(
                             value: _agreedToTerms,
-                            onChanged: (v) =>
-                                setState(() => _agreedToTerms = v ?? false),
+                            onChanged: (v) => setState(() {
+                              _agreedToTerms = v ?? false;
+                              if (_agreedToTerms) _formError = null;
+                            }),
                             activeColor: AppColors.primary,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            side: const BorderSide(
+                            side: BorderSide(
                               color: AppColors.outlineVariant,
                             ),
                           ),
@@ -186,7 +200,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: RichText(
-                            text: const TextSpan(
+                            text: TextSpan(
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppColors.onSurfaceVariant,
@@ -217,12 +231,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    if (_formError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.errorContainerBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline,
+                                color: AppColors.onErrorContainer, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _formError!,
+                                style: TextStyle(
+                                  color: AppColors.onErrorContainer,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     _buildPrimaryButton(),
                     const SizedBox(height: 16),
                     Center(
                       child: RichText(
                         text: TextSpan(
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             color: AppColors.onSurfaceVariant,
                           ),
@@ -230,13 +272,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const TextSpan(text: 'Already a member? '),
                             WidgetSpan(
                               child: GestureDetector(
-                                onTap: () => Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const LoginScreen(),
-                                  ),
-                                ),
-                                child: const Text(
+                                onTap: () => widget.onTabSwitch?.call(0),
+                                child: Text(
                                   'Sign In',
                                   style: TextStyle(
                                     fontSize: 14,
@@ -255,7 +292,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -264,7 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildLabel(String text) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: AppColors.onSurfaceVariant,
@@ -277,28 +313,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextInputType? keyboardType,
     bool obscure = false,
     Widget? suffix,
+    String? errorText,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        style: const TextStyle(color: AppColors.onSurface, fontSize: 15),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: AppColors.outlineVariant),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 16,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(14),
+            border: errorText != null ? Border.all(color: AppColors.error) : null,
           ),
-          suffixIcon: suffix,
+          child: TextField(
+            controller: controller,
+            obscureText: obscure,
+            keyboardType: keyboardType,
+            style: TextStyle(color: AppColors.onSurface, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: AppColors.outlineVariant),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
+              suffixIcon: suffix,
+            ),
+            onChanged: (_) {
+              if (errorText != null) {
+                setState(() {
+                  if (controller == _nameController) _nameError = null;
+                  if (controller == _emailController) _emailError = null;
+                  if (controller == _passwordController) _passwordError = null;
+                  _formError = null;
+                });
+              }
+            },
+          ),
         ),
-      ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Text(
+              errorText,
+              style: TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 
@@ -309,7 +370,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [AppColors.primary, AppColors.primaryDim],
@@ -324,7 +385,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
         child: _loading
-            ? const Center(
+            ? Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
@@ -334,7 +395,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               )
-            : const Row(
+            : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
@@ -354,78 +415,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 40,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavTab(
-            icon: Icons.login,
-            label: 'SIGN IN',
-            active: false,
-            onTap: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            ),
-          ),
-          _buildNavTab(
-            icon: Icons.person_add,
-            label: 'SIGN UP',
-            active: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavTab({
-    required IconData icon,
-    required String label,
-    required bool active,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFFDCF5DC) : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: active ? AppColors.primary : AppColors.outline,
-              size: 20,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: active ? AppColors.primary : AppColors.outline,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
