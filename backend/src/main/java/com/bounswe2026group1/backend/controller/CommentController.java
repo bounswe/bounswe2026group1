@@ -2,7 +2,7 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
-import com.bounswe2026group1.backend.model.Comment;
+import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
 import com.bounswe2026group1.backend.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,8 +46,8 @@ public class CommentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CommentResponse> update(@PathVariable Long id, @RequestBody Comment comment) {
-        return commentService.update(id, comment)
+    public ResponseEntity<CommentResponse> update(@PathVariable Long id, @RequestBody @Valid UpdateCommentRequest req) {
+        return commentService.update(id, req)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

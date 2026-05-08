@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
+import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
 import com.bounswe2026group1.backend.model.Comment;
 import com.bounswe2026group1.backend.repository.CommentRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -49,9 +50,10 @@ public class CommentService {
         return CommentResponse.fromEntity(saved);
     }
 
-    public Optional<CommentResponse> update(Long id, Comment updated) {
+    @Transactional
+    public Optional<CommentResponse> update(Long id, UpdateCommentRequest req) {
         return commentRepository.findById(id).map(existing -> {
-            existing.setContent(updated.getContent());
+            existing.setContent(req.content());
             return CommentResponse.fromEntity(commentRepository.save(existing));
         });
     }
