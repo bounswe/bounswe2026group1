@@ -126,12 +126,24 @@ class NotificationServiceTest {
     }
 
     @Test
-    void notifyStatusChange_skipsTransitionsThatAreNotVerifiedOrRejectedOrFixed() {
+    void notifyStatusChange_persistsRevertToPendingWithDistinctPhrasing() {
+        stubEmptyAudience();
+        stubSaveAssignsId();
+        stubFindAllByIdReturns(author);
         report.setStatus(ReportStatus.PENDING);
 
         notificationService.notifyStatusChange(report, 999L);
 
-        verify(notificationRepository, never()).save(any());
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        Notification saved = captor.getValue();
+        assertEquals(NotificationType.STATUS_CHANGE, saved.getType());
+        assertEquals(author, saved.getRecipient());
+        // PENDING reverts use "is now pending again" instead of the past-tense
+        // "was X" used for VERIFIED/REJECTED/FIXED milestones.
+        assertTrue(saved.getMessage().contains("pending again"),
+                "Revert message should read naturally, got: " + saved.getMessage());
     }
 
     @Test
