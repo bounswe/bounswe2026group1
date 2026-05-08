@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../models/sse_event.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
@@ -64,6 +65,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _commentSubmitting = false;
 
+  // ── Follow state ─────────────────────────────────────────────────────────
+  /// `null` = not yet loaded, otherwise reflects the server's truth.
+  bool? _isFollowing;
+  bool _followBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +86,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (_hasVideo) _initVideo();
     // Fetch fresh report so userVote / counts reflect server state.
     _refreshReport();
+    _loadFollowStatus();
     // Subscribe to real-time updates.
     _sseSub = context.read<SseService>().events.listen(_onSseEvent);
   }
@@ -121,16 +128,81 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  Future<void> _loadFollowStatus() async {
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) return;
+    try {
+      final following = await auth.api.isFollowingReport(report.reportId);
+      if (!mounted) return;
+      setState(() => _isFollowing = following);
+    } catch (_) {
+      // Non-fatal — leave the button in its initial unloaded state, the
+      // user can still tap it to retry.
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+    if (_followBusy) return;
+    final wasFollowing = _isFollowing ?? false;
+    setState(() => _followBusy = true);
+    try {
+      final next = wasFollowing
+          ? await auth.api.unfollowReport(report.reportId)
+          : await auth.api.followReport(report.reportId);
+      if (!mounted) return;
+      setState(() {
+        _isFollowing = next;
+        _followBusy = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(next
+              ? 'Following — you\'ll be notified about updates.'
+              : 'Stopped following this report.'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _followBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update follow status. Try again.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _openEdit() async {
-    final updated = await Navigator.push<ReportModel>(
+    final outcome = await Navigator.push<EditReportOutcome>(
       context,
       MaterialPageRoute(
         builder: (_) => EditReportScreen(report: report),
         fullscreenDialog: true,
       ),
     );
-    if (!mounted || updated == null) return;
-    setState(() => _report = updated);
+    if (!mounted) return;
+    switch (outcome) {
+      case EditReportUpdated(:final report):
+        setState(() => _report = report);
+      case EditReportDeleted():
+        // Edit screen already popped itself; now pop this detail screen so
+        // the user lands on whatever was below (home / feed / notification
+        // origin). Capture the messenger first so the snackbar lands on the
+        // destination scaffold.
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Report deleted.')),
+        );
+      case null:
+        break;
+    }
   }
 
   /// iOS AVPlayer fails with -9405 when the URL issues a redirect (e.g. S3
@@ -218,17 +290,39 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       _commentsError = null;
     });
     try {
-      final raw = await context.read<AuthService>().api.getComments(report.reportId);
+      final raw = await context
+          .read<AuthService>()
+          .api
+          .getComments(report.reportId);
       if (!mounted) return;
+      // Parse each row inside its own try so a single malformed comment
+      // doesn't tank the whole list.
+      final parsed = <_CommentData>[];
+      for (final row in raw) {
+        try {
+          parsed.add(_CommentData.fromJson(row));
+        } catch (_) {
+          // Skip the bad row but keep going.
+        }
+      }
       setState(() {
-        _comments = raw.map(_CommentData.fromJson).toList();
+        _comments = parsed;
         _commentsLoading = false;
       });
-    } catch (_) {
-      if (mounted) setState(() {
-        _commentsLoading = false;
-        _commentsError = 'Could not load comments.';
-      });
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _commentsLoading = false;
+          _commentsError = e.userMessage;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _commentsLoading = false;
+          _commentsError = 'Could not load comments. ($e)';
+        });
+      }
     }
   }
 
@@ -249,10 +343,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
       _commentController.clear();
       await _loadComments();
-    } catch (_) {
+    } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to post comment.')),
+          SnackBar(content: Text('Couldn\'t post comment — ${e.userMessage}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Couldn\'t post comment — $e')),
         );
       }
     } finally {
@@ -1705,34 +1805,63 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   // ─── Follow button ──────────────────────────────────────────────────────────
 
   Widget _buildFollowButton() {
+    final isFollowing = _isFollowing ?? false;
+    final loading = _followBusy;
+    // Following → outlined "Following" affordance to signal it's an unfollow
+    // toggle. Not-following (or unknown) → filled primary CTA.
+    final filled = !isFollowing;
+    final bg = filled ? AppColors.primary : AppColors.surfaceContainerLowest;
+    final fg = filled ? AppColors.onPrimary : AppColors.primary;
     return GestureDetector(
-      onTap: () {},
-      child: Container(
+      onTap: loading ? null : _toggleFollow,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: bg,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.22),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          border: filled
+              ? null
+              : Border.all(color: AppColors.primary, width: 2),
+          boxShadow: filled
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.22),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_active_outlined, color: AppColors.onPrimary, size: 20),
-            SizedBox(width: 10),
+            if (loading)
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: fg,
+                ),
+              )
+            else
+              Icon(
+                isFollowing
+                    ? Icons.notifications_active
+                    : Icons.notifications_active_outlined,
+                color: fg,
+                size: 20,
+              ),
+            const SizedBox(width: 10),
             Text(
-              'Follow Updates',
+              isFollowing ? 'Following' : 'Follow Updates',
               style: TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
-                color: AppColors.onPrimary,
+                color: fg,
               ),
             ),
           ],
@@ -1843,13 +1972,26 @@ class _CommentData {
   });
 
   factory _CommentData.fromJson(Map<String, dynamic> json) {
-    final author = json['author'] as Map<String, dynamic>?;
+    // Author may arrive as a nested map, a bare numeric id, or be missing
+    // entirely depending on backend version — accept any of those.
+    String resolveUsername() {
+      final raw = json['author'];
+      if (raw is Map) {
+        final name = raw['name'];
+        if (name is String && name.trim().isNotEmpty) return name;
+        final id = raw['id'];
+        if (id != null) return 'User #$id';
+      } else if (raw is num) {
+        return 'User #${raw.toInt()}';
+      }
+      return 'User';
+    }
+
     return _CommentData(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      username: author?['name'] as String? ??
-          'User #${author?['id'] ?? '?'}',
-      text: json['content'] as String? ?? '',
-      createdAt: json['createdAt'] as String? ?? '',
+      username: resolveUsername(),
+      text: (json['content'] as String?) ?? '',
+      createdAt: (json['createdAt'] as String?) ?? '',
     );
   }
 
