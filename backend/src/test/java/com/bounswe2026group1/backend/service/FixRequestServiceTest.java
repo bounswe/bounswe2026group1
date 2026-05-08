@@ -4,12 +4,13 @@ import com.bounswe2026group1.backend.dto.FixRequestResponse;
 import com.bounswe2026group1.backend.model.FixRequest;
 import com.bounswe2026group1.backend.model.FixRequestState;
 import com.bounswe2026group1.backend.model.FixRequestVote;
-import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.model.Tag;
+import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.util.GeoUtils;
 import com.bounswe2026group1.backend.repository.FixRequestRepository;
 import com.bounswe2026group1.backend.repository.FixRequestVoteRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
@@ -44,6 +45,7 @@ class FixRequestServiceTest {
     @Mock private RegisteredUserRepository registeredUserRepository;
     @Mock private S3MediaService s3MediaService;
     @Mock private PublicSseService publicSseService;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks
     private FixRequestService fixRequestService;
@@ -68,7 +70,8 @@ class FixRequestServiceTest {
         owner.setId(1L);
         owner.setEmail("owner@test.com");
         owner.setName("Ayşe K.");
-        parentReport = new Report(owner, new Location(41.0, 29.0), "Missing ramp", Tag.MISSING_RAMP);
+        parentReport = new Report(owner, GeoUtils.point4326(41.0, 29.0), "Missing ramp",
+                ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(parentReport, "reportId", 100L);
         ReflectionTestUtils.setField(parentReport, "status", ReportStatus.VERIFIED);
 
@@ -274,6 +277,7 @@ class FixRequestServiceTest {
         assertEquals(ReportStatus.FIXED, parentReport.getStatus());
         assertNotNull(parentReport.getFixedAt());
         verify(publicSseService).broadcastFixed(parentReport);
+        verify(notificationService).notifyStatusChange(parentReport, submitter.getId());
     }
 
     @Test

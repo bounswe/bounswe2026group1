@@ -22,17 +22,17 @@ class ReportsScreen extends StatelessWidget {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDCF5DC),
+                        color: AppColors.successContainer,
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.assignment_outlined,
                         color: AppColors.primary,
                         size: 38,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Community Reports',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
@@ -42,7 +42,7 @@ class ReportsScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       '!!! COMING SOON !!!',
                       style: TextStyle(
                         fontSize: 14,

@@ -1,8 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
 import logo from '../assets/mapcess-transparent.png'
+import { useAuth } from '../context/AuthContext.jsx'
 
 function Navbar() {
+  const { isAdmin } = useAuth()
+
   return (
     <header className="w-full sticky top-0 z-[1001] bg-white/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
       <div className="flex items-center gap-4 md:gap-8">
@@ -38,6 +41,18 @@ function Navbar() {
           >
             Feed
           </NavLink>
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                isActive
+                  ? 'text-primary border-b-2 border-primary font-semibold pb-1'
+                  : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
+              }
+            >
+              Admin
+            </NavLink>
+          )}
         </nav>
       </div>
 

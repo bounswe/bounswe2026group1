@@ -1,62 +1,107 @@
 package com.bounswe2026group1.backend.config;
 
+import com.bounswe2026group1.backend.model.UserStatus;
+import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    static final String SSE_COOKIE_NAME = "sse_token";
+
     private final JwtUtil jwtUtil;
+    private final RegisteredUserRepository registeredUserRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // 1. HTTP Header
         final String authHeader = request.getHeader("Authorization");
+        final boolean isSsePath = isSseRequest(request);
         final String jwt;
-        final String userEmail;
+        final boolean tokenFromCookie;
 
-        // 2. Check if the header is present and starts with "Bearer "
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // Bearer header is the canonical path: works for every endpoint and
+        // covers the mobile SSE client (which can set headers, unlike the
+        // browser's EventSource).
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+            tokenFromCookie = false;
+        } else if (isSsePath) {
+            // Browser EventSource cannot set headers, so SSE handshakes carry
+            // a short-lived purpose-scoped JWT in the sse_token cookie. The
+            // durable session JWT never appears in a URL.
+            String cookieToken = readSseCookie(request);
+            if (cookieToken == null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            jwt = cookieToken;
+            tokenFromCookie = true;
+        } else {
             filterChain.doFilter(request, response);
-            return; // If no token is present, just continue the filter chain (unauthenticated)
+            return;
         }
 
-        // 3. Parse the token
-        jwt = authHeader.substring(7);
-
         try {
-            // 4. Validate the token and extract the email
             if (jwtUtil.validateToken(jwt)) {
-                userEmail = jwtUtil.extractEmail(jwt);
+                boolean ssePurpose = jwtUtil.isSsePurpose(jwt);
+                // Cookie-delivered tokens MUST be the SSE-purpose token. This
+                // rejects a durable session JWT pasted into the cookie.
+                if (tokenFromCookie && !ssePurpose) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                // The SSE-purpose token must not be reused on non-SSE
+                // endpoints, so a leaked cookie can't be replayed elsewhere.
+                if (!isSsePath && ssePurpose) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
-                // 5. Check if the user is already authenticated in the system
+                String userEmail = jwtUtil.extractEmail(jwt);
                 if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                    // Create an Authentication object and set it in the SecurityContext
+                    // Load user from DB to check ban status and get current role
+                    var userOpt = registeredUserRepository.findByEmail(userEmail);
+                    if (userOpt.isEmpty()) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
+                    var user = userOpt.get();
+
+                    // Reject banned users immediately
+                    if (user.getStatus() == UserStatus.BANNED) {
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Account is banned");
+                        return;
+                    }
+
+                    // Create an Authentication object with the user's role as a granted authority
+                    var authority = new SimpleGrantedAuthority("ROLE_" + user.getRole());
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userEmail,
                             null,
-                            Collections.emptyList() // No authorities/roles are set here, but you can extract them from the token if needed
+                            List.of(authority)
                     );
-
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    // Notify the system that the user is logged in
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
@@ -64,7 +109,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             // Token is expired or invalid. (Security config will return 401 since no context is set).
         }
 
-        // 6. Pass the request to the next filter or controller
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean isSseRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path != null && path.startsWith("/api/sse/notifications");
+    }
+
+    private static String readSseCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if (SSE_COOKIE_NAME.equals(c.getName())) {
+                String v = c.getValue();
+                return (v == null || v.isBlank()) ? null : v;
+            }
+        }
+        return null;
     }
 }

@@ -36,6 +36,7 @@ public class FixRequestService {
     private final RegisteredUserRepository registeredUserRepository;
     private final S3MediaService s3MediaService;
     private final PublicSseService publicSseService;
+    private final NotificationService notificationService;
 
     @Value("${app.report.fix.threshold:5}")
     private int fixThreshold;
@@ -174,6 +175,7 @@ public class FixRequestService {
         report.setFixedAt(Instant.now());
         reportRepository.save(report);
 
+        notificationService.notifyStatusChange(report, fixRequest.getSubmittedBy().getId());
         TransactionalEvents.runAfterCommit(() -> publicSseService.broadcastFixed(report));
     }
 

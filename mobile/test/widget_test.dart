@@ -9,6 +9,7 @@ import 'package:mapcess/screens/register_screen.dart';
 import 'package:mapcess/services/auth_service.dart';
 import 'package:mapcess/services/api_service.dart';
 import 'package:mapcess/services/sse_service.dart';
+import 'package:mapcess/services/theme_service.dart';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,11 @@ void main() {
 
   testWidgets('Mapcess smoke test', (WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 900));
-    await tester.pumpWidget(MapcessApp(auth: AuthService(), sse: SseService()));
+    await tester.pumpWidget(MapcessApp(
+      auth: AuthService(),
+      sse: SseService(),
+      theme: ThemeService(),
+    ));
   });
 
   // ── ApiException.userMessage ────────────────────────────────────────────────
