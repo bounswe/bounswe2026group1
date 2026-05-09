@@ -1,0 +1,11 @@
+-- Flyway baseline migration.
+--
+-- This file is intentionally empty. With spring.flyway.baseline-on-migrate=true,
+-- Flyway treats any pre-existing database (with tables but no flyway_schema_history)
+-- as if it were already at version 1, then starts applying V2 onwards.
+--
+-- For a fresh database (e.g. a new dev machine, CI, or a wiped container)
+-- Hibernate's ddl-auto=update creates the schema from JPA entities, so this
+-- baseline does not need to define any tables. Flyway's role here is purely
+-- to track tweaks Hibernate cannot express (constraint drops, manual ALTERs,
+-- index hints, etc.) — see V2 onwards.
