@@ -66,7 +66,14 @@ function Navbar() {
   return (
     <header className="w-full sticky top-0 z-[1001] bg-surface-container-lowest/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
       <div className="flex items-center gap-4 md:gap-8">
-        <div className="flex items-center gap-2 sm:gap-3 -translate-y-[2px]">
+        {/* Logo doubles as the home affordance on every viewport — the
+            Home/Feed nav links are hidden on `<md`, leaving mobile users
+            on /profile or /admin without a way back to the map otherwise. */}
+        <Link
+          to="/"
+          aria-label="Mapcess home"
+          className="flex items-center gap-2 sm:gap-3 -translate-y-[2px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
+        >
           <img
             src={logo}
             alt="Mapcess logo"
@@ -75,7 +82,7 @@ function Navbar() {
           <span className="text-xl md:text-2xl font-bold text-primary tracking-tight font-headline leading-none -translate-y-[1px]">
             Mapcess
           </span>
-        </div>
+        </Link>
         <nav className="hidden md:flex items-center gap-6">
           <NavLink
             to="/"
@@ -133,7 +140,10 @@ function Navbar() {
               )}
             </button>
             {notifOpen && (
-              <NotificationDropdown onClose={() => setNotifOpen(false)} />
+              <NotificationDropdown
+                onClose={() => setNotifOpen(false)}
+                triggerRef={notifButtonRef}
+              />
             )}
           </div>
         )}

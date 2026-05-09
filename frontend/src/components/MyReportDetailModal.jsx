@@ -58,7 +58,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
       onClick={handleBackdropClick}
       className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface-container-high rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-outline-variant/20">
           <h3 className="text-lg font-bold font-headline text-on-surface">{report.title}</h3>
           <button
@@ -74,7 +74,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
 
         <div className="p-6 flex flex-col gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-gray-100 text-gray-900'}`}>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-surface-container text-on-surface'}`}>
               {STATUS_LABELS[report.status] ?? report.status}
             </span>
             <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg">
@@ -119,7 +119,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
             <button
               type="button"
               onClick={handleEditOnMap}
-              className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold cursor-pointer"
+              className="px-4 py-2 rounded-lg primary-gradient text-on-primary font-semibold cursor-pointer"
             >
               Edit on map
             </button>

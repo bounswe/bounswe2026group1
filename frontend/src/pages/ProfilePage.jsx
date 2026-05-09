@@ -90,7 +90,7 @@ function ProfilePage() {
 
         {!isPending && !isError && user && (
           <>
-            <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-start gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-2xl font-bold font-headline text-on-surface break-words">
@@ -117,7 +117,7 @@ function ProfilePage() {
               <StatTile label="Routes planned" value={user.contributionStats?.routesPlanned ?? 0} />
             </section>
 
-            <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold font-headline text-on-surface">About</h2>
                 {!isEditing && (
@@ -138,7 +138,7 @@ function ProfilePage() {
               ) : (
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
-                    <label htmlFor="profile-name" className="text-sm font-bold text-[#5a5c5c] px-1">
+                    <label htmlFor="profile-name" className="text-sm font-bold text-on-surface-variant px-1">
                       Display name
                     </label>
                     <input
@@ -146,7 +146,7 @@ function ProfilePage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       maxLength={NAME_MAX}
-                      className="w-full px-5 py-3 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40"
+                      className="w-full px-5 py-3 bg-surface-container border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
                     />
                     <p className={`text-xs text-right ${nameInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
                       {trimmedName.length < NAME_MIN
@@ -156,7 +156,7 @@ function ProfilePage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label htmlFor="profile-bio" className="text-sm font-bold text-[#5a5c5c] px-1">
+                    <label htmlFor="profile-bio" className="text-sm font-bold text-on-surface-variant px-1">
                       Bio
                     </label>
                     <textarea
@@ -164,7 +164,7 @@ function ProfilePage() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={4}
-                      className="w-full px-5 py-3 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40"
+                      className="w-full px-5 py-3 bg-surface-container border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
                     />
                     <p className={`text-xs text-right ${bioInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
                       {bio.length}/{BIO_MAX}
@@ -182,7 +182,7 @@ function ProfilePage() {
                       type="button"
                       onClick={handleSave}
                       disabled={saveDisabled}
-                      className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
+                      className="px-4 py-2 rounded-lg primary-gradient text-on-primary font-semibold disabled:opacity-60 cursor-pointer"
                     >
                       {updateProfileMutation.isPending ? 'Saving…' : 'Save'}
                     </button>

@@ -260,7 +260,9 @@ public class ReportService {
         RegisteredUser requester = registeredUserRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        if (!report.getCreatedBy().getId().equals(requester.getId())) {
+        boolean isOwner = report.getCreatedBy().getId().equals(requester.getId());
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+        if (!isOwner && !isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
         }
 
