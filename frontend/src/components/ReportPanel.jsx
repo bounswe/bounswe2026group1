@@ -14,9 +14,11 @@ import {
 } from '../services/reportService.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
+import { reportKeys, useUpdateMapReport } from '../hooks/useReports.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
-import { reportKeys } from '../hooks/useReports.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
+
+const MAX_DESCRIPTION = 1000
 
 /**
  * ReportPanel
@@ -43,6 +45,14 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [submittingComment, setSubmittingComment] = useState(false)
   const [following, setFollowing] = useState(false)
   const [showCreateFix, setShowCreateFix] = useState(false)
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [editDescription, setEditDescription] = useState('')
+  const [editEnvironment, setEditEnvironment] = useState('OUTDOOR')
+  const [editError, setEditError] = useState('')
+  const updateReportMutation = useUpdateMapReport()
+
+  const isOwner = !!userId && report?.ownerId != null && String(userId) === String(report.ownerId)
 
   // Bottom-sheet drag-to-resize (mobile only — desktop layout uses lg: utilities to ignore this).
   // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
@@ -220,6 +230,44 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       return iso
     }
   }
+
+  function handleStartEdit() {
+    setEditDescription(report.description ?? '')
+    setEditEnvironment(report.environment ?? 'OUTDOOR')
+    setEditError('')
+    setIsEditing(true)
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false)
+    setEditError('')
+  }
+
+  async function handleSaveEdit() {
+    const trimmed = editDescription.trim()
+    if (!trimmed) {
+      setEditError('Description cannot be empty.')
+      return
+    }
+    if (trimmed.length > MAX_DESCRIPTION) {
+      setEditError(`Description must be at most ${MAX_DESCRIPTION} characters.`)
+      return
+    }
+    setEditError('')
+    try {
+      await updateReportMutation.mutateAsync({
+        id: report.id,
+        body: { description: trimmed, environment: editEnvironment },
+      })
+      setIsEditing(false)
+    } catch (e) {
+      setEditError(e.message || 'Failed to save changes.')
+    }
+  }
+
+  const editDescriptionTooLong = editDescription.length > MAX_DESCRIPTION
+  const saveEditDisabled =
+    updateReportMutation.isPending || !editDescription.trim() || editDescriptionTooLong
 
 
   return (
@@ -425,9 +473,20 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
           {/* Header */}
           <div className="flex flex-col gap-4">
-            <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
-              {report.title}
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
+                {report.title}
+              </h1>
+              {isOwner && !isEditing && (
+                <button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer flex-shrink-0"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
@@ -517,9 +576,75 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
               Issue Details
             </h3>
-            <p className="text-on-surface leading-relaxed font-body">
-              {report.description || 'No description provided.'}
-            </p>
+            {!isEditing ? (
+              <p className="text-on-surface leading-relaxed font-body">
+                {report.description || 'No description provided.'}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="report-edit-description" className="text-sm font-semibold text-on-surface">
+                    Description
+                  </label>
+                  <textarea
+                    id="report-edit-description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={5}
+                    className="w-full px-4 py-3 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40"
+                  />
+                  <p className={`text-xs text-right ${editDescriptionTooLong ? 'text-error' : 'text-on-surface-variant'}`}>
+                    {editDescription.length}/{MAX_DESCRIPTION}
+                  </p>
+                </div>
+
+                <fieldset className="flex flex-col gap-1">
+                  <legend className="text-sm font-semibold text-on-surface">Environment</legend>
+                  <div className="flex gap-3 mt-1">
+                    {['OUTDOOR', 'INDOOR'].map((opt) => (
+                      <label
+                        key={opt}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer ${editEnvironment === opt ? 'bg-primary/10 ring-2 ring-primary' : 'bg-[#f0f1f1]'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="report-edit-environment"
+                          value={opt}
+                          checked={editEnvironment === opt}
+                          onChange={() => setEditEnvironment(opt)}
+                        />
+                        <span className="text-sm text-on-surface capitalize">{opt.toLowerCase()}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                {editError && (
+                  <p role="alert" className="text-sm text-error">
+                    {editError}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={saveEditDisabled}
+                    className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
+                  >
+                    {updateReportMutation.isPending ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    disabled={updateReportMutation.isPending}
+                    className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Location */}
