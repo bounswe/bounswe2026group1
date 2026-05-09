@@ -1,9 +1,13 @@
 package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.config.OpenApiConfig;
+import com.bounswe2026group1.backend.dto.LeaderboardVisibilityRequest;
+import com.bounswe2026group1.backend.dto.PointEventResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.model.Badge;
 import com.bounswe2026group1.backend.model.RegisteredUser;
+import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import com.bounswe2026group1.backend.service.S3MediaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +21,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -212,6 +218,96 @@ public class RegisteredUserController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    // ───── Gamification endpoints ──────────────────────────────────────────
+
+    @GetMapping("/{id}/badges")
+    @Operation(summary = "List badges held by a user")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Badges list (possibly empty)."),
+            @ApiResponse(responseCode = "404", description = "No user with that id.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Object> getBadges(@PathVariable Long id) {
+        try {
+            List<Badge> badges = registeredUserService.getBadges(id);
+            return ResponseEntity.ok(badges);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/points/history")
+    @Operation(
+            summary = "Paginated points history for a user",
+            description = "Returns the user's gamification ledger entries, most recent first. " +
+                    "Restricted to the user themselves and admins — leaks point-level audit detail otherwise."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of ledger entries."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "403", description = "Caller is neither the owner nor an admin."),
+            @ApiResponse(responseCode = "404", description = "No user with that id.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Object> getPointsHistory(@PathVariable Long id, Pageable pageable) {
+        try {
+            requireOwnerOrAdmin(id);
+            Page<PointEventResponse> page = registeredUserService.listPointEvents(id, pageable);
+            return ResponseEntity.ok(page);
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/me/leaderboard-visibility")
+    @Operation(
+            summary = "Toggle the caller's leaderboard opt-out flag",
+            description = "Hides or unhides the authenticated user from the public leaderboard. " +
+                    "Their points are preserved either way."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Updated profile."),
+            @ApiResponse(responseCode = "400", description = "Body missing the leaderboardHidden flag."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "404", description = "Authenticated user no longer exists.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Object> setLeaderboardVisibility(
+            @RequestBody @Valid LeaderboardVisibilityRequest request) {
+        String email = currentUserEmailOrNull();
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication required.");
+        }
+        try {
+            UserProfileDTO me = registeredUserService.getProfileByEmail(email);
+            UserProfileDTO updated = registeredUserService.setLeaderboardHidden(
+                    me.getId(), request.leaderboardHidden());
+            return ResponseEntity.ok(updated);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Owner OR admin authorisation gate — used by the points history view,
+     * which leaks ledger detail and shouldn't be readable by other users.
+     * Throws 401 if no auth, 403 if neither owner nor admin.
+     */
+    private void requireOwnerOrAdmin(Long pathId) {
+        String email = currentUserEmailOrNull();
+        if (email == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        UserProfileDTO me = registeredUserService.getProfileByEmail(email);
+        boolean isOwner = me.getId().equals(pathId);
+        boolean isAdmin = UserRole.ADMIN.name().equals(me.getRole());
+        if (!isOwner && !isAdmin) {
+            throw new AccessDeniedException("You can only view your own points history.");
         }
     }
 

@@ -70,7 +70,9 @@ public class SecurityConfig {
                                 "/api/reports", "/api/reports/**",
                                 "/api/comments", "/api/comments/**",
                                 "/api/categories", "/api/categories/**",
-                                "/api/object-types", "/api/object-types/**"
+                                "/api/object-types", "/api/object-types/**",
+                                "/api/leaderboard", "/api/leaderboard/**",
+                                "/api/users/*/badges"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
