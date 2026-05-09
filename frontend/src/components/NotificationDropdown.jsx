@@ -92,7 +92,7 @@ function NotificationDropdown({ onClose }) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 mt-2 w-80 max-h-[480px] flex flex-col rounded-xl bg-white shadow-lg ring-1 ring-black/8 z-[1100] overflow-hidden"
+      className="absolute right-0 mt-2 w-80 max-h-[480px] flex flex-col rounded-xl bg-surface-container-high shadow-lg ring-1 ring-outline-variant/30 z-[1100] overflow-hidden"
       role="dialog"
       aria-label="Notifications"
     >
