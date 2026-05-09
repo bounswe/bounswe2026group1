@@ -23,7 +23,7 @@ public class S3MediaService {
     private final String bucketName;
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
-            "image/jpeg", "image/png", "image/jpg", "video/mp4");
+            "image/jpeg", "image/png", "image/jpg", "video/mp4", "video/quicktime");
 
     public S3MediaService(S3Client s3Client, @Value("${aws.s3.bucket}") String bucketName) {
         this.s3Client = s3Client;
