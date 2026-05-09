@@ -1,11 +1,20 @@
 import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ReportPanel from './ReportPanel.jsx'
 
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location-probe">{location.pathname}</div>
+}
+
 vi.mock('../context/AuthContext.jsx', () => ({
   useAuth: () => ({ token: 'mock-token', isAuthenticated: true, userId: 'user123' }),
+}))
+
+vi.mock('../hooks/useUserProfile.js', () => ({
+  useUserProfile: vi.fn(),
 }))
 
 vi.mock('../services/reportService.js', () => ({
@@ -33,6 +42,7 @@ import {
   createComment,
   deleteComment,
 } from '../services/reportService.js'
+import { useUserProfile } from '../hooks/useUserProfile.js'
 
 describe('ReportPanel', () => {
   let onCloseMock, onVoteChangeMock, onFollowChangeMock, onVoteUpdateMock, user
@@ -63,6 +73,7 @@ describe('ReportPanel', () => {
     user = userEvent.setup()
     vi.clearAllMocks()
     getCommentsByReport.mockResolvedValue([])
+    useUserProfile.mockReturnValue({ data: undefined })
   })
 
   function renderPanel(props = {}) {
@@ -292,6 +303,58 @@ describe('ReportPanel', () => {
 
     await waitFor(() => {
       expect(agreeFixRequest).toHaveBeenCalledWith('r1', 11, 'mock-token')
+    })
+  })
+
+  describe('reporter row', () => {
+    const reportWithOwner = {
+      ...report,
+      ownerId: 42,
+      reportedBy: 'User #42',
+      date: '9 May 2026',
+    }
+
+    it('shows the real username from useUserProfile instead of the "User #N" fallback', () => {
+      useUserProfile.mockReturnValue({ data: { name: 'Alice Mapper', avatarUrl: null } })
+      renderPanel({ report: reportWithOwner })
+      expect(screen.getByText('Alice Mapper')).toBeInTheDocument()
+      expect(screen.queryByText('User #42')).not.toBeInTheDocument()
+    })
+
+    it('falls back to "User #N" while the profile is still loading', () => {
+      useUserProfile.mockReturnValue({ data: undefined })
+      renderPanel({ report: reportWithOwner })
+      expect(screen.getByText('User #42')).toBeInTheDocument()
+    })
+
+    it('navigates to /profile/:ownerId when the reporter row is clicked', async () => {
+      useUserProfile.mockReturnValue({ data: { name: 'Alice Mapper', avatarUrl: null } })
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/']}>
+            <Routes>
+              <Route path="/" element={
+                <>
+                  <ReportPanel
+                    report={reportWithOwner}
+                    onClose={onCloseMock}
+                    onVoteChange={onVoteChangeMock}
+                    onVoteUpdate={onVoteUpdateMock}
+                    onFollowChange={onFollowChangeMock}
+                  />
+                  <LocationProbe />
+                </>
+              } />
+              <Route path="/profile/:userId" element={<LocationProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+      await user.click(screen.getByText('Alice Mapper'))
+      await waitFor(() => {
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('/profile/42')
+      })
     })
   })
 })
