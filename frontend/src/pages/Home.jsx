@@ -695,6 +695,9 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
+            // Toast lives on Home so it survives the panel unmounting
+            // (e.g. after a successful delete that closes the panel).
+            onShowToast={(t) => setToast(t)}
             onClose={() => { setSelectedReportId(null); navigate('/', { replace: true }) }}
             onVoteUpdate={(updatedReport) => {
               setSelectedReportId(updatedReport.id)

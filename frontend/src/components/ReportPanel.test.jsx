@@ -4,14 +4,18 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ReportPanel from './ReportPanel.jsx'
 
+// Mutable auth state so individual tests can flip isAdmin / userId without
+// resetting the whole module mock. Default: signed-in non-admin "user123".
+const mockAuth = { token: 'mock-token', isAuthenticated: true, userId: 'user123', isAdmin: false }
 vi.mock('../context/AuthContext.jsx', () => ({
-  useAuth: () => ({ token: 'mock-token', isAuthenticated: true, userId: 'user123' }),
+  useAuth: () => mockAuth,
 }))
 
 vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
   updateReport: vi.fn(),
+  deleteReport: vi.fn(() => Promise.resolve()),
   agreeFixRequest: vi.fn(),
   disagreeFixRequest: vi.fn(),
   mapReport: vi.fn(r => r),
@@ -28,6 +32,7 @@ import {
   agreeReport,
   disagreeReport,
   updateReport,
+  deleteReport,
   agreeFixRequest,
   getCommentsByReport,
   createComment,
@@ -63,6 +68,11 @@ describe('ReportPanel', () => {
     user = userEvent.setup()
     vi.clearAllMocks()
     getCommentsByReport.mockResolvedValue([])
+    // Reset auth defaults between tests so admin/owner flags don't leak.
+    mockAuth.token = 'mock-token'
+    mockAuth.isAuthenticated = true
+    mockAuth.userId = 'user123'
+    mockAuth.isAdmin = false
   })
 
   function renderPanel(props = {}) {
@@ -177,6 +187,75 @@ describe('ReportPanel', () => {
       await user.click(screen.getByRole('button', { name: /^cancel$/i }))
       expect(screen.queryByLabelText(/^description$/i)).not.toBeInTheDocument()
       expect(updateReport).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('owner / admin delete', () => {
+    const ownedReport = { ...report, ownerId: 'user123', environment: 'OUTDOOR' }
+    const otherReport = { ...report, ownerId: 'someone-else', environment: 'OUTDOOR' }
+
+    test('does not show Delete button for non-owner non-admin', () => {
+      renderPanel({ report: otherReport })
+      expect(screen.queryByRole('button', { name: /^delete$/i })).not.toBeInTheDocument()
+    })
+
+    test('shows Delete button for the report owner', () => {
+      renderPanel({ report: ownedReport })
+      expect(screen.getByRole('button', { name: /delete report|^delete$/i })).toBeInTheDocument()
+    })
+
+    test('shows Delete button for an admin even when not the owner', () => {
+      mockAuth.isAdmin = true
+      renderPanel({ report: otherReport })
+      expect(screen.getByRole('button', { name: /delete report|^delete$/i })).toBeInTheDocument()
+    })
+
+    test('clicking Delete + confirming calls deleteReport and closes the panel', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      deleteReport.mockResolvedValueOnce(undefined)
+      renderPanel({ report: ownedReport })
+
+      await user.click(screen.getByRole('button', { name: /delete report|^delete$/i }))
+
+      await waitFor(() => {
+        expect(deleteReport).toHaveBeenCalledWith('r1', 'mock-token')
+      })
+      expect(onCloseMock).toHaveBeenCalled()
+      confirmSpy.mockRestore()
+    })
+
+    test('clicking Delete and dismissing the confirm does not call deleteReport', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+      renderPanel({ report: ownedReport })
+
+      await user.click(screen.getByRole('button', { name: /delete report|^delete$/i }))
+
+      expect(deleteReport).not.toHaveBeenCalled()
+      expect(onCloseMock).not.toHaveBeenCalled()
+      confirmSpy.mockRestore()
+    })
+
+    test('shows a permission toast on 403 and does not close the panel', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      deleteReport.mockRejectedValueOnce(new Error('Request failed: 403'))
+      renderPanel({ report: ownedReport })
+
+      await user.click(screen.getByRole('button', { name: /delete report|^delete$/i }))
+
+      await screen.findByText(/permission/i)
+      expect(onCloseMock).not.toHaveBeenCalled()
+      confirmSpy.mockRestore()
+    })
+
+    test('shows a "no longer exists" toast on 404', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      deleteReport.mockRejectedValueOnce(new Error('Request failed: 404'))
+      renderPanel({ report: ownedReport })
+
+      await user.click(screen.getByRole('button', { name: /delete report|^delete$/i }))
+
+      await screen.findByText(/no longer exists/i)
+      confirmSpy.mockRestore()
     })
   })
 
