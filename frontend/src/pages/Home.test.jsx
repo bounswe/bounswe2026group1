@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
 import { SseProvider } from '../context/SseContext.jsx'
+import { ThemeProvider } from '../context/ThemeContext.jsx'
 import Home from './Home.jsx'
 
 // useSseSync opens a real EventSource — mock it out in tests
@@ -33,13 +34,15 @@ function renderHome() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <SseProvider>
-        <MemoryRouter>
-          <AuthProvider>
-            <Home />
-          </AuthProvider>
-        </MemoryRouter>
-      </SseProvider>
+      <ThemeProvider>
+        <SseProvider>
+          <MemoryRouter>
+            <AuthProvider>
+              <Home />
+            </AuthProvider>
+          </MemoryRouter>
+        </SseProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

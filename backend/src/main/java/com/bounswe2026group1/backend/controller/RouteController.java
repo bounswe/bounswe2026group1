@@ -6,12 +6,19 @@ import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Route;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
+import com.bounswe2026group1.backend.model.TravelMode;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.service.RouteService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,11 +29,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/routes")
 @RequiredArgsConstructor
+@Tag(name = "Routing", description = "Accessible route planning that detours around verified obstacles.")
 public class RouteController {
 
     private final RouteService routeService;
@@ -34,13 +43,37 @@ public class RouteController {
     private final RegisteredUserRepository registeredUserRepository;
 
     @PostMapping
+    @Operation(
+            summary = "Plan accessible routes between two points",
+            description = "Returns one or more route options from `(startLat, startLon)` to " +
+                    "`(endLat, endLon)` for the requested travel mode, detouring around verified " +
+                    "obstacle reports. Anonymous; if a Bearer token is supplied, the planned route " +
+                    "is also recorded against the caller's contribution stats."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One or more route options."),
+            @ApiResponse(responseCode = "400", description = "Invalid coordinates or travel mode."),
+            @ApiResponse(responseCode = "502", description = "Upstream routing provider failure.")
+    })
     public ResponseEntity<List<RouteResponse>> getRouteOptions(@RequestBody RouteRequest request) {
-        List<RouteResponse> options = routeService.getRouteOptions(request);
-        recordPlannedRouteIfAuthenticated(request, options);
+        // Look up the caller once: we need their constraints + preferred mode for routing,
+        // and the user object again for recording the planned route. Anonymous → null.
+        RegisteredUser caller = currentUserOrNull();
+
+        Set<RoutingConstraint> constraints = caller != null && caller.getRoutingConstraints() != null
+                ? caller.getRoutingConstraints()
+                : Set.of();
+        TravelMode preferredMode = caller != null ? caller.getPreferredTravelMode() : null;
+
+        List<RouteResponse> options = routeService.getRouteOptions(request, constraints, preferredMode);
+        if (caller != null) {
+            recordPlannedRouteForUser(caller, request, options);
+        }
         return ResponseEntity.ok(options);
     }
 
     @GetMapping("/user/{userId}")
+    @Operation(summary = "List routes a given user has planned")
     public List<RouteSummaryDTO> getByUserId(@PathVariable Long userId) {
         return routeRepository.findByCreatedByIdOrderByIdDesc(userId).stream()
                 .map(RouteSummaryDTO::from)
@@ -48,17 +81,28 @@ public class RouteController {
     }
 
     /**
-     * Persist a single Route record so authenticated users can be credited with a "route planned"
-     * contribution stat (issue #302). Anonymous calls are not recorded.
+     * Resolve the authenticated caller's full {@link RegisteredUser} record so its
+     * routing-preference fields are available alongside the user's id. Returns null
+     * for anonymous callers and for tokens whose subject isn't in the DB.
      */
-    private void recordPlannedRouteIfAuthenticated(RouteRequest request, List<RouteResponse> options) {
-        if (options == null || options.isEmpty()) return;
-
+    private RegisteredUser currentUserOrNull() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getName() == null) return;
+        if (auth == null
+                || auth instanceof AnonymousAuthenticationToken
+                || !auth.isAuthenticated()
+                || auth.getName() == null) {
+            return null;
+        }
+        return registeredUserRepository.findByEmail(auth.getName()).orElse(null);
+    }
 
-        RegisteredUser user = registeredUserRepository.findByEmail(auth.getName()).orElse(null);
-        if (user == null) return;
+    /**
+     * Persist a single Route record so authenticated users get credited with a "route planned"
+     * contribution stat (issue #302). Failures are logged, not propagated, so a flaky
+     * persistence layer can never fail a successful routing response.
+     */
+    private void recordPlannedRouteForUser(RegisteredUser user, RouteRequest request, List<RouteResponse> options) {
+        if (options == null || options.isEmpty()) return;
 
         try {
             RouteResponse first = options.get(0);
@@ -72,7 +116,6 @@ public class RouteController {
                     .build();
             routeRepository.save(record);
         } catch (Exception e) {
-            // Don't fail the routing response if persistence fails — just log it.
             log.warn("Failed to persist planned route for user {}: {}", user.getId(), e.getMessage());
         }
     }

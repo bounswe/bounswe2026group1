@@ -8,16 +8,16 @@ import org.springframework.data.domain.Pageable;
 
 public interface ReportRepositoryCustom {
 
-    int FEED_RADIUS_METERS = 1000;
-
     /**
-     * PostGIS geography distance: filters within radius and sorts by ascending {@code ST_Distance} (meters).
+     * PostGIS geography distance: filters within {@code radiusInKm} (converted to meters for {@code ST_DWithin})
+     * and sorts strictly by ascending {@code ST_Distance} (closest first). Pagination applies after this order.
      */
     Page<Report> findFeedWithinRadius(
             ReportType reportType,
             ReportEnvironment environment,
             double latitude,
             double longitude,
+            double radiusInKm,
             Pageable pageable);
 
     /**
