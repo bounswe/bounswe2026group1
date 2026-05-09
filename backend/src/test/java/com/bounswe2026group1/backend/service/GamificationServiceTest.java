@@ -44,6 +44,7 @@ class GamificationServiceTest {
     @Mock private PointEventRepository pointEventRepository;
     @Mock private UserBadgeRepository userBadgeRepository;
     @Mock private LeaderboardService leaderboardService;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks
     private GamificationService gamificationService;
@@ -316,6 +317,22 @@ class GamificationServiceTest {
 
         assertThat(awarded).containsExactly(Badge.TRUSTED_REPORTER);
         verify(userBadgeRepository, times(1)).save(any(UserBadge.class));
+        // Each newly awarded milestone fires a BADGE_AWARDED notification.
+        verify(notificationService).notifyBadgeAwarded(user, Badge.TRUSTED_REPORTER);
+    }
+
+    @Test
+    void evaluateMilestoneBadges_existingBadgeDoesNotReFireNotification() {
+        // Idempotent path: badge already held → no save, no notification.
+        RegisteredUser user = newUser(1L, 0);
+        when(reportRepository.countByCreatedByIdAndStatus(1L, ReportStatus.VERIFIED))
+                .thenReturn(15L);
+        when(userBadgeRepository.existsByUserIdAndBadge(1L, Badge.TRUSTED_REPORTER))
+                .thenReturn(true);
+
+        gamificationService.evaluateMilestoneBadges(user);
+
+        verify(notificationService, never()).notifyBadgeAwarded(any(), any());
     }
 
     @Test

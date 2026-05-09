@@ -43,6 +43,7 @@ public class GamificationService {
     private final PointEventRepository pointEventRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final LeaderboardService leaderboardService;
+    private final NotificationService notificationService;
 
     @Value("${app.gamification.points.report-submit:10}")
     private int reportSubmitDelta;
@@ -201,6 +202,9 @@ public class GamificationService {
             if (awardBadgeIfMissing(user, Badge.EXPERT_MAPPER)) {
                 newlyAwarded.add(Badge.EXPERT_MAPPER);
             }
+        }
+        for (Badge badge : newlyAwarded) {
+            notificationService.notifyBadgeAwarded(user, badge);
         }
         return newlyAwarded;
     }

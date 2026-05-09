@@ -32,6 +32,7 @@ class LeaderboardServiceTest {
 
     @Mock private RegisteredUserRepository userRepository;
     @Mock private UserBadgeRepository userBadgeRepository;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks
     private LeaderboardService leaderboardService;
@@ -137,6 +138,43 @@ class LeaderboardServiceTest {
     }
 
     // ────────────────────── onPointsChanged (top-10 churn) ──────────────
+
+    @Test
+    void onPointsChanged_notifiesNewcomerOfTop10Badge() {
+        // Carol just rose into the cutoff — she should both receive the badge
+        // row AND be notified.
+        RegisteredUser alice = newUser(1L, "Alice", 100);
+        RegisteredUser bob = newUser(2L, "Bob", 90);
+        RegisteredUser carol = newUser(3L, "Carol", 80);
+
+        when(userRepository.findLeaderboardPage(any(Pageable.class)))
+                .thenReturn(List.of(alice, bob, carol));
+        when(userBadgeRepository.findUserIdsByBadge(Badge.TOP_10))
+                .thenReturn(List.of(1L, 2L));
+        when(userRepository.findAllById(anyCollection()))
+                .thenReturn(List.of(carol));
+
+        leaderboardService.onPointsChanged(3L);
+
+        verify(notificationService).notifyBadgeAwarded(carol, Badge.TOP_10);
+    }
+
+    @Test
+    void onPointsChanged_doesNotNotifyOnRevoke() {
+        // Falling out of the top-10 is a silent revoke — no notification.
+        RegisteredUser alice = newUser(1L, "Alice", 100);
+        RegisteredUser bob = newUser(2L, "Bob", 90);
+        RegisteredUser carol = newUser(3L, "Carol", 80);
+
+        when(userRepository.findLeaderboardPage(any(Pageable.class)))
+                .thenReturn(List.of(alice, bob, carol));
+        when(userBadgeRepository.findUserIdsByBadge(Badge.TOP_10))
+                .thenReturn(List.of(1L, 2L, 3L, 4L)); // Dora (4) needs revoking
+
+        leaderboardService.onPointsChanged(4L);
+
+        verify(notificationService, never()).notifyBadgeAwarded(any(), any());
+    }
 
     @Test
     void onPointsChanged_awardsBadgeToNewcomer() {
