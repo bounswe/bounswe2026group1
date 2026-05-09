@@ -42,6 +42,7 @@ public class GamificationService {
     private final ReportVerificationRepository verificationRepository;
     private final PointEventRepository pointEventRepository;
     private final UserBadgeRepository userBadgeRepository;
+    private final LeaderboardService leaderboardService;
 
     @Value("${app.gamification.points.report-submit:10}")
     private int reportSubmitDelta;
@@ -226,6 +227,11 @@ public class GamificationService {
         user.setPoints(after);
         userRepository.save(user);
         pointEventRepository.save(new PointEvent(user, actualDelta, reason, relatedId));
+
+        // Eager top-10 badge churn — the user may have entered or fallen
+        // out of the top cutoff with this delta, and we want the badge to
+        // track rank changes in real time rather than via a cron lag.
+        leaderboardService.onPointsChanged(user.getId());
     }
 
     private boolean awardBadgeIfMissing(RegisteredUser user, Badge badge) {

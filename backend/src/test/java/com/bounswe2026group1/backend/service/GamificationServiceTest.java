@@ -43,6 +43,7 @@ class GamificationServiceTest {
     @Mock private ReportVerificationRepository verificationRepository;
     @Mock private PointEventRepository pointEventRepository;
     @Mock private UserBadgeRepository userBadgeRepository;
+    @Mock private LeaderboardService leaderboardService;
 
     @InjectMocks
     private GamificationService gamificationService;
@@ -84,6 +85,19 @@ class GamificationServiceTest {
         gamificationService.awardOnReportSubmit(null, 100L);
         verify(userRepository, never()).save(any());
         verify(pointEventRepository, never()).save(any());
+        verify(leaderboardService, never()).onPointsChanged(any());
+    }
+
+    @Test
+    void applyDelta_triggersLeaderboardRecompute() {
+        // Top-10 badge churn must track every point change in real time —
+        // applyDelta is the single mutation point, so any award/deduct
+        // method on the public API ends up triggering this.
+        RegisteredUser author = newUser(1L, 0);
+
+        gamificationService.awardOnReportSubmit(author, 100L);
+
+        verify(leaderboardService).onPointsChanged(1L);
     }
 
     // ───────────────────────── awardOnVoteCast ──────────────────────────
