@@ -90,6 +90,11 @@ public class ReportResponse {
             example = "42", nullable = true)
     private Long lastEditedByUserId;
 
+    @Schema(description = "Highest-tier badge held by the report author — surfaced as a chip next " +
+            "to their name. Null when the author has no badges yet.",
+            nullable = true)
+    private Badge authorTopBadge;
+
     public static ReportResponse fromEntity(Report report) {
         return fromEntity(report, null, Collections.emptyList(), null);
     }
