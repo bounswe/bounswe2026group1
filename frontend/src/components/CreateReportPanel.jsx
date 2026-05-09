@@ -21,10 +21,11 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   // Recomputed every render — drives duplicate-type prevention
   const selectedTypes = new Set(objects.map(o => o.objectType).filter(Boolean))
 
-  // Which OBJECT_TYPES are visible given the current reportType
-  const visibleTypes = reportType === 'FEATURE'
+  // Which OBJECT_TYPES are visible given the current reportType + environment
+  const visibleTypes = (reportType === 'FEATURE'
     ? OBJECT_TYPES.filter(t => t.type === 'RAMP')
     : OBJECT_TYPES
+  ).filter(t => t.environments.includes(environment))
 
   // ── image ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,19 @@ function CreateReportPanel({ position, onClose, onCreated }) {
           : { ...o, issues: [] }
       ))
     }
+  }
+
+  function handleEnvironmentChange(newEnv) {
+    setEnvironment(newEnv)
+    // Clear objectType + issues + measurements on any card whose ObjectType
+    // does not support the new environment (e.g. SIDEWALK is OUTDOOR-only,
+    // WASHROOM is INDOOR-only).
+    setObjects(prev => prev.map(o => {
+      if (!o.objectType) return o
+      const cfg = OBJECT_TYPES.find(t => t.type === o.objectType)
+      if (cfg && cfg.environments.includes(newEnv)) return o
+      return { ...o, objectType: null, issues: [], measurements: {} }
+    }))
   }
 
   // ── object management ──────────────────────────────────────────────────────
@@ -254,7 +268,7 @@ function CreateReportPanel({ position, onClose, onCreated }) {
               <button
                 key={e.value}
                 aria-label={e.label}
-                onClick={() => setEnvironment(e.value)}
+                onClick={() => handleEnvironmentChange(e.value)}
                 className="flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all"
                 style={environment === e.value
                   ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }

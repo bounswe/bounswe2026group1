@@ -8,7 +8,7 @@ import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
-import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
 
@@ -27,9 +27,9 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, tag) {
-  const cfg = REPORT_TAGS[tag] ?? { icon: 'warning', color: '#767777' }
-  const borderColor = status === 'verified' ? '#176a21' : cfg.color
+function makeMarkerIcon(status, objectType) {
+  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: 'warning', markerColor: '#767777' }
+  const borderColor = status === 'verified' ? '#176a21' : cfg.markerColor
   return L.divIcon({
     className: '',
     html: `
@@ -416,7 +416,7 @@ function Home() {
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.tags[0])}
+                icon={makeMarkerIcon(report.status, report.primaryObjectType)}
                 eventHandlers={{
                   click: () => {
                     setShowCreatePanel(false)
