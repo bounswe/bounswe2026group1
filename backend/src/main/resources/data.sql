@@ -26,6 +26,13 @@ INSERT INTO reports (user_id, location, description, report_type, environment, s
 SELECT 1, ST_SetSRID(ST_MakePoint(29.044523, 41.085693), 4326), 'There is actually a ramp in north campus.', 'FEATURE', 'OUTDOOR', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'There is actually a ramp in north campus.');
 
+-- VERIFIED OUTDOOR obstacle so the routing pipeline has at least one polygon
+-- to demonstrate after the environment=OUTDOOR filter is applied.
+-- Location: 41°05'06.1"N 29°02'38.7"E  (Boğaziçi north-campus walkway corridor)
+INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 3, ST_SetSRID(ST_MakePoint(29.044083, 41.085028), 4326), 'Sidewalk blocked by construction debris', 'OBSTACLE', 'OUTDOOR', 'VERIFIED', 5, 0, NOW()
+WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'Sidewalk blocked by construction debris');
+
 -- Report objects: resolve report_id by description so this is FK-safe on re-seed
 INSERT INTO report_objects (report_id, object_type, measurements)
 SELECT r.report_id, 'RAMP', '{"slope_percent": 15, "width_cm": 80}'
@@ -50,6 +57,12 @@ SELECT r.report_id, 'RAMP', '{"slope_percent": 6, "width_cm": 120}'
 FROM reports r
 WHERE r.description = 'There is actually a ramp in north campus.'
   AND NOT EXISTS (SELECT 1 FROM report_objects ro WHERE ro.report_id = r.report_id AND ro.object_type = 'RAMP');
+
+INSERT INTO report_objects (report_id, object_type, measurements)
+SELECT r.report_id, 'SIDEWALK', NULL
+FROM reports r
+WHERE r.description = 'Sidewalk blocked by construction debris'
+  AND NOT EXISTS (SELECT 1 FROM report_objects ro WHERE ro.report_id = r.report_id AND ro.object_type = 'SIDEWALK');
 
 -- Report object issues: resolve report_object_id via join on report description + object_type
 INSERT INTO report_object_issues (report_object_id, issue_type)
@@ -79,6 +92,13 @@ FROM report_objects ro
 JOIN reports r ON ro.report_id = r.report_id
 WHERE r.description = 'Narrow passage on the route to dormitories' AND ro.object_type = 'SIDEWALK'
   AND NOT EXISTS (SELECT 1 FROM report_object_issues i WHERE i.report_object_id = ro.id AND i.issue_type = 'TOO_NARROW');
+
+INSERT INTO report_object_issues (report_object_id, issue_type)
+SELECT ro.id, 'BLOCKED'
+FROM report_objects ro
+JOIN reports r ON ro.report_id = r.report_id
+WHERE r.description = 'Sidewalk blocked by construction debris' AND ro.object_type = 'SIDEWALK'
+  AND NOT EXISTS (SELECT 1 FROM report_object_issues i WHERE i.report_object_id = ro.id AND i.issue_type = 'BLOCKED');
 
 -- Comments: resolve report_id via the parent report's description so this stays
 -- FK-safe even if reports get deleted/re-inserted with new auto-generated ids.

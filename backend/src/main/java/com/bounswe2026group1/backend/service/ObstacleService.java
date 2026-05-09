@@ -1,9 +1,13 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.model.IssueHazard;
+import com.bounswe2026group1.backend.model.IssueType;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.ReportObject;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import org.locationtech.jts.geom.Point;
 import tools.jackson.databind.ObjectMapper;
@@ -13,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +36,14 @@ public class ObstacleService {
     /** Only verified reports are used for route calculations. */
     private static final List<ReportStatus> ACTIVE_STATUSES = List.of(ReportStatus.VERIFIED);
 
+    /**
+     * String form of {@link #ACTIVE_STATUSES} for native-query callers — Hibernate
+     * binds {@code Collection<Enum>} as smallint ordinals in native queries, which
+     * doesn't match the varchar column produced by {@code @Enumerated(STRING)}.
+     */
+    private static final List<String> ACTIVE_STATUS_NAMES =
+            ACTIVE_STATUSES.stream().map(Enum::name).toList();
+
     private final ReportRepository reportRepository;
     private final ObjectMapper objectMapper;
 
@@ -39,14 +52,43 @@ public class ObstacleService {
     // -------------------------------------------------------------------------
 
     /**
-     * @return a GeoJSON MultiPolygon node for all non-rejected obstacle reports,
-     *         or null if none exist
+     * Backwards-compatible no-arg overload — same as the empty-constraint case,
+     * which preserves the pre-#365 baseline (every VERIFIED obstacle becomes
+     * a polygon).
      */
     public ObjectNode buildAvoidPolygons() {
+        return buildAvoidPolygons(Set.of());
+    }
+
+    /**
+     * Build the GeoJSON MultiPolygon avoid set for routing.
+     *
+     * <p>When {@code constraints} is empty the baseline is preserved: every
+     * VERIFIED obstacle report becomes an avoid polygon (anonymous and
+     * NONE-preset users get the historical "Accessible Route" behaviour).
+     *
+     * <p>When {@code constraints} is non-empty, only VERIFIED obstacle reports
+     * whose objects expose at least one {@link IssueHazard} matching a hazard
+     * in the expanded constraint set become polygons. Constraints can only
+     * narrow the avoid set, never widen it past the baseline.
+     *
+     * @return a GeoJSON MultiPolygon node, or null if no reports survive the filter
+     */
+    public ObjectNode buildAvoidPolygons(Set<RoutingConstraint> constraints) {
         // Fetch only VERIFIED obstacle reports for route avoidance.
         List<Report> obstacles = reportRepository.findByTypeAndStatusIn(ReportType.OBSTACLE, ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
             return null;
+        }
+
+        Set<IssueHazard> hazards = RoutingConstraint.expand(constraints);
+        if (!hazards.isEmpty()) {
+            obstacles = obstacles.stream()
+                    .filter(r -> reportMatchesAnyHazard(r, hazards))
+                    .toList();
+            if (obstacles.isEmpty()) {
+                return null;
+            }
         }
 
         ArrayNode multiPolygonCoordinates = objectMapper.createArrayNode();
@@ -69,6 +111,20 @@ public class ObstacleService {
         return avoidPolygons;
     }
 
+    private static boolean reportMatchesAnyHazard(Report report, Set<IssueHazard> hazards) {
+        List<ReportObject> objects = report.getObjects();
+        if (objects == null || objects.isEmpty()) return false;
+        for (ReportObject obj : objects) {
+            if (obj.getObjectType() == null || obj.getIssues() == null) continue;
+            for (IssueType issue : obj.getIssues()) {
+                if (hazards.contains(new IssueHazard(obj.getObjectType(), issue))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // -------------------------------------------------------------------------
     // Ramp routing: find closest ramp report
     // -------------------------------------------------------------------------
@@ -82,8 +138,9 @@ public class ObstacleService {
         double maxLon = Math.max(start.getLongitude(), end.getLongitude()) + bufferDeg;
 
         // Fetch only VERIFIED FEATURE reports with entry/exit points for wheelchair routing.
+        // Native query — pass status/type as strings (see method javadoc on the repo).
         List<Report> candidates = reportRepository.findByTypeInBoundingBoxWithStatuses(
-                ReportType.FEATURE, minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
+                ReportType.FEATURE.name(), minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
 
         Report bestRamp = null;
         double minTotalDistance = Double.MAX_VALUE;
@@ -133,11 +190,28 @@ public class ObstacleService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns all active negative reports that lie within
-     * {@value PATH_BUFFER_METERS} m
-     * of any segment of the given decoded path.
+     * Backwards-compatible overload — same as the empty-constraint case.
+     * Used by callers that don't have a user identity (e.g. anonymous routing,
+     * existing tests that pre-date the constraint mechanism).
      */
     public List<Report> findObstaclesOnPath(List<Location> pathPoints) {
+        return findObstaclesOnPath(pathPoints, Set.of());
+    }
+
+    /**
+     * Return VERIFIED OUTDOOR obstacle reports that lie within
+     * {@value PATH_BUFFER_METERS} m of any segment of the given decoded path
+     * AND are relevant to the caller's accessibility constraints.
+     *
+     * <p>When {@code constraints} is empty the baseline applies: every nearby
+     * VERIFIED OUTDOOR obstacle is returned (anonymous and NONE-preset users
+     * get the full set). When non-empty, the result is filtered to obstacles
+     * whose objects expose at least one hazard the user actually cares about
+     * — same predicate that {@link #buildAvoidPolygons(Set)} uses, so the
+     * {@code hasObstacles} flag on a route response stays consistent with
+     * which polygons would have been avoided.
+     */
+    public List<Report> findObstaclesOnPath(List<Location> pathPoints, Set<RoutingConstraint> constraints) {
         if (pathPoints.size() < 2) {
             return List.of();
         }
@@ -149,12 +223,16 @@ public class ObstacleService {
         double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
 
         // Fetch only VERIFIED reports in the path bounding box for route calculations.
+        // Native query — pass statuses as strings (see method javadoc on the repo).
         List<Report> candidates = reportRepository.findReportsInBoundingBoxWithStatuses(
-                minLat, maxLat, minLon, maxLon, ACTIVE_STATUSES);
+                minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
+
+        Set<IssueHazard> hazards = RoutingConstraint.expand(constraints);
 
         return candidates.stream()
                 .filter(r -> r.getReportType() == ReportType.OBSTACLE)
                 .filter(r -> r.getLocation() != null)
+                .filter(r -> hazards.isEmpty() || reportMatchesAnyHazard(r, hazards))
                 .filter(r -> isWithinPathBuffer(r.getLocation(), pathPoints))
                 .toList();
     }

@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Enable Tailwind's `dark:` variant when <html> has `.dark` (set by ThemeContext). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Colors */
   --color-primary: #176a21;
@@ -74,7 +77,13 @@
 
 @layer utilities {
   .primary-gradient {
-    background: linear-gradient(to bottom, #176a21, #025d16);
+    background: linear-gradient(to bottom, var(--color-primary), var(--color-primary-dim));
+  }
+  /* Push Stadia AlidadeSmoothDark toward an Apple-Maps look in dark mode:
+     stronger saturation makes water cobalt, slight hue rotate biases toward
+     blue, modest contrast/brightness boost to keep land readable. */
+  .dark .leaflet-tile-pane {
+    filter: saturate(1.9) hue-rotate(-8deg) brightness(1.05) contrast(1.05);
   }
   .cloud-shadow {
     box-shadow: 0 40px 40px -4px rgba(45, 47, 47, 0.06);
@@ -107,4 +116,57 @@
   33% { transform: translate(30px, -50px) scale(1.1); }
   66% { transform: translate(-20px, 20px) scale(0.9); }
   100% { transform: translate(0px, 0px) scale(1); }
+}
+
+/* Dark-mode token overrides. Hex values mirror mobile's `AppColors`
+   (mobile/lib/theme/app_colors.dart) so the two clients render at parity.
+   Both `.dark` and `[data-theme="dark"]` are accepted so callers can pick
+   either convention; ThemeContext sets `data-theme` on <html>. */
+@layer base {
+  .dark,
+  [data-theme="dark"] {
+    --color-primary: #8dd58b;
+    --color-primary-dim: #a7e29f;
+    --color-primary-fixed: #b8f0b2;
+    --color-primary-fixed-dim: #a7e29f;
+    --color-primary-container: #12661e;
+    --color-on-primary: #003910;
+    --color-on-primary-container: #b8f0b2;
+    --color-surface-tint: #8dd58b;
+
+    --color-secondary: #b0c5cf;
+    --color-secondary-container: #2d424c;
+    --color-on-secondary: #1e333c;
+    --color-on-secondary-container: #cfe6f2;
+
+    --color-tertiary: #50e1f9;
+    --color-tertiary-container: #004d58;
+    --color-on-tertiary: #003840;
+    --color-on-tertiary-container: #b3eaf5;
+
+    --color-error: #ffb4ab;
+    --color-error-dim: #ffb4a2;
+    --color-error-container: #5c1a14;
+    --color-on-error: #690300;
+    --color-on-error-container: #ffdad6;
+
+    --color-background: #111413;
+    --color-on-background: #e3e5e4;
+    --color-surface: #111413;
+    --color-surface-dim: #0a0c0b;
+    --color-surface-bright: #2c302f;
+    --color-surface-variant: #3a3d3c;
+    --color-surface-container-lowest: #0a0c0b;
+    --color-surface-container-low: #161a18;
+    --color-surface-container: #1b1f1e;
+    --color-surface-container-high: #252928;
+    --color-surface-container-highest: #2c302f;
+    --color-on-surface: #e3e5e4;
+    --color-on-surface-variant: #b0b3b2;
+    --color-inverse-surface: #e3e5e4;
+    --color-inverse-on-surface: #2d2f2f;
+
+    --color-outline: #6e7170;
+    --color-outline-variant: #3a3d3c;
+  }
 }

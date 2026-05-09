@@ -21,10 +21,10 @@ class ObjectTypeServiceTest {
     }
 
     @Test
-    void getAll_returnsFiveObjectTypes() {
+    void getAll_returnsAllObjectTypes() {
         List<ObjectTypeInfoResponse> result = objectTypeService.getAll();
 
-        assertEquals(5, result.size());
+        assertEquals(ObjectType.values().length, result.size());
     }
 
     @Test
@@ -32,11 +32,9 @@ class ObjectTypeServiceTest {
         List<ObjectTypeInfoResponse> result = objectTypeService.getAll();
         List<ObjectType> returnedTypes = result.stream().map(ObjectTypeInfoResponse::getObjectType).toList();
 
-        assertTrue(returnedTypes.contains(ObjectType.RAMP));
-        assertTrue(returnedTypes.contains(ObjectType.ELEVATOR));
-        assertTrue(returnedTypes.contains(ObjectType.SIDEWALK));
-        assertTrue(returnedTypes.contains(ObjectType.DOOR));
-        assertTrue(returnedTypes.contains(ObjectType.STAIR));
+        for (ObjectType type : ObjectType.values()) {
+            assertTrue(returnedTypes.contains(type), type + " should be returned by getAll()");
+        }
     }
 
     @Test

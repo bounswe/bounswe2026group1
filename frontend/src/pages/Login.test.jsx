@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext.jsx'
 import Login from './Login.jsx'
@@ -14,13 +14,16 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-function renderLogin() {
+function renderLogin({ initialEntries } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Login />
+          <Routes>
+            <Route path="/" element={<Login />} />
+            <Route path="/login" element={<Login />} />
+          </Routes>
         </AuthProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -142,7 +145,7 @@ describe('Login page', () => {
       })
     })
 
-    it('navigates to / on successful login', async () => {
+    it('navigates to / on successful login when no redirect is pending', async () => {
       authService.loginUser.mockResolvedValue({ token: 'tok' })
       const user = userEvent.setup()
       renderLogin()
@@ -151,7 +154,25 @@ describe('Login page', () => {
       await user.type(screen.getByLabelText(/^password$/i), 'secret')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true }))
+    })
+
+    it('returns to the protected route stashed by RequireAuth on successful login', async () => {
+      authService.loginUser.mockResolvedValue({ token: 'tok' })
+      const user = userEvent.setup()
+      renderLogin({
+        initialEntries: [
+          { pathname: '/login', state: { from: { pathname: '/profile' } } },
+        ],
+      })
+
+      await user.type(screen.getByLabelText(/email address/i), 'a@b.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'secret')
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+      await waitFor(() =>
+        expect(mockNavigate).toHaveBeenCalledWith('/profile', { replace: true }),
+      )
     })
 
     it('stores the JWT token in localStorage on successful login', async () => {

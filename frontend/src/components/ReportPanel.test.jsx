@@ -11,6 +11,7 @@ vi.mock('../context/AuthContext.jsx', () => ({
 vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
+  updateReport: vi.fn(),
   agreeFixRequest: vi.fn(),
   disagreeFixRequest: vi.fn(),
   mapReport: vi.fn(r => r),
@@ -18,11 +19,15 @@ vi.mock('../services/reportService.js', () => ({
   getCommentsByReport: vi.fn(() => Promise.resolve([])),
   createComment: vi.fn(),
   deleteComment: vi.fn(() => Promise.resolve()),
+  getFollowStatus: vi.fn(() => Promise.resolve({ following: false })),
+  followReport: vi.fn(() => Promise.resolve({ following: true })),
+  unfollowReport: vi.fn(() => Promise.resolve({ following: false })),
 }))
 
 import {
   agreeReport,
   disagreeReport,
+  updateReport,
   agreeFixRequest,
   getCommentsByReport,
   createComment,
@@ -118,6 +123,60 @@ describe('ReportPanel', () => {
     await waitFor(() => {
       expect(onFollowChangeMock).toHaveBeenCalled()
       expect(followBtn.textContent.toLowerCase()).toMatch(/unfollow/)
+    })
+  })
+
+  describe('owner edit', () => {
+    const ownedReport = {
+      ...report,
+      ownerId: 'user123',
+      environment: 'OUTDOOR',
+    }
+
+    test('does not show Edit button for non-owners', () => {
+      renderPanel({ report: { ...ownedReport, ownerId: 'someone-else' } })
+      expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
+    })
+
+    test('shows Edit button for the report owner', () => {
+      renderPanel({ report: ownedReport })
+      expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
+    })
+
+    test('clicking Edit reveals description textarea and environment radios', async () => {
+      renderPanel({ report: ownedReport })
+      await user.click(screen.getByRole('button', { name: /^edit$/i }))
+      expect(screen.getByLabelText(/^description$/i)).toHaveValue(ownedReport.description)
+      expect(screen.getByRole('radio', { name: /outdoor/i })).toBeChecked()
+      expect(screen.getByRole('radio', { name: /indoor/i })).not.toBeChecked()
+    })
+
+    test('save calls updateReport with description and environment', async () => {
+      updateReport.mockResolvedValueOnce({ ...ownedReport, description: 'New' })
+      renderPanel({ report: ownedReport })
+      await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+      const textarea = screen.getByLabelText(/^description$/i)
+      await user.clear(textarea)
+      await user.type(textarea, 'New')
+      await user.click(screen.getByRole('radio', { name: /indoor/i }))
+      await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+      await waitFor(() => {
+        expect(updateReport).toHaveBeenCalledWith(
+          'r1',
+          { description: 'New', environment: 'INDOOR' },
+          'mock-token',
+        )
+      })
+    })
+
+    test('Cancel exits edit mode without saving', async () => {
+      renderPanel({ report: ownedReport })
+      await user.click(screen.getByRole('button', { name: /^edit$/i }))
+      await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+      expect(screen.queryByLabelText(/^description$/i)).not.toBeInTheDocument()
+      expect(updateReport).not.toHaveBeenCalled()
     })
   })
 

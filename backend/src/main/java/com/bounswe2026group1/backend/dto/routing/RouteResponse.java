@@ -44,4 +44,11 @@ public class RouteResponse {
     @Schema(description = "Decoded polyline as a list of (lat, lon) points — convenient for clients " +
             "that don't decode polylines themselves.")
     private List<Location> nodeCoordinates;
+
+    /**
+     * True when this alternative matches the authenticated user's
+     * {@code preferredTravelMode}. Only one alternative is flagged per response.
+     * Always {@code false} for anonymous callers and users without a preference.
+     */
+    private boolean preferred;
 }

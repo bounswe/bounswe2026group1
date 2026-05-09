@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'fix_request_model.dart';
+
 // ─── Report-level enums ──────────────────────────────────────────────────────
 
 enum ReportType {
@@ -344,11 +346,13 @@ enum IssueType {
 enum ReportStatus {
   pending,
   verified,
-  rejected;
+  rejected,
+  fixed;
 
   static ReportStatus fromJson(String? s) => switch (s) {
         'VERIFIED' => ReportStatus.verified,
         'REJECTED' => ReportStatus.rejected,
+        'FIXED' => ReportStatus.fixed,
         _ => ReportStatus.pending,
       };
 
@@ -356,12 +360,14 @@ enum ReportStatus {
         ReportStatus.pending => 'Pending',
         ReportStatus.verified => 'Verified',
         ReportStatus.rejected => 'Rejected',
+        ReportStatus.fixed => 'Fixed',
       };
 
   Color get color => switch (this) {
         ReportStatus.pending => const Color(0xFF8B6A00),
         ReportStatus.verified => const Color(0xFF176a21),
         ReportStatus.rejected => const Color(0xFFB02500),
+        ReportStatus.fixed => const Color(0xFF2E7D32),
       };
 }
 
@@ -422,6 +428,10 @@ class ReportObject {
 
 // ─── Report model ────────────────────────────────────────────────────────────
 
+/// Sentinel that lets [ReportModel.copyWith] tell "omitted" apart from
+/// "explicitly set to null" for nullable fields.
+const Object _kSentinel = Object();
+
 class ReportModel {
   final int reportId;
   final int userId;
@@ -447,6 +457,11 @@ class ReportModel {
   final double? exitLongitude;
   final int? lastEditedByUserId;
 
+  /// Latest non-expired fix request for this report. Backend hydrates this on
+  /// every report response so clients can show the live "is this fixed?"
+  /// voting card without an extra fetch.
+  final FixRequestModel? activeFixRequest;
+
   const ReportModel({
     required this.reportId,
     required this.userId,
@@ -468,6 +483,7 @@ class ReportModel {
     this.exitLatitude,
     this.exitLongitude,
     this.lastEditedByUserId,
+    this.activeFixRequest,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
@@ -496,6 +512,11 @@ class ReportModel {
       exitLatitude: (json['exitLatitude'] as num?)?.toDouble(),
       exitLongitude: (json['exitLongitude'] as num?)?.toDouble(),
       lastEditedByUserId: (json['lastEditedByUserId'] as num?)?.toInt(),
+      activeFixRequest: json['activeFixRequest'] is Map
+          ? FixRequestModel.fromJson(
+              Map<String, dynamic>.from(json['activeFixRequest'] as Map),
+            )
+          : null,
     );
   }
 
@@ -504,6 +525,7 @@ class ReportModel {
     int? disagrees,
     ReportStatus? status,
     List<String>? mediaUrls,
+    Object? activeFixRequest = _kSentinel,
   }) {
     return ReportModel(
       reportId: reportId,
@@ -526,6 +548,11 @@ class ReportModel {
       exitLatitude: exitLatitude,
       exitLongitude: exitLongitude,
       lastEditedByUserId: lastEditedByUserId,
+      // Sentinel lets callers explicitly clear activeFixRequest by passing
+      // `null` while still defaulting to the current value when omitted.
+      activeFixRequest: activeFixRequest == _kSentinel
+          ? this.activeFixRequest
+          : activeFixRequest as FixRequestModel?,
     );
   }
 

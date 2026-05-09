@@ -32,33 +32,56 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     List<Report> findByStatus(ReportStatus status);
 
+    /**
+     * Routing-only query: restricted to {@code environment = OUTDOOR} because the
+     * route geometry comes from ORS foot-walking on outdoor pedestrian network.
+     * Indoor reports (broken elevators, heavy doors, etc.) stay in the report
+     * system as informational data; they don't generate avoid polygons because
+     * routing can't navigate to or around them.
+     */
     @Query("""
             SELECT r FROM Report r
             WHERE r.status IN :statuses
             AND r.reportType = :type
+            AND r.environment = com.bounswe2026group1.backend.model.ReportEnvironment.OUTDOOR
             """)
     List<Report> findByTypeAndStatusIn(
             @Param("type") ReportType type,
             @Param("statuses") Collection<ReportStatus> statuses);
 
+    /**
+     * Routing-only native query.
+     *
+     * <p>Caller MUST pass status names (e.g. {@code ReportStatus.VERIFIED.name()})
+     * and the type name, not enum values. Hibernate binds {@code Collection<Enum>}
+     * as ordinals (smallint) in native queries, which collides with the varchar
+     * columns produced by {@code @Enumerated(STRING)}.
+     *
+     * <p>Filtered to {@code environment = 'OUTDOOR'} because the route geometry
+     * comes from ORS foot-walking on the outdoor pedestrian network. Indoor
+     * reports stay in the report system as informational data.
+     */
     @Query(value = """
             SELECT r.* FROM reports r
             WHERE r.status IN (:statuses)
             AND r.report_type = :type
+            AND r.environment = 'OUTDOOR'
             AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
             """,
             nativeQuery = true)
     List<Report> findByTypeInBoundingBoxWithStatuses(
-            @Param("type") ReportType type,
+            @Param("type") String type,
             @Param("minLat") double minLat,
             @Param("maxLat") double maxLat,
             @Param("minLon") double minLon,
             @Param("maxLon") double maxLon,
-            @Param("statuses") Collection<ReportStatus> statuses);
+            @Param("statuses") Collection<String> statuses);
 
+    /** Routing-only native query. See sibling method above for binding + environment caveats. */
     @Query(value = """
             SELECT r.* FROM reports r
             WHERE r.status IN (:statuses)
+            AND r.environment = 'OUTDOOR'
             AND ST_Within(r.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326))
             """,
             nativeQuery = true)
@@ -67,7 +90,7 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             @Param("maxLat") double maxLat,
             @Param("minLon") double minLon,
             @Param("maxLon") double maxLon,
-            @Param("statuses") Collection<ReportStatus> statuses);
+            @Param("statuses") Collection<String> statuses);
 
     /**
      * Reports that have been in FIXED state long enough for the cleanup job to delete them.

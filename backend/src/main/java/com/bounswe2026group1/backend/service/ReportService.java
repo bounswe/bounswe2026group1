@@ -254,11 +254,22 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
         }
 
-        report.getMediaList().stream().map(Media::getFilePath).forEach(s3MediaService::deleteFile);
+        // Best-effort S3 cleanup: a failed delete (e.g. orphan/non-bucket URL) must not block
+        // the DB row removal — same pattern as RegisteredUserController.deleteAvatar.
+        report.getMediaList().forEach(m -> deleteS3Quietly(m.getFilePath(), id));
         report.getFixRequests().forEach(fr ->
-                fr.getMediaList().forEach(frm -> s3MediaService.deleteFile(frm.getFilePath())));
+                fr.getMediaList().forEach(frm -> deleteS3Quietly(frm.getFilePath(), id)));
         reportRepository.delete(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportDeleted(id));
+    }
+
+    private void deleteS3Quietly(String url, Long reportId) {
+        if (url == null || url.isBlank()) return;
+        try {
+            s3MediaService.deleteFile(url);
+        } catch (Exception e) {
+            log.warn("Failed to delete S3 object for report {} ({}): {}", reportId, url, e.getMessage());
+        }
     }
 
     @Transactional
@@ -362,13 +373,9 @@ public class ReportService {
             target = ReportStatus.VERIFIED;
         } else if (disagrees >= verificationThreshold && disagreeRatio >= verificationRatio) {
             target = ReportStatus.REJECTED;
-        } else if (current == ReportStatus.VERIFIED
-                && disagrees >= verificationThreshold
-                && agreeRatio < verificationRatio) {
-            target = ReportStatus.PENDING;
-        } else if (current == ReportStatus.REJECTED
-                && agrees >= verificationThreshold
-                && disagreeRatio < verificationRatio) {
+        } else if (current == ReportStatus.VERIFIED || current == ReportStatus.REJECTED) {
+            // Verification/rejection criteria no longer hold (count or ratio fell below
+            // threshold, e.g. via vote retraction). Revert to PENDING symmetrically.
             target = ReportStatus.PENDING;
         }
 
