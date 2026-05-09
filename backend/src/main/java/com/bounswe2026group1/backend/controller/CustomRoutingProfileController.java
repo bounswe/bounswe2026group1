@@ -1,10 +1,12 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.config.OpenApiConfig;
 import com.bounswe2026group1.backend.dto.routing.CreateCustomRoutingProfileRequest;
 import com.bounswe2026group1.backend.dto.routing.CustomRoutingProfileResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingPreferencesResponse;
 import com.bounswe2026group1.backend.dto.routing.UpdateCustomRoutingProfileRequest;
 import com.bounswe2026group1.backend.service.CustomRoutingProfileService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users/me/routing-profiles")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
 public class CustomRoutingProfileController {
 
     private final CustomRoutingProfileService customRoutingProfileService;
