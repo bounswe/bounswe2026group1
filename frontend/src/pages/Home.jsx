@@ -29,9 +29,22 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, objectType, selected = false) {
-  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: 'warning', markerColor: '#767777' }
-  const borderColor = status === 'verified' ? '#176a21' : cfg.markerColor
+// Map marker colour rule (issue #362):
+//   FEATURE  reports = positive   → green
+//   OBSTACLE reports = negative   → red
+// Verified pins render at full opacity; unverified pins are visually faded
+// so the eye is drawn to confirmed reports first. Selected pins always
+// render at full opacity regardless so the user sees what they clicked.
+const MARKER_GREEN = '#2E7D32'
+const MARKER_RED   = '#C62828'
+const MARKER_NEUTRAL = '#767777'
+const MARKER_ICON_FALLBACK = 'warning'
+
+function makeMarkerIcon(status, objectType, reportType, selected = false) {
+  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: MARKER_ICON_FALLBACK, markerColor: MARKER_NEUTRAL }
+  const borderColor = reportType === 'FEATURE' ? MARKER_GREEN : MARKER_RED
+  const isVerified = status === 'verified'
+  const opacity = !isVerified && !selected ? 0.55 : 1
   const size = selected ? 56 : 40
   const iconFontSize = selected ? 28 : 20
   const borderWidth = selected ? 3.5 : 2.5
