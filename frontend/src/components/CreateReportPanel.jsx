@@ -4,6 +4,11 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 
+// Mirrors backend `S3MediaService.ALLOWED_CONTENT_TYPES`. Apple devices
+// produce MOV (video/quicktime); most other devices produce MP4.
+const ALLOWED_MEDIA_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'video/quicktime']
+const MAX_MEDIA_BYTES = 15 * 1024 * 1024
+
 function CreateReportPanel({ position, onClose, onCreated }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
@@ -16,6 +21,11 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  // Errors raised while picking a file (unsupported MIME, oversized).
+  // Kept separate from the submit-level `error` so they render right
+  // under the dropzone instead of at the bottom of the form where users
+  // would have to scroll to see them.
+  const [mediaError, setMediaError] = useState('')
   const fileInputRef = useRef(null)
 
   // Bottom-sheet drag-to-resize (mobile only — desktop keeps right-sidebar layout).
@@ -78,22 +88,37 @@ function CreateReportPanel({ position, onClose, onCreated }) {
     : OBJECT_TYPES
   ).filter(t => t.environments.includes(environment))
 
-  // ── image ──────────────────────────────────────────────────────────────────
+  // ── media (image or video) ─────────────────────────────────────────────────
+  // Allowlist mirrors backend S3MediaService.ALLOWED_CONTENT_TYPES so the
+  // client rejects unsupported types before incurring an upload round-trip.
+  // 15 MB matches both backend behaviour and the avatar uploader.
 
-  function handleImageChange(e) {
-    const file = e.target.files[0]
+  function pickFile(file) {
     if (!file) return
+    if (!ALLOWED_MEDIA_MIME.includes(file.type)) {
+      setMediaError('Unsupported file type. Use JPEG, PNG, MP4, or MOV.')
+      return
+    }
+    if (file.size > MAX_MEDIA_BYTES) {
+      setMediaError('File must be 15 MB or smaller.')
+      return
+    }
+    setMediaError('')
     setImageFile(file)
     setImagePreview(URL.createObjectURL(file))
+  }
+
+  function handleImageChange(e) {
+    pickFile(e.target.files[0])
+    e.target.value = ''
   }
 
   function handleDrop(e) {
     e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    pickFile(e.dataTransfer.files[0])
   }
+
+  const isVideoPreview = imageFile?.type?.startsWith('video/')
 
   // ── report type toggle ─────────────────────────────────────────────────────
 
@@ -300,25 +325,47 @@ function CreateReportPanel({ position, onClose, onCreated }) {
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={e => e.preventDefault()}
-            className="w-full h-44 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
+            className="relative w-full h-44 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
           >
             {imagePreview ? (
-              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              isVideoPreview ? (
+                <>
+                  <video
+                    src={imagePreview}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                    // Suppress controls so the picker stays the click target;
+                    // the user can re-pick by clicking the dropzone.
+                  />
+                  <span className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>movie</span>
+                    Video
+                  </span>
+                </>
+              ) : (
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              )
             ) : (
               <>
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
-                <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG)</p>
+                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos / videos here</p>
+                <p className="text-xs text-outline">Up to 15 MB (JPEG, PNG, MP4, MOV)</p>
               </>
             )}
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png"
+            accept={ALLOWED_MEDIA_MIME.join(',')}
             className="hidden"
             onChange={handleImageChange}
           />
+          {mediaError && (
+            <p role="alert" className="mt-2 text-sm text-error bg-error-container/20 rounded-lg px-3 py-2">
+              {mediaError}
+            </p>
+          )}
         </div>
 
         {/* Report Type */}
