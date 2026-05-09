@@ -113,6 +113,13 @@ function Navbar() {
           >
             Feed
           </NavLink>
+          <button
+            type="button"
+            onClick={handleReplayTutorialClick}
+            className="text-on-surface-variant hover:text-primary transition-colors font-medium pb-1 cursor-pointer"
+          >
+            Tutorial
+          </button>
           {isAdmin && (
             <NavLink
               to="/admin"
