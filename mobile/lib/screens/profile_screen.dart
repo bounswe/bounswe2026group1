@@ -55,7 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     try {
       final api = auth.api;
-      final userInfo = await api.getUserById(auth.userId);
+      final userInfo = await api.getMyProfile();
       final reports = await api.getReportsByUser(auth.userId);
       if (!mounted) return;
       setState(() {
@@ -165,7 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final auth = context.read<AuthService>();
       await auth.api.deleteAvatar(auth.userId);
       // Refresh so the avatarUrl in _userInfo clears.
-      final updated = await auth.api.getUserById(auth.userId);
+      final updated = await auth.api.getMyProfile();
       if (!mounted) return;
       setState(() {
         if (updated != null) _userInfo = updated;
@@ -213,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (_pickedAvatar != null) {
         await api.uploadAvatar(auth.userId, _pickedAvatar!);
         // Refresh full profile to pick up new avatarUrl
-        updated = await api.getUserById(auth.userId);
+        updated = await api.getMyProfile();
       }
       if (!mounted) return;
       setState(() {
@@ -409,7 +409,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return 0;
                     }
                   }))
-                .take(5)
                 .map((report) => _buildReportItem(report)),
         ],
       ),
@@ -793,16 +792,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           if (email.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Semantics(
               label: 'Email',
               value: email,
-              child: Text(
-                email,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.onSurfaceVariant,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

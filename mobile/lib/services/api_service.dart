@@ -76,6 +76,20 @@ class ApiService {
     return null;
   }
 
+  /// Returns the authenticated user's *full* profile — including the email,
+  /// which `/api/users/{id}` redacts. Use this on the self profile screen;
+  /// other-user profiles should keep using [getUserById].
+  Future<Map<String, dynamic>?> getMyProfile() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/users/me'), headers: _headers)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    if (response.statusCode == 401 || response.statusCode == 404) return null;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   Future<Map<String, dynamic>> updateUserProfile({
     required int userId,
     String? name,
