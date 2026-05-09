@@ -9,7 +9,7 @@ function UserCard({ user }) {
   return (
     <Link
       to={`/profile/${user.id}`}
-      className="flex items-center gap-3 bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow"
+      className="flex items-center gap-3 bg-surface-container-lowest rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow"
     >
       <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 overflow-hidden">
         {user.avatarUrl ? (
@@ -68,7 +68,7 @@ function UserSearchPage() {
             onChange={onChange}
             placeholder="e.g. alice"
             autoFocus
-            className="bg-white rounded-2xl shadow-sm px-4 py-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
+            className="bg-surface-container-lowest rounded-2xl shadow-sm px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
             aria-label="Search users by name or email"
           />
         </label>
