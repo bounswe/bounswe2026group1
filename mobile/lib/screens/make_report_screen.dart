@@ -126,6 +126,24 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     });
   }
 
+  /// When the environment flips, drop the type+issues+measurements on any
+  /// card whose ObjectType doesn't support the new environment (e.g. a
+  /// SIDEWALK card after switching to INDOOR). The user keeps the card
+  /// slot so they can pick a valid type without re-adding it.
+  void _onEnvironmentChanged(ReportEnvironment next) {
+    setState(() {
+      _environment = next;
+      for (final o in _objects) {
+        final type = o.objectType;
+        if (type != null && !type.supports(next)) {
+          o.objectType = null;
+          o.issues.clear();
+          o.measurements.clear();
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _descController.dispose();
@@ -526,6 +544,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                   ObjectsSection(
                     objects: _objects,
                     reportType: _reportType,
+                    environment: _environment,
                     onChanged: () => setState(() {}),
                   ),
                   const SizedBox(height: 120),
@@ -1251,7 +1270,7 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
               child: _envButton(
                 option: items[i],
                 selected: _environment == items[i].env,
-                onTap: () => setState(() => _environment = items[i].env),
+                onTap: () => _onEnvironmentChanged(items[i].env),
               ),
             ),
           ],
