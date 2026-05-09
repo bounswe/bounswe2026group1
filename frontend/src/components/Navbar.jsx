@@ -63,6 +63,14 @@ function Navbar() {
     navigate('/')
   }
 
+  function handleReplayTutorialClick() {
+    setMenuOpen(false)
+    // Home.jsx watches for ?tutorial=1 and reopens the modal regardless of the
+    // localStorage flag. Using a query param keeps the entry-point reachable
+    // from any page (the dropdown lives in the navbar).
+    navigate('/?tutorial=1')
+  }
+
   return (
     <header className="w-full sticky top-0 z-[1001] bg-surface-container-lowest/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
       <div className="flex items-center gap-4 md:gap-8">
@@ -196,6 +204,17 @@ function Navbar() {
                     person
                   </span>
                   Profile
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleReplayTutorialClick}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>
+                    school
+                  </span>
+                  Replay tutorial
                 </button>
                 <button
                   type="button"
