@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../models/report_model.dart';
 import '../main.dart' show AuthShell;
 import 'report_detail_screen.dart';
@@ -21,10 +25,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   String? _error;
 
+  // ── Edit mode state ────────────────────────────────────────────────────────
+  bool _editMode = false;
+  bool _saving = false;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  File? _pickedAvatar;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _bioController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -50,6 +69,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  void _enterEditMode() {
+    setState(() {
+      _nameController.text =
+          (_userInfo?['name'] ?? _userInfo?['fullName'] ?? '') as String;
+      _bioController.text = (_userInfo?['bio'] ?? '') as String;
+      _pickedAvatar = null;
+      _editMode = true;
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _editMode = false;
+      _pickedAvatar = null;
+    });
+  }
+
+  Future<void> _pickAvatar() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      setState(() => _pickedAvatar = File(picked.path));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not pick image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = context.read<AuthService>();
+    final api = auth.api;
+    final newName = _nameController.text.trim();
+    final newBio = _bioController.text.trim();
+    final currentName =
+        (_userInfo?['name'] ?? _userInfo?['fullName'] ?? '') as String;
+    final currentBio = (_userInfo?['bio'] ?? '') as String;
+
+    setState(() => _saving = true);
+    try {
+      Map<String, dynamic>? updated;
+      if (newName != currentName || newBio != currentBio) {
+        updated = await api.updateUserProfile(
+          userId: auth.userId,
+          name: newName != currentName ? newName : null,
+          bio: newBio != currentBio ? newBio : null,
+        );
+      }
+      if (_pickedAvatar != null) {
+        await api.uploadAvatar(auth.userId, _pickedAvatar!);
+        // Refresh full profile to pick up new avatarUrl
+        updated = await api.getUserById(auth.userId);
+      }
+      if (!mounted) return;
+      setState(() {
+        if (updated != null) _userInfo = updated;
+        _editMode = false;
+        _pickedAvatar = null;
+        _saving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update profile: $e')),
+      );
     }
   }
 
@@ -108,7 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircularProgressIndicator(color: AppColors.primary),
               )
             : auth.isAuthenticated
-                ? _buildAuthenticatedView()
+                ? (_editMode ? _buildEditView() : _buildAuthenticatedView())
                 : _buildGuestView(),
       ),
     );
@@ -135,8 +242,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final name = _userInfo?['fullName'] ?? _userInfo?['name'] ?? 'User';
-    final email = _userInfo?['email'] ?? '';
+    final name = (_userInfo?['name'] ?? _userInfo?['fullName'] ?? 'User') as String;
+    final email = (_userInfo?['email'] ?? '') as String;
+    final bio = (_userInfo?['bio'] ?? '') as String;
+    final avatarUrl = _userInfo?['avatarUrl'] as String?;
+    final stats = _userInfo?['contributionStats'] as Map<String, dynamic>?;
+    final reportsSubmitted = stats?['reportsSubmitted'] ?? _userReports.length;
+    final routesPlanned = stats?['routesPlanned'] ?? 0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -147,60 +259,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Center(
             child: Column(
               children: [
-                Stack(
-                  children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.surfaceContainerHigh,
-                        border: Border.all(
-                            color: AppColors.cardSurface, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.shadow,
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(Icons.person, size: 44, color: AppColors.secondary),
-                    ),
-                    Positioned(
-                      bottom: 2,
-                      right: 2,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.verified,
-                            color: AppColors.onPrimarySolid, size: 14),
-                      ),
-                    ),
-                  ],
-                ),
+                _buildAvatar(avatarUrl: avatarUrl, semanticName: name),
                 const SizedBox(height: 14),
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 22,
-                    color: AppColors.onSurface,
+                Semantics(
+                  label: 'Display name',
+                  value: name,
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                      color: AppColors.onSurface,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.onSurfaceVariant,
+                Semantics(
+                  label: 'Email',
+                  value: email,
+                  child: Text(
+                    email,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
                 ),
+                if (bio.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Semantics(
+                    label: 'Bio',
+                    value: bio,
+                    child: Text(
+                      bio,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -210,9 +311,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Stats cards
           Row(
             children: [
-              Expanded(child: _buildStatCard('TOTAL REPORTS', '${_userReports.length}', null)),
+              Expanded(child: _buildStatCard('REPORTS SUBMITTED', '$reportsSubmitted', null)),
               const SizedBox(width: 12),
-              Expanded(child: _buildStatCard('CONTRIBUTION SCORE', '${_userReports.length * 20}', 'pts')),
+              Expanded(child: _buildStatCard('ROUTES PLANNED', '$routesPlanned', null)),
             ],
           ),
 
@@ -233,7 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           Row(
             children: [
-              Expanded(child: _buildAccountAction(Icons.edit_outlined, 'EDIT\nPROFILE', () {})),
+              Expanded(child: _buildAccountAction(Icons.edit_outlined, 'EDIT\nPROFILE', _enterEditMode)),
               const SizedBox(width: 12),
               Expanded(child: _buildAccountAction(Icons.settings_outlined, 'EDIT\nPREFERENCES', () {})),
             ],
@@ -288,6 +389,257 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  // ── Edit View ──────────────────────────────────────────────────────────────
+
+  Widget _buildEditView() {
+    final avatarUrl = _userInfo?['avatarUrl'] as String?;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Semantics(
+                  button: true,
+                  label: 'Cancel editing',
+                  child: IconButton(
+                    icon: Icon(Icons.arrow_back, color: AppColors.onSurface),
+                    onPressed: _saving ? null : _cancelEdit,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Edit Profile',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Column(
+                children: [
+                  _buildAvatar(
+                    avatarUrl: avatarUrl,
+                    localFile: _pickedAvatar,
+                    semanticName: _nameController.text.isEmpty
+                        ? 'User'
+                        : _nameController.text,
+                    onTap: _saving ? null : _pickAvatar,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _saving ? null : _pickAvatar,
+                    icon: Icon(Icons.image_outlined,
+                        size: 18, color: AppColors.primary),
+                    label: Text(
+                      'Change picture',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Semantics(
+              label: 'Display name',
+              textField: true,
+              child: TextFormField(
+                controller: _nameController,
+                enabled: !_saving,
+                maxLength: 50,
+                inputFormatters: [LengthLimitingTextInputFormatter(50)],
+                decoration: InputDecoration(
+                  labelText: 'Display name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.length < 2) return 'Name must be at least 2 characters';
+                  if (t.length > 50) return 'Name must be at most 50 characters';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Semantics(
+              label: 'Bio',
+              textField: true,
+              child: TextFormField(
+                controller: _bioController,
+                enabled: !_saving,
+                minLines: 3,
+                maxLines: 5,
+                maxLength: 500,
+                inputFormatters: [LengthLimitingTextInputFormatter(500)],
+                decoration: InputDecoration(
+                  labelText: 'Bio',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (v) {
+                  if ((v ?? '').length > 500) {
+                    return 'Bio must be at most 500 characters';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _saving ? null : _cancelEdit,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label: 'Save profile changes',
+                    child: ElevatedButton(
+                      onPressed: _saving ? null : _saveProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _saving
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.onPrimary,
+                              ),
+                            )
+                          : const Text(
+                              'Save',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar({
+    String? avatarUrl,
+    String semanticName = 'User',
+    bool showBadge = true,
+    File? localFile,
+    VoidCallback? onTap,
+  }) {
+    Widget inner;
+    if (localFile != null) {
+      inner = ClipOval(
+        child: Image.file(
+          localFile,
+          width: 90,
+          height: 90,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      inner = ClipOval(
+        child: Image.network(
+          avatarUrl,
+          width: 90,
+          height: 90,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              Icon(Icons.person, size: 44, color: AppColors.secondary),
+        ),
+      );
+    } else {
+      inner = Icon(Icons.person, size: 44, color: AppColors.secondary);
+    }
+
+    final avatar = Container(
+      width: 90,
+      height: 90,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceContainerHigh,
+        border: Border.all(color: AppColors.cardSurface, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipOval(child: Center(child: inner)),
+    );
+
+    final stack = Stack(
+      children: [
+        avatar,
+        if (showBadge)
+          Positioned(
+            bottom: 2,
+            right: 2,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                onTap != null ? Icons.camera_alt : Icons.verified,
+                color: AppColors.onPrimarySolid,
+                size: 14,
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final wrapped = Semantics(
+      label: onTap != null ? 'Change profile picture' : 'Profile picture',
+      value: semanticName,
+      button: onTap != null,
+      image: onTap == null,
+      child: stack,
+    );
+
+    if (onTap == null) return wrapped;
+    return GestureDetector(onTap: onTap, child: wrapped);
   }
 
   Widget _buildStatCard(String label, String value, String? suffix) {

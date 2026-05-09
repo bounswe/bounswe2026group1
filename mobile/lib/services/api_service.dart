@@ -76,6 +76,70 @@ class ApiService {
     return null;
   }
 
+  Future<Map<String, dynamic>> updateUserProfile({
+    required int userId,
+    String? name,
+    String? bio,
+  }) async {
+    final body = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (bio != null) 'bio': bio,
+    };
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/api/users/$userId/profile'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<String> uploadAvatar(int userId, File file) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/api/users/$userId/profile/avatar'),
+    );
+    final headers = Map<String, String>.from(_headers)..remove('Content-Type');
+    request.headers.addAll(headers);
+
+    final ext = file.path.split('.').last.toLowerCase();
+    final mimeType = switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png'           => 'image/png',
+      'webp'          => 'image/webp',
+      _               => 'application/octet-stream',
+    };
+    request.files.add(await http.MultipartFile.fromPath(
+      'file',
+      file.path,
+      contentType: MediaType.parse(mimeType),
+    ));
+
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['avatarUrl'] as String;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> deleteAvatar(int userId) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/users/$userId/profile/avatar'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   Future<List<ReportModel>> getReportsByUser(int userId) async {
     final response = await http
         .get(Uri.parse('$_baseUrl/api/reports/user/$userId'), headers: _headers)
