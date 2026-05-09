@@ -13,6 +13,8 @@ import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -122,6 +124,29 @@ public class RegisteredUserService {
                         reportCounts.getOrDefault(u.getId(), 0L),
                         routeCounts.getOrDefault(u.getId(), 0L)))
                 .toList();
+    }
+
+    /** User search (#306 / #501): paginated, case-insensitive substring match
+     *  across name OR email. Empty / blank query is rejected with
+     *  IllegalArgumentException so the controller can return 400.
+     *  Email is omitted in the DTO (privacy) — search results are public. */
+    public Page<UserProfileDTO> searchUsers(String query, Pageable pageable) {
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("Search query must not be empty.");
+        }
+        String trimmed = query.trim();
+        Page<RegisteredUser> page = registeredUserRepository
+                .findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(trimmed, trimmed, pageable);
+        if (page.isEmpty()) return page.map(u -> buildDTO(u, false, 0L, 0L));
+
+        // Batch the contribution-stats queries so we stay flat at 3 queries
+        // total regardless of page size — same pattern as getAllProfiles.
+        List<Long> ids = page.getContent().stream().map(RegisteredUser::getId).toList();
+        Map<Long, Long> reportCounts = toCountMap(reportRepository.countByCreatedByIdIn(ids));
+        Map<Long, Long> routeCounts = toCountMap(routeRepository.countByCreatedByIdIn(ids));
+        return page.map(u -> buildDTO(u, false,
+                reportCounts.getOrDefault(u.getId(), 0L),
+                routeCounts.getOrDefault(u.getId(), 0L)));
     }
 
     private static Map<Long, Long> toCountMap(List<Object[]> rows) {
