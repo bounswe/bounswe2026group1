@@ -8,9 +8,10 @@ import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
+import { useTheme } from '../context/ThemeContext.jsx'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -27,9 +28,9 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, tag, selected = false) {
-  const cfg = REPORT_TAGS[tag] ?? { icon: 'warning', color: '#767777' }
-  const borderColor = status === 'verified' ? '#176a21' : cfg.color
+function makeMarkerIcon(status, objectType, selected = false) {
+  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: 'warning', markerColor: '#767777' }
+  const borderColor = status === 'verified' ? '#176a21' : cfg.markerColor
   const size = selected ? 56 : 40
   const iconFontSize = selected ? 28 : 20
   const borderWidth = selected ? 3.5 : 2.5
@@ -70,21 +71,21 @@ function ZoomControls() {
     <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom in"
       >
         <span className="material-symbols-outlined">add</span>
       </button>
       <button
         onClick={() => map.zoomOut()}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom out"
       >
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
         onClick={() => map.locate({ setView: true, maxZoom: 16 })}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors mt-2"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
         <span className="material-symbols-outlined">my_location</span>
@@ -160,7 +161,28 @@ function MapFlyTo({ target }) {
   return null
 }
 
+// Light: standard OpenStreetMap tiles (matches production — vivid greens
+// for parks/forests). Dark: MapTiler streets-v2-dark — has Apple-Maps-style
+// blue tones in water/roads. Requires a (free) MapTiler API key in
+// VITE_MAPTILER_KEY (.env.local). 100k tiles/month on the free tier.
+// If the key is missing we fall back to Stadia AlidadeSmoothDark so dev
+// still works without setup.
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY
+const TILE_LIGHT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+const TILE_DARK = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2-dark/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
+  : 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+const TILE_ATTR_LIGHT =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+const TILE_ATTR_DARK = MAPTILER_KEY
+  ? '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  : '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+
 function Home() {
+  const { resolved: themeResolved } = useTheme()
+  const isDark = themeResolved === 'dark'
+  const tileUrl = isDark ? TILE_DARK : TILE_LIGHT
+  const tileAttr = isDark ? TILE_ATTR_DARK : TILE_ATTR_LIGHT
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -362,7 +384,6 @@ function Home() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Route Panel — left sidebar overlay (does not resize the map) */}
         {routeMode && (
-          <div className="absolute top-0 left-0 w-full sm:w-auto h-full z-[1000] pointer-events-auto">
           <RoutePanel
             routeOrigin={routeOrigin}
             routeDest={routeDest}
@@ -427,7 +448,6 @@ function Home() {
             onSelectRoute={setActiveRouteIndex}
             onReset={resetRoute}
           />
-          </div>
         )}
 
         {/* Map area */}
@@ -440,14 +460,15 @@ function Home() {
             style={{ height: '100%', width: '100%' }}
           >
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              key={themeResolved}
+              url={tileUrl}
+              attribution={tileAttr}
             />
             {reports.map((report) => (
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.tags[0], report.id === selectedReportId)}
+                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.id === selectedReportId)}
                 zIndexOffset={report.id === selectedReportId ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
@@ -499,12 +520,12 @@ function Home() {
           {(loading || error) && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[500]">
               {loading && (
-                <p className="text-on-surface-variant font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                <p className="text-on-surface-variant font-bold text-lg select-none bg-surface-container-lowest/80 px-6 py-3 rounded-2xl shadow">
                   Loading reports...
                 </p>
               )}
               {error && (
-                <p className="text-error font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                <p className="text-error font-bold text-lg select-none bg-surface-container-lowest/80 px-6 py-3 rounded-2xl shadow">
                   Failed to load reports.
                 </p>
               )}
@@ -552,7 +573,7 @@ function Home() {
 
           {/* Floating search bar */}
           <div className="absolute top-3 sm:top-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-2xl sm:px-6 z-[1000] pointer-events-none">
-            <div className="flex items-center bg-white/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
+            <div className="flex items-center bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 pointer-events-auto">
               <span className="material-symbols-outlined text-primary text-xl sm:text-2xl">location_on</span>
               <div className="flex-1 min-w-0">
                 <p className="hidden sm:block text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
@@ -573,7 +594,7 @@ function Home() {
               </button>
             </div>
             {searchSuggestions.length > 0 && (
-              <ul className="mt-1 bg-white rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
+              <ul className="mt-1 bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
                 {searchSuggestions.map((s) => (
                   <li key={s.place_id}>
                     <button
@@ -588,13 +609,13 @@ function Home() {
               </ul>
             )}
             {searchError && (
-              <p className="mt-2 text-xs text-error bg-white/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
+              <p className="mt-2 text-xs text-error bg-surface-container-lowest/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
             )}
           </div>
 
           {/* Community Pulse card + FAB */}
           <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
-            <div className="hidden lg:block bg-white/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
+            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
@@ -605,13 +626,13 @@ function Home() {
                     <span className="material-symbols-outlined text-primary">trending_up</span>
                   </div>
                   <div>
-                    <p className="text-xs font-bold">{reports.length} Active Reports</p>
-                    <p className="text-[10px] text-secondary">Within 500m of your location</p>
+                    <p className="text-xs font-bold text-on-surface">{reports.length} Active Reports</p>
+                    <p className="text-[10px] text-on-surface-variant">Within 500m of your location</p>
                   </div>
                 </div>
                 <div className="bg-primary/5 rounded-2xl p-4">
                   <div className="flex justify-between text-[10px] font-bold mb-2">
-                    <span>City Resolution Rate</span>
+                    <span className="text-on-surface">City Resolution Rate</span>
                     <span className="text-primary">84%</span>
                   </div>
                   <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
@@ -625,7 +646,7 @@ function Home() {
               onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
               aria-label="Get Routes"
               className={`h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
-                routeMode ? 'bg-secondary text-on-secondary' : 'bg-white/90 text-on-surface border border-outline-variant/20'
+                routeMode ? 'bg-secondary text-on-secondary' : 'bg-surface-container-lowest/90 text-on-surface border border-outline-variant/20'
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
@@ -634,7 +655,7 @@ function Home() {
             <button
               onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
               aria-label="Report an Issue"
-              className="bg-primary text-white h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
+              className="bg-primary text-on-primary h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
               <span className="hidden sm:inline">Report an Issue</span>

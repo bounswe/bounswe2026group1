@@ -70,20 +70,18 @@ public class NotificationService {
         return saved;
     }
 
-    /** Trigger: report status transitioned to VERIFIED, REJECTED, or FIXED.
+    /** Trigger: report status transitioned to PENDING, VERIFIED, REJECTED, or FIXED.
      *  Notifies the report author, anyone who commented or voted on the report,
      *  and any explicit subscribers, minus the actor whose action triggered the
      *  change. Caller must only invoke this when the status actually changed. */
     public void notifyStatusChange(Report report, Long actorUserId) {
         if (report == null || report.getCreatedBy() == null) return;
         ReportStatus status = report.getStatus();
-        if (status != ReportStatus.VERIFIED
+        if (status != ReportStatus.PENDING
+                && status != ReportStatus.VERIFIED
                 && status != ReportStatus.REJECTED
                 && status != ReportStatus.FIXED) return;
 
-        // Use Locale.ROOT so 'VERIFIED' lowercases to 'verified' even on Turkish JVMs
-        // (default-locale toLowerCase would map I -> dotless 'ı').
-        String statusLower = status.name().toLowerCase(Locale.ROOT);
         Long reportId = report.getReportId();
         Long authorId = report.getCreatedBy().getId();
 
@@ -92,7 +90,7 @@ public class NotificationService {
         for (Long recipientId : audience) {
             RegisteredUser recipient = recipientsById.get(recipientId);
             if (recipient == null) continue;
-            String message = buildStatusMessage(recipientId, authorId, reportId, statusLower);
+            String message = buildStatusMessage(recipientId, authorId, reportId, status);
             create(recipient, message, NotificationType.STATUS_CHANGE, reportId);
         }
     }
@@ -116,7 +114,7 @@ public class NotificationService {
             RegisteredUser recipient = recipientsById.get(recipientId);
             if (recipient == null) continue;
             String message = buildCommentMessage(recipientId, authorId, reportId, commenterName);
-            create(recipient, message, NotificationType.NEW_COMMENT, comment.getId());
+            create(recipient, message, NotificationType.NEW_COMMENT, reportId);
         }
     }
 
@@ -166,8 +164,16 @@ public class NotificationService {
                 .collect(Collectors.toMap(RegisteredUser::getId, Function.identity()));
     }
 
-    private static String buildStatusMessage(Long recipientId, Long authorId, Long reportId, String statusLower) {
+    private static String buildStatusMessage(Long recipientId, Long authorId, Long reportId, ReportStatus status) {
         boolean isAuthor = authorId != null && authorId.equals(recipientId);
+        if (status == ReportStatus.PENDING) {
+            return isAuthor
+                    ? "Your report #" + reportId + " is now pending again."
+                    : "Report #" + reportId + " you follow is now pending again.";
+        }
+        // Use Locale.ROOT so 'VERIFIED' lowercases to 'verified' even on Turkish JVMs
+        // (default-locale toLowerCase would map I -> dotless 'ı').
+        String statusLower = status.name().toLowerCase(Locale.ROOT);
         return isAuthor
                 ? "Your report #" + reportId + " was " + statusLower + "."
                 : "Report #" + reportId + " you follow was " + statusLower + ".";

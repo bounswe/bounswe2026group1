@@ -198,7 +198,7 @@ export function mapReport(r) {
     agrees: r.agrees,
     disagrees: r.disagrees,
     userVote: r.userVote ? r.userVote.toLowerCase() : null,
-    tags: [],
+    primaryObjectType: objects[0]?.objectType || null,
     reportType: r.reportType || 'OBSTACLE',
     environment: r.environment || 'OUTDOOR',
     objects,

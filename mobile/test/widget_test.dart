@@ -8,6 +8,7 @@ import 'package:mapcess/screens/login_screen.dart';
 import 'package:mapcess/screens/register_screen.dart';
 import 'package:mapcess/services/auth_service.dart';
 import 'package:mapcess/services/api_service.dart';
+import 'package:mapcess/services/notification_service.dart';
 import 'package:mapcess/services/sse_service.dart';
 import 'package:mapcess/services/theme_service.dart';
 
@@ -34,10 +35,12 @@ void main() {
 
   testWidgets('Mapcess smoke test', (WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 900));
+    final auth = AuthService();
     await tester.pumpWidget(MapcessApp(
-      auth: AuthService(),
+      auth: auth,
       sse: SseService(),
       theme: ThemeService(),
+      notifications: NotificationService(auth),
     ));
   });
 

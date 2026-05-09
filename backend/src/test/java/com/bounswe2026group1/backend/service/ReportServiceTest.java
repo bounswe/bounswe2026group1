@@ -606,6 +606,56 @@ class ReportServiceTest {
     }
 
     @Test
+    void verifyReport_retractAgreeFromVerifiedDropsBelowThreshold_revertsToPending() {
+        // Pre VERIFIED, agrees=5, disagrees=0. User retracts their agree -> agrees=4.
+        // Verification criteria no longer hold (4 < 5) -> revert to PENDING.
+        ReflectionTestUtils.setField(testReport, "agrees", 5);
+        ReflectionTestUtils.setField(testReport, "disagrees", 0);
+        ReflectionTestUtils.setField(testReport, "status", ReportStatus.VERIFIED);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+        ReportVerification existing = new ReportVerification(testUser, testReport, VoteType.AGREE);
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.of(existing));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        assertEquals(4, testReport.getAgrees());
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
+        verify(notificationService).notifyStatusChange(testReport, testUser.getId());
+    }
+
+    @Test
+    void unverifyReport_retractDisagreeFromRejectedDropsBelowThreshold_revertsToPending() {
+        // Pre REJECTED, disagrees=5, agrees=0. User retracts their disagree -> disagrees=4.
+        // Rejection criteria no longer hold (4 < 5) -> revert to PENDING.
+        ReflectionTestUtils.setField(testReport, "agrees", 0);
+        ReflectionTestUtils.setField(testReport, "disagrees", 5);
+        ReflectionTestUtils.setField(testReport, "status", ReportStatus.REJECTED);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        ReflectionTestUtils.setField(reportService, "verificationRatio", 0.60);
+        testUser.setEmail("user@test.com");
+        ReportVerification existing = new ReportVerification(testUser, testReport, VoteType.DISAGREE);
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.of(existing));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.unverifyReport(1L, "user@test.com");
+
+        assertEquals(4, testReport.getDisagrees());
+        assertEquals(ReportStatus.PENDING, testReport.getStatus());
+        verify(publicSseService).broadcastReportUpdated(testReport, "pending");
+        verify(notificationService).notifyStatusChange(testReport, testUser.getId());
+    }
+
+    @Test
     void verifyReport_rejectedRecoversDirectlyToVerified() {
         // Pre REJECTED, disagrees=5, agrees=7 + 1 new = 8 -> 8/13 = 0.615 >= 0.60 -> VERIFIED
         ReflectionTestUtils.setField(testReport, "agrees", 7);

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../models/fix_request_model.dart';
+import '../models/notification_model.dart';
 import '../models/report_model.dart';
 
 const _baseUrl = 'https://api.mapcess.live';
@@ -108,23 +110,63 @@ class ApiService {
     required double latitude,
     required double longitude,
     required String description,
-    required ReportTag tag,
+    required ReportType reportType,
+    required ReportEnvironment environment,
+    required List<ReportObject> objects,
   }) async {
-    final isRamp = tag == ReportTag.ramp;
-    final endpoint = isRamp ? '$_baseUrl/api/reports/ramp' : '$_baseUrl/api/reports';
-    final body = isRamp
-        ? {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description}
-        : {'userId': userId, 'latitude': latitude, 'longitude': longitude, 'description': description, 'tag': tag.jsonValue};
+    final body = {
+      'userId': userId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'description': description,
+      'reportType': reportType.jsonValue,
+      'environment': environment.jsonValue,
+      'objects': objects.map((o) => o.toJson()).toList(),
+    };
 
     final response = await http
         .post(
-          Uri.parse(endpoint),
+          Uri.parse('$_baseUrl/api/reports'),
           headers: _headers,
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
+      return ReportModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<ReportModel> updateReport({
+    required int reportId,
+    String? description,
+    ReportEnvironment? environment,
+    double? latitude,
+    double? longitude,
+    List<ReportObject>? objects,
+    List<int>? mediaIdsToRemove,
+  }) async {
+    final body = <String, dynamic>{
+      if (description != null) 'description': description,
+      if (environment != null) 'environment': environment.jsonValue,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (objects != null) 'objects': objects.map((o) => o.toJson()).toList(),
+      if (mediaIdsToRemove != null) 'mediaIdsToRemove': mediaIdsToRemove,
+    };
+
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/api/reports/$reportId'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
       return ReportModel.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,
       );
@@ -142,6 +184,17 @@ class ApiService {
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> deleteReport(int id) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/reports/$id'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
@@ -226,6 +279,164 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  // ─── Fix requests ──────────────────────────────────────────────────────────
+
+  Future<FixRequestModel> submitFixRequest({
+    required int reportId,
+    required File file,
+    String? description,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/api/reports/$reportId/fix-requests'),
+    );
+
+    // Multipart boundaries handle Content-Type — drop our default JSON one.
+    final headers = Map<String, String>.from(_headers)..remove('Content-Type');
+    request.headers.addAll(headers);
+
+    final ext = file.path.split('.').last.toLowerCase();
+    final mimeType = switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png'           => 'image/png',
+      _               => 'application/octet-stream',
+    };
+    request.files.add(await http.MultipartFile.fromPath(
+      'files',
+      file.path,
+      contentType: MediaType.parse(mimeType),
+    ));
+    final trimmed = description?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      request.fields['description'] = trimmed;
+    }
+
+    final streamed = await request.send().timeout(const Duration(seconds: 30));
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return FixRequestModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<FixRequestModel> agreeFixRequest({
+    required int reportId,
+    required int fixId,
+  }) =>
+      _voteOnFixRequest(reportId: reportId, fixId: fixId, action: 'agree');
+
+  Future<FixRequestModel> disagreeFixRequest({
+    required int reportId,
+    required int fixId,
+  }) =>
+      _voteOnFixRequest(reportId: reportId, fixId: fixId, action: 'disagree');
+
+  Future<FixRequestModel> _voteOnFixRequest({
+    required int reportId,
+    required int fixId,
+    required String action,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse(
+              '$_baseUrl/api/reports/$reportId/fix-requests/$fixId/$action'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return FixRequestModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Notifications ─────────────────────────────────────────────────────────
+
+  Future<List<NotificationModel>> getNotifications() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/notifications'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list
+          .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<NotificationModel> markNotificationRead(int id) async {
+    final response = await http
+        .patch(
+          Uri.parse('$_baseUrl/api/notifications/$id/read'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return NotificationModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Follow ────────────────────────────────────────────────────────────────
+
+  Future<bool> followReport(int reportId) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/reports/$reportId/follow'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return _readFollowing(response);
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<bool> unfollowReport(int reportId) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/reports/$reportId/follow'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return _readFollowing(response);
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<bool> isFollowingReport(int reportId) async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/reports/$reportId/follow/me'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return _readFollowing(response);
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// Backend's `FollowStatusResponse` is `{ "following": bool }`. The
+  /// DELETE endpoint returns 204 on some configurations, so fall back to
+  /// `false` when there's no body to read.
+  bool _readFollowing(http.Response response) {
+    if (response.body.isEmpty) return false;
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['following'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─── Comments ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getComments(int reportId) async {
@@ -233,8 +444,12 @@ class ApiService {
         .get(Uri.parse('$_baseUrl/api/comments/report/$reportId'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
-      final list = jsonDecode(response.body) as List<dynamic>;
-      return list.cast<Map<String, dynamic>>();
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return const [];
+      return [
+        for (final item in decoded)
+          if (item is Map) Map<String, dynamic>.from(item),
+      ];
     }
     throw ApiException(response.statusCode, _extractMessage(response));
   }

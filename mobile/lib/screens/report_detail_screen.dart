@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -7,10 +8,14 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
+import '../models/fix_request_model.dart';
 import '../models/sse_event.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
+import 'create_fix_request_screen.dart';
+import 'edit_report_screen.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -22,7 +27,10 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  ReportModel get report => widget.report;
+  /// Mutable so an in-place edit (PUT /api/reports/{id}) can update what's
+  /// rendered without popping/repushing the route.
+  late ReportModel _report;
+  ReportModel get report => _report;
 
   String? _fetchedUsername;
   bool _usernameLoading = false;
@@ -59,9 +67,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _commentSubmitting = false;
 
+  // ── Follow state ─────────────────────────────────────────────────────────
+  /// `null` = not yet loaded, otherwise reflects the server's truth.
+  bool? _isFollowing;
+  bool _followBusy = false;
+
+  // ── Fix request state ────────────────────────────────────────────────────
+  bool _fixVoteBusy = false;
+
   @override
   void initState() {
     super.initState();
+    _report = widget.report;
     _agrees = report.agrees;
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
@@ -74,6 +91,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (_hasVideo) _initVideo();
     // Fetch fresh report so userVote / counts reflect server state.
     _refreshReport();
+    _loadFollowStatus();
     // Subscribe to real-time updates.
     _sseSub = context.read<SseService>().events.listen(_onSseEvent);
   }
@@ -105,12 +123,168 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       final fresh = await context.read<AuthService>().api.getReport(report.reportId);
       if (!mounted) return;
       setState(() {
+        _report = fresh;
         _agrees = fresh.agrees;
         _disagrees = fresh.disagrees;
         _myVote = fresh.userVote?.toLowerCase();
       });
     } catch (_) {
       // Non-fatal — stale data from the list is still shown.
+    }
+  }
+
+  Future<void> _loadFollowStatus() async {
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) return;
+    try {
+      final following = await auth.api.isFollowingReport(report.reportId);
+      if (!mounted) return;
+      setState(() => _isFollowing = following);
+    } catch (_) {
+      // Non-fatal — leave the button in its initial unloaded state, the
+      // user can still tap it to retry.
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+    if (_followBusy) return;
+    final wasFollowing = _isFollowing ?? false;
+    setState(() => _followBusy = true);
+    try {
+      final next = wasFollowing
+          ? await auth.api.unfollowReport(report.reportId)
+          : await auth.api.followReport(report.reportId);
+      if (!mounted) return;
+      setState(() {
+        _isFollowing = next;
+        _followBusy = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(next
+              ? 'Following — you\'ll be notified about updates.'
+              : 'Stopped following this report.'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _followBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update follow status. Try again.'),
+        ),
+      );
+    }
+  }
+
+  /// True when the current user can submit a "this looks fixed" report —
+  /// authenticated, the report isn't already FIXED, and there's no OPEN fix
+  /// request already in flight.
+  bool get _canSubmitFix {
+    final auth = context.watch<AuthService>();
+    if (!auth.isAuthenticated) return false;
+    if (_currentStatus == ReportStatus.fixed) return false;
+    if (report.activeFixRequest != null) return false;
+    return true;
+  }
+
+  /// True when the current user submitted the active fix request — they
+  /// shouldn't see vote buttons on their own submission.
+  bool get _isFixSubmitter {
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) return false;
+    final fix = report.activeFixRequest;
+    return fix != null && fix.submittedByUserId == auth.userId;
+  }
+
+  Future<void> _openCreateFix() async {
+    final created = await Navigator.push<FixRequestModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateFixRequestScreen(
+          reportId: report.reportId,
+          reportTitle: report.headline,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted || created == null) return;
+    setState(() => _report = report.copyWith(activeFixRequest: created));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Fix report submitted — community will vote.'),
+      ),
+    );
+  }
+
+  Future<void> _voteOnFix(bool agree) async {
+    final auth = context.read<AuthService>();
+    final fix = report.activeFixRequest;
+    if (fix == null || _fixVoteBusy) return;
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+    setState(() => _fixVoteBusy = true);
+    try {
+      final updated = agree
+          ? await auth.api.agreeFixRequest(
+              reportId: report.reportId, fixId: fix.id)
+          : await auth.api.disagreeFixRequest(
+              reportId: report.reportId, fixId: fix.id);
+      if (!mounted) return;
+      setState(() {
+        _report = report.copyWith(activeFixRequest: updated);
+        _fixVoteBusy = false;
+      });
+      // Backend may flip the report status to FIXED on quorum — refresh so
+      // the rest of the page (status pills, metadata) reflects that.
+      _refreshReport();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _fixVoteBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Vote failed — ${e.userMessage}')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _fixVoteBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vote failed. Try again.')),
+      );
+    }
+  }
+
+  Future<void> _openEdit() async {
+    final outcome = await Navigator.push<EditReportOutcome>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditReportScreen(report: report),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted) return;
+    switch (outcome) {
+      case EditReportUpdated(:final report):
+        setState(() => _report = report);
+      case EditReportDeleted():
+        // Edit screen already popped itself; now pop this detail screen so
+        // the user lands on whatever was below (home / feed / notification
+        // origin). Capture the messenger first so the snackbar lands on the
+        // destination scaffold.
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Report deleted.')),
+        );
+      case null:
+        break;
     }
   }
 
@@ -199,17 +373,39 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       _commentsError = null;
     });
     try {
-      final raw = await context.read<AuthService>().api.getComments(report.reportId);
+      final raw = await context
+          .read<AuthService>()
+          .api
+          .getComments(report.reportId);
       if (!mounted) return;
+      // Parse each row inside its own try so a single malformed comment
+      // doesn't tank the whole list.
+      final parsed = <_CommentData>[];
+      for (final row in raw) {
+        try {
+          parsed.add(_CommentData.fromJson(row));
+        } catch (_) {
+          // Skip the bad row but keep going.
+        }
+      }
       setState(() {
-        _comments = raw.map(_CommentData.fromJson).toList();
+        _comments = parsed;
         _commentsLoading = false;
       });
-    } catch (_) {
-      if (mounted) setState(() {
-        _commentsLoading = false;
-        _commentsError = 'Could not load comments.';
-      });
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _commentsLoading = false;
+          _commentsError = e.userMessage;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _commentsLoading = false;
+          _commentsError = 'Could not load comments. ($e)';
+        });
+      }
     }
   }
 
@@ -230,10 +426,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
       _commentController.clear();
       await _loadComments();
-    } catch (_) {
+    } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to post comment.')),
+          SnackBar(content: Text('Couldn\'t post comment — ${e.userMessage}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Couldn\'t post comment — $e')),
         );
       }
     } finally {
@@ -361,8 +563,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       _buildHeroSection(),
                       const SizedBox(height: 20),
                       _buildTitleSection(),
+                      if (report.activeFixRequest != null) ...[
+                        const SizedBox(height: 20),
+                        _buildActiveFixRequestCard(report.activeFixRequest!),
+                      ],
+                      if (_canSubmitFix) ...[
+                        const SizedBox(height: 20),
+                        _buildReportFixedCta(),
+                      ],
                       const SizedBox(height: 24),
                       _buildDescriptionRow(),
+                      if (report.objects.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildObjectsSection(),
+                      ],
                       const SizedBox(height: 24),
                       _buildCommunityConsensus(),
                       const SizedBox(height: 24),
@@ -431,6 +645,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ),
             ),
+            // Edit affordance — gated to the report's author. Backend
+            // ownership checks still apply, this is just to hide the button
+            // for users who can't act on it.
+            if (context.watch<AuthService>().userId == report.userId)
+              IconButton(
+                icon: Icon(Icons.edit_outlined, color: AppColors.primary),
+                onPressed: _openEdit,
+              ),
             IconButton(
               icon: Icon(Icons.search, color: AppColors.onSurface),
               onPressed: () {},
@@ -452,6 +674,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           imageUrl: _hasVideo ? null : report.mediaUrls.firstOrNull,
           videoController: _hasVideo ? _videoController : null,
         ),
+      ),
+    );
+  }
+
+  /// Opens [url] in the same fullscreen viewer the report hero uses, so any
+  /// image (e.g. fix-request media) gets the same pinch-to-zoom-style
+  /// presentation.
+  void _openFullscreenImage(String url) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (ctx, _, __) => _FullscreenMediaPage(imageUrl: url),
       ),
     );
   }
@@ -522,13 +757,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       fit: StackFit.expand,
       children: [
         CustomPaint(
-          painter: _ImagePlaceholderPainter(color: report.tag.color),
+          painter: _ImagePlaceholderPainter(color: report.displayColor),
         ),
         Center(
           child: Icon(
-            report.tag.icon,
+            report.displayIcon,
             size: 80,
-            color: report.tag.color.withOpacity(0.25),
+            color: report.displayColor.withOpacity(0.25),
           ),
         ),
       ],
@@ -605,7 +840,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${report.tag.label} – Report #${report.reportId}',
+          '${report.headline} – Report #${report.reportId}',
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
             fontWeight: FontWeight.w800,
@@ -614,6 +849,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             height: 1.2,
           ),
         ),
+        const SizedBox(height: 10),
+        _buildEnvironmentChip(),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -621,12 +858,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: report.tag.color.withOpacity(0.12),
+                color: report.displayColor.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.person_outline,
-                color: report.tag.color,
+                color: report.displayColor,
                 size: 20,
               ),
             ),
@@ -663,6 +900,384 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  /// Indoor/outdoor pill rendered under the title.
+  Widget _buildEnvironmentChip() {
+    final env = report.environment;
+    final outdoor = env == ReportEnvironment.outdoor;
+    final fg = outdoor ? AppColors.success : AppColors.info;
+    final bg = outdoor ? AppColors.successContainer : AppColors.infoContainer;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(env.icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            env.label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Active fix request ─────────────────────────────────────────────────
+
+  Widget _buildActiveFixRequestCard(FixRequestModel fix) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3), width: 1),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            color: AppColors.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.handyman_outlined,
+                    color: AppColors.onPrimarySolid, size: 14),
+                const SizedBox(width: 8),
+                Text(
+                  'FIX REQUESTED · ${fix.dateLabel}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                    color: AppColors.onPrimarySolid,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            color: AppColors.surfaceContainerLowest,
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (fix.mediaUrls.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () => _openFullscreenImage(fix.mediaUrls.first),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            fix.mediaUrls.first,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 180,
+                              color: AppColors.surfaceContainer,
+                              alignment: Alignment.center,
+                              child: Icon(Icons.image_not_supported_outlined,
+                                  color: AppColors.outlineVariant, size: 32),
+                            ),
+                          ),
+                        ),
+                        // Hint chip — same convention as the report hero so
+                        // users know the photo is tappable.
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.scrim.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.fullscreen,
+                                    size: 12, color: AppColors.onScrim),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Tap to enlarge',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.onScrim,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(Icons.person_outline,
+                          size: 14, color: AppColors.secondary),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: fix.submittedByName ?? 'Anonymous',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.onSurface,
+                              ),
+                            ),
+                            const TextSpan(text: ' says this is fixed'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (fix.description != null &&
+                    fix.description!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    fix.description!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.onSurface,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                _buildFixConsensusBlock(fix),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFixConsensusBlock(FixRequestModel fix) {
+    final pct = fix.consensusPercent;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'DOES THIS LOOK FIXED TO YOU?',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Text(
+              '$pct% consensus',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: (pct / 100).clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: AppColors.surfaceContainerHigh,
+            valueColor: AlwaysStoppedAnimation(AppColors.primary),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${fix.agrees} agrees · ${fix.disagrees} disagrees',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        if (_isFixSubmitter)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Center(
+              child: Text(
+                'You submitted this fix report — the community will vote.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          )
+        else ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _fixVoteButton(
+                  label: 'Yes, fixed',
+                  selected: fix.userVote == 'AGREE',
+                  selectedBg: AppColors.primary,
+                  onTap: () => _voteOnFix(true),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _fixVoteButton(
+                  label: 'No, still there',
+                  selected: fix.userVote == 'DISAGREE',
+                  selectedBg: AppColors.error,
+                  onTap: () => _voteOnFix(false),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 10),
+        Center(
+          child: Text(
+            'Confirms as Fixed when 5+ agrees AND consensus ≥ 60%.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fixVoteButton({
+    required String label,
+    required bool selected,
+    required Color selectedBg,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.onPrimarySolid : AppColors.onSurface;
+    final bg = selected ? selectedBg : AppColors.surfaceContainerHigh;
+    return GestureDetector(
+      onTap: _fixVoteBusy ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        alignment: Alignment.center,
+        child: _fixVoteBusy
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+              )
+            : Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: fg,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildReportFixedCta() {
+    return GestureDetector(
+      onTap: _openCreateFix,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.successContainer,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.handyman_outlined,
+                  color: AppColors.success, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Looks fixed?',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Submit a photo so the community can confirm.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios,
+                size: 14, color: AppColors.primary),
+          ],
+        ),
+      ),
     );
   }
 
@@ -724,7 +1339,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    report.tag.label,
+                    report.headline,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -819,6 +1434,353 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   // ─── Community consensus ────────────────────────────────────────────────────
+
+  Widget _buildObjectsSection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.category_outlined,
+                  color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                report.objects.length == 1
+                    ? 'Reported Object'
+                    : 'Reported Objects (${report.objects.length})',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (int i = 0; i < report.objects.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _buildObjectCard(report.objects[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObjectCard(ReportObject obj) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: obj.objectType.color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  obj.objectType.icon,
+                  color: obj.objectType.color,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                obj.objectType.label,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (obj.issues.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: obj.issues
+                  .map((issue) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          issue.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onErrorContainer,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (obj.measurements != null && obj.measurements!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildMeasurementsBlock(obj),
+          ],
+          if (obj.warnings.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final w in obj.warnings)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 14, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        w.message,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.warning,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Renders an object's measurements. The create/edit forms write a
+  /// JSON-encoded `{key: "value"}` blob into the backend's free-text
+  /// `measurements` field; here we parse it, look up each key in
+  /// [measurementSpecsFor], and render a labelled row with units and an
+  /// accessibility verdict. Free-text strings (anything that isn't valid
+  /// JSON) fall back to a single body line.
+  Widget _buildMeasurementsBlock(ReportObject obj) {
+    final raw = obj.measurements!;
+    final parsed = _tryParseMeasurements(raw);
+    if (parsed == null) {
+      // Free-text fallback for older / non-JSON entries.
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.straighten, size: 14, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                raw,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final specs = measurementSpecsFor(obj.objectType);
+    // Maintain spec order; append any unknown keys at the end so nothing
+    // entered by the user gets silently dropped.
+    final knownKeys = specs.map((s) => s.key).toSet();
+    final unknownKeys = parsed.keys.where((k) => !knownKeys.contains(k));
+    final rows = <Widget>[
+      for (final spec in specs)
+        if (parsed.containsKey(spec.key))
+          _buildMeasurementRow(spec: spec, rawValue: parsed[spec.key]!),
+      for (final k in unknownKeys)
+        _buildMeasurementRow(
+          spec: MeasurementSpec(key: k, label: _humanizeKey(k), unit: ''),
+          rawValue: parsed[k]!,
+        ),
+    ];
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.straighten, size: 14, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'MEASUREMENTS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 12,
+                thickness: 1,
+                color: AppColors.outlineVariant.withValues(alpha: 0.25),
+              ),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeasurementRow({
+    required MeasurementSpec spec,
+    required String rawValue,
+  }) {
+    final parsedValue = double.tryParse(rawValue);
+    final verdict =
+        parsedValue == null ? null : spec.isAccessible(parsedValue);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                spec.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                spec.unit.isEmpty ? rawValue : '$rawValue ${spec.unit}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (verdict != null) ...[
+          const SizedBox(height: 4),
+          _accessibilityVerdict(spec, verdict),
+        ] else if (spec.accessibleMin != null || spec.accessibleMax != null) ...[
+          const SizedBox(height: 4),
+          _accessibilityHintText(_thresholdText(spec),
+              tone: AppColors.onSurfaceVariant, icon: Icons.info_outline),
+        ],
+      ],
+    );
+  }
+
+  Widget _accessibilityVerdict(MeasurementSpec spec, bool ok) {
+    final color = ok ? AppColors.success : AppColors.error;
+    final icon = ok ? Icons.check_circle : Icons.error_outline;
+    final text = ok ? 'Accessible · ${_thresholdText(spec)}'
+                    : 'Below accessible · needs ${_thresholdText(spec)}';
+    return _accessibilityHintText(text, tone: color, icon: icon);
+  }
+
+  Widget _accessibilityHintText(String text,
+      {required Color tone, required IconData icon}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 12, color: tone),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: tone,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _thresholdText(MeasurementSpec s) {
+    final unit = s.unit;
+    if (s.accessibleMin != null && s.accessibleMax != null) {
+      return '${_fmtNum(s.accessibleMin!)}–${_fmtNum(s.accessibleMax!)} $unit';
+    }
+    if (s.accessibleMin != null) return '≥ ${_fmtNum(s.accessibleMin!)} $unit';
+    if (s.accessibleMax != null) return '≤ ${_fmtNum(s.accessibleMax!)} $unit';
+    return '';
+  }
+
+  static String _fmtNum(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  static String _humanizeKey(String key) => key
+      .split('_')
+      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+
+  /// Parses the JSON map written by the create form. Returns null when the
+  /// blob isn't valid JSON or isn't a string-keyed map — those cases are
+  /// rendered as free text.
+  Map<String, String>? _tryParseMeasurements(String raw) {
+    final trimmed = raw.trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is! Map) return null;
+      return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+    } catch (_) {
+      return null;
+    }
+  }
 
   Widget _buildCommunityConsensus() {
     final totalVotes = _agrees + _disagrees;
@@ -1055,7 +2017,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           const SizedBox(height: 12),
           _infoRow(Icons.tag, 'Report ID', '#${report.reportId}'),
-          _infoRow(Icons.category_outlined, 'Category', report.tag.label),
+          _infoRow(Icons.category_outlined, 'Category', report.headline),
           _infoRow(Icons.circle_outlined, 'Status', _currentStatus.label),
           _infoRow(
             Icons.schedule_outlined,
@@ -1294,34 +2256,63 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   // ─── Follow button ──────────────────────────────────────────────────────────
 
   Widget _buildFollowButton() {
+    final isFollowing = _isFollowing ?? false;
+    final loading = _followBusy;
+    // Following → outlined "Following" affordance to signal it's an unfollow
+    // toggle. Not-following (or unknown) → filled primary CTA.
+    final filled = !isFollowing;
+    final bg = filled ? AppColors.primary : AppColors.surfaceContainerLowest;
+    final fg = filled ? AppColors.onPrimary : AppColors.primary;
     return GestureDetector(
-      onTap: () {},
-      child: Container(
+      onTap: loading ? null : _toggleFollow,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: bg,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.22),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          border: filled
+              ? null
+              : Border.all(color: AppColors.primary, width: 2),
+          boxShadow: filled
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.22),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_active_outlined, color: AppColors.onPrimary, size: 20),
-            SizedBox(width: 10),
+            if (loading)
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: fg,
+                ),
+              )
+            else
+              Icon(
+                isFollowing
+                    ? Icons.notifications_active
+                    : Icons.notifications_active_outlined,
+                color: fg,
+                size: 20,
+              ),
+            const SizedBox(width: 10),
             Text(
-              'Follow Updates',
+              isFollowing ? 'Following' : 'Follow Updates',
               style: TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
-                color: AppColors.onPrimary,
+                color: fg,
               ),
             ),
           ],
@@ -1432,13 +2423,26 @@ class _CommentData {
   });
 
   factory _CommentData.fromJson(Map<String, dynamic> json) {
-    final author = json['author'] as Map<String, dynamic>?;
+    // Author may arrive as a nested map, a bare numeric id, or be missing
+    // entirely depending on backend version — accept any of those.
+    String resolveUsername() {
+      final raw = json['author'];
+      if (raw is Map) {
+        final name = raw['name'];
+        if (name is String && name.trim().isNotEmpty) return name;
+        final id = raw['id'];
+        if (id != null) return 'User #$id';
+      } else if (raw is num) {
+        return 'User #${raw.toInt()}';
+      }
+      return 'User';
+    }
+
     return _CommentData(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      username: author?['name'] as String? ??
-          'User #${author?['id'] ?? '?'}',
-      text: json['content'] as String? ?? '',
-      createdAt: json['createdAt'] as String? ?? '',
+      username: resolveUsername(),
+      text: (json['content'] as String?) ?? '',
+      createdAt: (json['createdAt'] as String?) ?? '',
     );
   }
 

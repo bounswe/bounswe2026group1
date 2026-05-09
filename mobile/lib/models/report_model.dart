@@ -1,70 +1,344 @@
 import 'package:flutter/material.dart';
 
-// ─── Tag enum ────────────────────────────────────────────────────────────────
+import 'fix_request_model.dart';
 
-enum ReportTag {
-  missingRamp,
-  brokenElevator,
-  narrowPassage,
-  wetFloor,
-  construction,
-  other,
-  // Positive — accessibility feature present
-  ramp;
+// ─── Report-level enums ──────────────────────────────────────────────────────
 
-  static ReportTag fromJson(String s) => switch (s) {
-    'MISSING_RAMP' => ReportTag.missingRamp,
-    'BROKEN_ELEVATOR' => ReportTag.brokenElevator,
-    'NARROW_PASSAGE' => ReportTag.narrowPassage,
-    'WET_FLOOR' => ReportTag.wetFloor,
-    'CONSTRUCTION' => ReportTag.construction,
-    'RAMP' => ReportTag.ramp,
-    _ => ReportTag.other,
-  };
+enum ReportType {
+  obstacle,
+  feature;
+
+  static ReportType fromJson(String? s) => switch (s) {
+        'FEATURE' => ReportType.feature,
+        _ => ReportType.obstacle,
+      };
+
+  String get jsonValue => switch (this) {
+        ReportType.obstacle => 'OBSTACLE',
+        ReportType.feature => 'FEATURE',
+      };
 
   String get label => switch (this) {
-    ReportTag.missingRamp => 'Missing Ramp',
-    ReportTag.brokenElevator => 'Broken Elevator',
-    ReportTag.narrowPassage => 'Narrow Passage',
-    ReportTag.wetFloor => 'Wet Floor',
-    ReportTag.construction => 'Construction',
-    ReportTag.other => 'Other',
-    ReportTag.ramp => 'Ramp Available',
-  };
+        ReportType.obstacle => 'Obstacle',
+        ReportType.feature => 'Feature',
+      };
 
   IconData get icon => switch (this) {
-    ReportTag.missingRamp => Icons.not_accessible,
-    ReportTag.brokenElevator => Icons.elevator_outlined,
-    ReportTag.narrowPassage => Icons.compress,
-    ReportTag.wetFloor => Icons.water_drop_outlined,
-    ReportTag.construction => Icons.construction,
-    ReportTag.other => Icons.warning_rounded,
-    ReportTag.ramp => Icons.accessible_forward,
-  };
+        ReportType.obstacle => Icons.report_problem_outlined,
+        ReportType.feature => Icons.accessible_forward,
+      };
 
-  /// Backend enum string (e.g. MISSING_RAMP).
+  bool get isPositive => this == ReportType.feature;
+}
+
+enum ReportEnvironment {
+  indoor,
+  outdoor;
+
+  static ReportEnvironment fromJson(String? s) => switch (s) {
+        'INDOOR' => ReportEnvironment.indoor,
+        _ => ReportEnvironment.outdoor,
+      };
+
   String get jsonValue => switch (this) {
-    ReportTag.missingRamp => 'MISSING_RAMP',
-    ReportTag.brokenElevator => 'BROKEN_ELEVATOR',
-    ReportTag.narrowPassage => 'NARROW_PASSAGE',
-    ReportTag.wetFloor => 'WET_FLOOR',
-    ReportTag.construction => 'CONSTRUCTION',
-    ReportTag.other => 'OTHER',
-    ReportTag.ramp => 'RAMP',
-  };
+        ReportEnvironment.indoor => 'INDOOR',
+        ReportEnvironment.outdoor => 'OUTDOOR',
+      };
+
+  String get label => switch (this) {
+        ReportEnvironment.indoor => 'Indoor',
+        ReportEnvironment.outdoor => 'Outdoor',
+      };
+
+  IconData get icon => switch (this) {
+        ReportEnvironment.indoor => Icons.meeting_room_outlined,
+        ReportEnvironment.outdoor => Icons.park_outlined,
+      };
+}
+
+// ─── Object-level enums ──────────────────────────────────────────────────────
+
+enum ObjectType {
+  ramp,
+  elevator,
+  sidewalk,
+  door,
+  stair;
+
+  static ObjectType fromJson(String? s) => switch (s) {
+        'ELEVATOR' => ObjectType.elevator,
+        'SIDEWALK' => ObjectType.sidewalk,
+        'DOOR' => ObjectType.door,
+        'STAIR' => ObjectType.stair,
+        _ => ObjectType.ramp,
+      };
+
+  String get jsonValue => switch (this) {
+        ObjectType.ramp => 'RAMP',
+        ObjectType.elevator => 'ELEVATOR',
+        ObjectType.sidewalk => 'SIDEWALK',
+        ObjectType.door => 'DOOR',
+        ObjectType.stair => 'STAIR',
+      };
+
+  String get label => switch (this) {
+        ObjectType.ramp => 'Ramp',
+        ObjectType.elevator => 'Elevator',
+        ObjectType.sidewalk => 'Sidewalk',
+        ObjectType.door => 'Door',
+        ObjectType.stair => 'Stair',
+      };
+
+  IconData get icon => switch (this) {
+        ObjectType.ramp => Icons.accessible_forward,
+        ObjectType.elevator => Icons.elevator_outlined,
+        ObjectType.sidewalk => Icons.directions_walk,
+        ObjectType.door => Icons.door_front_door_outlined,
+        ObjectType.stair => Icons.stairs_outlined,
+      };
 
   Color get color => switch (this) {
-    ReportTag.missingRamp => const Color(0xFFB65900),
-    ReportTag.brokenElevator => const Color(0xFFB02500),
-    ReportTag.narrowPassage => const Color(0xFF495F69),
-    ReportTag.wetFloor => const Color(0xFF006573),
-    ReportTag.construction => const Color(0xFF8B6A00),
-    ReportTag.other => const Color(0xFF767777),
-    ReportTag.ramp => const Color(0xFF176a21),
-  };
+        ObjectType.ramp => const Color(0xFF176a21),
+        ObjectType.elevator => const Color(0xFF495F69),
+        ObjectType.sidewalk => const Color(0xFF8B6A00),
+        ObjectType.door => const Color(0xFF006573),
+        ObjectType.stair => const Color(0xFFB02500),
+      };
+}
 
-  /// True for tags that mark a positive accessibility feature.
-  bool get isPositive => this == ReportTag.ramp;
+/// One numeric measurement that can be entered for an object (e.g. ramp
+/// slope, door clear width). Thresholds come straight from the backend's
+/// `IssueType` enum descriptions, so the on-device "≥ 100 cm is accessible"
+/// hints align with the warnings the server emits.
+class MeasurementSpec {
+  final String key;
+  final String label;
+  final String unit;
+  final double? accessibleMin;
+  final double? accessibleMax;
+
+  const MeasurementSpec({
+    required this.key,
+    required this.label,
+    required this.unit,
+    this.accessibleMin,
+    this.accessibleMax,
+  });
+
+  /// Whether [value] satisfies the spec's accessibility constraints. Returns
+  /// `null` when no constraint is defined or the value can't be parsed —
+  /// callers can decide whether to render that as "no constraint" or hide
+  /// the verdict entirely.
+  bool? isAccessible(double value) {
+    if (accessibleMin == null && accessibleMax == null) return null;
+    if (accessibleMin != null && value < accessibleMin!) return false;
+    if (accessibleMax != null && value > accessibleMax!) return false;
+    return true;
+  }
+}
+
+/// Per-object measurement specs. Single source of truth for both the create
+/// form (input fields + hints) and the detail view (rendering values with
+/// units and accessibility verdicts).
+List<MeasurementSpec> measurementSpecsFor(ObjectType type) => switch (type) {
+      ObjectType.ramp => const [
+          MeasurementSpec(
+              key: 'slope_percent', label: 'Slope', unit: '%', accessibleMax: 10),
+          MeasurementSpec(
+              key: 'width_cm', label: 'Width', unit: 'cm', accessibleMin: 100),
+          MeasurementSpec(key: 'height_cm', label: 'Height', unit: 'cm'),
+        ],
+      ObjectType.elevator => const [
+          MeasurementSpec(
+              key: 'door_width_cm',
+              label: 'Door Width',
+              unit: 'cm',
+              accessibleMin: 90),
+          MeasurementSpec(
+              key: 'cabin_width_cm',
+              label: 'Cabin Width',
+              unit: 'cm',
+              accessibleMin: 120),
+          MeasurementSpec(
+              key: 'cabin_depth_cm',
+              label: 'Cabin Depth',
+              unit: 'cm',
+              accessibleMin: 140),
+        ],
+      ObjectType.sidewalk => const [
+          MeasurementSpec(
+              key: 'width_cm', label: 'Width', unit: 'cm', accessibleMin: 150),
+          MeasurementSpec(
+              key: 'height_cm',
+              label: 'Step Height',
+              unit: 'cm',
+              accessibleMax: 15),
+        ],
+      ObjectType.door => const [
+          MeasurementSpec(
+              key: 'width_cm',
+              label: 'Clear Width',
+              unit: 'cm',
+              accessibleMin: 90),
+          MeasurementSpec(
+              key: 'threshold_height_cm',
+              label: 'Threshold Height',
+              unit: 'cm',
+              accessibleMax: 0.6),
+        ],
+      ObjectType.stair => const [
+          MeasurementSpec(
+              key: 'riser_cm',
+              label: 'Riser Height',
+              unit: 'cm',
+              accessibleMax: 16),
+          MeasurementSpec(
+              key: 'tread_cm',
+              label: 'Tread Depth',
+              unit: 'cm',
+              accessibleMin: 27),
+        ],
+    };
+
+/// Mirrors the backend's IssueType enum, including the ObjectType set each
+/// issue is valid for. Used to filter issue pickers per selected object.
+enum IssueType {
+  missing,
+  tooSteep,
+  tooNarrow,
+  missingHandrail,
+  noLanding,
+  slipperySurface,
+  blocked,
+  noTactilePaving,
+  insufficientClearance,
+  outOfService,
+  doorTooNarrow,
+  cabinTooSmall,
+  noAudio,
+  noGrabBar,
+  insufficientLanding,
+  highThreshold,
+  stepAtEntrance,
+  noLeverHandle,
+  heavyDoor,
+  noAutomaticDoor,
+  riserTooHigh,
+  treadTooShallow,
+  noAntiSlip,
+  openRisers;
+
+  static IssueType? fromJson(String? s) {
+    if (s == null) return null;
+    for (final v in IssueType.values) {
+      if (v.jsonValue == s) return v;
+    }
+    return null;
+  }
+
+  String get jsonValue => switch (this) {
+        IssueType.missing => 'MISSING',
+        IssueType.tooSteep => 'TOO_STEEP',
+        IssueType.tooNarrow => 'TOO_NARROW',
+        IssueType.missingHandrail => 'MISSING_HANDRAIL',
+        IssueType.noLanding => 'NO_LANDING',
+        IssueType.slipperySurface => 'SLIPPERY_SURFACE',
+        IssueType.blocked => 'BLOCKED',
+        IssueType.noTactilePaving => 'NO_TACTILE_PAVING',
+        IssueType.insufficientClearance => 'INSUFFICIENT_CLEARANCE',
+        IssueType.outOfService => 'OUT_OF_SERVICE',
+        IssueType.doorTooNarrow => 'DOOR_TOO_NARROW',
+        IssueType.cabinTooSmall => 'CABIN_TOO_SMALL',
+        IssueType.noAudio => 'NO_AUDIO',
+        IssueType.noGrabBar => 'NO_GRAB_BAR',
+        IssueType.insufficientLanding => 'INSUFFICIENT_LANDING',
+        IssueType.highThreshold => 'HIGH_THRESHOLD',
+        IssueType.stepAtEntrance => 'STEP_AT_ENTRANCE',
+        IssueType.noLeverHandle => 'NO_LEVER_HANDLE',
+        IssueType.heavyDoor => 'HEAVY_DOOR',
+        IssueType.noAutomaticDoor => 'NO_AUTOMATIC_DOOR',
+        IssueType.riserTooHigh => 'RISER_TOO_HIGH',
+        IssueType.treadTooShallow => 'TREAD_TOO_SHALLOW',
+        IssueType.noAntiSlip => 'NO_ANTI_SLIP',
+        IssueType.openRisers => 'OPEN_RISERS',
+      };
+
+  String get label => switch (this) {
+        IssueType.missing => 'Missing',
+        IssueType.tooSteep => 'Too Steep',
+        IssueType.tooNarrow => 'Too Narrow',
+        IssueType.missingHandrail => 'Missing Handrail',
+        IssueType.noLanding => 'No Landing',
+        IssueType.slipperySurface => 'Slippery Surface',
+        IssueType.blocked => 'Blocked',
+        IssueType.noTactilePaving => 'No Tactile Paving',
+        IssueType.insufficientClearance => 'Insufficient Clearance',
+        IssueType.outOfService => 'Out of Service',
+        IssueType.doorTooNarrow => 'Door Too Narrow',
+        IssueType.cabinTooSmall => 'Cabin Too Small',
+        IssueType.noAudio => 'No Audio',
+        IssueType.noGrabBar => 'No Grab Bar',
+        IssueType.insufficientLanding => 'Insufficient Landing',
+        IssueType.highThreshold => 'High Threshold',
+        IssueType.stepAtEntrance => 'Step At Entrance',
+        IssueType.noLeverHandle => 'No Lever Handle',
+        IssueType.heavyDoor => 'Heavy Door',
+        IssueType.noAutomaticDoor => 'No Automatic Door',
+        IssueType.riserTooHigh => 'Riser Too High',
+        IssueType.treadTooShallow => 'Tread Too Shallow',
+        IssueType.noAntiSlip => 'No Anti-Slip',
+        IssueType.openRisers => 'Open Risers',
+      };
+
+  /// ObjectTypes this issue is meaningful for. Mirrors the backend's
+  /// `IssueType.validFor` set so issue pickers can filter as the user
+  /// switches object types.
+  Set<ObjectType> get validFor => switch (this) {
+        IssueType.missing => const {
+            ObjectType.ramp,
+            ObjectType.elevator,
+            ObjectType.sidewalk,
+            ObjectType.door,
+            ObjectType.stair,
+          },
+        IssueType.tooSteep => const {ObjectType.ramp},
+        IssueType.tooNarrow => const {
+            ObjectType.ramp,
+            ObjectType.sidewalk,
+            ObjectType.door,
+            ObjectType.stair,
+          },
+        IssueType.missingHandrail => const {ObjectType.ramp, ObjectType.stair},
+        IssueType.noLanding => const {ObjectType.ramp, ObjectType.stair},
+        IssueType.slipperySurface => const {
+            ObjectType.ramp,
+            ObjectType.sidewalk,
+            ObjectType.stair,
+          },
+        IssueType.blocked => const {ObjectType.sidewalk},
+        IssueType.noTactilePaving => const {ObjectType.sidewalk},
+        IssueType.insufficientClearance => const {ObjectType.sidewalk},
+        IssueType.outOfService => const {ObjectType.elevator},
+        IssueType.doorTooNarrow => const {ObjectType.elevator},
+        IssueType.cabinTooSmall => const {ObjectType.elevator},
+        IssueType.noAudio => const {ObjectType.elevator},
+        IssueType.noGrabBar => const {ObjectType.elevator},
+        IssueType.insufficientLanding => const {ObjectType.elevator},
+        IssueType.highThreshold => const {ObjectType.door},
+        IssueType.stepAtEntrance => const {ObjectType.door},
+        IssueType.noLeverHandle => const {ObjectType.door},
+        IssueType.heavyDoor => const {ObjectType.door},
+        IssueType.noAutomaticDoor => const {ObjectType.door},
+        IssueType.riserTooHigh => const {ObjectType.stair},
+        IssueType.treadTooShallow => const {ObjectType.stair},
+        IssueType.noAntiSlip => const {ObjectType.stair},
+        IssueType.openRisers => const {ObjectType.stair},
+      };
+
+  bool isValidFor(ObjectType type) => validFor.contains(type);
+
+  static List<IssueType> issuesFor(ObjectType type) =>
+      IssueType.values.where((i) => i.isValidFor(type)).toList();
 }
 
 // ─── Status enum ─────────────────────────────────────────────────────────────
@@ -72,28 +346,91 @@ enum ReportTag {
 enum ReportStatus {
   pending,
   verified,
-  rejected;
+  rejected,
+  fixed;
 
-  static ReportStatus fromJson(String s) => switch (s) {
-    'VERIFIED' => ReportStatus.verified,
-    'REJECTED' => ReportStatus.rejected,
-    _ => ReportStatus.pending,
-  };
+  static ReportStatus fromJson(String? s) => switch (s) {
+        'VERIFIED' => ReportStatus.verified,
+        'REJECTED' => ReportStatus.rejected,
+        'FIXED' => ReportStatus.fixed,
+        _ => ReportStatus.pending,
+      };
 
   String get label => switch (this) {
-    ReportStatus.pending => 'Pending',
-    ReportStatus.verified => 'Verified',
-    ReportStatus.rejected => 'Rejected',
-  };
+        ReportStatus.pending => 'Pending',
+        ReportStatus.verified => 'Verified',
+        ReportStatus.rejected => 'Rejected',
+        ReportStatus.fixed => 'Fixed',
+      };
 
   Color get color => switch (this) {
-    ReportStatus.pending => const Color(0xFF8B6A00),
-    ReportStatus.verified => const Color(0xFF176a21),
-    ReportStatus.rejected => const Color(0xFFB02500),
-  };
+        ReportStatus.pending => const Color(0xFF8B6A00),
+        ReportStatus.verified => const Color(0xFF176a21),
+        ReportStatus.rejected => const Color(0xFFB02500),
+        ReportStatus.fixed => const Color(0xFF2E7D32),
+      };
 }
 
-// ─── Report model ─────────────────────────────────────────────────────────────
+// ─── Measurement warnings ────────────────────────────────────────────────────
+
+class MeasurementWarning {
+  final String field;
+  final String message;
+
+  const MeasurementWarning({required this.field, required this.message});
+
+  factory MeasurementWarning.fromJson(Map<String, dynamic> json) =>
+      MeasurementWarning(
+        field: json['field'] as String? ?? '',
+        message: json['message'] as String? ?? '',
+      );
+}
+
+// ─── Report object ───────────────────────────────────────────────────────────
+
+class ReportObject {
+  final ObjectType objectType;
+  final List<IssueType> issues;
+  final String? measurements;
+  final List<MeasurementWarning> warnings;
+
+  const ReportObject({
+    required this.objectType,
+    required this.issues,
+    this.measurements,
+    this.warnings = const [],
+  });
+
+  factory ReportObject.fromJson(Map<String, dynamic> json) {
+    final rawIssues = (json['issues'] as List<dynamic>?) ?? const [];
+    final issues = rawIssues
+        .map((e) => IssueType.fromJson(e as String?))
+        .whereType<IssueType>()
+        .toList();
+    final rawWarnings = (json['warnings'] as List<dynamic>?) ?? const [];
+    return ReportObject(
+      objectType: ObjectType.fromJson(json['objectType'] as String?),
+      issues: issues,
+      measurements: json['measurements'] as String?,
+      warnings: rawWarnings
+          .map((e) => MeasurementWarning.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'objectType': objectType.jsonValue,
+        'issues': issues.map((i) => i.jsonValue).toList(),
+        if (measurements != null && measurements!.isNotEmpty)
+          'measurements': measurements,
+      };
+}
+
+// ─── Report model ────────────────────────────────────────────────────────────
+
+/// Sentinel that lets [ReportModel.copyWith] tell "omitted" apart from
+/// "explicitly set to null" for nullable fields.
+const Object _kSentinel = Object();
 
 class ReportModel {
   final int reportId;
@@ -102,14 +439,28 @@ class ReportModel {
   final double latitude;
   final double longitude;
   final String description;
-  final ReportTag tag;
+  final ReportType reportType;
+  final ReportEnvironment environment;
   final ReportStatus status;
   final int agrees;
   final int disagrees;
   final String publishDate;
   final List<String> mediaUrls;
+
   /// 'AGREE', 'DISAGREE', or null — the authenticated user's current vote.
   final String? userVote;
+
+  final List<ReportObject> objects;
+  final double? entryLatitude;
+  final double? entryLongitude;
+  final double? exitLatitude;
+  final double? exitLongitude;
+  final int? lastEditedByUserId;
+
+  /// Latest non-expired fix request for this report. Backend hydrates this on
+  /// every report response so clients can show the live "is this fixed?"
+  /// voting card without an extra fetch.
+  final FixRequestModel? activeFixRequest;
 
   const ReportModel({
     required this.reportId,
@@ -118,16 +469,25 @@ class ReportModel {
     required this.latitude,
     required this.longitude,
     required this.description,
-    required this.tag,
+    required this.reportType,
+    required this.environment,
     required this.status,
     required this.agrees,
     required this.disagrees,
     required this.publishDate,
     required this.mediaUrls,
     this.userVote,
+    this.objects = const [],
+    this.entryLatitude,
+    this.entryLongitude,
+    this.exitLatitude,
+    this.exitLongitude,
+    this.lastEditedByUserId,
+    this.activeFixRequest,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
+    final rawObjects = (json['objects'] as List<dynamic>?) ?? const [];
     return ReportModel(
       reportId: (json['reportId'] as num).toInt(),
       userId: (json['userId'] as num).toInt(),
@@ -135,14 +495,28 @@ class ReportModel {
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       description: json['description'] as String? ?? '',
-      tag: ReportTag.fromJson(json['tag'] as String? ?? ''),
-      status: ReportStatus.fromJson(json['status'] as String? ?? ''),
+      reportType: ReportType.fromJson(json['reportType'] as String?),
+      environment: ReportEnvironment.fromJson(json['environment'] as String?),
+      status: ReportStatus.fromJson(json['status'] as String?),
       agrees: (json['agrees'] as num?)?.toInt() ?? 0,
       disagrees: (json['disagrees'] as num?)?.toInt() ?? 0,
       publishDate: json['publishDate'] as String? ?? '',
       mediaUrls:
           (json['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
       userVote: json['userVote'] as String?,
+      objects: rawObjects
+          .map((e) => ReportObject.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      entryLatitude: (json['entryLatitude'] as num?)?.toDouble(),
+      entryLongitude: (json['entryLongitude'] as num?)?.toDouble(),
+      exitLatitude: (json['exitLatitude'] as num?)?.toDouble(),
+      exitLongitude: (json['exitLongitude'] as num?)?.toDouble(),
+      lastEditedByUserId: (json['lastEditedByUserId'] as num?)?.toInt(),
+      activeFixRequest: json['activeFixRequest'] is Map
+          ? FixRequestModel.fromJson(
+              Map<String, dynamic>.from(json['activeFixRequest'] as Map),
+            )
+          : null,
     );
   }
 
@@ -151,6 +525,7 @@ class ReportModel {
     int? disagrees,
     ReportStatus? status,
     List<String>? mediaUrls,
+    Object? activeFixRequest = _kSentinel,
   }) {
     return ReportModel(
       reportId: reportId,
@@ -159,15 +534,53 @@ class ReportModel {
       latitude: latitude,
       longitude: longitude,
       description: description,
-      tag: tag,
+      reportType: reportType,
+      environment: environment,
       status: status ?? this.status,
       agrees: agrees ?? this.agrees,
       disagrees: disagrees ?? this.disagrees,
       publishDate: publishDate,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       userVote: userVote,
+      objects: objects,
+      entryLatitude: entryLatitude,
+      entryLongitude: entryLongitude,
+      exitLatitude: exitLatitude,
+      exitLongitude: exitLongitude,
+      lastEditedByUserId: lastEditedByUserId,
+      // Sentinel lets callers explicitly clear activeFixRequest by passing
+      // `null` while still defaulting to the current value when omitted.
+      activeFixRequest: activeFixRequest == _kSentinel
+          ? this.activeFixRequest
+          : activeFixRequest as FixRequestModel?,
     );
   }
+
+  /// First object on the report — a convenience for display sites that show
+  /// one icon/colour per report (markers, list rows). Null when a report has
+  /// no objects yet (description-only).
+  ReportObject? get primaryObject => objects.isEmpty ? null : objects.first;
+
+  bool get isPositive => reportType.isPositive;
+
+  /// Short label combining the primary object and report type — used in
+  /// list rows and map callouts.
+  String get headline {
+    final obj = primaryObject;
+    if (obj == null) return reportType.label;
+    if (reportType == ReportType.feature) return '${obj.objectType.label} Available';
+    if (obj.issues.isEmpty) return obj.objectType.label;
+    return '${obj.issues.first.label} ${obj.objectType.label}';
+  }
+
+  /// Display colour for markers / icons. Falls back to a neutral grey when
+  /// the report has no object attached.
+  Color get displayColor =>
+      primaryObject?.objectType.color ?? const Color(0xFF767777);
+
+  /// Display icon — primary object's icon, or a generic fallback.
+  IconData get displayIcon =>
+      primaryObject?.objectType.icon ?? Icons.warning_rounded;
 
   int get totalVotes => agrees + disagrees;
 
@@ -191,4 +604,3 @@ class ReportModel {
     }
   }
 }
-

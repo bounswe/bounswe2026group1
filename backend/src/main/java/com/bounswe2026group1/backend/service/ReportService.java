@@ -373,13 +373,9 @@ public class ReportService {
             target = ReportStatus.VERIFIED;
         } else if (disagrees >= verificationThreshold && disagreeRatio >= verificationRatio) {
             target = ReportStatus.REJECTED;
-        } else if (current == ReportStatus.VERIFIED
-                && disagrees >= verificationThreshold
-                && agreeRatio < verificationRatio) {
-            target = ReportStatus.PENDING;
-        } else if (current == ReportStatus.REJECTED
-                && agrees >= verificationThreshold
-                && disagreeRatio < verificationRatio) {
+        } else if (current == ReportStatus.VERIFIED || current == ReportStatus.REJECTED) {
+            // Verification/rejection criteria no longer hold (count or ratio fell below
+            // threshold, e.g. via vote retraction). Revert to PENDING symmetrically.
             target = ReportStatus.PENDING;
         }
 
