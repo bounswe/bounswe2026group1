@@ -12,6 +12,11 @@ vi.mock('../hooks/useCurrentUser.js', () => ({
 vi.mock('./SseStatusIndicator.jsx', () => ({
   default: () => <div data-testid="sse-status" />,
 }))
+// Theme behavior is covered by ThemeContext's own tests; stubbing the picker
+// keeps Navbar tests free from ThemeProvider/matchMedia setup.
+vi.mock('./ThemePicker.jsx', () => ({
+  default: () => <div data-testid="theme-picker" />,
+}))
 
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
