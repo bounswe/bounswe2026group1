@@ -43,3 +43,27 @@ export async function deleteAvatar(id, token) {
     headers: authHeaders(token),
   })
 }
+
+// ───── Gamification ──────────────────────────────────────────────────────
+
+// Public — no token needed. Anonymous callers can view a user's badges.
+export async function getBadges(id) {
+  return apiFetch(`/api/users/${id}/badges`)
+}
+
+// Caller-only opt-out toggle. Body: { leaderboardHidden: boolean }.
+export async function setLeaderboardVisibility(token, leaderboardHidden) {
+  return apiFetch('/api/users/me/leaderboard-visibility', {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify({ leaderboardHidden }),
+  })
+}
+
+// Owner/admin — paginated points-history ledger view.
+export async function getPointsHistory(id, token, { page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  return apiFetch(`/api/users/${id}/points/history?${params}`, {
+    headers: authHeaders(token),
+  })
+}
