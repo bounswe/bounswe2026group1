@@ -1,5 +1,8 @@
 package com.bounswe2026group1.backend.model;
 
+import java.util.Collection;
+import java.util.Comparator;
+
 /**
  * Gamification badges.
  *
@@ -29,5 +32,13 @@ public enum Badge {
 
     public int getTier() {
         return tier;
+    }
+
+    /** Highest-tier badge in a collection, or null if the collection is null
+     *  or empty. Used wherever a UI surfaces a single "primary" badge for
+     *  a user (profile DTO, report-panel author chip). */
+    public static Badge pickHighestTier(Collection<Badge> badges) {
+        if (badges == null || badges.isEmpty()) return null;
+        return badges.stream().max(Comparator.comparingInt(Badge::getTier)).orElse(null);
     }
 }
