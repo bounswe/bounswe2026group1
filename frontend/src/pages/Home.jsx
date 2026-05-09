@@ -11,6 +11,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
+import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 function decodePolyline(encoded) {
@@ -183,7 +184,7 @@ function Home() {
   const isDark = themeResolved === 'dark'
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT
   const tileAttr = isDark ? TILE_ATTR_DARK : TILE_ATTR_LIGHT
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
@@ -319,9 +320,15 @@ function Home() {
     setRouteError('')
     setRouteNotice('')
     try {
+      // The backend records the planned route against the caller's
+      // contribution stats only when a Bearer token is supplied (see
+      // RouteController.java). Without this header, /profile's "Routes
+      // planned" counter never increments for signed-in users.
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers.Authorization = `Bearer ${token}`
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           startLat: origin.lat, startLon: origin.lng,
           endLat: dest.lat, endLon: dest.lng,
@@ -331,6 +338,9 @@ function Home() {
       if (!res.ok) throw new Error('Routing failed')
       const data = await res.json()
       if (!data.length) throw new Error('No routes returned')
+      // Bust the cached profile so contributionStats.routesPlanned reflects
+      // the new server-side count when the user navigates to /profile.
+      if (token) queryClient.invalidateQueries({ queryKey: currentUserKey })
       const mapped = data.map(r => ({
         coords: decodePolyline(r.geometry),
         hasObstacles: r.hasObstacles,
