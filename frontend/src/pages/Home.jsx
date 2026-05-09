@@ -7,7 +7,7 @@ import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
@@ -152,6 +152,7 @@ function MapFlyTo({ target }) {
 function Home() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
   const [selectedReportId, setSelectedReportId] = useState(null)
@@ -174,6 +175,13 @@ function Home() {
   const [toast, setToast] = useState(null)
   const handleToastDismiss = useCallback(() => setToast(null), [])
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
+
+  useEffect(() => {
+    const rid = searchParams.get('report')
+    if (!rid) return
+    const id = Number.parseInt(rid, 10)
+    if (!Number.isNaN(id)) setSelectedReportId(id)
+  }, [searchParams])
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -618,7 +626,14 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReportId(null)}
+            onClose={() => {
+              setSelectedReportId(null)
+              if (searchParams.get('report')) {
+                const next = new URLSearchParams(searchParams)
+                next.delete('report')
+                setSearchParams(next, { replace: true })
+              }
+            }}
             onVoteUpdate={(updatedReport) => {
               setSelectedReportId(updatedReport.id)
               queryClient.setQueryData(reportKeys.lists(), (prev) =>

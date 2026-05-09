@@ -27,8 +27,14 @@ import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
-function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange }) {
-
+function ReportPanel({
+  report,
+  userVote,
+  onVoteChange,
+  onClose,
+  onVoteUpdate,
+  onFollowChange,
+}) {
   const { token, isAuthenticated, userId } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -171,14 +177,13 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
         aria-hidden="true"
       />
 
-      <aside className="
-        fixed top-0 right-0 h-full z-[1200]
-        w-full lg:w-[500px]
-        bg-surface-container-low
-        overflow-y-auto
-        border-l border-outline-variant/10
-        flex flex-col
-      ">
+      <aside
+        className="
+          fixed top-0 right-0 z-[1200] h-full
+          flex w-full flex-col overflow-y-auto border-l border-outline-variant/10 bg-surface-container-low
+          lg:w-[500px]
+        "
+      >
 
         {/* Top status strip — always visible, holds the close button and the
             current status pills so they stay reachable even when an active

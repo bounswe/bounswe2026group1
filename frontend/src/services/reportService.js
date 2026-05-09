@@ -10,6 +10,77 @@ export async function getReports() {
 }
 
 /**
+ * Normalize Spring Data {@code Page} JSON so infinite scroll works across Jackson versions.
+ * Fills in {@code number}, {@code last}, and ensures {@code content} is an array.
+ */
+export function normalizeFeedPagePayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload
+  if (!Object.prototype.hasOwnProperty.call(payload, 'content')) return payload
+
+  const rawContent = payload.content
+  const content = Array.isArray(rawContent) ? rawContent : []
+
+  let number = payload.number
+  if (typeof number !== 'number') {
+    const pn = payload.pageable?.pageNumber ?? payload.page?.number
+    number = typeof pn === 'number' ? pn : 0
+  }
+
+  let last = payload.last
+  if (typeof last !== 'boolean') {
+    const totalPages = payload.totalPages
+    const totalElements = payload.totalElements
+    const size = typeof payload.size === 'number' ? payload.size : 10
+    if (typeof totalPages === 'number' && totalPages > 0) {
+      last = number >= totalPages - 1
+    } else if (typeof totalElements === 'number') {
+      last = number * size + content.length >= totalElements
+    } else {
+      last = content.length < size
+    }
+  }
+
+  return { ...payload, content, number, last }
+}
+
+/**
+ * Paged community feed. With latitude and longitude, results are filtered by
+ * radius and ordered by distance; otherwise the latest reports are returned.
+ * GET /api/reports/feed
+ */
+export async function getReportsFeed(
+  {
+    latitude,
+    longitude,
+    radiusInKm = 1,
+    page = 0,
+    size = 20,
+    reportType,
+    environment,
+  } = {},
+  token
+) {
+  const search = new URLSearchParams()
+  search.set('page', String(page))
+  search.set('size', String(size))
+  if (latitude != null && longitude != null) {
+    search.set('latitude', String(latitude))
+    search.set('longitude', String(longitude))
+    search.set('radiusInKm', String(radiusInKm))
+  }
+  if (reportType != null && reportType !== '') {
+    search.set('reportType', String(reportType))
+  }
+  if (environment != null && environment !== '') {
+    search.set('environment', String(environment))
+  }
+  const raw = await apiFetch(`/api/reports/feed?${search.toString()}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return normalizeFeedPagePayload(raw)
+}
+
+/**
  * Fetch a single report by ID.
  * GET /api/reports/{id}
  */
@@ -191,7 +262,10 @@ export function mapReport(r) {
         })
       : 'Unknown date',
     fixedAt: r.fixedAt || null,
-    location: `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`,
+    location:
+      typeof r.latitude === 'number' && typeof r.longitude === 'number'
+        ? `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`
+        : 'Unknown location',
     reportedBy: `User #${r.userId}`,
     agrees: r.agrees,
     disagrees: r.disagrees,
