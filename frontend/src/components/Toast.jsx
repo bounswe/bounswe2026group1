@@ -26,11 +26,11 @@ function Toast({ message, type = 'success', duration = 3000, onDismiss }) {
   const icon = type === 'success' ? 'check_circle' : 'error'
 
   return (
-    <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-6 py-3 rounded-full shadow-lg transition-all duration-300 ${colors} ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+    <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-8 py-4 rounded-full shadow-lg max-w-[calc(100vw-2rem)] transition-all duration-300 ${colors} ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
       <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
         {icon}
       </span>
-      <p className="text-sm font-bold">{message}</p>
+      <p className="text-base font-bold">{message}</p>
     </div>
   )
 }
