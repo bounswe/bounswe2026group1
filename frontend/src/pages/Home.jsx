@@ -64,7 +64,8 @@ function makeMarkerIcon(status, objectType, reportType, selected = false) {
         box-shadow:${shadow};
         display:flex;align-items:center;justify-content:center;
         cursor:pointer;
-        transition:width 150ms ease, height 150ms ease;
+        opacity:${opacity};
+        transition:width 150ms ease, height 150ms ease, opacity 150ms ease;
       ">
         <span class="material-symbols-outlined" style="
           font-size:${iconFontSize}px;
@@ -527,7 +528,7 @@ function Home() {
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.id === selectedReportId)}
+                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.reportType, report.id === selectedReportId)}
                 zIndexOffset={report.id === selectedReportId ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
