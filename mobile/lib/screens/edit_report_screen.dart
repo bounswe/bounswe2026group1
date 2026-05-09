@@ -11,8 +11,26 @@ import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/objects_section.dart';
 
+/// Result returned from [EditReportScreen]. The detail screen below uses
+/// it to either swap in the new model (save) or pop itself out of the way
+/// (delete) — keeping both pops on a single, serial Navigator chain so no
+/// pop animations overlap.
+sealed class EditReportOutcome {
+  const EditReportOutcome();
+}
+
+class EditReportUpdated extends EditReportOutcome {
+  final ReportModel report;
+  const EditReportUpdated(this.report);
+}
+
+class EditReportDeleted extends EditReportOutcome {
+  const EditReportDeleted();
+}
+
 /// Author-only edit form. Pre-populates from [report] and saves via
-/// PUT /api/reports/{id}. Pops with the updated [ReportModel] on success.
+/// PUT /api/reports/{id}. Pops with an [EditReportOutcome] describing what
+/// happened — `null` means the user backed out without changes.
 ///
 /// Note: `mediaIdsToRemove` is not surfaced because the backend's report
 /// response currently exposes media URLs without IDs. Once IDs land in the
@@ -35,6 +53,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
   late final List<ObjectDraft> _objects;
 
   bool _saving = false;
+  bool _deleting = false;
   String? _error;
 
   @override
@@ -116,7 +135,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
         objects: reportObjects,
       );
       if (!mounted) return;
-      Navigator.pop(context, updated);
+      Navigator.pop(context, EditReportUpdated(updated));
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
@@ -131,6 +150,89 @@ class _EditReportScreenState extends State<EditReportScreen> {
           _error = 'Could not save changes. Try again.';
         });
       }
+    }
+  }
+
+  Future<void> _confirmAndDelete() async {
+    if (_deleting || _saving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerLowest,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Icon(
+          Icons.delete_forever_outlined,
+          color: AppColors.error,
+          size: 32,
+        ),
+        title: Text(
+          'Delete this report?',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: Text(
+          'This permanently removes the report along with its objects, '
+          'media, and comments. This action can\'t be undone.',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.onSurfaceVariant,
+            height: 1.45,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+
+    try {
+      await context.read<AuthService>().api.deleteReport(widget.report.reportId);
+      if (!mounted) return;
+      // Pop only this screen — the detail screen below reads the
+      // EditReportDeleted result and pops itself, keeping the two pops
+      // serial instead of stacking two simultaneous exit animations.
+      Navigator.pop(context, const EditReportDeleted());
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _deleting = false;
+        _error = 'Could not delete — ${e.userMessage}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _deleting = false;
+        _error = 'Could not delete report. Try again.';
+      });
     }
   }
 
@@ -162,6 +264,8 @@ class _EditReportScreenState extends State<EditReportScreen> {
                     const SizedBox(height: 16),
                     _buildErrorBanner(),
                   ],
+                  const SizedBox(height: 28),
+                  _buildDeleteButton(),
                   const SizedBox(height: 120),
                 ],
               ),
@@ -408,6 +512,52 @@ class _EditReportScreenState extends State<EditReportScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDeleteButton() {
+    final disabled = _saving || _deleting;
+    return Opacity(
+      opacity: disabled && _saving ? 0.6 : 1,
+      child: GestureDetector(
+        onTap: disabled ? null : _confirmAndDelete,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.errorContainer,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.errorContainerBorder),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_deleting)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.error,
+                  ),
+                )
+              else
+                Icon(Icons.delete_outline,
+                    color: AppColors.error, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                _deleting ? 'Deleting…' : 'Delete Report',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -63,10 +63,12 @@ class RoutingPresetTest {
     }
 
     @Test
-    void presetConstraints_areAllPathLevel_noElevatorOrDoorTuples() {
+    void presetConstraints_areAllPathLevel_noDestinationOrIndoorTuples() {
         // Path-level discipline check: presets should only bundle constraints that
-        // map to sidewalk/ramp/stair hazards. Door and elevator hazards are
-        // destination-level and live outside the routing-preference model.
+        // map to outdoor path-segment hazards (sidewalk/ramp/stair/pedestrian
+        // crossing/curb ramp). Door and elevator hazards are destination-level;
+        // washroom and room-sign hazards are indoor-only — both categories live
+        // outside the routing-preference model.
         for (RoutingPreset preset : RoutingPreset.values()) {
             for (RoutingConstraint c : preset.getConstraints()) {
                 for (IssueHazard h : c.getHazards()) {
@@ -76,6 +78,12 @@ class RoutingPresetTest {
                     assertNotEquals(ObjectType.ELEVATOR, h.objectType(),
                             preset.name() + " bundles " + c.name()
                                     + " which contains an ELEVATOR hazard — destination-level, not path-level");
+                    assertNotEquals(ObjectType.WASHROOM, h.objectType(),
+                            preset.name() + " bundles " + c.name()
+                                    + " which contains a WASHROOM hazard — indoor, not path-level");
+                    assertNotEquals(ObjectType.ROOM_SIGN, h.objectType(),
+                            preset.name() + " bundles " + c.name()
+                                    + " which contains a ROOM_SIGN hazard — indoor, not path-level");
                 }
             }
         }

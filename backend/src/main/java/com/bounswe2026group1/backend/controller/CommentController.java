@@ -1,7 +1,10 @@
 package com.bounswe2026group1.backend.controller;
 
-import com.bounswe2026group1.backend.model.Comment;
+import com.bounswe2026group1.backend.dto.CommentResponse;
+import com.bounswe2026group1.backend.dto.CreateCommentRequest;
+import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
 import com.bounswe2026group1.backend.service.CommentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,35 +19,35 @@ public class CommentController {
     private final CommentService commentService;
 
     @GetMapping
-    public List<Comment> getAll() {
+    public List<CommentResponse> getAll() {
         return commentService.getAll();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Comment> getById(@PathVariable Long id) {
+    public ResponseEntity<CommentResponse> getById(@PathVariable Long id) {
         return commentService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/author/{authorId}")
-    public List<Comment> getByAuthor(@PathVariable Long authorId) {
+    public List<CommentResponse> getByAuthor(@PathVariable Long authorId) {
         return commentService.getByAuthor(authorId);
     }
 
     @GetMapping("/report/{reportId}")
-    public List<Comment> getByReport(@PathVariable Long reportId) {
+    public List<CommentResponse> getByReport(@PathVariable Long reportId) {
         return commentService.getByReport(reportId);
     }
 
     @PostMapping
-    public Comment create(@RequestBody Comment comment) {
-        return commentService.create(comment);
+    public CommentResponse create(@RequestBody @Valid CreateCommentRequest req) {
+        return commentService.create(req);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Comment> update(@PathVariable Long id, @RequestBody Comment comment) {
-        return commentService.update(id, comment)
+    public ResponseEntity<CommentResponse> update(@PathVariable Long id, @RequestBody @Valid UpdateCommentRequest req) {
+        return commentService.update(id, req)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

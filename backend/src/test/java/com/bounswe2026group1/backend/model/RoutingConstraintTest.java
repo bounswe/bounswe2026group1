@@ -79,7 +79,8 @@ class RoutingConstraintTest {
         Set<IssueType> stairIssues = Set.of(
                 IssueType.MISSING_HANDRAIL, IssueType.NO_LANDING, IssueType.TOO_NARROW,
                 IssueType.SLIPPERY_SURFACE, IssueType.RISER_TOO_HIGH, IssueType.TREAD_TOO_SHALLOW,
-                IssueType.NO_ANTI_SLIP, IssueType.OPEN_RISERS);
+                IssueType.NO_ANTI_SLIP, IssueType.OPEN_RISERS,
+                IssueType.IRREGULAR_STEPS, IssueType.MISSING_NOSING_STRIP);
         for (IssueType issue : stairIssues) {
             assertTrue(hazards.contains(new IssueHazard(ObjectType.STAIR, issue)),
                     "AVOID_STAIRS missing (STAIR, " + issue + ")");
