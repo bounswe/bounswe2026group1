@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
 import NotificationDropdown from './NotificationDropdown.jsx'
+import ThemeToggleButton from './ThemePicker.jsx'
 import logo from '../assets/mapcess-transparent.png'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
@@ -63,7 +64,7 @@ function Navbar() {
   }
 
   return (
-    <header className="w-full sticky top-0 z-[1001] bg-white/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
+    <header className="w-full sticky top-0 z-[1001] bg-surface-container-lowest/80 backdrop-blur-md shadow-[0_4px_40px_-4px_rgba(45,47,47,0.08)] h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-8 flex-shrink-0">
       <div className="flex items-center gap-4 md:gap-8">
         <div className="flex items-center gap-2 sm:gap-3 -translate-y-[2px]">
           <img
@@ -114,6 +115,7 @@ function Navbar() {
 
       <div className="flex items-center gap-1 sm:gap-2">
         <SseStatusIndicator />
+        <ThemeToggleButton />
         {isAuthenticated && (
           <div className="relative hidden sm:block">
             <button
@@ -172,7 +174,7 @@ function Navbar() {
                 ref={menuRef}
                 role="menu"
                 aria-label="Profile menu"
-                className="absolute right-0 mt-2 w-44 rounded-md bg-white shadow-lg ring-1 ring-black/5 py-1 z-[1100]"
+                className="absolute right-0 mt-2 w-44 rounded-md bg-surface-container-lowest shadow-lg ring-1 ring-outline-variant/30 py-1 z-[1100]"
               >
                 <button
                   type="button"

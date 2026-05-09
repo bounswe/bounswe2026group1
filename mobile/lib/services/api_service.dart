@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../models/fix_request_model.dart';
 import '../models/notification_model.dart';
 import '../models/report_model.dart';
 
@@ -274,6 +275,80 @@ class ApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return data['mediaUrl'] as String;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Fix requests ──────────────────────────────────────────────────────────
+
+  Future<FixRequestModel> submitFixRequest({
+    required int reportId,
+    required File file,
+    String? description,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/api/reports/$reportId/fix-requests'),
+    );
+
+    // Multipart boundaries handle Content-Type — drop our default JSON one.
+    final headers = Map<String, String>.from(_headers)..remove('Content-Type');
+    request.headers.addAll(headers);
+
+    final ext = file.path.split('.').last.toLowerCase();
+    final mimeType = switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png'           => 'image/png',
+      _               => 'application/octet-stream',
+    };
+    request.files.add(await http.MultipartFile.fromPath(
+      'files',
+      file.path,
+      contentType: MediaType.parse(mimeType),
+    ));
+    final trimmed = description?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      request.fields['description'] = trimmed;
+    }
+
+    final streamed = await request.send().timeout(const Duration(seconds: 30));
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return FixRequestModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<FixRequestModel> agreeFixRequest({
+    required int reportId,
+    required int fixId,
+  }) =>
+      _voteOnFixRequest(reportId: reportId, fixId: fixId, action: 'agree');
+
+  Future<FixRequestModel> disagreeFixRequest({
+    required int reportId,
+    required int fixId,
+  }) =>
+      _voteOnFixRequest(reportId: reportId, fixId: fixId, action: 'disagree');
+
+  Future<FixRequestModel> _voteOnFixRequest({
+    required int reportId,
+    required int fixId,
+    required String action,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse(
+              '$_baseUrl/api/reports/$reportId/fix-requests/$fixId/$action'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return FixRequestModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
     throw ApiException(response.statusCode, _extractMessage(response));
   }

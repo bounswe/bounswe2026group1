@@ -274,6 +274,22 @@ class ReportServiceTest {
     }
 
     @Test
+    void delete_s3DeleteFails_stillRemovesReport() {
+        Media media = new Media();
+        media.setFilePath("https://not-our-bucket.example.com/orphan.jpg");
+        testReport.getMediaList().add(media);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
+        doThrow(new IllegalArgumentException("URL does not belong to this bucket"))
+                .when(s3MediaService).deleteFile(any());
+
+        reportService.delete(1L, "owner@test.com");
+
+        verify(reportRepository).delete(testReport);
+    }
+
+    @Test
     void verifyReport_reachesThreshold_changesStatusToVerified() {
         ReflectionTestUtils.setField(testReport, "agrees", 4);
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);

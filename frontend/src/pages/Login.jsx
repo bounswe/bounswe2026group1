@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import AuthLeftPanel from '../components/AuthLeftPanel.jsx'
 import AuthFooter from '../components/AuthFooter.jsx'
 import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
@@ -15,6 +15,7 @@ function Login() {
 
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -23,7 +24,8 @@ function Login() {
     try {
       const { token } = await loginUser({ email, password })
       login(token)
-      navigate('/')
+      const from = location.state?.from?.pathname ?? '/'
+      navigate(from, { replace: true })
     } catch (err) {
       // Always show a generic message regardless of the actual error to avoid
       // leaking whether the email exists in the system.

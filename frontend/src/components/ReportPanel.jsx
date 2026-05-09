@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -17,14 +17,19 @@ import {
 } from '../services/reportService.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
+import { reportKeys, useUpdateMapReport } from '../hooks/useReports.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
-import { reportKeys } from '../hooks/useReports.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
+
+const MAX_DESCRIPTION = 1000
 
 /**
  * ReportPanel
  * Desktop: fixed right sidebar (500px) alongside the map.
- * Mobile: full screen overlay.
+ * Mobile: bottom sheet (default 60dvh) — pointer-events-none on the outer
+ *         wrapper lets the user click the visible map area above. The pill
+ *         at the top is draggable to resize between 25/60/90 dvh; dropping
+ *         below 15 dvh dismisses via onClose.
  * Props:
  *  - report: mapped report object
  *  - onClose: () => void
@@ -44,6 +49,70 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [following, setFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [showCreateFix, setShowCreateFix] = useState(false)
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [editDescription, setEditDescription] = useState('')
+  const [editEnvironment, setEditEnvironment] = useState('OUTDOOR')
+  const [editError, setEditError] = useState('')
+  const updateReportMutation = useUpdateMapReport()
+
+  const isOwner = !!userId && report?.ownerId != null && String(userId) === String(report.ownerId)
+
+  // Bottom-sheet drag-to-resize (mobile only — desktop layout uses lg: utilities to ignore this).
+  // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
+  const SHEET_SNAP_POINTS = [25, 60, 90]
+  const SHEET_DISMISS_THRESHOLD = 15
+  const SHEET_DEFAULT_DVH = 60
+  const [sheetHeightDvh, setSheetHeightDvh] = useState(SHEET_DEFAULT_DVH)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startY: 0, startHeight: SHEET_DEFAULT_DVH, active: false })
+
+  // Inline height has to be conditional — applying it unconditionally would
+  // override Tailwind's `lg:h-full` (inline > class). Track viewport via
+  // matchMedia so desktop keeps the right-sidebar layout.
+  const [isMobileSheet, setIsMobileSheet] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(max-width: 1023px)').matches
+      : true
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mql = window.matchMedia('(max-width: 1023px)')
+    function onChange() { setIsMobileSheet(mql.matches) }
+    mql.addEventListener?.('change', onChange)
+    return () => mql.removeEventListener?.('change', onChange)
+  }, [])
+
+  function handleHandlePointerDown(e) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startY: e.clientY, startHeight: sheetHeightDvh, active: true }
+    setIsDragging(true)
+  }
+
+  function handleHandlePointerMove(e) {
+    if (!dragRef.current.active) return
+    const deltaY = e.clientY - dragRef.current.startY
+    const dvhDelta = (deltaY / window.innerHeight) * 100
+    const next = dragRef.current.startHeight - dvhDelta
+    setSheetHeightDvh(Math.max(5, Math.min(95, next)))
+  }
+
+  function handleHandlePointerUp(e) {
+    if (!dragRef.current.active) return
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    dragRef.current.active = false
+    setIsDragging(false)
+    setSheetHeightDvh(prev => {
+      if (prev < SHEET_DISMISS_THRESHOLD) {
+        onClose()
+        return SHEET_DEFAULT_DVH
+      }
+      return SHEET_SNAP_POINTS.reduce(
+        (best, p) => (Math.abs(p - prev) < Math.abs(best - prev) ? p : best),
+        SHEET_SNAP_POINTS[0],
+      )
+    })
+  }
 
   useEffect(() => {
     if (!report) return
@@ -173,23 +242,84 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
     }
   }
 
+  function handleStartEdit() {
+    setEditDescription(report.description ?? '')
+    setEditEnvironment(report.environment ?? 'OUTDOOR')
+    setEditError('')
+    setIsEditing(true)
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false)
+    setEditError('')
+  }
+
+  async function handleSaveEdit() {
+    const trimmed = editDescription.trim()
+    if (!trimmed) {
+      setEditError('Description cannot be empty.')
+      return
+    }
+    if (trimmed.length > MAX_DESCRIPTION) {
+      setEditError(`Description must be at most ${MAX_DESCRIPTION} characters.`)
+      return
+    }
+    setEditError('')
+    try {
+      await updateReportMutation.mutateAsync({
+        id: report.id,
+        body: { description: trimmed, environment: editEnvironment },
+      })
+      setIsEditing(false)
+    } catch (e) {
+      setEditError(e.message || 'Failed to save changes.')
+    }
+  }
+
+  const editDescriptionTooLong = editDescription.length > MAX_DESCRIPTION
+  const saveEditDisabled =
+    updateReportMutation.isPending || !editDescription.trim() || editDescriptionTooLong
+
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/20 z-[1100] lg:hidden"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
+        <aside
+          style={isMobileSheet
+            ? {
+                height: `${sheetHeightDvh}dvh`,
+                maxHeight: `${sheetHeightDvh}dvh`,
+                width: '100%',
+                borderTopLeftRadius: '32px',
+                borderTopRightRadius: '32px',
+                borderTop: '1px solid rgba(172,173,173,.2)',
+                boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+              }
+            : {
+                width: '500px',
+                height: '100%',
+                maxHeight: '100%',
+                borderLeft: '1px solid rgba(172,173,173,.1)',
+              }}
+          className={`pointer-events-auto bg-surface-container-low flex flex-col relative overflow-y-auto ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
+        >
 
-      <aside className="
-        fixed top-0 right-0 h-full z-[1200]
-        w-full lg:w-[500px]
-        bg-surface-container-low
-        overflow-y-auto
-        border-l border-outline-variant/10
-        flex flex-col
-      ">
+          {/* Mobile drag handle — pill is decorative, the wider hit-area carries the pointer events. */}
+          <div
+            role="slider"
+            aria-label="Resize report panel"
+            aria-valuemin={SHEET_SNAP_POINTS[0]}
+            aria-valuemax={SHEET_SNAP_POINTS[SHEET_SNAP_POINTS.length - 1]}
+            aria-valuenow={Math.round(sheetHeightDvh)}
+            tabIndex={-1}
+            onPointerDown={handleHandlePointerDown}
+            onPointerMove={handleHandlePointerMove}
+            onPointerUp={handleHandlePointerUp}
+            onPointerCancel={handleHandlePointerUp}
+            className="lg:hidden flex-shrink-0 pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none"
+          >
+            <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto" />
+          </div>
 
         {/* Top status strip — always visible, holds the close button and the
             current status pills so they stay reachable even when an active
@@ -354,9 +484,20 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
           {/* Header */}
           <div className="flex flex-col gap-4">
-            <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
-              {report.title}
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
+                {report.title}
+              </h1>
+              {isOwner && !isEditing && (
+                <button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer flex-shrink-0"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
@@ -446,9 +587,75 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
               Issue Details
             </h3>
-            <p className="text-on-surface leading-relaxed font-body">
-              {report.description || 'No description provided.'}
-            </p>
+            {!isEditing ? (
+              <p className="text-on-surface leading-relaxed font-body">
+                {report.description || 'No description provided.'}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="report-edit-description" className="text-sm font-semibold text-on-surface">
+                    Description
+                  </label>
+                  <textarea
+                    id="report-edit-description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={5}
+                    className="w-full px-4 py-3 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40"
+                  />
+                  <p className={`text-xs text-right ${editDescriptionTooLong ? 'text-error' : 'text-on-surface-variant'}`}>
+                    {editDescription.length}/{MAX_DESCRIPTION}
+                  </p>
+                </div>
+
+                <fieldset className="flex flex-col gap-1">
+                  <legend className="text-sm font-semibold text-on-surface">Environment</legend>
+                  <div className="flex gap-3 mt-1">
+                    {['OUTDOOR', 'INDOOR'].map((opt) => (
+                      <label
+                        key={opt}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer ${editEnvironment === opt ? 'bg-primary/10 ring-2 ring-primary' : 'bg-[#f0f1f1]'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="report-edit-environment"
+                          value={opt}
+                          checked={editEnvironment === opt}
+                          onChange={() => setEditEnvironment(opt)}
+                        />
+                        <span className="text-sm text-on-surface capitalize">{opt.toLowerCase()}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                {editError && (
+                  <p role="alert" className="text-sm text-error">
+                    {editError}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={saveEditDisabled}
+                    className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
+                  >
+                    {updateReportMutation.isPending ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    disabled={updateReportMutation.isPending}
+                    className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Location */}
@@ -657,7 +864,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           </div>
 
         </div>
-      </aside>
+        </aside>
+      </div>
 
       {showCreateFix && (
         <CreateFixRequestPanel
