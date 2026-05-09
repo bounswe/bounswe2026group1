@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,6 +93,7 @@ public class ReportService {
             ReportEnvironment environment,
             Double latitude,
             Double longitude,
+            Double radiusInKm,
             Pageable pageable,
             String email) {
 
@@ -100,14 +102,22 @@ public class ReportService {
                     "latitude and longitude must both be provided for proximity feed");
         }
 
-        Pageable paged = PageRequest.of(
-                Math.max(0, pageable.getPageNumber()),
-                Math.min(100, Math.max(1, pageable.getPageSize())));
+        int pageNumber = Math.max(0, pageable.getPageNumber());
+        int pageSize = Math.min(100, Math.max(1, pageable.getPageSize()));
+        Pageable paged = latitude != null
+                ? PageRequest.of(pageNumber, pageSize, Sort.unsorted())
+                : PageRequest.of(pageNumber, pageSize);
 
         Long userId = resolveUserId(email);
 
         Page<Report> page = latitude != null
-                ? reportRepository.findFeedWithinRadius(reportType, environment, latitude, longitude, paged)
+                ? reportRepository.findFeedWithinRadius(
+                        reportType,
+                        environment,
+                        latitude,
+                        longitude,
+                        radiusInKm != null ? radiusInKm : 1.0,
+                        paged)
                 : reportRepository.findFeedRecent(reportType, environment, paged);
 
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());

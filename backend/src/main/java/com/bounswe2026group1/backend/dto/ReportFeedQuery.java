@@ -8,6 +8,7 @@ import lombok.Data;
 /**
  * Query parameters for {@code GET /api/reports/feed}. Optional {@code latitude}/{@code longitude}
  * enable PostGIS proximity filtering and distance ordering.
+ * Optional {@code radiusInKm} bounds the search (default {@code 1.0} km when coordinates are used).
  */
 @Data
 @Schema(description = "Query parameters for the report feed. Supplying `latitude` and `longitude` enables proximity ordering.")
@@ -27,4 +28,6 @@ public class ReportFeedQuery {
     @Schema(description = "WGS84 longitude of the user's location.",
             example = "29.045", minimum = "-180", maximum = "180", nullable = true)
     private Double longitude;
+    /** Search radius in kilometers; defaults to 1.0 when latitude/longitude are provided. */
+    private Double radiusInKm;
 }
