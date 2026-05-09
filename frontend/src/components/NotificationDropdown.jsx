@@ -55,8 +55,11 @@ function NotificationItem({ notification, onRead }) {
 /**
  * Props:
  *  - onClose: () => void
+ *  - triggerRef: ref to the button that opens this dropdown — clicks
+ *      inside it are ignored by the outside-click handler so the trigger
+ *      can toggle the dropdown closed without racing this listener.
  */
-function NotificationDropdown({ onClose }) {
+function NotificationDropdown({ onClose, triggerRef }) {
   const { data: notifications, isLoading } = useNotifications()
   const { mutate: markRead } = useMarkNotificationRead()
   const { mutate: markAllRead, isPending: markingAll } = useMarkAllNotificationsRead()
@@ -65,7 +68,9 @@ function NotificationDropdown({ onClose }) {
 
   useEffect(() => {
     function handlePointerDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) onClose()
+      if (ref.current?.contains(e.target)) return
+      if (triggerRef?.current?.contains(e.target)) return
+      onClose()
     }
     function handleKeyDown(e) {
       if (e.key === 'Escape') onClose()
@@ -76,7 +81,7 @@ function NotificationDropdown({ onClose }) {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onClose])
+  }, [onClose, triggerRef])
 
   function handleRead(notification) {
     if (!notification.read) markRead(notification.id)
@@ -92,7 +97,7 @@ function NotificationDropdown({ onClose }) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 mt-2 w-80 max-h-[480px] flex flex-col rounded-xl bg-white shadow-lg ring-1 ring-black/8 z-[1100] overflow-hidden"
+      className="absolute right-0 mt-2 w-80 max-h-[480px] flex flex-col rounded-xl bg-surface-container-high shadow-lg ring-1 ring-outline-variant/30 z-[1100] overflow-hidden"
       role="dialog"
       aria-label="Notifications"
     >

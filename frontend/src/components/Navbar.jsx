@@ -133,7 +133,10 @@ function Navbar() {
               )}
             </button>
             {notifOpen && (
-              <NotificationDropdown onClose={() => setNotifOpen(false)} />
+              <NotificationDropdown
+                onClose={() => setNotifOpen(false)}
+                triggerRef={notifButtonRef}
+              />
             )}
           </div>
         )}
