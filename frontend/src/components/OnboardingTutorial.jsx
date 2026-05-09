@@ -305,10 +305,10 @@ function DoorDiagram() {
 function HowToReportDiagram() {
   // Four-step row: tap → describe → add media → submit
   const steps = [
-    { icon: 'touch_app', label: 'Tap the map' },
-    { icon: 'edit_note', label: 'Describe' },
+    { icon: 'touch_app',   label: 'Tap the map' },
     { icon: 'add_a_photo', label: 'Add media' },
-    { icon: 'send',      label: 'Submit' },
+    { icon: 'edit_note',   label: 'Describe' },
+    { icon: 'send',        label: 'Submit' },
   ]
   return (
     <div className="flex items-center justify-center flex-wrap gap-1.5 py-2">
@@ -448,7 +448,7 @@ export default function OnboardingTutorial({ onClose }) {
       onClick={handleBackdropClick}
       className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
     >
-      <div className="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-[600px] max-h-[calc(100vh-48px)] flex flex-col p-6 gap-3">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-[600px] h-[680px] max-h-[calc(100vh-48px)] flex flex-col p-6 gap-3">
         {/* Top bar — dot indicator + close button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2" aria-hidden="true">
