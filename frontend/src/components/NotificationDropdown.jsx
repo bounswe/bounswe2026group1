@@ -55,8 +55,11 @@ function NotificationItem({ notification, onRead }) {
 /**
  * Props:
  *  - onClose: () => void
+ *  - triggerRef: ref to the button that opens this dropdown — clicks
+ *      inside it are ignored by the outside-click handler so the trigger
+ *      can toggle the dropdown closed without racing this listener.
  */
-function NotificationDropdown({ onClose }) {
+function NotificationDropdown({ onClose, triggerRef }) {
   const { data: notifications, isLoading } = useNotifications()
   const { mutate: markRead } = useMarkNotificationRead()
   const { mutate: markAllRead, isPending: markingAll } = useMarkAllNotificationsRead()
@@ -65,7 +68,9 @@ function NotificationDropdown({ onClose }) {
 
   useEffect(() => {
     function handlePointerDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) onClose()
+      if (ref.current?.contains(e.target)) return
+      if (triggerRef?.current?.contains(e.target)) return
+      onClose()
     }
     function handleKeyDown(e) {
       if (e.key === 'Escape') onClose()
@@ -76,7 +81,7 @@ function NotificationDropdown({ onClose }) {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onClose])
+  }, [onClose, triggerRef])
 
   function handleRead(notification) {
     if (!notification.read) markRead(notification.id)
