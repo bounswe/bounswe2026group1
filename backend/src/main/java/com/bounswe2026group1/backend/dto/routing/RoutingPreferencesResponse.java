@@ -29,9 +29,18 @@ public class RoutingPreferencesResponse {
     /** Optional travel-mode preference; null if unset. */
     private TravelMode preferredTravelMode;
 
+    /**
+     * Id of the user's currently activated custom routing profile, or null
+     * when a built-in preset (or no preset) is active.
+     */
+    private Long activeCustomProfileId;
+
     /** All preset values with their bundled constraints — stable across users. */
     private List<RoutingPresetInfo> availablePresets;
 
     /** All constraint values with labels and descriptions — stable across users. */
     private List<RoutingConstraintInfo> availableConstraints;
+
+    /** Per-user named bundles, in creation order. */
+    private List<CustomRoutingProfileResponse> customProfiles;
 }
