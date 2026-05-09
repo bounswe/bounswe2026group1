@@ -336,6 +336,8 @@ const SLIDES = [
     icon: 'explore',
     badgeColor: 'var(--color-primary)',
     diagram: <WelcomeDiagram />,
+    tipTitle: "What you'll learn",
+    tip: 'A quick tour of the four most common things people report — ramps, sidewalks, elevators, and doors — and how to file your first report in under a minute.',
   },
   {
     id: 'ramps',
@@ -396,6 +398,8 @@ const SLIDES = [
     icon: 'add_location_alt',
     badgeColor: 'var(--color-primary)',
     diagram: <HowToReportDiagram />,
+    tipTitle: 'Done in under a minute',
+    tip: 'Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone.',
   },
 ]
 
@@ -521,6 +525,15 @@ export default function OnboardingTutorial({ onClose }) {
                   {slide.diagramCaption}
                 </div>
               )}
+            </div>
+          )}
+
+          {slide.tip && (
+            <div className="self-stretch bg-surface-container-low border-l-[3px] border-primary text-[13.5px] leading-relaxed py-2.5 px-3.5 rounded text-on-surface text-left max-w-[440px] mx-auto">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-primary-dim mb-0.5">
+                {slide.tipTitle ?? 'Tip'}
+              </div>
+              {slide.tip}
             </div>
           )}
         </div>
