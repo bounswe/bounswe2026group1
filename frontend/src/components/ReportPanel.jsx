@@ -17,6 +17,7 @@ import {
 } from '../services/reportService.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useUserProfile } from '../hooks/useUserProfile.js'
 import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
@@ -69,6 +70,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   }
 
   const isOwner = !!userId && report?.ownerId != null && String(userId) === String(report.ownerId)
+  const { data: reporter } = useUserProfile(report?.ownerId)
   // Admins can edit/delete any report; owners can edit/delete their own.
   const canModify = isOwner || isAdmin
 
@@ -550,15 +552,27 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               )}
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
+              <button
+                type="button"
+                onClick={() => report?.ownerId && navigate(isOwner ? '/profile' : `/profile/${report.ownerId}`)}
+                className="flex items-start gap-3 cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {reporter?.avatarUrl ? (
+                    <img src={reporter.avatarUrl} alt={reporter.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-on-surface">{report.reportedBy}</p>
-                  <p className="text-xs text-on-surface-variant">{report.date}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-on-surface group-hover:underline">
+                    {reporter?.name ?? report.reportedBy}
+                  </p>
+                  {report.date && (
+                    <p className="text-xs text-on-surface-variant">{report.date}</p>
+                  )}
                 </div>
-              </div>
+              </button>
               {report.environment && (
                 <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg">
                   <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
