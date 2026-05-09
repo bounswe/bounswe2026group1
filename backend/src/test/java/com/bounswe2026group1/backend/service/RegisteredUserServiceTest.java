@@ -465,10 +465,12 @@ class RegisteredUserServiceTest {
         when(registeredUserRepository
                 .findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase("test", "test", page))
                 .thenReturn(results);
-        when(reportRepository.countByCreatedByIdIn(anyCollection()))
-                .thenReturn(List.of(new Object[]{1L, 4L}));
-        when(routeRepository.countByCreatedByIdIn(anyCollection()))
-                .thenReturn(List.of(new Object[]{1L, 1L}));
+        // doReturn(...).when(...) bypasses Mockito's generic inference, which
+        // otherwise resolves thenReturn(List<Object[]>) to the varargs overload.
+        org.mockito.Mockito.doReturn(List.of(new Object[]{1L, 4L}))
+                .when(reportRepository).countByCreatedByIdIn(anyCollection());
+        org.mockito.Mockito.doReturn(List.of(new Object[]{1L, 1L}))
+                .when(routeRepository).countByCreatedByIdIn(anyCollection());
 
         org.springframework.data.domain.Page<UserProfileDTO> dtos =
                 registeredUserService.searchUsers("test", page);
