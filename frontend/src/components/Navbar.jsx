@@ -212,7 +212,7 @@ function Navbar() {
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 ml-1 sm:ml-2">
+          <div className="flex items-center gap-3 sm:gap-4 ml-1 sm:ml-2">
             <Link
               to="/login"
               className="text-on-surface-variant hover:text-primary transition-colors font-medium text-sm sm:text-base"
@@ -221,7 +221,7 @@ function Navbar() {
             </Link>
             <Link
               to="/signup"
-              className="bg-primary text-white rounded-full px-3 py-1.5 sm:px-4 sm:py-2 hover:bg-primary/90 transition-colors font-semibold text-sm sm:text-base"
+              className="bg-primary text-on-primary rounded-full px-3 py-1.5 sm:px-4 sm:py-2 hover:bg-primary/90 transition-colors font-semibold text-sm sm:text-base"
             >
               Sign Up
             </Link>
