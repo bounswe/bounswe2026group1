@@ -23,6 +23,11 @@ vi.mock('../hooks/useUserReports.js', () => ({
 vi.mock('../components/Navbar.jsx', () => ({
   default: () => <div data-testid="navbar" />,
 }))
+// RoutingPreferencesSection makes its own queries; stub it out so the existing
+// ProfilePage assertions stay focused on the profile card and report list.
+vi.mock('../components/RoutingPreferencesSection.jsx', () => ({
+  default: () => <div data-testid="routing-preferences-section" />,
+}))
 
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
