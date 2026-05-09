@@ -26,6 +26,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             ReportEnvironment environment,
             double latitude,
             double longitude,
+            double radiusInKm,
             Pageable pageable) {
 
         StringBuilder fromWhere = new StringBuilder("""
@@ -40,7 +41,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         Map<String, Object> params = new HashMap<>();
         params.put("lat", latitude);
         params.put("lon", longitude);
-        params.put("radiusMeters", FEED_RADIUS_METERS);
+        params.put("radiusMeters", radiusInKm * 1000.0);
 
         appendNativeReportTypeFilter(fromWhere, params, reportType);
         appendNativeEnvironmentFilter(fromWhere, params, environment);

@@ -38,6 +38,7 @@ public class ReportController {
                 query.getEnvironment(),
                 query.getLatitude(),
                 query.getLongitude(),
+                query.getRadiusInKm(),
                 pageable,
                 email);
     }
