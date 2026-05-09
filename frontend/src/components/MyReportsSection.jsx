@@ -29,7 +29,7 @@ function MyReportsSection({ userId }) {
   const selected = reports?.find((r) => r.id === selectedId) ?? null
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm p-6">
+    <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
       <h2 className="text-xl font-bold font-headline text-on-surface mb-4">
         My Reports{reports ? ` (${reports.length})` : ''}
       </h2>
@@ -60,7 +60,7 @@ function MyReportsSection({ userId }) {
               <button
                 type="button"
                 onClick={() => setSelectedId(report.id)}
-                className="w-full flex gap-3 items-start text-left p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer"
+                className="w-full flex gap-3 items-start text-left p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
               >
                 {report.image ? (
                   <img
@@ -80,7 +80,7 @@ function MyReportsSection({ userId }) {
                       {report.title}
                     </span>
                     <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-gray-100 text-gray-900'}`}
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-surface-container text-on-surface'}`}
                     >
                       {STATUS_LABELS[report.status] ?? report.status}
                     </span>

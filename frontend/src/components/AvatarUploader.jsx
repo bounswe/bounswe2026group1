@@ -138,7 +138,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
                 type="button"
                 onClick={handleSave}
                 disabled={isUploading}
-                className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
+                className="px-4 py-2 rounded-lg primary-gradient text-on-primary font-semibold disabled:opacity-60 cursor-pointer"
               >
                 {isUploading ? 'Uploading…' : 'Save avatar'}
               </button>
@@ -156,7 +156,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-lg primary-gradient text-on-primary font-semibold cursor-pointer"
               >
                 {currentAvatarUrl ? 'Change avatar' : 'Upload avatar'}
               </button>
