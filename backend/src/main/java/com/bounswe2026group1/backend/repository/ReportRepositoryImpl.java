@@ -108,8 +108,8 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         if (environment == null) {
             return;
         }
-        sql.append(" AND r.environment = :environment");
-        params.put("environment", environment.name());
+        sql.append(" AND r.environment = :feedEnv");
+        params.put("feedEnv", environment.name());
     }
 
     private static void appendJpqlReportTypeFilter(StringBuilder jpql, Map<String, Object> params, ReportType reportType) {
@@ -124,8 +124,8 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         if (environment == null) {
             return;
         }
-        jpql.append(" AND r.environment = :environment");
-        params.put("environment", environment);
+        jpql.append(" AND r.environment = :feedEnv");
+        params.put("feedEnv", environment);
     }
 
     private static void bindAll(Query query, Map<String, Object> params) {

@@ -214,5 +214,14 @@ describe('reportService — fix request helpers', () => {
     it('maps FIXED status to lowercase fixed', () => {
       expect(mapReport({ ...baseReport, status: 'FIXED' }).status).toBe('fixed')
     })
+
+    it('uses a safe location label when coordinates are missing or invalid', () => {
+      expect(mapReport({ ...baseReport, latitude: null, longitude: null }).location).toBe(
+        'Location unavailable'
+      )
+      expect(mapReport({ ...baseReport, latitude: 'x', longitude: 'y' }).location).toBe(
+        'Location unavailable'
+      )
+    })
   })
 })

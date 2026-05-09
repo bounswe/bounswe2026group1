@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import {
   agreeReport,
@@ -41,6 +41,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
   const { token, isAuthenticated, userId, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const fromFeed = searchParams.get('from') === 'feed'
   const queryClient = useQueryClient()
   const [voteError, setVoteError] = useState('')
   const [fixVoteError, setFixVoteError] = useState('')
@@ -367,13 +369,25 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             current status pills so they stay reachable even when an active
             fix card pushes the hero image below the fold. */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2 gap-2">
-          <button
-            onClick={onClose}
-            className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow border border-outline-variant/20"
-            aria-label="Close panel"
-          >
-            <span className="material-symbols-outlined text-base">close</span>
-          </button>
+          <div className="flex items-center gap-2 min-w-0">
+            {fromFeed && (
+              <button
+                type="button"
+                onClick={() => navigate('/feed')}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/30 hover:bg-primary/15 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                Back to feed
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow border border-outline-variant/20 shrink-0"
+              aria-label="Close panel"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider ${
               isFixed

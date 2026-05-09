@@ -160,6 +160,15 @@ export function mapReportStatus(apiStatus) {
   }
 }
 
+function formatReportLocation(latitude, longitude) {
+  const lat = Number(latitude)
+  const lon = Number(longitude)
+  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+  }
+  return 'Location unavailable'
+}
+
 /**
  * Map API ReportResponse fields to ReportPanel prop shape.
  */
@@ -191,10 +200,9 @@ export function mapReport(r) {
         })
       : 'Unknown date',
     fixedAt: r.fixedAt || null,
-    location: `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`,
+    location: formatReportLocation(r.latitude, r.longitude),
     reportedBy: `User #${r.userId}`,
     ownerId: r.userId,
-    environment: r.environment,
     agrees: r.agrees,
     disagrees: r.disagrees,
     userVote: r.userVote ? r.userVote.toLowerCase() : null,
@@ -236,6 +244,43 @@ export async function deleteComment(commentId, token) {
 
 export async function getReportsByUserId(userId) {
   return apiFetch(`/api/reports/user/${userId}`)
+}
+
+/**
+ * Paginated community feed.
+ * GET /api/reports/feed
+ * With coordinates + radiusInKm: proximity ordering. Without coordinates: global newest-first feed.
+ */
+export async function getReportFeed(
+  {
+    page = 0,
+    size = 20,
+    reportType,
+    environment,
+    latitude,
+    longitude,
+    radiusInKm,
+  },
+  token,
+  fetchOpts = {}
+) {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('size', String(size))
+  if (reportType && reportType !== 'ALL') params.set('reportType', reportType)
+  if (environment && environment !== 'ALL') params.set('environment', environment)
+  const latN = latitude != null ? Number(latitude) : NaN
+  const lonN = longitude != null ? Number(longitude) : NaN
+  if (Number.isFinite(latN) && Number.isFinite(lonN)) {
+    params.set('latitude', String(latN))
+    params.set('longitude', String(lonN))
+    if (radiusInKm != null && Number.isFinite(Number(radiusInKm))) {
+      params.set('radiusInKm', String(radiusInKm))
+    }
+  }
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  return apiFetch(`/api/reports/feed?${params.toString()}`, { headers, ...fetchOpts })
 }
 
 export async function updateReport(id, body, token) {
