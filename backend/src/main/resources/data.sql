@@ -9,28 +9,41 @@ INSERT INTO registered_users (name, email, password, role, status, points) VALUE
     ('Yılmaz Korkmaz', 'user@test.com',       '$2a$10$2y4KXmQAwp.0WcnN4W1Xbe57Qbmzpj0dB5mYTk.rRolW3q3i8K6i.', 'USER',  'ACTIVE', 0)
 ON CONFLICT DO NOTHING;
 
+-- Minimal category hierarchy for seeded reports (FK: reports.category_id → report_categories.id).
+-- Idempotent so Hibernate-seeded categories are left unchanged.
+INSERT INTO report_categories (id, name, routing_relevant, type, parent_id) VALUES
+    (1, 'Ramp Issues', false, 'OBSTACLE', NULL),
+    (2, 'Elevator Issues', false, 'OBSTACLE', NULL),
+    (3, 'Sidewalk Issues', false, 'OBSTACLE', NULL),
+    (14, 'Ramp', true, 'FEATURE', NULL),
+    (6, 'Too Steep', false, NULL, 1),
+    (9, 'Out of Service', false, NULL, 2),
+    (12, 'Uneven Surface', false, NULL, 3),
+    (11, 'Blocked', false, NULL, 3)
+ON CONFLICT (id) DO NOTHING;
+
 -- Reports: guard with NOT EXISTS since reports table has no unique constraint
-INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 2, ST_SetSRID(ST_MakePoint(29.044383, 41.086110), 4326), 'This ramp is too steep for wheelchairs', 'OBSTACLE', 'OUTDOOR', 'PENDING', 4, 1, NOW()
+INSERT INTO reports (user_id, category_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 2, 6, ST_SetSRID(ST_MakePoint(29.044383, 41.086110), 4326), 'This ramp is too steep for wheelchairs', 'OBSTACLE', 'OUTDOOR', 'PENDING', 4, 1, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'This ramp is too steep for wheelchairs');
 
-INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 2, ST_SetSRID(ST_MakePoint(29.045658, 41.085243), 4326), 'Elevator of Boğaziçi Metro is broken', 'OBSTACLE', 'INDOOR', 'VERIFIED', 5, 0, NOW()
+INSERT INTO reports (user_id, category_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 2, 9, ST_SetSRID(ST_MakePoint(29.045658, 41.085243), 4326), 'Elevator of Boğaziçi Metro is broken', 'OBSTACLE', 'INDOOR', 'VERIFIED', 5, 0, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'Elevator of Boğaziçi Metro is broken');
 
-INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 3, ST_SetSRID(ST_MakePoint(29.043898, 41.087167), 4326), 'Narrow passage on the route to dormitories', 'OBSTACLE', 'OUTDOOR', 'PENDING', 1, 2, NOW()
+INSERT INTO reports (user_id, category_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 3, 12, ST_SetSRID(ST_MakePoint(29.043898, 41.087167), 4326), 'Narrow passage on the route to dormitories', 'OBSTACLE', 'OUTDOOR', 'PENDING', 1, 2, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'Narrow passage on the route to dormitories');
 
-INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date, entry_latitude, entry_longitude, exit_latitude, exit_longitude)
-SELECT 1, ST_SetSRID(ST_MakePoint(29.044523, 41.085693), 4326), 'There is actually a ramp in north campus.', 'FEATURE', 'OUTDOOR', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
+INSERT INTO reports (user_id, category_id, location, description, report_type, environment, status, agrees, disagrees, publish_date, entry_latitude, entry_longitude, exit_latitude, exit_longitude)
+SELECT 1, 14, ST_SetSRID(ST_MakePoint(29.044523, 41.085693), 4326), 'There is actually a ramp in north campus.', 'FEATURE', 'OUTDOOR', 'VERIFIED', 4, 0, NOW(), 41.085700, 29.044550, 41.085650, 29.044500
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'There is actually a ramp in north campus.');
 
 -- VERIFIED OUTDOOR obstacle so the routing pipeline has at least one polygon
 -- to demonstrate after the environment=OUTDOOR filter is applied.
 -- Location: 41°05'06.1"N 29°02'38.7"E  (Boğaziçi north-campus walkway corridor)
-INSERT INTO reports (user_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
-SELECT 3, ST_SetSRID(ST_MakePoint(29.044083, 41.085028), 4326), 'Sidewalk blocked by construction debris', 'OBSTACLE', 'OUTDOOR', 'VERIFIED', 5, 0, NOW()
+INSERT INTO reports (user_id, category_id, location, description, report_type, environment, status, agrees, disagrees, publish_date)
+SELECT 3, 11, ST_SetSRID(ST_MakePoint(29.044083, 41.085028), 4326), 'Sidewalk blocked by construction debris', 'OBSTACLE', 'OUTDOOR', 'VERIFIED', 5, 0, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE description = 'Sidewalk blocked by construction debris');
 
 -- Report objects: resolve report_id by description so this is FK-safe on re-seed
@@ -53,7 +66,7 @@ WHERE r.description = 'Narrow passage on the route to dormitories'
   AND NOT EXISTS (SELECT 1 FROM report_objects ro WHERE ro.report_id = r.report_id AND ro.object_type = 'SIDEWALK');
 
 INSERT INTO report_objects (report_id, object_type, measurements)
-SELECT r.report_id, 'RAMP', '{"slope_percent": 6, "width_cm": 120}'
+SELECT r.report_id, 'RAMP', '{"slope_percent": 4, "width_cm": 120}'
 FROM reports r
 WHERE r.description = 'There is actually a ramp in north campus.'
   AND NOT EXISTS (SELECT 1 FROM report_objects ro WHERE ro.report_id = r.report_id AND ro.object_type = 'RAMP');
