@@ -44,9 +44,9 @@ class AdminUserServiceTest {
     @BeforeEach
     void setUp() {
         adminUser = new RegisteredUser(1L, "Admin", "admin@test.com", "hash", UserRole.ADMIN,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null);
         regularUser = new RegisteredUser(2L, "User", "user@test.com", "hash", UserRole.USER,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null);
     }
 
     // --- listUsers ---
@@ -170,7 +170,7 @@ class AdminUserServiceTest {
     @Test
     void changeRole_Fail_LastAdmin() {
         RegisteredUser anotherAdmin = new RegisteredUser(3L, "Admin2", "admin2@test.com", "hash", UserRole.ADMIN,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null);
         when(userRepository.findById(3L)).thenReturn(Optional.of(anotherAdmin));
         when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
 
@@ -190,7 +190,7 @@ class AdminUserServiceTest {
         when(userRepository.existsByEmail("new@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("encoded");
         RegisteredUser saved = new RegisteredUser(5L, "New", "new@test.com", "encoded", UserRole.USER,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null);
         when(userRepository.save(any())).thenReturn(saved);
 
         AdminCreateUserRequest req = new AdminCreateUserRequest();
@@ -249,7 +249,7 @@ class AdminUserServiceTest {
     @Test
     void deleteUser_Fail_LastAdmin() {
         RegisteredUser anotherAdmin = new RegisteredUser(3L, "Admin2", "admin2@test.com", "hash", UserRole.ADMIN,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null);
         when(userRepository.findById(3L)).thenReturn(Optional.of(anotherAdmin));
         when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
 
