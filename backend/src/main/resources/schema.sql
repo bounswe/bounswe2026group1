@@ -21,6 +21,16 @@ CREATE TABLE IF NOT EXISTS report_object_issues (
     PRIMARY KEY (report_object_id, issue_type)
 );
 
+-- Drop legacy CHECK constraints on enum columns. Hibernate generated these
+-- from the original 5 ObjectType / 24 IssueType enums; ddl-auto=update does
+-- NOT extend them when new enum values are added, so inserts with newer
+-- values fail at the DB layer with a constraint violation. Without these
+-- constraints the columns remain plain VARCHAR — application-side enum
+-- parsing is the source of truth, and Hibernate does not re-create them
+-- on subsequent boots.
+ALTER TABLE report_objects        DROP CONSTRAINT IF EXISTS report_objects_object_type_check;
+ALTER TABLE report_object_issues  DROP CONSTRAINT IF EXISTS report_object_issues_issue_type_check;
+
 -- One-time backfill for rows that predate the status/points columns
 UPDATE registered_users SET status = 'ACTIVE' WHERE status IS NULL;
 UPDATE registered_users SET points = 0        WHERE points IS NULL;
