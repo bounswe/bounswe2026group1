@@ -8,6 +8,10 @@ export async function getCurrentUser(token) {
   return apiFetch('/api/users/me', { headers: authHeaders(token) })
 }
 
+export async function getUserById(id, token) {
+  return apiFetch(`/api/users/${id}`, { headers: authHeaders(token) })
+}
+
 export async function updateProfile(id, body, token) {
   return apiFetch(`/api/users/${id}/profile`, {
     method: 'PUT',
