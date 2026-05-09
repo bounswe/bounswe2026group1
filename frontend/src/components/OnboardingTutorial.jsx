@@ -336,8 +336,6 @@ const SLIDES = [
     icon: 'explore',
     badgeColor: 'var(--color-primary)',
     diagram: <WelcomeDiagram />,
-    tipTitle: "What you'll learn",
-    tip: 'A quick tour of the four most common things people report — ramps, sidewalks, elevators, and doors — and how to file your first report in under a minute.',
   },
   {
     id: 'ramps',
@@ -352,7 +350,6 @@ const SLIDES = [
     ],
     diagram: <RampDiagram />,
     diagramCaption: <>slope = H ÷ L · accessible when <em className="not-italic font-bold text-primary-dim">≤ 10%</em></>,
-    tip: 'Capture the full slope from the side so others can judge how steep it is.',
   },
   {
     id: 'sidewalks',
@@ -366,7 +363,6 @@ const SLIDES = [
     ],
     diagram: <SidewalkDiagram />,
     diagramCaption: 'Top-down view of the sidewalk',
-    tip: "Photograph blockages or surface damage from a pedestrian's perspective so reviewers can see the obstacle the way you did.",
   },
   {
     id: 'elevators',
@@ -380,7 +376,6 @@ const SLIDES = [
     ],
     diagram: <ElevatorDiagram />,
     diagramCaption: 'Top-down view of the cabin',
-    tip: "Note when it's out of service or has narrow doors — include the building entrance for context.",
   },
   {
     id: 'doors',
@@ -394,7 +389,6 @@ const SLIDES = [
     ],
     diagram: <DoorDiagram />,
     diagramCaption: 'Front view — entrance door',
-    tip: 'Show the handle and any threshold step so reviewers can see the obstacle clearly.',
   },
   {
     id: 'how-to',
@@ -402,8 +396,6 @@ const SLIDES = [
     icon: 'add_location_alt',
     badgeColor: 'var(--color-primary)',
     diagram: <HowToReportDiagram />,
-    tipTitle: 'Done in under a minute',
-    tip: 'Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone.',
   },
 ]
 
@@ -529,15 +521,6 @@ export default function OnboardingTutorial({ onClose }) {
                   {slide.diagramCaption}
                 </div>
               )}
-            </div>
-          )}
-
-          {slide.tip && (
-            <div className="self-stretch bg-surface-container-low border-l-[3px] border-primary text-[13.5px] leading-relaxed py-2.5 px-3.5 rounded text-on-surface text-left max-w-[440px] mx-auto">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-primary-dim mb-0.5">
-                {slide.tipTitle ?? 'Tip'}
-              </div>
-              {slide.tip}
             </div>
           )}
         </div>
