@@ -81,6 +81,23 @@ class _EditReportScreenState extends State<EditReportScreen> {
 
   bool get _isFeature => widget.report.reportType == ReportType.feature;
 
+  /// Mirrors the make-report flow: when the env flips, drop the type+
+  /// issues+measurements on cards whose ObjectType doesn't support the
+  /// new environment so the form can't submit invalid combos.
+  void _onEnvironmentChanged(ReportEnvironment next) {
+    setState(() {
+      _environment = next;
+      for (final o in _objects) {
+        final type = o.objectType;
+        if (type != null && !type.supports(next)) {
+          o.objectType = null;
+          o.issues.clear();
+          o.measurements.clear();
+        }
+      }
+    });
+  }
+
   Future<void> _save() async {
     final desc = _descController.text.trim();
     if (desc.length < 10) {
@@ -258,6 +275,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   ObjectsSection(
                     objects: _objects,
                     reportType: widget.report.reportType,
+                    environment: _environment,
                     onChanged: () => setState(() {}),
                   ),
                   if (_error != null) ...[
@@ -440,7 +458,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
               child: _envButton(
                 option: items[i],
                 selected: _environment == items[i].env,
-                onTap: () => setState(() => _environment = items[i].env),
+                onTap: () => _onEnvironmentChanged(items[i].env),
               ),
             ),
           ],

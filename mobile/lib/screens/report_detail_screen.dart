@@ -8,12 +8,15 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
+import '../models/fix_request_model.dart';
 import '../models/sse_event.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
+import 'create_fix_request_screen.dart';
 import 'edit_report_screen.dart';
+import 'user_profile_screen.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -31,7 +34,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   ReportModel get report => _report;
 
   String? _fetchedUsername;
+  String? _fetchedAvatarUrl;
   bool _usernameLoading = false;
+
+  // Avatar for the fix-request submitter — backend's FixRequestResponse
+  // currently only ships the name + id, so we hydrate the avatar via a
+  // follow-up `getUserById` once the active fix request is known.
+  int? _fixSubmitterAvatarFor;
+  String? _fixSubmitterAvatarUrl;
 
   // ── Video player ───────────────────────────────────────────────────────────
   VideoPlayerController? _videoController;
@@ -70,6 +80,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool? _isFollowing;
   bool _followBusy = false;
 
+  // ── Fix request state ────────────────────────────────────────────────────
+  bool _fixVoteBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -78,15 +91,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
     _myVote = report.userVote?.toLowerCase();
-    if (report.username == null) {
-      _usernameLoading = true;
-      _loadUsername();
-    }
+    // Always fetch the author profile — even when the report ships a
+    // `username`, the avatarUrl isn't part of the report response so we
+    // need this round-trip for the avatar.
+    _usernameLoading = report.username == null;
+    _loadUsername();
     _loadComments();
     if (_hasVideo) _initVideo();
     // Fetch fresh report so userVote / counts reflect server state.
     _refreshReport();
     _loadFollowStatus();
+    _ensureFixSubmitterAvatar();
     // Subscribe to real-time updates.
     _sseSub = context.read<SseService>().events.listen(_onSseEvent);
   }
@@ -123,6 +138,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         _disagrees = fresh.disagrees;
         _myVote = fresh.userVote?.toLowerCase();
       });
+      // The fix request can appear/change between refreshes — re-hydrate
+      // the submitter avatar if the submitter id moved.
+      _ensureFixSubmitterAvatar();
     } catch (_) {
       // Non-fatal — stale data from the list is still shown.
     }
@@ -176,6 +194,103 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ),
       );
     }
+  }
+
+  /// True when the current user can submit a "this looks fixed" report —
+  /// authenticated, the report isn't already FIXED, and there's no OPEN fix
+  /// request already in flight.
+  bool get _canSubmitFix {
+    final auth = context.watch<AuthService>();
+    if (!auth.isAuthenticated) return false;
+    if (_currentStatus == ReportStatus.fixed) return false;
+    if (report.activeFixRequest != null) return false;
+    return true;
+  }
+
+  /// True when the current user submitted the active fix request — they
+  /// shouldn't see vote buttons on their own submission.
+  bool get _isFixSubmitter {
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) return false;
+    final fix = report.activeFixRequest;
+    return fix != null && fix.submittedByUserId == auth.userId;
+  }
+
+  Future<void> _openCreateFix() async {
+    final created = await Navigator.push<FixRequestModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateFixRequestScreen(
+          reportId: report.reportId,
+          reportTitle: report.headline,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (!mounted || created == null) return;
+    setState(() => _report = report.copyWith(activeFixRequest: created));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Fix report submitted — community will vote.'),
+      ),
+    );
+  }
+
+  Future<void> _voteOnFix(bool agree) async {
+    final auth = context.read<AuthService>();
+    final fix = report.activeFixRequest;
+    if (fix == null || _fixVoteBusy) return;
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog();
+      return;
+    }
+    setState(() => _fixVoteBusy = true);
+    try {
+      final updated = agree
+          ? await auth.api.agreeFixRequest(
+              reportId: report.reportId, fixId: fix.id)
+          : await auth.api.disagreeFixRequest(
+              reportId: report.reportId, fixId: fix.id);
+      if (!mounted) return;
+      setState(() {
+        _report = report.copyWith(activeFixRequest: updated);
+        _fixVoteBusy = false;
+      });
+      // Backend may flip the report status to FIXED on quorum — refresh so
+      // the rest of the page (status pills, metadata) reflects that.
+      _refreshReport();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _fixVoteBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Vote failed — ${e.userMessage}')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _fixVoteBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vote failed. Try again.')),
+      );
+    }
+  }
+
+  /// Pushes the public profile for [userId]. Pre-passes any name/avatar we
+  /// already have so the title bar / hero don't pop in while the network
+  /// fetch is in flight.
+  void _openUserProfile({
+    required int userId,
+    String? name,
+    String? avatarUrl,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(
+          userId: userId,
+          initialName: name,
+          initialAvatarUrl: avatarUrl,
+        ),
+      ),
+    );
   }
 
   Future<void> _openEdit() async {
@@ -275,12 +390,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Future<void> _loadUsername() async {
-    final name = await context.read<AuthService>().api.getUserName(report.userId);
-    if (mounted) {
-      setState(() {
-        _fetchedUsername = name;
-        _usernameLoading = false;
-      });
+    // Single round-trip — getUserById gives us both the display name and the
+    // avatarUrl, sparing the older `getUserName` call when we already need
+    // the latter for the title row.
+    final user =
+        await context.read<AuthService>().api.getUserById(report.userId);
+    if (!mounted) return;
+    setState(() {
+      _fetchedUsername =
+          user?['name'] as String? ?? user?['fullName'] as String?;
+      _fetchedAvatarUrl = user?['avatarUrl'] as String?;
+      _usernameLoading = false;
+    });
+  }
+
+  /// Hydrate the fix-request submitter's avatar — only one network call per
+  /// distinct submitter, so SSE-driven re-renders or vote updates don't
+  /// re-fetch.
+  Future<void> _ensureFixSubmitterAvatar() async {
+    final fix = report.activeFixRequest;
+    if (fix == null) return;
+    if (_fixSubmitterAvatarFor == fix.submittedByUserId) return;
+    _fixSubmitterAvatarFor = fix.submittedByUserId;
+    try {
+      final user = await context
+          .read<AuthService>()
+          .api
+          .getUserById(fix.submittedByUserId);
+      if (!mounted) return;
+      setState(() => _fixSubmitterAvatarUrl = user?['avatarUrl'] as String?);
+    } catch (_) {
+      // Best-effort — fall back to the placeholder avatar.
     }
   }
 
@@ -462,6 +602,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String get _displayUsername =>
       _fetchedUsername ?? report.username ?? 'User #${report.userId}';
 
+  /// True when the current viewer hasn't authenticated. Drives privacy
+  /// gating across the page — guests don't see other users' names,
+  /// avatars, or get a tap-through to a profile screen.
+  bool get _isGuest => !context.watch<AuthService>().isAuthenticated;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -480,6 +625,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       _buildHeroSection(),
                       const SizedBox(height: 20),
                       _buildTitleSection(),
+                      if (report.activeFixRequest != null) ...[
+                        const SizedBox(height: 20),
+                        _buildActiveFixRequestCard(report.activeFixRequest!),
+                      ],
+                      if (_canSubmitFix) ...[
+                        const SizedBox(height: 20),
+                        _buildReportFixedCta(),
+                      ],
                       const SizedBox(height: 24),
                       _buildDescriptionRow(),
                       if (report.objects.isNotEmpty) ...[
@@ -583,6 +736,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           imageUrl: _hasVideo ? null : report.mediaUrls.firstOrNull,
           videoController: _hasVideo ? _videoController : null,
         ),
+      ),
+    );
+  }
+
+  /// Opens [url] in the same fullscreen viewer the report hero uses, so any
+  /// image (e.g. fix-request media) gets the same pinch-to-zoom-style
+  /// presentation.
+  void _openFullscreenImage(String url) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (ctx, _, __) => _FullscreenMediaPage(imageUrl: url),
       ),
     );
   }
@@ -750,40 +916,48 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         const SizedBox(height: 14),
         Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: report.displayColor.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person_outline,
-                color: report.displayColor,
-                size: 20,
-              ),
+            _AvatarCircle(
+              avatarUrl: _isGuest ? null : _fetchedAvatarUrl,
+              tint: report.displayColor,
+              size: 40,
+              onTap: _isGuest
+                  ? null
+                  : () => _openUserProfile(
+                        userId: report.userId,
+                        name: _fetchedUsername ?? report.username,
+                        avatarUrl: _fetchedAvatarUrl,
+                      ),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _usernameLoading
-                    ? Container(
-                        width: 90,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      )
-                    : Text(
-                        _displayUsername,
+                _isGuest
+                    ? Text(
+                        'User #${report.userId}',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.onSurface,
                         ),
-                      ),
+                      )
+                    : _usernameLoading
+                        ? Container(
+                            width: 90,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          )
+                        : Text(
+                            _displayUsername,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
                 Text(
                   'Reported ${report.timeAgo}',
                   style: TextStyle(
@@ -826,6 +1000,357 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── Active fix request ─────────────────────────────────────────────────
+
+  Widget _buildActiveFixRequestCard(FixRequestModel fix) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3), width: 1),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            color: AppColors.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.handyman_outlined,
+                    color: AppColors.onPrimarySolid, size: 14),
+                const SizedBox(width: 8),
+                Text(
+                  'FIX REQUESTED · ${fix.dateLabel}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                    color: AppColors.onPrimarySolid,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            color: AppColors.surfaceContainerLowest,
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (fix.mediaUrls.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () => _openFullscreenImage(fix.mediaUrls.first),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            fix.mediaUrls.first,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 180,
+                              color: AppColors.surfaceContainer,
+                              alignment: Alignment.center,
+                              child: Icon(Icons.image_not_supported_outlined,
+                                  color: AppColors.outlineVariant, size: 32),
+                            ),
+                          ),
+                        ),
+                        // Hint chip — same convention as the report hero so
+                        // users know the photo is tappable.
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.scrim.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.fullscreen,
+                                    size: 12, color: AppColors.onScrim),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Tap to enlarge',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.onScrim,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: [
+                    _AvatarCircle(
+                      avatarUrl: _isGuest ? null : _fixSubmitterAvatarUrl,
+                      tint: AppColors.primary,
+                      size: 28,
+                      onTap: _isGuest
+                          ? null
+                          : () => _openUserProfile(
+                                userId: fix.submittedByUserId,
+                                name: fix.submittedByName,
+                                avatarUrl: _fixSubmitterAvatarUrl,
+                              ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: _isGuest
+                                  ? 'User #${fix.submittedByUserId}'
+                                  : (fix.submittedByName ??
+                                      'User #${fix.submittedByUserId}'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.onSurface,
+                              ),
+                            ),
+                            const TextSpan(text: ' says this is fixed'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (fix.description != null &&
+                    fix.description!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    fix.description!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.onSurface,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                _buildFixConsensusBlock(fix),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFixConsensusBlock(FixRequestModel fix) {
+    final pct = fix.consensusPercent;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'DOES THIS LOOK FIXED TO YOU?',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Text(
+              '$pct% consensus',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: (pct / 100).clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: AppColors.surfaceContainerHigh,
+            valueColor: AlwaysStoppedAnimation(AppColors.primary),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${fix.agrees} agrees · ${fix.disagrees} disagrees',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        if (_isFixSubmitter)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Center(
+              child: Text(
+                'You submitted this fix report — the community will vote.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          )
+        else ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _fixVoteButton(
+                  label: 'Yes, fixed',
+                  selected: fix.userVote == 'AGREE',
+                  selectedBg: AppColors.primary,
+                  onTap: () => _voteOnFix(true),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _fixVoteButton(
+                  label: 'No, still there',
+                  selected: fix.userVote == 'DISAGREE',
+                  selectedBg: AppColors.error,
+                  onTap: () => _voteOnFix(false),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 10),
+        Center(
+          child: Text(
+            'Confirms as Fixed when 5+ agrees AND consensus ≥ 60%.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fixVoteButton({
+    required String label,
+    required bool selected,
+    required Color selectedBg,
+    required VoidCallback onTap,
+  }) {
+    final fg = selected ? AppColors.onPrimarySolid : AppColors.onSurface;
+    final bg = selected ? selectedBg : AppColors.surfaceContainerHigh;
+    return GestureDetector(
+      onTap: _fixVoteBusy ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        alignment: Alignment.center,
+        child: _fixVoteBusy
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+              )
+            : Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: fg,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildReportFixedCta() {
+    return GestureDetector(
+      onTap: _openCreateFix,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.successContainer,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.handyman_outlined,
+                  color: AppColors.success, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Looks fixed?',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Submit a photo so the community can confirm.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios,
+                size: 14, color: AppColors.primary),
+          ],
+        ),
       ),
     );
   }
@@ -1751,14 +2276,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person_outline, size: 16, color: AppColors.secondary),
+          _AvatarCircle(
+            avatarUrl: _isGuest ? null : comment.avatarUrl,
+            tint: AppColors.secondary,
+            size: 32,
+            onTap: (_isGuest || comment.authorId == null)
+                ? null
+                : () => _openUserProfile(
+                      userId: comment.authorId!,
+                      name: comment.username,
+                      avatarUrl: comment.avatarUrl,
+                    ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1768,7 +2296,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 Row(
                   children: [
                     Text(
-                      comment.username,
+                      _isGuest
+                          ? 'User #${comment.authorId ?? '?'}'
+                          : comment.username,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -1960,13 +2490,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
 class _CommentData {
   final int id;
+  final int? authorId;
   final String username;
+  final String? avatarUrl;
   final String text;
   final String createdAt;
 
   const _CommentData({
     required this.id,
+    this.authorId,
     required this.username,
+    this.avatarUrl,
     required this.text,
     required this.createdAt,
   });
@@ -1987,9 +2521,31 @@ class _CommentData {
       return 'User';
     }
 
+    String? resolveAvatar() {
+      final raw = json['author'];
+      if (raw is Map) {
+        final url = raw['avatarUrl'];
+        if (url is String && url.isNotEmpty) return url;
+      }
+      return null;
+    }
+
+    int? resolveAuthorId() {
+      final raw = json['author'];
+      if (raw is Map) {
+        final id = raw['id'];
+        if (id is num) return id.toInt();
+      } else if (raw is num) {
+        return raw.toInt();
+      }
+      return null;
+    }
+
     return _CommentData(
       id: (json['id'] as num?)?.toInt() ?? 0,
+      authorId: resolveAuthorId(),
       username: resolveUsername(),
+      avatarUrl: resolveAvatar(),
       text: (json['content'] as String?) ?? '',
       createdAt: (json['createdAt'] as String?) ?? '',
     );
@@ -2096,6 +2652,62 @@ class _FullscreenMediaPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Round avatar with a colored fallback when [avatarUrl] is null/empty or
+/// the network image errors out. [tint] colours the fallback container so
+/// the placeholder picks up the surrounding accent (report tag colour for
+/// the author, secondary for comment authors). When [onTap] is non-null
+/// the avatar becomes tappable — used to route to a public profile.
+class _AvatarCircle extends StatelessWidget {
+  final String? avatarUrl;
+  final Color tint;
+  final double size;
+  final VoidCallback? onTap;
+
+  const _AvatarCircle({
+    required this.avatarUrl,
+    required this.tint,
+    required this.size,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.person_outline, size: size * 0.5, color: tint),
+    );
+    final url = avatarUrl;
+    final inner = (url == null || url.isEmpty)
+        ? fallback
+        : ClipOval(
+            child: Image.network(
+              url,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            ),
+          );
+    if (onTap == null) return inner;
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: inner,
       ),
     );
   }

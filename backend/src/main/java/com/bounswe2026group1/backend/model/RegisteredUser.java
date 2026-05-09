@@ -7,7 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -90,6 +92,20 @@ public class RegisteredUser {
     @Enumerated(EnumType.STRING)
     @Column(name = "preferred_travel_mode", length = 16)
     private TravelMode preferredTravelMode;
+
+    /**
+     * The user's currently activated {@link UserCustomRoutingProfile}, or
+     * {@code null} when a built-in {@link RoutingPreset} (or no preset) is
+     * active. Held as a {@code @ManyToOne} so Hibernate emits the foreign
+     * key automatically — the hybrid Flyway/Hibernate setup runs Flyway
+     * before {@code ddl-auto=update}, so referencing this column in a
+     * migration would not work.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_custom_profile_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private UserCustomRoutingProfile activeCustomProfile;
 
     @PrePersist
     protected void onCreate() {

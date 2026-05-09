@@ -1,6 +1,7 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getReports, getReportById, mapReport, mapReportStatus } from '../services/reportService.js'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getReports, getReportById, mapReport, mapReportStatus, updateReport, deleteReport } from '../services/reportService.js'
 import { useSseStatus } from '../context/SseContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export const reportKeys = {
   all: ['reports'],
@@ -38,6 +39,40 @@ export function useReport(id) {
     enabled: id != null,
     staleTime: 30_000,
     refetchInterval: disconnected ? 30_000 : false,
+  })
+}
+
+/**
+ * Update a report (description, environment, mediaIdsToRemove, etc.).
+ * Used from the map's ReportPanel edit mode by the report's owner.
+ * Invalidates both the map list cache and any per-user lists shown on /profile.
+ */
+export function useUpdateMapReport() {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }) => updateReport(id, body, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reportKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['userReports'] })
+    },
+  })
+}
+
+/**
+ * Delete a report from the map's ReportPanel — used by the report's owner
+ * or an admin. Invalidates both the map list and any per-user lists shown
+ * on /profile so the row disappears in both surfaces.
+ */
+export function useDeleteMapReport() {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => deleteReport(id, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reportKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['userReports'] })
+    },
   })
 }
 

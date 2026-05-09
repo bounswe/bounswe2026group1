@@ -7,10 +7,12 @@ import ReportPanel from '../components/ReportPanel.jsx'
 import CreateReportPanel from '../components/CreateReportPanel.jsx'
 import RoutePanel from '../components/RoutePanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useNavigate } from 'react-router-dom'
-import { REPORT_TAGS } from '../utils/reportTagConfig.js'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
+import { currentUserKey } from '../hooks/useCurrentUser.js'
+import { useTheme } from '../context/ThemeContext.jsx'
 
 function decodePolyline(encoded) {
   const coords = []
@@ -27,31 +29,40 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, tag) {
-  const cfg = REPORT_TAGS[tag] ?? { icon: 'warning', color: '#767777' }
-  const borderColor = status === 'verified' ? '#176a21' : cfg.color
+function makeMarkerIcon(status, objectType, selected = false) {
+  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: 'warning', markerColor: '#767777' }
+  const borderColor = status === 'verified' ? '#176a21' : cfg.markerColor
+  const size = selected ? 56 : 40
+  const iconFontSize = selected ? 28 : 20
+  const borderWidth = selected ? 3.5 : 2.5
+  // Outer halo on selected: a soft colored glow that draws the eye
+  // without obscuring the icon. Built with a layered box-shadow.
+  const shadow = selected
+    ? `0 0 0 4px ${borderColor}33, 0 0 0 8px ${borderColor}1a, 0 6px 18px rgba(0,0,0,0.25)`
+    : `0 4px 12px rgba(0,0,0,0.15)`
   return L.divIcon({
-    className: '',
+    className: selected ? 'mapcess-marker-selected' : '',
     html: `
       <div style="
-        width:40px;height:40px;
+        width:${size}px;height:${size}px;
         background:white;
         border-radius:50%;
-        border:2.5px solid ${borderColor};
-        box-shadow:0 4px 12px rgba(0,0,0,0.15);
+        border:${borderWidth}px solid ${borderColor};
+        box-shadow:${shadow};
         display:flex;align-items:center;justify-content:center;
         cursor:pointer;
+        transition:width 150ms ease, height 150ms ease;
       ">
         <span class="material-symbols-outlined" style="
-          font-size:20px;
+          font-size:${iconFontSize}px;
           color:${borderColor};
           font-variation-settings:'FILL' 1;
           line-height:1;
         ">${cfg.icon}</span>
       </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -24],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size * 0.6],
   })
 }
 
@@ -61,21 +72,21 @@ function ZoomControls() {
     <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom in"
       >
         <span className="material-symbols-outlined">add</span>
       </button>
       <button
         onClick={() => map.zoomOut()}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom out"
       >
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
         onClick={() => map.locate({ setView: true, maxZoom: 16 })}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-white text-secondary hover:text-primary transition-colors mt-2"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
         <span className="material-symbols-outlined">my_location</span>
@@ -130,33 +141,100 @@ function MapCenterTracker({ onCenterChange }) {
   return null
 }
 
-function GeolocateOnLoad({ onLocation }) {
+const SESSION_MAP_VIEW_KEY = 'home_map_view'
+
+function MapViewPersist() {
+  useMapEvents({
+    moveend(e) {
+      const { lat, lng } = e.target.getCenter()
+      const zoom = e.target.getZoom()
+      try {
+        sessionStorage.setItem(SESSION_MAP_VIEW_KEY, JSON.stringify({ lat, lng, zoom }))
+      } catch {}
+    },
+  })
+  return null
+}
+
+function GeolocateOnLoad({ onLocation, autoPan = true }) {
   const map = useMap()
   useEffect(() => {
     function handleLocation(e) { onLocation(e.latlng) }
     map.on('locationfound', handleLocation)
-    map.locate({ setView: true, maxZoom: 16 })
+    // Skip setView when a deep-link is panning the map to a specific report —
+    // otherwise geolocation resolves later and steals focus from the report.
+    map.locate(autoPan ? { setView: true, maxZoom: 16 } : {})
     return () => { map.off('locationfound', handleLocation) }
-  }, [map, onLocation])
+  }, [map, onLocation, autoPan])
   return null
 }
 
 function MapFlyTo({ target }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lon], 15)
+    if (target) map.flyTo([target.lat, target.lon], target.zoom ?? 15)
   }, [target, map])
   return null
 }
 
+// Light: standard OpenStreetMap tiles (matches production — vivid greens
+// for parks/forests). Dark: MapTiler streets-v2-dark — has Apple-Maps-style
+// blue tones in water/roads. Requires a (free) MapTiler API key in
+// VITE_MAPTILER_KEY (.env.local). 100k tiles/month on the free tier.
+// If the key is missing we fall back to Stadia AlidadeSmoothDark so dev
+// still works without setup.
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY
+const TILE_LIGHT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+const TILE_DARK = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2-dark/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
+  : 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+const TILE_ATTR_LIGHT =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+const TILE_ATTR_DARK = MAPTILER_KEY
+  ? '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  : '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+
 function Home() {
-  const { isAuthenticated } = useAuth()
+  const { resolved: themeResolved } = useTheme()
+  const isDark = themeResolved === 'dark'
+  const tileUrl = isDark ? TILE_DARK : TILE_LIGHT
+  const tileAttr = isDark ? TILE_ATTR_DARK : TILE_ATTR_LIGHT
+  const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [initialMapView] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_MAP_VIEW_KEY)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return null
+  })
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
-  const [selectedReportId, setSelectedReportId] = useState(null)
+  // Honor /?report=ID — used by the Profile page's "Open on map" link
+  // and by NotificationDropdown navigation. Lazy initial state pulls the
+  // id from the URL once; the effect below re-syncs when the URL flips
+  // while Home is already mounted (e.g. clicking a different notification
+  // from the bell without leaving the page).
+  const [selectedReportId, setSelectedReportId] = useState(() => {
+    const raw = searchParams.get('report')
+    const id = raw ? Number(raw) : NaN
+    return Number.isFinite(id) ? id : null
+  })
+
+  useEffect(() => {
+    const raw = searchParams.get('report')
+    const id = Number(raw)
+    if (Number.isFinite(id) && id > 0) {
+      setSelectedReportId(id)
+    }
+  }, [searchParams])
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
+  // Once the ?report=ID deep-link's report has loaded, fly to it. Guarded so
+  // we only do this once per Home mount — later marker clicks shouldn't yank
+  // the map back.
+  const flewToDeepLinkRef = useRef(false)
   const [mapCenter, setMapCenter] = useState(null)
   const [searchError, setSearchError] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState([])
@@ -174,6 +252,18 @@ function Home() {
   const [toast, setToast] = useState(null)
   const handleToastDismiss = useCallback(() => setToast(null), [])
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
+
+  useEffect(() => {
+    // ?report cleared (panel closed via onClose) — arm for the next deep-link.
+    if (!searchParams.get('report')) {
+      flewToDeepLinkRef.current = false
+      return
+    }
+    if (flewToDeepLinkRef.current) return
+    if (!selectedReport) return
+    setSearchTarget({ lat: selectedReport.latitude, lon: selectedReport.longitude, zoom: 18 })
+    flewToDeepLinkRef.current = true
+  }, [searchParams, selectedReport])
 
   function handleSearchChange(e) {
     const query = e.target.value
@@ -252,9 +342,15 @@ function Home() {
     setRouteError('')
     setRouteNotice('')
     try {
+      // The backend records the planned route against the caller's
+      // contribution stats only when a Bearer token is supplied (see
+      // RouteController.java). Without this header, /profile's "Routes
+      // planned" counter never increments for signed-in users.
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers.Authorization = `Bearer ${token}`
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           startLat: origin.lat, startLon: origin.lng,
           endLat: dest.lat, endLon: dest.lng,
@@ -264,6 +360,9 @@ function Home() {
       if (!res.ok) throw new Error('Routing failed')
       const data = await res.json()
       if (!data.length) throw new Error('No routes returned')
+      // Bust the cached profile so contributionStats.routesPlanned reflects
+      // the new server-side count when the user navigates to /profile.
+      if (token) queryClient.invalidateQueries({ queryKey: currentUserKey })
       const mapped = data.map(r => ({
         coords: decodePolyline(r.geometry),
         hasObstacles: r.hasObstacles,
@@ -331,7 +430,6 @@ function Home() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Route Panel — left sidebar overlay (does not resize the map) */}
         {routeMode && (
-          <div className="absolute top-0 left-0 w-full sm:w-auto h-full z-[1000] pointer-events-auto">
           <RoutePanel
             routeOrigin={routeOrigin}
             routeDest={routeDest}
@@ -396,27 +494,28 @@ function Home() {
             onSelectRoute={setActiveRouteIndex}
             onReset={resetRoute}
           />
-          </div>
         )}
 
         {/* Map area */}
         <main className="relative flex-1">
           <MapContainer
-            center={[41.0683, 29.0505]}
-            zoom={16}
+            center={initialMapView ? [initialMapView.lat, initialMapView.lng] : [41.0683, 29.0505]}
+            zoom={initialMapView?.zoom ?? 16}
             zoomControl={false}
             className="w-full h-full"
             style={{ height: '100%', width: '100%' }}
           >
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              key={themeResolved}
+              url={tileUrl}
+              attribution={tileAttr}
             />
             {reports.map((report) => (
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.tags[0])}
+                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.id === selectedReportId)}
+                zIndexOffset={report.id === selectedReportId ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
                     setShowCreatePanel(false)
@@ -429,9 +528,10 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
-            <GeolocateOnLoad onLocation={setUserLocation} />
+            <GeolocateOnLoad onLocation={setUserLocation} autoPan={!searchParams.get('report') && !initialMapView} />
             <MapFlyTo target={searchTarget} />
             <MapCenterTracker onCenterChange={setMapCenter} />
+            <MapViewPersist />
             <MapClickHandler
               active={showCreatePanel || routeMode}
               onPick={(latlng) => {
@@ -467,12 +567,12 @@ function Home() {
           {(loading || error) && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[500]">
               {loading && (
-                <p className="text-on-surface-variant font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                <p className="text-on-surface-variant font-bold text-lg select-none bg-surface-container-lowest/80 px-6 py-3 rounded-2xl shadow">
                   Loading reports...
                 </p>
               )}
               {error && (
-                <p className="text-error font-bold text-lg select-none bg-white/80 px-6 py-3 rounded-2xl shadow">
+                <p className="text-error font-bold text-lg select-none bg-surface-container-lowest/80 px-6 py-3 rounded-2xl shadow">
                   Failed to load reports.
                 </p>
               )}
@@ -520,7 +620,7 @@ function Home() {
 
           {/* Floating search bar */}
           <div className="absolute top-3 sm:top-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-2xl sm:px-6 z-[1000] pointer-events-none">
-            <div className="flex items-center bg-white/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20 pointer-events-auto">
+            <div className="flex items-center bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 pointer-events-auto">
               <span className="material-symbols-outlined text-primary text-xl sm:text-2xl">location_on</span>
               <div className="flex-1 min-w-0">
                 <p className="hidden sm:block text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
@@ -541,7 +641,7 @@ function Home() {
               </button>
             </div>
             {searchSuggestions.length > 0 && (
-              <ul className="mt-1 bg-white rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
+              <ul className="mt-1 bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
                 {searchSuggestions.map((s) => (
                   <li key={s.place_id}>
                     <button
@@ -556,13 +656,13 @@ function Home() {
               </ul>
             )}
             {searchError && (
-              <p className="mt-2 text-xs text-error bg-white/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
+              <p className="mt-2 text-xs text-error bg-surface-container-lowest/90 rounded-xl px-4 py-2 shadow">{searchError}</p>
             )}
           </div>
 
           {/* Community Pulse card + FAB */}
           <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
-            <div className="hidden lg:block bg-white/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-white/20">
+            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
@@ -573,13 +673,13 @@ function Home() {
                     <span className="material-symbols-outlined text-primary">trending_up</span>
                   </div>
                   <div>
-                    <p className="text-xs font-bold">{reports.length} Active Reports</p>
-                    <p className="text-[10px] text-secondary">Within 500m of your location</p>
+                    <p className="text-xs font-bold text-on-surface">{reports.length} Active Reports</p>
+                    <p className="text-[10px] text-on-surface-variant">Within 500m of your location</p>
                   </div>
                 </div>
                 <div className="bg-primary/5 rounded-2xl p-4">
                   <div className="flex justify-between text-[10px] font-bold mb-2">
-                    <span>City Resolution Rate</span>
+                    <span className="text-on-surface">City Resolution Rate</span>
                     <span className="text-primary">84%</span>
                   </div>
                   <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
@@ -593,7 +693,7 @@ function Home() {
               onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
               aria-label="Get Routes"
               className={`h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
-                routeMode ? 'bg-secondary text-on-secondary' : 'bg-white/90 text-on-surface border border-outline-variant/20'
+                routeMode ? 'bg-secondary text-on-secondary' : 'bg-surface-container-lowest/90 text-on-surface border border-outline-variant/20'
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
@@ -602,7 +702,7 @@ function Home() {
             <button
               onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
               aria-label="Report an Issue"
-              className="bg-primary text-white h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
+              className="bg-primary text-on-primary h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
               <span className="hidden sm:inline">Report an Issue</span>
@@ -618,7 +718,10 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReportId(null)}
+            // Toast lives on Home so it survives the panel unmounting
+            // (e.g. after a successful delete that closes the panel).
+            onShowToast={(t) => setToast(t)}
+            onClose={() => { setSelectedReportId(null); navigate('/', { replace: true }) }}
             onVoteUpdate={(updatedReport) => {
               setSelectedReportId(updatedReport.id)
               queryClient.setQueryData(reportKeys.lists(), (prev) =>

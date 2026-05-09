@@ -55,14 +55,14 @@ class MediaControllerTest {
                 "file", "photo.jpg", "image/jpeg", "fake-bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
-        when(reportService.addMediaToReport(eq(1L), eq(RETURNED_URL)))
-                .thenReturn(stubMedia(10L, RETURNED_URL));
+        when(reportService.addMediaToReportBatch(eq(1L), any()))
+                .thenReturn(java.util.List.of(stubMedia(10L, RETURNED_URL)));
 
         mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.mediaId").value(10))
-                .andExpect(jsonPath("$.mediaUrl").value(RETURNED_URL));
+                .andExpect(jsonPath("$[0].id").value(10))
+                .andExpect(jsonPath("$[0].url").value(RETURNED_URL));
     }
 
     @Test
@@ -73,14 +73,14 @@ class MediaControllerTest {
         String expectedUrl = "https://bucket.s3.amazonaws.com/some-uuid_pic.png";
 
         when(s3MediaService.uploadFile(any())).thenReturn(expectedUrl);
-        when(reportService.addMediaToReport(eq(5L), eq(expectedUrl)))
-                .thenReturn(stubMedia(20L, expectedUrl));
+        when(reportService.addMediaToReportBatch(eq(5L), any()))
+                .thenReturn(java.util.List.of(stubMedia(20L, expectedUrl)));
 
         mockMvc.perform(multipart(UPLOAD_URL, 5L).file(file)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.mediaId").value(20))
-                .andExpect(jsonPath("$.mediaUrl").value(expectedUrl));
+                .andExpect(jsonPath("$[0].id").value(20))
+                .andExpect(jsonPath("$[0].url").value(expectedUrl));
     }
 
     @Test
@@ -90,14 +90,14 @@ class MediaControllerTest {
                 "file", "photo.jpg", "image/jpeg", "bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
-        when(reportService.addMediaToReport(eq(42L), eq(RETURNED_URL)))
-                .thenReturn(stubMedia(30L, RETURNED_URL));
+        when(reportService.addMediaToReportBatch(eq(42L), any()))
+                .thenReturn(java.util.List.of(stubMedia(30L, RETURNED_URL)));
 
         mockMvc.perform(multipart(UPLOAD_URL, 42L).file(file)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated());
 
-        verify(reportService, times(1)).addMediaToReport(42L, RETURNED_URL);
+        verify(reportService, times(1)).addMediaToReportBatch(eq(42L), any());
     }
 
     // ── 400 Bad Request ───────────────────────────────────────────────────────
@@ -117,15 +117,9 @@ class MediaControllerTest {
     }
 
     @Test
-    @DisplayName("POST /{id}/media: empty file returns 400")
+    @DisplayName("POST /{id}/media: empty array returns 400")
     void upload_emptyFile_returns400() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "empty.jpg", "image/jpeg", new byte[0]);
-
-        when(s3MediaService.uploadFile(any()))
-                .thenThrow(new IllegalArgumentException("Invalid file type."));
-
-        mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
+        mockMvc.perform(multipart(UPLOAD_URL, 1L)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isBadRequest());
     }
@@ -140,7 +134,7 @@ class MediaControllerTest {
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
         doThrow(new NoSuchElementException("Report not found with id: 99"))
-                .when(reportService).addMediaToReport(eq(99L), any());
+                .when(reportService).addMediaToReportBatch(eq(99L), any());
 
         mockMvc.perform(multipart(UPLOAD_URL, 99L).file(file)
                         .header("Mapcess-Key", validApiKey))

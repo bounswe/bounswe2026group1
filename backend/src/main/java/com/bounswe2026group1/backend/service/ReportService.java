@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,6 +93,7 @@ public class ReportService {
             ReportEnvironment environment,
             Double latitude,
             Double longitude,
+            Double radiusInKm,
             Pageable pageable,
             String email) {
 
@@ -100,14 +102,22 @@ public class ReportService {
                     "latitude and longitude must both be provided for proximity feed");
         }
 
-        Pageable paged = PageRequest.of(
-                Math.max(0, pageable.getPageNumber()),
-                Math.min(100, Math.max(1, pageable.getPageSize())));
+        int pageNumber = Math.max(0, pageable.getPageNumber());
+        int pageSize = Math.min(100, Math.max(1, pageable.getPageSize()));
+        Pageable paged = latitude != null
+                ? PageRequest.of(pageNumber, pageSize, Sort.unsorted())
+                : PageRequest.of(pageNumber, pageSize);
 
         Long userId = resolveUserId(email);
 
         Page<Report> page = latitude != null
-                ? reportRepository.findFeedWithinRadius(reportType, environment, latitude, longitude, paged)
+                ? reportRepository.findFeedWithinRadius(
+                        reportType,
+                        environment,
+                        latitude,
+                        longitude,
+                        radiusInKm != null ? radiusInKm : 1.0,
+                        paged)
                 : reportRepository.findFeedRecent(reportType, environment, paged);
 
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());
@@ -250,15 +260,28 @@ public class ReportService {
         RegisteredUser requester = registeredUserRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        if (!report.getCreatedBy().getId().equals(requester.getId())) {
+        boolean isOwner = report.getCreatedBy().getId().equals(requester.getId());
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+        if (!isOwner && !isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
         }
 
-        report.getMediaList().stream().map(Media::getFilePath).forEach(s3MediaService::deleteFile);
+        // Best-effort S3 cleanup: a failed delete (e.g. orphan/non-bucket URL) must not block
+        // the DB row removal — same pattern as RegisteredUserController.deleteAvatar.
+        report.getMediaList().forEach(m -> deleteS3Quietly(m.getFilePath(), id));
         report.getFixRequests().forEach(fr ->
-                fr.getMediaList().forEach(frm -> s3MediaService.deleteFile(frm.getFilePath())));
+                fr.getMediaList().forEach(frm -> deleteS3Quietly(frm.getFilePath(), id)));
         reportRepository.delete(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportDeleted(id));
+    }
+
+    private void deleteS3Quietly(String url, Long reportId) {
+        if (url == null || url.isBlank()) return;
+        try {
+            s3MediaService.deleteFile(url);
+        } catch (Exception e) {
+            log.warn("Failed to delete S3 object for report {} ({}): {}", reportId, url, e.getMessage());
+        }
     }
 
     @Transactional
@@ -383,6 +406,22 @@ public class ReportService {
         Media savedMedia = mediaRepository.save(media);
         broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
         return savedMedia;
+    }
+
+    @Transactional
+    public List<Media> addMediaToReportBatch(Long reportId, List<String> mediaUrls) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
+        List<Media> savedMediaList = new ArrayList<>();
+        for (String mediaUrl : mediaUrls) {
+            Media media = new Media();
+            media.setReport(report);
+            media.setFilePath(mediaUrl);
+            Media savedMedia = mediaRepository.save(media);
+            savedMediaList.add(savedMedia);
+            broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
+        }
+        return savedMediaList;
     }
 
     // -------------------------------------------------------------------------

@@ -1,8 +1,14 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.config.OpenApiConfig;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +29,9 @@ import java.time.Duration;
 @RestController
 @RequestMapping("/api/sse")
 @RequiredArgsConstructor
+@Tag(name = "SSE — Token",
+        description = "Mints a short-lived cookie token so EventSource handshakes can authenticate without putting the JWT in a URL.")
+@SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
 public class SseTokenController {
 
     static final String SSE_COOKIE_NAME = "sse_token";
@@ -33,6 +42,16 @@ public class SseTokenController {
     private final RegisteredUserRepository registeredUserRepository;
 
     @PostMapping("/token")
+    @Operation(
+            summary = "Mint a short-lived SSE handshake token",
+            description = "Sets an HttpOnly `sse_token` cookie scoped to `/api/sse/notifications` " +
+                    "(60-second TTL). Use this before opening an EventSource so the JWT never " +
+                    "appears in the URL."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Cookie set; no body."),
+            @ApiResponse(responseCode = "401", description = "Authentication required.")
+    })
     public ResponseEntity<Void> mintSseToken(@AuthenticationPrincipal String email,
                                              HttpServletRequest request) {
         if (email == null || email.isBlank()) {
