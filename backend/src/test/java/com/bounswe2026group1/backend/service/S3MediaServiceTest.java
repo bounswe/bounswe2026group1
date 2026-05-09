@@ -79,6 +79,22 @@ class S3MediaServiceTest {
     }
 
     @Test
+    @DisplayName("uploadFile: valid MOV (video/quicktime) returns a public S3 URL")
+    void uploadFile_validMov_returnsUrl() {
+        // Apple devices commonly produce MOV; Android/desktop produce MP4.
+        // Both must be accepted server-side per #239.
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "clip.mov", "video/quicktime", "fake-mov-bytes".getBytes());
+
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().build());
+
+        String url = s3MediaService.uploadFile(file);
+
+        assertTrue(url.contains("clip.mov"));
+    }
+
+    @Test
     @DisplayName("uploadFile: each upload gets a unique file name (UUID prefix)")
     void uploadFile_uniqueFileNames() {
         MockMultipartFile file = new MockMultipartFile(
