@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapcess — Onboarding Tutorial (Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary:                  #176a21;
+    --primary-dim:              #025d16;
+    --primary-container:        #9df197;
+    --on-primary:               #ffffff;
+    --on-primary-container:     #005c15;
+    --surface:                  #f6f6f6;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low:    #f0f1f1;
+    --surface-container:        #e7e8e8;
+    --surface-container-high:   #e1e3e3;
+    --surface-container-highest:#dbdddd;
+    --on-surface:               #2d2f2f;
+    --on-surface-variant:       #5a5c5c;
+    --outline:                  #767777;
+    --outline-variant:          #acadad;
+    --error:                    #b02500;
+    --secondary:                #495f69;
+    --tertiary:                 #006573;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--on-surface);
+  }
+
+  /* ── Map backdrop (faded — modal sits on top) ── */
+  .map-area {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #c8d8c9 0%, #b5cdb7 40%, #a8c4ab 100%);
+    overflow: hidden;
+  }
+  .map-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .map-pin {
+    position: absolute;
+    top: 38%;
+    left: 32%;
+    color: var(--primary);
+    opacity: .55;
+  }
+  .map-pin .material-symbols-outlined { font-size: 36px; }
+  .map-pin-2 { top: 62%; left: 68%; color: var(--secondary); }
+  .map-pin-3 { top: 28%; left: 72%; color: var(--error); }
+
+  /* ── Modal scrim + container ── */
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(45, 47, 47, .35);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 600px;
+    background: var(--surface-container-lowest);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,.25), 0 4px 12px -2px rgba(0,0,0,.1);
+    padding: 24px 32px 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 520px;
+    max-height: calc(100vh - 48px);
+  }
+
+  /* ── Top bar: dots + close ── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dots {
+    display: flex;
+    gap: 8px;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--surface-container-high);
+    transition: background-color .2s ease, width .2s ease;
+  }
+  .dot.active {
+    background: var(--primary);
+    width: 24px;
+    border-radius: 4px;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--on-surface-variant);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    transition: background-color .15s ease;
+  }
+  .close-btn:hover { background: var(--surface-container-low); }
+  .close-btn .material-symbols-outlined { font-size: 22px; }
+
+  /* ── Slide content ── */
+  .slide {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 4px 8px 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+  /* Don't let the column-flex layout squish fixed-size children — overflow instead */
+  .slide > * { flex-shrink: 0; }
+  /* Slim scrollbar inside the slide */
+  .slide::-webkit-scrollbar { width: 6px; }
+  .slide::-webkit-scrollbar-thumb { background: var(--surface-container-high); border-radius: 3px; }
+
+  .icon-badge {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin-bottom: 12px;
+    --badge-color: var(--primary);
+    background: color-mix(in srgb, var(--badge-color) 14%, transparent);
+    color: var(--badge-color);
+  }
+  .icon-badge .material-symbols-outlined {
+    font-size: 40px;
+    font-variation-settings: 'wght' 500;
+  }
+
+  .slide h2 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: var(--on-surface);
+    margin-bottom: 6px;
+  }
+  .slide .subtitle {
+    font-size: 14px;
+    color: var(--on-surface-variant);
+    max-width: 420px;
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+
+  /* Photo placeholder */
+  .photo-ph {
+    width: 100%;
+    max-width: 340px;
+    height: 160px;
+    border: 1.5px dashed var(--outline-variant);
+    border-radius: 12px;
+    background: var(--surface-container-low);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--on-surface-variant);
+    margin-bottom: 16px;
+  }
+  .photo-ph .material-symbols-outlined { font-size: 36px; opacity: .6; }
+  .photo-ph .ph-caption { font-size: 12px; font-weight: 500; letter-spacing: .03em; }
+
+  /* Inline-SVG diagram (replaces photo placeholder for the Ramp slide) */
+  .diagram {
+    width: 100%;
+    max-width: 380px;
+    margin-bottom: 16px;
+    background: var(--surface-container-low);
+    border: 1px solid var(--surface-container-high);
+    border-radius: 12px;
+    padding: 10px 12px 6px;
+  }
+  .diagram svg { display: block; width: 100%; height: auto; }
+  .diagram .formula {
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    text-align: center;
+    margin-top: 2px;
+  }
+  .diagram .formula em {
+    font-style: normal;
+    color: var(--primary-dim);
+    font-weight: 700;
+  }
+
+  .tip {
+    background: var(--surface-container-low);
+    border-left: 3px solid var(--primary);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    color: var(--on-surface);
+    line-height: 1.5;
+    max-width: 440px;
+    text-align: left;
+  }
+
+  /* Checklist — soft card rows with audience chips on the right */
+  .checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    text-align: left;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--on-surface);
+    max-width: 440px;
+    width: 100%;
+  }
+  .checklist li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 2px;
+  }
+  .checklist li::before {
+    content: 'check_circle';
+    font-family: 'Material Symbols Outlined';
+    font-size: 18px;
+    font-variation-settings: 'FILL' 1;
+    color: var(--primary);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .checklist .text { flex: 1; }
+  .checklist strong {
+    color: var(--primary-dim);
+    font-weight: 700;
+  }
+  .checklist .aud {
+    flex-shrink: 0;
+    display: inline-flex;
+    gap: 4px;
+  }
+  .checklist .aud .chip {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+  }
+  .checklist .aud .chip i {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-size: 16px;
+    font-variation-settings: 'FILL' 1, 'wght' 500;
+    line-height: 1;
+  }
+  .checklist .aud .mob  { background: #DAEFDB; color: #1B5E20; }
+  .checklist .aud .vis  { background: #D4E6F8; color: #0D47A1; }
+  .checklist .aud .hear { background: #FBE0DA; color: #8D2200; }
+  .checklist .aud .eld  { background: #E8DEF8; color: #3E1F8A; }
+
+  /* Rule chips — measurable thresholds shown above the photo */
+  .rules {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .rule-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--surface-container-low);
+    border: 1px solid var(--surface-container-high);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--on-surface);
+    white-space: nowrap;
+  }
+  .rule-chip .material-symbols-outlined {
+    font-size: 16px;
+    color: var(--primary);
+  }
+  .tip strong {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--primary-dim);
+    margin-bottom: 2px;
+    font-weight: 700;
+  }
+
+  /* Slide 6: how-to-report 3-step row */
+  .steps-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .step-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: var(--surface-container-low);
+    min-width: 76px;
+  }
+  .step-chip .material-symbols-outlined {
+    font-size: 26px;
+    color: var(--primary);
+  }
+  .step-chip .step-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--on-surface);
+    white-space: nowrap;
+  }
+  .step-arrow {
+    color: var(--on-surface-variant);
+    font-size: 20px;
+  }
+
+  /* ── Bottom bar ── */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px solid var(--surface-container);
+    margin-top: 4px;
+    padding-top: 16px;
+  }
+  .btn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease, opacity .15s ease;
+  }
+  .btn-text {
+    background: none;
+    color: var(--on-surface-variant);
+    padding: 8px 12px;
+    border-radius: 6px;
+  }
+  .btn-text:hover { color: var(--on-surface); background: var(--surface-container-low); }
+  .btn-text:disabled { opacity: 0; cursor: default; pointer-events: none; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-secondary {
+    background: var(--surface-container);
+    color: var(--on-surface);
+    padding: 10px 18px;
+    border-radius: 999px;
+  }
+  .btn-secondary:hover { background: var(--surface-container-high); }
+  .btn-primary {
+    background: var(--primary);
+    color: var(--on-primary);
+    padding: 10px 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary:hover { background: var(--primary-dim); }
+  .btn-primary .material-symbols-outlined { font-size: 18px; }
+
+  /* ── Closed state ── */
+  .scrim.closed { display: none; }
+
+  /* Narrow screens */
+  @media (max-width: 480px) {
+    .modal { padding: 22px 20px 20px; min-height: 540px; }
+    .slide h2 { font-size: 22px; }
+    .icon-badge { width: 72px; height: 72px; margin-bottom: 14px; }
+    .icon-badge .material-symbols-outlined { font-size: 38px; }
+    .photo-ph { height: 130px; }
+    .step-chip { min-width: 72px; padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Faded map backdrop simulating the Home page -->
+<div class="map-area" aria-hidden="true">
+  <div class="map-grid"></div>
+  <div class="map-pin"><span class="material-symbols-outlined">location_on</span></div>
+  <div class="map-pin map-pin-2"><span class="material-symbols-outlined">location_on</span></div>
+  <div class="map-pin map-pin-3"><span class="material-symbols-outlined">location_on</span></div>
+</div>
+
+<!-- Tutorial modal -->
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="slide-title">
+
+  <div class="modal">
+
+    <div class="top-bar">
+      <div class="dots" id="dots">
+        <span class="dot active"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+      <button class="close-btn" id="close-btn" aria-label="Close tutorial">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Slide 1: Welcome -->
+    <div class="slide active" data-slide="1">
+      <div class="icon-badge" style="--badge-color: var(--primary);">
+        <span class="material-symbols-outlined">explore</span>
+      </div>
+      <h2 id="slide-title">Welcome to Mapcess</h2>
+      <p class="subtitle">Spot accessibility issues in your city, report them, and help us route people around obstacles.</p>
+      <div class="diagram">
+        <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Faded map with accessibility report pins of various categories">
+          <defs>
+            <linearGradient id="map-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#c8d8c9"/>
+              <stop offset="40%"  stop-color="#b5cdb7"/>
+              <stop offset="100%" stop-color="#a8c4ab"/>
+            </linearGradient>
+            <pattern id="grid" patternUnits="userSpaceOnUse" width="40" height="40">
+              <path d="M40 0 L0 0 0 40" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+            </pattern>
+            <pattern id="park" patternUnits="userSpaceOnUse" width="14" height="14">
+              <rect width="14" height="14" fill="#9fbb9d"/>
+              <circle cx="3" cy="4" r="1.4" fill="#7ea482" opacity="0.7"/>
+              <circle cx="9" cy="9" r="1.2" fill="#7ea482" opacity="0.6"/>
+            </pattern>
+          </defs>
+
+          <!-- Map base + grid -->
+          <rect width="720" height="360" fill="url(#map-bg)"/>
+          <rect width="720" height="360" fill="url(#grid)"/>
+
+          <!-- Park (top-right green block) -->
+          <rect x="585" y="20" width="115" height="42" fill="url(#park)" rx="4"/>
+
+          <!-- Buildings (drawn before streets so street edges crop building corners) -->
+          <g fill="#e8e6dd" stroke="#b9b6ab" stroke-width="1">
+            <rect x="20"  y="14"  width="130" height="40" rx="3"/>
+            <rect x="190" y="14"  width="160" height="40" rx="3"/>
+            <rect x="395" y="14"  width="155" height="40" rx="3"/>
+            <rect x="20"  y="92"  width="130" height="62" rx="3"/>
+            <rect x="190" y="92"  width="160" height="62" rx="3"/>
+            <rect x="395" y="92"  width="155" height="62" rx="3"/>
+            <rect x="585" y="92"  width="115" height="62" rx="3"/>
+            <rect x="20"  y="194" width="130" height="68" rx="3"/>
+            <rect x="190" y="194" width="160" height="68" rx="3"/>
+            <rect x="395" y="194" width="155" height="68" rx="3"/>
+            <rect x="585" y="194" width="115" height="68" rx="3"/>
+            <rect x="20"  y="304" width="130" height="44" rx="3"/>
+            <rect x="190" y="304" width="160" height="44" rx="3"/>
+            <rect x="395" y="304" width="155" height="44" rx="3"/>
+            <rect x="585" y="304" width="115" height="44" rx="3"/>
+          </g>
+
+          <!-- Streets — horizontals first, verticals second so verticals cross on top -->
+          <g fill="#fafafa" stroke="#cfd0cf" stroke-width="1">
+            <rect x="0"   y="60"  width="720" height="22"/>
+            <rect x="0"   y="160" width="720" height="22"/>
+            <rect x="0"   y="270" width="720" height="22"/>
+            <rect x="160" y="0"   width="22"  height="360"/>
+            <rect x="360" y="0"   width="22"  height="360"/>
+            <rect x="555" y="0"   width="22"  height="360"/>
+          </g>
+
+          <!-- Report markers — exact 40-px / 2.5-px / 20-px spec from Home.jsx -->
+          <!-- RAMP — accessible_forward, #2E7D32 -->
+          <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+            <circle cx="140" cy="110" r="20" fill="#fff" stroke="#2E7D32" stroke-width="2.5"/>
+            <text x="140" y="110" font-family="Material Symbols Outlined" font-size="20" fill="#2E7D32" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">accessible_forward</text>
+          </g>
+          <!-- DOOR — door_front, #8B6A00 -->
+          <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+            <circle cx="340" cy="90" r="20" fill="#fff" stroke="#8B6A00" stroke-width="2.5"/>
+            <text x="340" y="90" font-family="Material Symbols Outlined" font-size="20" fill="#8B6A00" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">door_front</text>
+          </g>
+          <!-- SIDEWALK — directions_walk, #495F69 -->
+          <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+            <circle cx="560" cy="120" r="20" fill="#fff" stroke="#495F69" stroke-width="2.5"/>
+            <text x="560" y="120" font-family="Material Symbols Outlined" font-size="20" fill="#495F69" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">directions_walk</text>
+          </g>
+          <!-- ELEVATOR (verified) — border + icon become primary green per Home.jsx -->
+          <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+            <circle cx="210" cy="270" r="20" fill="#fff" stroke="#176a21" stroke-width="2.5"/>
+            <text x="210" y="270" font-family="Material Symbols Outlined" font-size="20" fill="#176a21" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">elevator</text>
+          </g>
+          <!-- RAMP (second) -->
+          <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+            <circle cx="430" cy="245" r="20" fill="#fff" stroke="#2E7D32" stroke-width="2.5"/>
+            <text x="430" y="245" font-family="Material Symbols Outlined" font-size="20" fill="#2E7D32" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">accessible_forward</text>
+          </g>
+          <!-- SIDEWALK (verified) -->
+          <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+            <circle cx="620" cy="260" r="20" fill="#fff" stroke="#176a21" stroke-width="2.5"/>
+            <text x="620" y="260" font-family="Material Symbols Outlined" font-size="20" fill="#176a21" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">directions_walk</text>
+          </g>
+        </svg>
+      </div>
+      <div class="tip">
+        <strong>What you'll learn</strong>
+        A quick tour of the four most common things people report — ramps, sidewalks, elevators, and doors — and how to file your first report in under a minute.
+      </div>
+    </div>
+
+    <!-- Slide 2: Ramps -->
+    <div class="slide" data-slide="2">
+      <div class="icon-badge" style="--badge-color: #2E7D32;">
+        <span class="material-symbols-outlined">accessible_forward</span>
+      </div>
+      <h2>Ramps</h2>
+      <ul class="checklist">
+        <li>
+          <span class="text">Slope <strong>≤ 10%</strong> — steeper blocks wheelchairs</span>
+          <span class="aud"><span class="chip mob"><i>accessible</i></span></span>
+        </li>
+        <li>
+          <span class="text">Clear width <strong>≥ 100 cm</strong> — room for a walker + helper</span>
+          <span class="aud"><span class="chip mob"><i>accessible</i></span></span>
+        </li>
+        <li>
+          <span class="text">Handrails on both sides at <strong>90 cm</strong> (extra rail at 70 cm for shorter users)</span>
+          <span class="aud">
+            <span class="chip mob"><i>accessible</i></span>
+            <span class="chip eld"><i>elderly</i></span>
+            <span class="chip vis"><i>visibility</i></span>
+          </span>
+        </li>
+        <li>
+          <span class="text"><strong>Tactile warning strip</strong> at the top and bottom of the ramp</span>
+          <span class="aud"><span class="chip vis"><i>visibility</i></span></span>
+        </li>
+      </ul>
+      <div class="diagram">
+        <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ramp diagram showing rise, run, handrail, and 30 cm handrail extensions">
+          <defs>
+            <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" stroke-width="1"/>
+            </pattern>
+            <pattern id="tactile-r" patternUnits="userSpaceOnUse" width="7" height="7">
+              <rect width="7" height="7" fill="#f4a900"/>
+              <circle cx="3.5" cy="3.5" r="1.4" fill="#8b6a00"/>
+            </pattern>
+            <linearGradient id="map-bg-r" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#c8d8c9"/>
+              <stop offset="40%"  stop-color="#b5cdb7"/>
+              <stop offset="100%" stop-color="#a8c4ab"/>
+            </linearGradient>
+            <pattern id="grid-r" patternUnits="userSpaceOnUse" width="40" height="40">
+              <path d="M40 0 L0 0 0 40" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+            </pattern>
+          </defs>
+          <style>
+            .stroke-line { stroke: #2d2f2f; stroke-width: 1.8; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+            .dim-line   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .dim-tick   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .leader     { stroke: #5a5c5c; stroke-width: 1; stroke-dasharray: 2,3; }
+            .post       { stroke: #2d2f2f; stroke-width: 1.4; stroke-dasharray: 4,3; fill: none; }
+            .dim-text   { font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700; fill: #2d2f2f; }
+            .label-text { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; fill: #5a5c5c; }
+            .ramp-fill  { fill: #c4e3c5; stroke: #176a21; stroke-width: 2; }
+          </style>
+
+          <!-- Map backdrop (gradient + grid) — same look as the welcome slide -->
+          <rect width="720" height="360" fill="url(#map-bg-r)"/>
+          <rect width="720" height="360" fill="url(#grid-r)"/>
+
+          <!-- Ground -->
+          <rect x="0" y="290" width="720" height="60" fill="url(#hatch)"/>
+          <line x1="0" y1="290" x2="720" y2="290" class="stroke-line"/>
+
+          <!-- Ramp + landing: slope rises (130, 290) → (570, 210), then a horizontal landing platform out to (650, 210) -->
+          <polygon points="130,290 570,210 650,210 650,290" class="ramp-fill"/>
+
+          <!-- Tactile warning strips: bottom on the ground (approach), top on the horizontal landing after the slope -->
+          <rect x="78" y="284" width="48" height="11" fill="url(#tactile-r)" stroke="#8b6a00" stroke-width="1"/>
+          <rect x="568" y="200" width="74" height="11" fill="url(#tactile-r)" stroke="#8b6a00" stroke-width="1"/>
+
+          <!-- Handrail (rail offset 40 perpendicular above ramp surface) -->
+          <!-- Posts (dashed) connecting rail ends down to ramp surface -->
+          <line x1="130" y1="290" x2="122.8" y2="250.6" class="post"/>
+          <line x1="570" y1="210" x2="562.8" y2="170.6" class="post"/>
+          <!-- Rail polyline: left horizontal extension → sloped rail → right horizontal extension -->
+          <polyline points="92.8,250.6 122.8,250.6 562.8,170.6 592.8,170.6" class="stroke-line"/>
+
+          <!-- Wheelchair icon at top of ramp (sits between rail and ramp surface) -->
+          <text x="528" y="218" font-family="Material Symbols Outlined" font-size="56" fill="#176a21" text-anchor="middle" style="font-variation-settings: 'wght' 500;">accessible_forward</text>
+
+          <!-- 30 cm labels on each handrail extension -->
+          <text x="107" y="244" class="label-text" text-anchor="middle">30</text>
+          <text x="577" y="164" class="label-text" text-anchor="middle">30</text>
+
+          <!-- 90 cm handrail-height dimension on the left -->
+          <line x1="60" y1="290" x2="60" y2="250.6" class="dim-line"/>
+          <line x1="54" y1="290" x2="66" y2="290" class="dim-tick"/>
+          <line x1="54" y1="250.6" x2="66" y2="250.6" class="dim-tick"/>
+          <line x1="66" y1="250.6" x2="92.8" y2="250.6" class="leader"/>
+          <text x="60" y="275" class="dim-text" text-anchor="end" dx="-6">90 cm</text>
+
+          <!-- L (length) dimension under the ramp -->
+          <line x1="130" y1="318" x2="570" y2="318" class="dim-line"/>
+          <line x1="130" y1="312" x2="130" y2="324" class="dim-tick"/>
+          <line x1="570" y1="312" x2="570" y2="324" class="dim-tick"/>
+          <text x="350" y="345" class="dim-text" text-anchor="middle">L (length)</text>
+
+          <!-- H (rise) dimension on the right (moved past the landing edge at x=650) -->
+          <line x1="680" y1="210" x2="680" y2="290" class="dim-line"/>
+          <line x1="674" y1="210" x2="686" y2="210" class="dim-tick"/>
+          <line x1="674" y1="290" x2="686" y2="290" class="dim-tick"/>
+          <line x1="650" y1="210" x2="680" y2="210" class="leader"/>
+          <text x="694" y="255" class="dim-text" text-anchor="start">H</text>
+        </svg>
+        <div class="formula">slope = H ÷ L  ·  accessible when <em>≤ 10%</em></div>
+      </div>
+      <div class="tip">
+        <strong>Tip</strong>
+        Capture the full slope from the side so others can judge how steep it is.
+      </div>
+    </div>
+
+    <!-- Slide 3: Sidewalks -->
+    <div class="slide" data-slide="3">
+      <div class="icon-badge" style="--badge-color: #495F69;">
+        <span class="material-symbols-outlined">directions_walk</span>
+      </div>
+      <h2>Sidewalks</h2>
+      <ul class="checklist">
+        <li>
+          <span class="text">Clear width <strong>≥ 150 cm</strong> — wheelchairs need to pass each other</span>
+          <span class="aud"><span class="chip mob"><i>accessible</i></span></span>
+        </li>
+        <li>
+          <span class="text">Overhead clearance <strong>≥ 220 cm</strong> — no low branches or signs</span>
+          <span class="aud">
+            <span class="chip mob"><i>accessible</i></span>
+            <span class="chip vis"><i>visibility</i></span>
+            <span class="chip eld"><i>elderly</i></span>
+          </span>
+        </li>
+        <li>
+          <span class="text"><strong>Contrasting strip</strong> along the curb edge so it's visible against the road</span>
+          <span class="aud"><span class="chip vis"><i>visibility</i></span></span>
+        </li>
+      </ul>
+      <div class="diagram">
+        <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Top-down sidewalk plan: 150 cm clear width across, two wheelchairs passing, overhead branch clearance, contrast strip on curb">
+          <style>
+            .dim-line   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .dim-tick   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .leader     { stroke: #5a5c5c; stroke-width: 1; stroke-dasharray: 2,3; }
+            .dim-text   { font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700; fill: #2d2f2f; }
+            .label-text { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; fill: #2d2f2f; }
+          </style>
+
+          <!-- Building (top of plan view, looking down) -->
+          <rect x="0" y="0" width="720" height="55" fill="#dbdddd" stroke="#2d2f2f" stroke-width="1.5"/>
+          <text x="22" y="34" font-family="Inter, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#5a5c5c">BUILDING</text>
+
+          <!-- Sidewalk surface -->
+          <rect x="0" y="55" width="720" height="170" fill="#e6e3d8" stroke="#2d2f2f" stroke-width="1.5"/>
+
+          <!-- Contrasting yellow strip along the curb edge (between sidewalk and road) -->
+          <rect x="0" y="225" width="720" height="10" fill="#f4a900" stroke="#8b6a00" stroke-width="1"/>
+
+          <!-- Road -->
+          <rect x="0" y="235" width="720" height="125" fill="#5a5c5c" opacity="0.45"/>
+          <line x1="0" y1="297" x2="720" y2="297" stroke="#fff" stroke-width="2" stroke-dasharray="22,16" opacity="0.7"/>
+          <text x="22" y="335" font-family="Inter, sans-serif" font-size="12" font-weight="700" letter-spacing="0.08em" fill="#f0eee5">ROAD</text>
+
+          <!-- Tree canopy / sign overhanging the sidewalk (overhead obstacle in plan) -->
+          <ellipse cx="380" cy="115" rx="72" ry="42" fill="rgba(120,170,110,0.4)" stroke="rgba(80,130,75,0.7)" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <text x="380" y="115" font-family="Material Symbols Outlined" font-size="36" fill="#558358" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">park</text>
+
+          <!-- Wheelchair markers in plan (circle + accessible icon, same style as Home.jsx markers) -->
+          <g filter="drop-shadow(0 3px 6px rgba(0,0,0,0.20))">
+            <circle cx="200" cy="100" r="22" fill="#fff" stroke="#495f69" stroke-width="2.8"/>
+            <text x="200" y="100" font-family="Material Symbols Outlined" font-size="22" fill="#495f69" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">accessible</text>
+          </g>
+          <text x="234" y="100" font-family="Material Symbols Outlined" font-size="22" fill="#495f69" text-anchor="start" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">arrow_forward</text>
+
+          <g filter="drop-shadow(0 3px 6px rgba(0,0,0,0.20))">
+            <circle cx="540" cy="180" r="22" fill="#fff" stroke="#495f69" stroke-width="2.8"/>
+            <text x="540" y="180" font-family="Material Symbols Outlined" font-size="22" fill="#495f69" text-anchor="middle" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">accessible</text>
+          </g>
+          <text x="506" y="180" font-family="Material Symbols Outlined" font-size="22" fill="#495f69" text-anchor="end" dominant-baseline="central" style="font-variation-settings: 'FILL' 1;">arrow_back</text>
+
+          <!-- Width dim — vertical, across the sidewalk strip — this is unambiguously the "width" -->
+          <line x1="48" y1="55" x2="48" y2="225" class="dim-line"/>
+          <line x1="42" y1="55" x2="54" y2="55" class="dim-tick"/>
+          <line x1="42" y1="225" x2="54" y2="225" class="dim-tick"/>
+          <text x="48" y="138" class="dim-text" text-anchor="middle" transform="rotate(-90 48 138)">≥ 150 cm width</text>
+
+          <!-- Overhead clearance callout pointing at the tree canopy -->
+          <line x1="448" y1="90" x2="585" y2="32" class="leader"/>
+          <rect x="555" y="14" width="160" height="32" fill="#fff" stroke="#5a5c5c" stroke-width="1.5" rx="6"/>
+          <text x="635" y="34" class="label-text" text-anchor="middle">↕ ≥ 220 cm overhead</text>
+
+          <!-- Contrast strip callout -->
+          <line x1="100" y1="230" x2="100" y2="270" class="leader"/>
+          <text x="100" y="285" class="label-text" text-anchor="middle">contrast strip</text>
+        </svg>
+        <div class="formula">Top-down view of the sidewalk</div>
+      </div>
+      <div class="tip">
+        <strong>Tip</strong>
+        Photograph blockages or surface damage from a pedestrian's perspective so reviewers can see the obstacle the way you did.
+      </div>
+    </div>
+
+    <!-- Slide 4: Elevators -->
+    <div class="slide" data-slide="4">
+      <div class="icon-badge" style="--badge-color: #B02500;">
+        <span class="material-symbols-outlined">elevator</span>
+      </div>
+      <h2>Elevators</h2>
+      <ul class="checklist">
+        <li>
+          <span class="text">Door clear width <strong>≥ 90 cm</strong> when fully open</span>
+          <span class="aud"><span class="chip mob"><i>accessible</i></span></span>
+        </li>
+        <li>
+          <span class="text"><strong>Braille labels</strong> on every button and voice announcement</span>
+          <span class="aud"><span class="chip vis"><i>visibility</i></span></span>
+        </li>
+        <li>
+          <span class="text"><strong>Visual floor display</strong> + flashing emergency alarm</span>
+          <span class="aud"><span class="chip hear"><i>hearing</i></span></span>
+        </li>
+      </ul>
+      <div class="diagram">
+        <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Elevator floor plan with cabin dimensions and door width">
+          <style>
+            .stroke-line { stroke: #2d2f2f; stroke-width: 2.4; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+            .dim-line   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .dim-tick   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .dim-text   { font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700; fill: #2d2f2f; }
+            .label-text { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; fill: #5a5c5c; }
+          </style>
+
+          <!-- Cabin floor (interior fill) -->
+          <rect x="220" y="80" width="280" height="200" fill="#fbe5dc" opacity="0.55"/>
+
+          <!-- Walls: thick black, broken at door opening on bottom -->
+          <line x1="220" y1="80" x2="500" y2="80" class="stroke-line"/>
+          <line x1="220" y1="80" x2="220" y2="280" class="stroke-line"/>
+          <line x1="500" y1="80" x2="500" y2="280" class="stroke-line"/>
+          <line x1="220" y1="280" x2="270" y2="280" class="stroke-line"/>
+          <line x1="450" y1="280" x2="500" y2="280" class="stroke-line"/>
+
+          <!-- Wheelchair icon (top-down representation using accessible front-facing) -->
+          <text x="360" y="210" font-family="Material Symbols Outlined" font-size="80" fill="#b02500" text-anchor="middle" style="font-variation-settings: 'wght' 500;">accessible</text>
+
+          <!-- Control panel inset on right wall (button with braille dots) -->
+          <rect x="470" y="115" width="22" height="46" fill="#fff" stroke="#2d2f2f" stroke-width="1.4" rx="2"/>
+          <text x="481" y="133" font-family="Inter, sans-serif" font-size="10" font-weight="700" text-anchor="middle" fill="#2d2f2f">13</text>
+          <circle cx="476" cy="143" r="1.2" fill="#2d2f2f"/>
+          <circle cx="481" cy="143" r="1.2" fill="#2d2f2f"/>
+          <circle cx="476" cy="148" r="1.2" fill="#2d2f2f"/>
+          <circle cx="481" cy="153" r="1.2" fill="#2d2f2f"/>
+          <line x1="492" y1="138" x2="540" y2="118" class="dim-line" stroke-dasharray="2,3"/>
+          <text x="546" y="122" class="label-text" text-anchor="start">Braille buttons</text>
+
+          <!-- Visual floor display on top wall (LCD-style number with up arrow) -->
+          <rect x="330" y="92" width="60" height="28" fill="#1a2a32" stroke="#2d2f2f" stroke-width="1.4" rx="3"/>
+          <text x="346" y="113" font-family="Inter, sans-serif" font-size="16" font-weight="800" text-anchor="middle" fill="#7be08a">↑</text>
+          <text x="372" y="114" font-family="Inter, sans-serif" font-size="18" font-weight="800" text-anchor="middle" fill="#7be08a">13</text>
+          <line x1="360" y1="92" x2="360" y2="62" class="dim-line" stroke-dasharray="2,3"/>
+          <text x="360" y="56" class="label-text" text-anchor="middle">Floor display</text>
+
+          <!-- Flashing emergency alarm icon on left wall -->
+          <circle cx="240" cy="135" r="9" fill="#fff" stroke="#b02500" stroke-width="2"/>
+          <text x="240" y="140" font-family="Material Symbols Outlined" font-size="14" fill="#b02500" text-anchor="middle">notifications_active</text>
+          <!-- Animated pulse rings around the alarm -->
+          <circle cx="240" cy="135" r="14" fill="none" stroke="#b02500" stroke-width="1" opacity="0.5" stroke-dasharray="3,3"/>
+          <line x1="231" y1="135" x2="195" y2="135" class="dim-line" stroke-dasharray="2,3"/>
+          <text x="190" y="139" class="label-text" text-anchor="end">Flash alarm</text>
+
+          <!-- Dim: ≥ 140 cm cabin width (top) -->
+          <line x1="220" y1="50" x2="500" y2="50" class="dim-line"/>
+          <line x1="220" y1="44" x2="220" y2="56" class="dim-tick"/>
+          <line x1="500" y1="44" x2="500" y2="56" class="dim-tick"/>
+          <text x="360" y="40" class="dim-text" text-anchor="middle">≥ 140 cm</text>
+
+          <!-- Dim: ≥ 120 cm cabin depth (left) -->
+          <line x1="190" y1="80" x2="190" y2="280" class="dim-line"/>
+          <line x1="184" y1="80" x2="196" y2="80" class="dim-tick"/>
+          <line x1="184" y1="280" x2="196" y2="280" class="dim-tick"/>
+          <text x="180" y="184" class="dim-text" text-anchor="middle" transform="rotate(-90 180 184)">≥ 120 cm</text>
+
+          <!-- Dim: ≥ 90 cm door (bottom) -->
+          <line x1="270" y1="310" x2="450" y2="310" class="dim-line"/>
+          <line x1="270" y1="304" x2="270" y2="316" class="dim-tick"/>
+          <line x1="450" y1="304" x2="450" y2="316" class="dim-tick"/>
+          <text x="360" y="332" class="dim-text" text-anchor="middle">≥ 90 cm door</text>
+
+          <!-- "Door" label on right -->
+          <text x="540" y="285" class="label-text" text-anchor="start">↑ door</text>
+        </svg>
+        <div class="formula">Top-down view of the cabin</div>
+      </div>
+      <div class="tip">
+        <strong>Tip</strong>
+        Note when it's out of service or has narrow doors — include the building entrance for context.
+      </div>
+    </div>
+
+    <!-- Slide 5: Doors -->
+    <div class="slide" data-slide="5">
+      <div class="icon-badge" style="--badge-color: #8B6A00;">
+        <span class="material-symbols-outlined">door_front</span>
+      </div>
+      <h2>Doors</h2>
+      <ul class="checklist">
+        <li>
+          <span class="text">Clear width <strong>≥ 90 cm</strong> when fully open</span>
+          <span class="aud"><span class="chip mob"><i>accessible</i></span></span>
+        </li>
+        <li>
+          <span class="text"><strong>Lever handle</strong> (not a knob) — easier with weak grip</span>
+          <span class="aud">
+            <span class="chip mob"><i>accessible</i></span>
+            <span class="chip eld"><i>elderly</i></span>
+          </span>
+        </li>
+        <li>
+          <span class="text">Glass panels marked with <strong>contrasting bands</strong> at eye level</span>
+          <span class="aud"><span class="chip vis"><i>visibility</i></span></span>
+        </li>
+      </ul>
+      <div class="diagram">
+        <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Door front view with clear width and threshold callouts">
+          <defs>
+            <pattern id="hatch-d" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" stroke-width="1"/>
+            </pattern>
+          </defs>
+          <style>
+            .stroke-line { stroke: #2d2f2f; stroke-width: 1.8; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+            .dim-line   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .dim-tick   { stroke: #5a5c5c; stroke-width: 1.2; }
+            .leader     { stroke: #5a5c5c; stroke-width: 1; stroke-dasharray: 2,3; }
+            .dim-text   { font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700; fill: #2d2f2f; }
+            .label-text { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; fill: #2d2f2f; }
+          </style>
+
+          <!-- Wall background -->
+          <rect x="100" y="40" width="520" height="260" fill="#f0f1f1"/>
+
+          <!-- Door frame -->
+          <rect x="280" y="50" width="180" height="250" fill="#fff5e0" stroke="#8b6a00" stroke-width="3"/>
+          <!-- Door slab -->
+          <rect x="290" y="58" width="160" height="242" fill="#d4a661" stroke="#8b6a00" stroke-width="1.5"/>
+
+          <!-- Glass panel (upper portion) -->
+          <rect x="305" y="72" width="130" height="128" fill="#dde8ef" stroke="#5a8aa8" stroke-width="1.2" rx="2"/>
+          <!-- Subtle glass shine -->
+          <line x1="320" y1="82" x2="425" y2="195" stroke="#fff" stroke-width="1" opacity="0.6"/>
+
+          <!-- Contrasting marking bands across the glass (per code: high & mid heights) -->
+          <rect x="305" y="105" width="130" height="6" fill="#f4a900"/>
+          <rect x="305" y="155" width="130" height="6" fill="#f4a900"/>
+
+          <!-- Lower wood panel -->
+          <rect x="305" y="215" width="130" height="68" fill="none" stroke="#8b6a00" stroke-width="1" rx="2"/>
+
+          <!-- Lever handle (between glass and lower panel) -->
+          <rect x="295" y="208" width="22" height="6" fill="#5a5c5c" rx="2"/>
+          <circle cx="307" cy="211" r="3.5" fill="#2d2f2f"/>
+
+          <!-- Floor line and threshold -->
+          <line x1="100" y1="300" x2="620" y2="300" class="stroke-line"/>
+          <rect x="280" y="295" width="180" height="5" fill="#5a5c5c"/>
+          <rect x="100" y="300" width="520" height="40" fill="url(#hatch-d)"/>
+
+          <!-- Dim: ≥ 90 cm clear width -->
+          <line x1="290" y1="30" x2="450" y2="30" class="dim-line"/>
+          <line x1="290" y1="24" x2="290" y2="36" class="dim-tick"/>
+          <line x1="450" y1="24" x2="450" y2="36" class="dim-tick"/>
+          <text x="370" y="20" class="dim-text" text-anchor="middle">≥ 90 cm clear</text>
+
+          <!-- Lever handle callout -->
+          <line x1="317" y1="211" x2="540" y2="200" class="leader"/>
+          <rect x="540" y="184" width="140" height="32" fill="#fff" stroke="#5a5c5c" stroke-width="1.5" rx="6"/>
+          <text x="610" y="204" class="label-text" text-anchor="middle">Lever handle</text>
+
+          <!-- Glass marking callout -->
+          <line x1="305" y1="108" x2="220" y2="100" class="leader"/>
+          <rect x="80" y="83" width="140" height="32" fill="#fff" stroke="#5a5c5c" stroke-width="1.5" rx="6"/>
+          <text x="150" y="103" class="label-text" text-anchor="middle">Contrast band</text>
+        </svg>
+        <div class="formula">Front view — entrance door</div>
+      </div>
+      <div class="tip">
+        <strong>Tip</strong>
+        Show the handle and any threshold step so reviewers can see the obstacle clearly.
+      </div>
+    </div>
+
+    <!-- Slide 6: How to report -->
+    <div class="slide" data-slide="6">
+      <div class="icon-badge" style="--badge-color: var(--primary);">
+        <span class="material-symbols-outlined">add_location_alt</span>
+      </div>
+      <h2>How to file a report</h2>
+      <p class="subtitle">Four quick steps. You can do it from the map.</p>
+      <div class="steps-row">
+        <div class="step-chip">
+          <span class="material-symbols-outlined">touch_app</span>
+          <span class="step-label">Tap the map</span>
+        </div>
+        <span class="material-symbols-outlined step-arrow">chevron_right</span>
+        <div class="step-chip">
+          <span class="material-symbols-outlined">edit_note</span>
+          <span class="step-label">Describe</span>
+        </div>
+        <span class="material-symbols-outlined step-arrow">chevron_right</span>
+        <div class="step-chip">
+          <span class="material-symbols-outlined">add_a_photo</span>
+          <span class="step-label">Add media</span>
+        </div>
+        <span class="material-symbols-outlined step-arrow">chevron_right</span>
+        <div class="step-chip">
+          <span class="material-symbols-outlined">send</span>
+          <span class="step-label">Submit</span>
+        </div>
+      </div>
+      <div class="tip">
+        <strong>Done in under a minute</strong>
+        Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone.
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="btn btn-text" id="skip-btn">Skip tour</button>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="back-btn" disabled>Back</button>
+        <button class="btn btn-primary" id="next-btn">
+          <span id="next-label">Next</span>
+          <span class="material-symbols-outlined" id="next-icon">arrow_forward</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    const TOTAL = 6;
+    let i = 1;
+
+    const dots     = document.querySelectorAll('#dots .dot');
+    const slides   = document.querySelectorAll('.slide');
+    const backBtn  = document.getElementById('back-btn');
+    const nextBtn  = document.getElementById('next-btn');
+    const nextLbl  = document.getElementById('next-label');
+    const nextIcon = document.getElementById('next-icon');
+    const skipBtn  = document.getElementById('skip-btn');
+    const closeBtn = document.getElementById('close-btn');
+    const scrim    = document.getElementById('scrim');
+
+    function render() {
+      slides.forEach(s => s.classList.toggle('active', +s.dataset.slide === i));
+      dots.forEach((d, idx)   => d.classList.toggle('active', idx + 1 === i));
+      backBtn.disabled = i === 1;
+      const last = i === TOTAL;
+      nextLbl.textContent = last ? 'Got it' : 'Next';
+      nextIcon.textContent = last ? 'check' : 'arrow_forward';
+      skipBtn.style.visibility = last ? 'hidden' : 'visible';
+    }
+
+    function close() { scrim.classList.add('closed'); }
+
+    nextBtn.addEventListener('click', () => { if (i === TOTAL) close(); else { i++; render(); } });
+    backBtn.addEventListener('click', () => { if (i > 1) { i--; render(); } });
+    skipBtn.addEventListener('click', close);
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+      if (scrim.classList.contains('closed')) return;
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowRight' && i < TOTAL) { i++; render(); }
+      else if (e.key === 'ArrowLeft'  && i > 1)     { i--; render(); }
+    });
+  })();
+</script>
+
+<!--
+  Real-app integration notes (out of scope for this mock):
+  - Render in Home.jsx behind a check: localStorage.getItem('mapcess_onboarding_v1') !== 'done'
+  - On Skip / Got it / close: localStorage.setItem('mapcess_onboarding_v1', 'done')
+  - Wrap modal as a React component under frontend/src/components/OnboardingTutorial.jsx
+  - Reuse the keyboard / focus pattern from MyReportDetailModal.jsx (Escape to close, focus trap)
+  - Replace the dashed photo placeholders with real example photos before shipping
+-->
+
+</body>
+</html>
