@@ -26,4 +26,8 @@ public interface RegisteredUserRepository extends JpaRepository<RegisteredUser, 
     // Used to enforce the "at least one admin" rule
     long countByRole(UserRole role);
     long countByStatus(UserStatus status);
+
+    // User search (#306 / #501): case-insensitive substring match across name OR email.
+    Page<RegisteredUser> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+            String name, String email, Pageable pageable);
 }
