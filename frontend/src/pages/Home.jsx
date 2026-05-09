@@ -188,14 +188,24 @@ function Home() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
-  // Honor /?report=ID — used by the Profile page's "Open on map" link.
-  // Lazy initial state pulls the id from the URL once; the panel opens as soon as the
-  // matching report is in the loaded list.
+  // Honor /?report=ID — used by the Profile page's "Open on map" link
+  // and by NotificationDropdown navigation. Lazy initial state pulls the
+  // id from the URL once; the effect below re-syncs when the URL flips
+  // while Home is already mounted (e.g. clicking a different notification
+  // from the bell without leaving the page).
   const [selectedReportId, setSelectedReportId] = useState(() => {
     const raw = searchParams.get('report')
     const id = raw ? Number(raw) : NaN
     return Number.isFinite(id) ? id : null
   })
+
+  useEffect(() => {
+    const raw = searchParams.get('report')
+    const id = Number(raw)
+    if (Number.isFinite(id) && id > 0) {
+      setSelectedReportId(id)
+    }
+  }, [searchParams])
   const [searchValue, setSearchValue] = useState('Boğaziçi, Istanbul')
   const [searchTarget, setSearchTarget] = useState(null)
   // Once the ?report=ID deep-link's report has loaded, fly to it. Guarded so
@@ -221,8 +231,12 @@ function Home() {
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
 
   useEffect(() => {
+    // ?report cleared (panel closed via onClose) — arm for the next deep-link.
+    if (!searchParams.get('report')) {
+      flewToDeepLinkRef.current = false
+      return
+    }
     if (flewToDeepLinkRef.current) return
-    if (!searchParams.get('report')) return
     if (!selectedReport) return
     setSearchTarget({ lat: selectedReport.latitude, lon: selectedReport.longitude, zoom: 18 })
     flewToDeepLinkRef.current = true
@@ -671,7 +685,7 @@ function Home() {
             report={selectedReport}
             userVote={userVotes[selectedReport.id] ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
-            onClose={() => setSelectedReportId(null)}
+            onClose={() => { setSelectedReportId(null); navigate('/', { replace: true }) }}
             onVoteUpdate={(updatedReport) => {
               setSelectedReportId(updatedReport.id)
               queryClient.setQueryData(reportKeys.lists(), (prev) =>
