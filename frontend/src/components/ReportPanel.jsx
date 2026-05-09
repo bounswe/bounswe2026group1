@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -21,7 +21,10 @@ import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 /**
  * ReportPanel
  * Desktop: fixed right sidebar (500px) alongside the map.
- * Mobile: full screen overlay.
+ * Mobile: bottom sheet (default 60dvh) — pointer-events-none on the outer
+ *         wrapper lets the user click the visible map area above. The pill
+ *         at the top is draggable to resize between 25/60/90 dvh; dropping
+ *         below 15 dvh dismisses via onClose.
  * Props:
  *  - report: mapped report object
  *  - onClose: () => void
@@ -40,6 +43,62 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [submittingComment, setSubmittingComment] = useState(false)
   const [following, setFollowing] = useState(false)
   const [showCreateFix, setShowCreateFix] = useState(false)
+
+  // Bottom-sheet drag-to-resize (mobile only — desktop layout uses lg: utilities to ignore this).
+  // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
+  const SHEET_SNAP_POINTS = [25, 60, 90]
+  const SHEET_DISMISS_THRESHOLD = 15
+  const SHEET_DEFAULT_DVH = 60
+  const [sheetHeightDvh, setSheetHeightDvh] = useState(SHEET_DEFAULT_DVH)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startY: 0, startHeight: SHEET_DEFAULT_DVH, active: false })
+
+  // Inline height has to be conditional — applying it unconditionally would
+  // override Tailwind's `lg:h-full` (inline > class). Track viewport via
+  // matchMedia so desktop keeps the right-sidebar layout.
+  const [isMobileSheet, setIsMobileSheet] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(max-width: 1023px)').matches
+      : true
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mql = window.matchMedia('(max-width: 1023px)')
+    function onChange() { setIsMobileSheet(mql.matches) }
+    mql.addEventListener?.('change', onChange)
+    return () => mql.removeEventListener?.('change', onChange)
+  }, [])
+
+  function handleHandlePointerDown(e) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startY: e.clientY, startHeight: sheetHeightDvh, active: true }
+    setIsDragging(true)
+  }
+
+  function handleHandlePointerMove(e) {
+    if (!dragRef.current.active) return
+    const deltaY = e.clientY - dragRef.current.startY
+    const dvhDelta = (deltaY / window.innerHeight) * 100
+    const next = dragRef.current.startHeight - dvhDelta
+    setSheetHeightDvh(Math.max(5, Math.min(95, next)))
+  }
+
+  function handleHandlePointerUp(e) {
+    if (!dragRef.current.active) return
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    dragRef.current.active = false
+    setIsDragging(false)
+    setSheetHeightDvh(prev => {
+      if (prev < SHEET_DISMISS_THRESHOLD) {
+        onClose()
+        return SHEET_DEFAULT_DVH
+      }
+      return SHEET_SNAP_POINTS.reduce(
+        (best, p) => (Math.abs(p - prev) < Math.abs(best - prev) ? p : best),
+        SHEET_SNAP_POINTS[0],
+      )
+    })
+  }
 
   useEffect(() => {
     if (!report) return
@@ -165,20 +224,43 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/20 z-[1100] lg:hidden"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
+        <aside
+          style={isMobileSheet
+            ? {
+                height: `${sheetHeightDvh}dvh`,
+                maxHeight: `${sheetHeightDvh}dvh`,
+                width: '100%',
+                borderTopLeftRadius: '32px',
+                borderTopRightRadius: '32px',
+                borderTop: '1px solid rgba(172,173,173,.2)',
+                boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+              }
+            : {
+                width: '500px',
+                height: '100%',
+                maxHeight: '100%',
+                borderLeft: '1px solid rgba(172,173,173,.1)',
+              }}
+          className={`pointer-events-auto bg-surface-container-low flex flex-col relative overflow-y-auto ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
+        >
 
-      <aside className="
-        fixed top-0 right-0 h-full z-[1200]
-        w-full lg:w-[500px]
-        bg-surface-container-low
-        overflow-y-auto
-        border-l border-outline-variant/10
-        flex flex-col
-      ">
+          {/* Mobile drag handle — pill is decorative, the wider hit-area carries the pointer events. */}
+          <div
+            role="slider"
+            aria-label="Resize report panel"
+            aria-valuemin={SHEET_SNAP_POINTS[0]}
+            aria-valuemax={SHEET_SNAP_POINTS[SHEET_SNAP_POINTS.length - 1]}
+            aria-valuenow={Math.round(sheetHeightDvh)}
+            tabIndex={-1}
+            onPointerDown={handleHandlePointerDown}
+            onPointerMove={handleHandlePointerMove}
+            onPointerUp={handleHandlePointerUp}
+            onPointerCancel={handleHandlePointerUp}
+            className="lg:hidden flex-shrink-0 pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none"
+          >
+            <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto" />
+          </div>
 
         {/* Top status strip — always visible, holds the close button and the
             current status pills so they stay reachable even when an active
@@ -631,7 +713,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           </div>
 
         </div>
-      </aside>
+        </aside>
+      </div>
 
       {showCreateFix && (
         <CreateFixRequestPanel
