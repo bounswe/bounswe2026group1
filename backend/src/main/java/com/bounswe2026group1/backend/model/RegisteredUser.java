@@ -91,6 +91,16 @@ public class RegisteredUser {
     @Column(name = "preferred_travel_mode", length = 16)
     private TravelMode preferredTravelMode;
 
+    /**
+     * Id of the user's currently activated {@link UserCustomRoutingProfile}, or
+     * {@code null} when a built-in {@link RoutingPreset} (or no preset) is
+     * active. Held as a plain Long rather than a {@code @ManyToOne} so the
+     * lookup stays cheap and the column can be nulled in one statement when
+     * the user switches to a built-in preset or deletes the active profile.
+     */
+    @Column(name = "active_custom_profile_id")
+    private Long activeCustomProfileId;
+
     @PrePersist
     protected void onCreate() {
         if (this.registeredAt == null) {
