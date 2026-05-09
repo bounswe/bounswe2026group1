@@ -151,7 +151,7 @@ class CustomRoutingProfileServiceTest {
                 .id(50L).user(user).name("Old")
                 .constraints(EnumSet.of(RoutingConstraint.AVOID_STAIRS))
                 .build();
-        user.setActiveCustomProfileId(50L);
+        user.setActiveCustomProfile(profile);
         user.setRoutingConstraints(new HashSet<>(profile.getConstraints()));
         user.setPreferredPreset(RoutingPreset.CUSTOM);
 
@@ -183,7 +183,9 @@ class CustomRoutingProfileServiceTest {
     void update_inactiveProfile_doesNotTouchUser() {
         UserCustomRoutingProfile profile = UserCustomRoutingProfile.builder()
                 .id(60L).user(user).name("Old").constraints(new HashSet<>()).build();
-        user.setActiveCustomProfileId(99L); // a different profile is active
+        UserCustomRoutingProfile other = UserCustomRoutingProfile.builder()
+                .id(99L).user(user).name("Other active").constraints(new HashSet<>()).build();
+        user.setActiveCustomProfile(other); // a different profile is active
 
         stubUserLookup();
         when(profileRepository.findByIdAndUserId(60L, 7L)).thenReturn(Optional.of(profile));
@@ -233,7 +235,7 @@ class CustomRoutingProfileServiceTest {
                 .id(50L).user(user).name("Active")
                 .constraints(EnumSet.of(RoutingConstraint.AVOID_STAIRS))
                 .build();
-        user.setActiveCustomProfileId(50L);
+        user.setActiveCustomProfile(profile);
         user.setPreferredPreset(RoutingPreset.CUSTOM);
         user.setRoutingConstraints(new HashSet<>(profile.getConstraints()));
 
@@ -246,7 +248,7 @@ class CustomRoutingProfileServiceTest {
         ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
         verify(userRepository).save(captor.capture());
         RegisteredUser saved = captor.getValue();
-        assertNull(saved.getActiveCustomProfileId());
+        assertNull(saved.getActiveCustomProfile());
         assertEquals(RoutingPreset.NONE, saved.getPreferredPreset());
         assertTrue(saved.getRoutingConstraints().isEmpty());
     }
@@ -255,7 +257,9 @@ class CustomRoutingProfileServiceTest {
     void delete_inactiveProfile_doesNotTouchUser() {
         UserCustomRoutingProfile profile = UserCustomRoutingProfile.builder()
                 .id(60L).user(user).name("Other").constraints(new HashSet<>()).build();
-        user.setActiveCustomProfileId(50L); // different one
+        UserCustomRoutingProfile active = UserCustomRoutingProfile.builder()
+                .id(50L).user(user).name("Active").constraints(new HashSet<>()).build();
+        user.setActiveCustomProfile(active); // different one
 
         stubUserLookup();
         when(profileRepository.findByIdAndUserId(60L, 7L)).thenReturn(Optional.of(profile));
@@ -289,7 +293,8 @@ class CustomRoutingProfileServiceTest {
         verify(userRepository).save(captor.capture());
         RegisteredUser saved = captor.getValue();
         assertEquals(RoutingPreset.CUSTOM, saved.getPreferredPreset());
-        assertEquals(50L, saved.getActiveCustomProfileId());
+        assertNotNull(saved.getActiveCustomProfile());
+        assertEquals(50L, saved.getActiveCustomProfile().getId());
         assertEquals(profile.getConstraints(), saved.getRoutingConstraints());
         assertEquals(TravelMode.WHEELCHAIR, saved.getPreferredTravelMode());
         assertNotNull(out);

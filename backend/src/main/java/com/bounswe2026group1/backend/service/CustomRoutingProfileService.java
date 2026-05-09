@@ -101,7 +101,7 @@ public class CustomRoutingProfileService {
 
         // If this profile is currently active, propagate any constraint /
         // travel-mode change onto the user so routing stays in sync.
-        if (saved.getId().equals(user.getActiveCustomProfileId())) {
+        if (isActive(user, saved.getId())) {
             user.setRoutingConstraints(new HashSet<>(saved.getConstraints()));
             user.setPreferredPreset(RoutingPreset.CUSTOM);
             if (saved.getPreferredTravelMode() != null) {
@@ -118,11 +118,11 @@ public class CustomRoutingProfileService {
         RegisteredUser user = loadUser(email);
         UserCustomRoutingProfile profile = loadProfile(profileId, user.getId());
 
-        boolean wasActive = profile.getId().equals(user.getActiveCustomProfileId());
+        boolean wasActive = isActive(user, profile.getId());
         profileRepository.delete(profile);
 
         if (wasActive) {
-            user.setActiveCustomProfileId(null);
+            user.setActiveCustomProfile(null);
             user.setRoutingConstraints(new HashSet<>());
             user.setPreferredPreset(RoutingPreset.NONE);
             userRepository.save(user);
@@ -136,7 +136,7 @@ public class CustomRoutingProfileService {
 
         user.setRoutingConstraints(new HashSet<>(profile.getConstraints()));
         user.setPreferredPreset(RoutingPreset.CUSTOM);
-        user.setActiveCustomProfileId(profile.getId());
+        user.setActiveCustomProfile(profile);
         if (profile.getPreferredTravelMode() != null) {
             user.setPreferredTravelMode(profile.getPreferredTravelMode());
         }
@@ -183,5 +183,16 @@ public class CustomRoutingProfileService {
     private static Set<RoutingConstraint> sanitize(Set<RoutingConstraint> input) {
         if (input == null) return new HashSet<>();
         return input.stream().filter(c -> c != null).collect(Collectors.toCollection(HashSet::new));
+    }
+
+    /**
+     * Compares the user's active custom profile id without materialising the
+     * lazy {@link UserCustomRoutingProfile} association. Hibernate exposes
+     * {@code getId()} on a lazy proxy without a database fetch, so this stays
+     * cheap.
+     */
+    private static boolean isActive(RegisteredUser user, Long profileId) {
+        UserCustomRoutingProfile active = user.getActiveCustomProfile();
+        return active != null && profileId != null && profileId.equals(active.getId());
     }
 }

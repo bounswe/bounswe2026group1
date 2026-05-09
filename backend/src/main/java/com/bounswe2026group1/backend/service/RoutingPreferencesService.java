@@ -8,6 +8,7 @@ import com.bounswe2026group1.backend.dto.routing.UpdateRoutingPreferencesRequest
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.RoutingPreset;
+import com.bounswe2026group1.backend.model.UserCustomRoutingProfile;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.UserCustomRoutingProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -85,7 +86,7 @@ public class RoutingPreferencesService {
         // custom profile that was previously active. CustomRoutingProfileService
         // owns activation; this path covers all other transitions.
         if (detected != RoutingPreset.CUSTOM) {
-            user.setActiveCustomProfileId(null);
+            user.setActiveCustomProfile(null);
         }
 
         if (request.getPreferredTravelMode() != null) {
@@ -139,11 +140,13 @@ public class RoutingPreferencesService {
                 customRoutingProfileRepository.findAllByUserIdOrderByCreatedAtAsc(user.getId()).stream()
                         .map(CustomRoutingProfileResponse::fromEntity)
                         .toList();
+        UserCustomRoutingProfile active = user.getActiveCustomProfile();
+        Long activeId = active == null ? null : active.getId();
         return RoutingPreferencesResponse.builder()
                 .preferredPreset(preset)
                 .constraints(constraintNames)
                 .preferredTravelMode(user.getPreferredTravelMode())
-                .activeCustomProfileId(user.getActiveCustomProfileId())
+                .activeCustomProfileId(activeId)
                 .availablePresets(PRESET_CATALOG)
                 .availableConstraints(CONSTRAINT_CATALOG)
                 .customProfiles(customProfiles)

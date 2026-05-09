@@ -6,6 +6,7 @@ import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.RoutingPreset;
 import com.bounswe2026group1.backend.model.TravelMode;
+import com.bounswe2026group1.backend.model.UserCustomRoutingProfile;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.UserCustomRoutingProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -306,10 +307,14 @@ class RoutingPreferencesServiceTest {
     }
 
     @Test
-    void update_switchingToBuiltInPreset_clearsActiveCustomProfileId() {
+    void update_switchingToBuiltInPreset_clearsActiveCustomProfile() {
         // User had a custom profile activated; switching to a built-in preset
-        // must drop the active id so the UI doesn't keep showing it as active.
-        user.setActiveCustomProfileId(42L);
+        // must drop the active reference so the UI doesn't keep showing it as active.
+        UserCustomRoutingProfile activeProfile = UserCustomRoutingProfile.builder()
+                .id(42L).user(user).name("Old custom")
+                .constraints(EnumSet.of(RoutingConstraint.AVOID_LOW_CLEARANCE))
+                .build();
+        user.setActiveCustomProfile(activeProfile);
         user.setPreferredPreset(RoutingPreset.CUSTOM);
         user.setRoutingConstraints(EnumSet.of(RoutingConstraint.AVOID_LOW_CLEARANCE));
 
@@ -323,7 +328,7 @@ class RoutingPreferencesServiceTest {
         verify(registeredUserRepository).save(captor.capture());
         RegisteredUser saved = captor.getValue();
         assertEquals(RoutingPreset.WHEELCHAIR_USER, saved.getPreferredPreset());
-        assertNull(saved.getActiveCustomProfileId());
+        assertNull(saved.getActiveCustomProfile());
     }
 
     @Test

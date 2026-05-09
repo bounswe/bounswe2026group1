@@ -7,7 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -92,14 +94,18 @@ public class RegisteredUser {
     private TravelMode preferredTravelMode;
 
     /**
-     * Id of the user's currently activated {@link UserCustomRoutingProfile}, or
+     * The user's currently activated {@link UserCustomRoutingProfile}, or
      * {@code null} when a built-in {@link RoutingPreset} (or no preset) is
-     * active. Held as a plain Long rather than a {@code @ManyToOne} so the
-     * lookup stays cheap and the column can be nulled in one statement when
-     * the user switches to a built-in preset or deletes the active profile.
+     * active. Held as a {@code @ManyToOne} so Hibernate emits the foreign
+     * key automatically — the hybrid Flyway/Hibernate setup runs Flyway
+     * before {@code ddl-auto=update}, so referencing this column in a
+     * migration would not work.
      */
-    @Column(name = "active_custom_profile_id")
-    private Long activeCustomProfileId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_custom_profile_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private UserCustomRoutingProfile activeCustomProfile;
 
     @PrePersist
     protected void onCreate() {

@@ -201,7 +201,8 @@ class CustomRoutingProfileIntegrationTest {
 
         RegisteredUser stored = registeredUserRepository.findByEmail(EMAIL).orElseThrow();
         assertThat(stored.getPreferredPreset()).isEqualTo(RoutingPreset.CUSTOM);
-        assertThat(stored.getActiveCustomProfileId()).isEqualTo(p.getId());
+        assertThat(stored.getActiveCustomProfile()).isNotNull();
+        assertThat(stored.getActiveCustomProfile().getId()).isEqualTo(p.getId());
         assertThat(stored.getRoutingConstraints())
                 .containsExactlyInAnyOrder(
                         RoutingConstraint.AVOID_STAIRS,
@@ -209,7 +210,7 @@ class CustomRoutingProfileIntegrationTest {
     }
 
     @Test
-    void activateThenSwitchToBuiltInPreset_clearsActiveCustomProfileId() throws Exception {
+    void activateThenSwitchToBuiltInPreset_clearsActiveCustomProfile() throws Exception {
         UserCustomRoutingProfile p = profileRepository.save(UserCustomRoutingProfile.builder()
                 .user(user).name("Heavy")
                 .constraints(java.util.EnumSet.of(RoutingConstraint.AVOID_STAIRS))
@@ -229,7 +230,7 @@ class CustomRoutingProfileIntegrationTest {
                 .andExpect(jsonPath("$.activeCustomProfileId").doesNotExist());
 
         RegisteredUser stored = registeredUserRepository.findByEmail(EMAIL).orElseThrow();
-        assertThat(stored.getActiveCustomProfileId()).isNull();
+        assertThat(stored.getActiveCustomProfile()).isNull();
     }
 
     // ── Delete ──────────────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ class CustomRoutingProfileIntegrationTest {
                 .andExpect(status().isNoContent());
 
         RegisteredUser stored = registeredUserRepository.findByEmail(EMAIL).orElseThrow();
-        assertThat(stored.getActiveCustomProfileId()).isNull();
+        assertThat(stored.getActiveCustomProfile()).isNull();
         assertThat(stored.getPreferredPreset()).isEqualTo(RoutingPreset.NONE);
         assertThat(stored.getRoutingConstraints()).isEmpty();
     }

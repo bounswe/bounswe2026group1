@@ -30,7 +30,10 @@ import java.util.Set;
 @Table(name = "user_custom_routing_profiles",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_user_custom_routing_profiles_user_name",
-                columnNames = {"user_id", "name"}))
+                columnNames = {"user_id", "name"}),
+        indexes = @Index(
+                name = "idx_user_custom_routing_profiles_user_id",
+                columnList = "user_id"))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
