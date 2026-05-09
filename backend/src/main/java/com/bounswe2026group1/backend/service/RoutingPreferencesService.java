@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.routing.CustomRoutingProfileResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingConstraintInfo;
 import com.bounswe2026group1.backend.dto.routing.RoutingPreferencesResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingPresetInfo;
@@ -8,6 +9,7 @@ import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.RoutingPreset;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
+import com.bounswe2026group1.backend.repository.UserCustomRoutingProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 public class RoutingPreferencesService {
 
     private final RegisteredUserRepository registeredUserRepository;
+    private final UserCustomRoutingProfileRepository customRoutingProfileRepository;
 
     private static final List<RoutingPresetInfo> PRESET_CATALOG =
             Arrays.stream(RoutingPreset.values())
@@ -78,6 +81,13 @@ public class RoutingPreferencesService {
         user.setRoutingConstraints(new HashSet<>(resolvedConstraints));
         user.setPreferredPreset(detected);
 
+        // Switching to a built-in preset (or NONE) implicitly deactivates any
+        // custom profile that was previously active. CustomRoutingProfileService
+        // owns activation; this path covers all other transitions.
+        if (detected != RoutingPreset.CUSTOM) {
+            user.setActiveCustomProfileId(null);
+        }
+
         if (request.getPreferredTravelMode() != null) {
             user.setPreferredTravelMode(request.getPreferredTravelMode());
         } else if (request.getPreferredPreset() != null
@@ -109,7 +119,12 @@ public class RoutingPreferencesService {
         return input.stream().filter(c -> c != null).collect(Collectors.toCollection(HashSet::new));
     }
 
-    private RoutingPreferencesResponse toResponse(RegisteredUser user) {
+    /**
+     * Package-private so {@link CustomRoutingProfileService} can reuse the
+     * exact same response shape after activating a profile, without going
+     * through another DB read.
+     */
+    RoutingPreferencesResponse toResponse(RegisteredUser user) {
         Set<RoutingConstraint> stored = user.getRoutingConstraints() == null
                 ? Set.of()
                 : user.getRoutingConstraints();
@@ -120,12 +135,18 @@ public class RoutingPreferencesService {
         RoutingPreset preset = user.getPreferredPreset() == null
                 ? RoutingPreset.NONE
                 : user.getPreferredPreset();
+        List<CustomRoutingProfileResponse> customProfiles =
+                customRoutingProfileRepository.findAllByUserIdOrderByCreatedAtAsc(user.getId()).stream()
+                        .map(CustomRoutingProfileResponse::fromEntity)
+                        .toList();
         return RoutingPreferencesResponse.builder()
                 .preferredPreset(preset)
                 .constraints(constraintNames)
                 .preferredTravelMode(user.getPreferredTravelMode())
+                .activeCustomProfileId(user.getActiveCustomProfileId())
                 .availablePresets(PRESET_CATALOG)
                 .availableConstraints(CONSTRAINT_CATALOG)
+                .customProfiles(customProfiles)
                 .build();
     }
 }
