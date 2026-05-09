@@ -503,8 +503,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <div className="flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => report?.ownerId && navigate(`/profile/${report.ownerId}`)}
-                className="flex items-center gap-3 cursor-pointer group"
+                onClick={() => report?.ownerId && navigate(isOwner ? '/profile' : `/profile/${report.ownerId}`)}
+                className="flex items-start gap-3 cursor-pointer group"
               >
                 <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden flex-shrink-0">
                   {reporter?.avatarUrl ? (
@@ -513,11 +513,13 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     <span className="material-symbols-outlined text-on-surface-variant">person</span>
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-bold text-on-surface group-hover:underline">
                     {reporter?.name ?? report.reportedBy}
                   </p>
-                  <p className="text-xs text-on-surface-variant">{report.date}</p>
+                  {report.date && (
+                    <p className="text-xs text-on-surface-variant">{report.date}</p>
+                  )}
                 </div>
               </button>
               {report.environment && (
