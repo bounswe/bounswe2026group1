@@ -124,6 +124,15 @@ function Navbar() {
         <SseStatusIndicator />
         <ThemeToggleButton />
         {isAuthenticated && (
+          <Link
+            to="/search/users"
+            aria-label="Search users"
+            className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">search</span>
+          </Link>
+        )}
+        {isAuthenticated && (
           <div className="relative hidden sm:block">
             <button
               ref={notifButtonRef}
