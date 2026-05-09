@@ -12,6 +12,13 @@ import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
+import MapFilters from '../components/MapFilters.jsx'
+import {
+  parseExcluded,
+  serializeExcluded,
+  isReportVisible,
+  excludedCount,
+} from '../utils/mapFilters.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 function decodePolyline(encoded) {
@@ -186,7 +193,7 @@ function Home() {
   const tileAttr = isDark ? TILE_ATTR_DARK : TILE_ATTR_LIGHT
   const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
   // Honor /?report=ID — used by the Profile page's "Open on map" link
@@ -228,6 +235,17 @@ function Home() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
   const [toast, setToast] = useState(null)
+  const [showFilters, setShowFilters] = useState(false)
+  // Filter state lives in URL so the view is shareable; this is just a
+  // memoized parse of the current `?excluded=` token.
+  const { types: excludedTypes, issues: excludedIssues } = parseExcluded(searchParams.get('excluded'))
+  function setExcluded(nextTypes, nextIssues) {
+    const params = new URLSearchParams(searchParams)
+    const token = serializeExcluded(nextTypes, nextIssues)
+    if (token) params.set('excluded', token)
+    else params.delete('excluded')
+    setSearchParams(params, { replace: true })
+  }
   const handleToastDismiss = useCallback(() => setToast(null), [])
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
 
@@ -488,7 +506,7 @@ function Home() {
               url={tileUrl}
               attribution={tileAttr}
             />
-            {reports.map((report) => (
+            {reports.filter((r) => isReportVisible(r, excludedTypes, excludedIssues)).map((report) => (
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
@@ -613,9 +631,33 @@ function Home() {
                 />
               </div>
               <div className="hidden sm:block h-8 w-px bg-outline-variant/30" />
-              <button className="p-2 hover:bg-primary/10 rounded-lg transition-colors flex-shrink-0" aria-label="Filter">
-                <span className="material-symbols-outlined text-secondary">tune</span>
-              </button>
+              <div className="relative flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((v) => !v)}
+                  className="p-2 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Filter"
+                  aria-expanded={showFilters}
+                >
+                  <span className="material-symbols-outlined text-secondary">tune</span>
+                  {excludedCount(excludedTypes, excludedIssues) > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center"
+                      aria-label={`${excludedCount(excludedTypes, excludedIssues)} filters active`}
+                    >
+                      {excludedCount(excludedTypes, excludedIssues)}
+                    </span>
+                  )}
+                </button>
+                {showFilters && (
+                  <MapFilters
+                    excludedTypes={excludedTypes}
+                    excludedIssues={excludedIssues}
+                    onChange={setExcluded}
+                    onClose={() => setShowFilters(false)}
+                  />
+                )}
+              </div>
             </div>
             {searchSuggestions.length > 0 && (
               <ul className="mt-1 bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">
