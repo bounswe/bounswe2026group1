@@ -15,6 +15,9 @@ vi.mock('../hooks/useProfile.js', () => ({
   useUploadAvatar: vi.fn(),
   useDeleteAvatar: vi.fn(),
 }))
+vi.mock('../hooks/useGamification.js', () => ({
+  useSetLeaderboardVisibility: vi.fn(),
+}))
 vi.mock('../hooks/useUserReports.js', () => ({
   useUserReports: vi.fn(),
   useUpdateReport: vi.fn(),
@@ -27,6 +30,7 @@ vi.mock('../components/Navbar.jsx', () => ({
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
+import { useSetLeaderboardVisibility } from '../hooks/useGamification.js'
 import { useDeleteReport, useUpdateReport, useUserReports } from '../hooks/useUserReports.js'
 
 function LocationProbe() {
@@ -53,6 +57,11 @@ const SAMPLE_USER = {
   avatarUrl: null,
   role: 'USER',
   contributionStats: { reportsSubmitted: 3, routesPlanned: 1 },
+  points: 245,
+  rank: 12,
+  badges: ['TRUSTED_REPORTER'],
+  topBadge: 'TRUSTED_REPORTER',
+  leaderboardHidden: false,
 }
 
 // Shape produced by useUserReports → mapReport (see services/reportService.js).
@@ -83,6 +92,7 @@ describe('ProfilePage', () => {
   const updateProfileMutate = vi.fn()
   const uploadAvatarMutate = vi.fn()
   const deleteAvatarMutate = vi.fn()
+  const setVisibilityMutate = vi.fn()
   const updateReportMutate = vi.fn()
   const deleteReportMutate = vi.fn()
 
@@ -93,6 +103,7 @@ describe('ProfilePage', () => {
     useUpdateProfile.mockReturnValue({ mutateAsync: updateProfileMutate, isPending: false })
     useUploadAvatar.mockReturnValue({ mutateAsync: uploadAvatarMutate, isPending: false })
     useDeleteAvatar.mockReturnValue({ mutateAsync: deleteAvatarMutate, isPending: false })
+    useSetLeaderboardVisibility.mockReturnValue({ mutateAsync: setVisibilityMutate, isPending: false })
     useUserReports.mockReturnValue({ data: [SAMPLE_REPORT], isPending: false, isError: false })
     useUpdateReport.mockReturnValue({ mutateAsync: updateReportMutate, isPending: false })
     useDeleteReport.mockReturnValue({ mutateAsync: deleteReportMutate, isPending: false })
@@ -112,6 +123,56 @@ describe('ProfilePage', () => {
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('Mathematician.')).toBeInTheDocument()
+  })
+
+  describe('gamification', () => {
+    it('renders points, rank, and badge for the current user', () => {
+      renderPage()
+      expect(screen.getByText('245')).toBeInTheDocument()
+      expect(screen.getByText('#12')).toBeInTheDocument()
+      // Badge chip uses the human-readable label, not the enum value.
+      expect(screen.getByText('Trusted Reporter')).toBeInTheDocument()
+    })
+
+    it('shows "Hidden" rank when the user has opted out', () => {
+      useCurrentUser.mockReturnValue({
+        data: { ...SAMPLE_USER, rank: null, leaderboardHidden: true },
+        isPending: false,
+        isError: false,
+      })
+      renderPage()
+      expect(screen.getByText('Hidden')).toBeInTheDocument()
+    })
+
+    it('shows "—" rank when the user has no rank yet (e.g. fresh account)', () => {
+      useCurrentUser.mockReturnValue({
+        data: { ...SAMPLE_USER, rank: null, leaderboardHidden: false },
+        isPending: false,
+        isError: false,
+      })
+      renderPage()
+      expect(screen.getByText('—')).toBeInTheDocument()
+    })
+
+    it('omits the badges section when no badges are held', () => {
+      useCurrentUser.mockReturnValue({
+        data: { ...SAMPLE_USER, badges: [], topBadge: null },
+        isPending: false,
+        isError: false,
+      })
+      renderPage()
+      expect(screen.queryByRole('heading', { name: /^badges$/i })).not.toBeInTheDocument()
+    })
+
+    it('toggles leaderboard visibility and shows a confirmation toast', async () => {
+      const user = userEvent.setup()
+      setVisibilityMutate.mockResolvedValueOnce({ ...SAMPLE_USER, leaderboardHidden: true })
+      renderPage()
+      const checkbox = screen.getByRole('checkbox', { name: /hide me from the public leaderboard/i })
+      await user.click(checkbox)
+      expect(setVisibilityMutate).toHaveBeenCalledWith(true)
+      expect(await screen.findByText(/hidden from the public leaderboard/i)).toBeInTheDocument()
+    })
   })
 
   describe('edit profile', () => {

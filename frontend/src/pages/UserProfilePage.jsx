@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import BadgeList from '../components/BadgeList.jsx'
 import MyReportsSection from '../components/MyReportsSection.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 
@@ -69,7 +70,20 @@ function UserProfilePage() {
             <section className="flex gap-3 flex-wrap">
               <StatTile label="Reports submitted" value={user.contributionStats?.reportsSubmitted ?? 0} />
               <StatTile label="Routes planned" value={user.contributionStats?.routesPlanned ?? 0} />
+              <StatTile label="Points" value={user.points ?? 0} />
+              {/* Rank is omitted entirely when the user has opted out, instead
+                  of showing "Hidden" — that detail is private to the owner. */}
+              {!user.leaderboardHidden && user.rank != null && (
+                <StatTile label="Rank" value={`#${user.rank}`} />
+              )}
             </section>
+
+            {user.badges && user.badges.length > 0 && (
+              <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+                <h2 className="text-xl font-bold font-headline text-on-surface">Badges</h2>
+                <BadgeList badges={user.badges} />
+              </section>
+            )}
 
             <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <h2 className="text-xl font-bold font-headline text-on-surface">About</h2>

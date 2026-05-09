@@ -2,10 +2,12 @@ import { useCallback, useState } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import Toast from '../components/Toast.jsx'
 import AvatarUploader from '../components/AvatarUploader.jsx'
+import BadgeList from '../components/BadgeList.jsx'
 import MyReportsSection from '../components/MyReportsSection.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
+import { useSetLeaderboardVisibility } from '../hooks/useGamification.js'
 
 const NAME_MIN = 2
 const NAME_MAX = 50
@@ -26,6 +28,7 @@ function ProfilePage() {
   const updateProfileMutation = useUpdateProfile()
   const uploadAvatarMutation = useUploadAvatar()
   const deleteAvatarMutation = useDeleteAvatar()
+  const setVisibilityMutation = useSetLeaderboardVisibility()
 
   const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState('')
@@ -74,6 +77,21 @@ function ProfilePage() {
     setToast({ message: 'Avatar removed.', type: 'success' })
   }
 
+  async function handleVisibilityToggle(event) {
+    const hidden = event.target.checked
+    try {
+      await setVisibilityMutation.mutateAsync(hidden)
+      setToast({
+        message: hidden
+          ? 'You are now hidden from the public leaderboard.'
+          : 'You are visible on the public leaderboard.',
+        type: 'success',
+      })
+    } catch (e) {
+      setToast({ message: e.message || 'Failed to update visibility.', type: 'error' })
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
@@ -115,6 +133,38 @@ function ProfilePage() {
             <section className="flex gap-3 flex-wrap">
               <StatTile label="Reports submitted" value={user.contributionStats?.reportsSubmitted ?? 0} />
               <StatTile label="Routes planned" value={user.contributionStats?.routesPlanned ?? 0} />
+              <StatTile label="Points" value={user.points ?? 0} />
+              <StatTile
+                label="Rank"
+                value={user.rank != null ? `#${user.rank}` : user.leaderboardHidden ? 'Hidden' : '—'}
+              />
+            </section>
+
+            {user.badges && user.badges.length > 0 && (
+              <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+                <h2 className="text-xl font-bold font-headline text-on-surface">Badges</h2>
+                <BadgeList badges={user.badges} />
+              </section>
+            )}
+
+            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+              <h2 className="text-xl font-bold font-headline text-on-surface">Leaderboard</h2>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={user.leaderboardHidden}
+                  onChange={handleVisibilityToggle}
+                  disabled={setVisibilityMutation.isPending}
+                  className="w-5 h-5 accent-primary cursor-pointer disabled:opacity-60"
+                />
+                <span className="text-sm text-on-surface">
+                  Hide me from the public leaderboard
+                </span>
+              </label>
+              <p className="text-xs text-on-surface-variant">
+                Your points are preserved either way — you re-enter the ranking
+                instantly when this flips back.
+              </p>
             </section>
 
             <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
