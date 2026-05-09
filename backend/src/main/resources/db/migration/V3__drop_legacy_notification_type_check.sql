@@ -1,0 +1,15 @@
+-- Drop the legacy CHECK constraint on notifications.type. Hibernate generated
+-- it from the original 3 NotificationType values (STATUS_CHANGE, NEW_COMMENT,
+-- NAV_ALERT) when ddl-auto=update first ran against this schema. The
+-- gamification rollout adds a fourth value (BADGE_AWARDED), and ddl-auto does
+-- NOT extend existing CHECK constraints when new enum values are added later,
+-- so inserts using BADGE_AWARDED fail at the DB layer with a 23514 violation.
+--
+-- Same pattern as V2: the column stays plain VARCHAR; enum validation is
+-- enforced application-side via @Enumerated(EnumType.STRING) and Spring's
+-- JSON deserialization, which already rejects unknown values at the request
+-- layer with a 400 before any DB write.
+--
+-- IF EXISTS keeps this safe on fresh environments where the constraint never
+-- existed in the first place.
+ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
