@@ -141,6 +141,21 @@ function MapCenterTracker({ onCenterChange }) {
   return null
 }
 
+const SESSION_MAP_VIEW_KEY = 'home_map_view'
+
+function MapViewPersist() {
+  useMapEvents({
+    moveend(e) {
+      const { lat, lng } = e.target.getCenter()
+      const zoom = e.target.getZoom()
+      try {
+        sessionStorage.setItem(SESSION_MAP_VIEW_KEY, JSON.stringify({ lat, lng, zoom }))
+      } catch {}
+    },
+  })
+  return null
+}
+
 function GeolocateOnLoad({ onLocation, autoPan = true }) {
   const map = useMap()
   useEffect(() => {
@@ -187,6 +202,13 @@ function Home() {
   const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const [initialMapView] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_MAP_VIEW_KEY)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return null
+  })
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
   // Honor /?report=ID — used by the Profile page's "Open on map" link
@@ -477,8 +499,8 @@ function Home() {
         {/* Map area */}
         <main className="relative flex-1">
           <MapContainer
-            center={[41.0683, 29.0505]}
-            zoom={16}
+            center={initialMapView ? [initialMapView.lat, initialMapView.lng] : [41.0683, 29.0505]}
+            zoom={initialMapView?.zoom ?? 16}
             zoomControl={false}
             className="w-full h-full"
             style={{ height: '100%', width: '100%' }}
@@ -506,9 +528,10 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
-            <GeolocateOnLoad onLocation={setUserLocation} autoPan={!searchParams.get('report')} />
+            <GeolocateOnLoad onLocation={setUserLocation} autoPan={!searchParams.get('report') && !initialMapView} />
             <MapFlyTo target={searchTarget} />
             <MapCenterTracker onCenterChange={setMapCenter} />
+            <MapViewPersist />
             <MapClickHandler
               active={showCreatePanel || routeMode}
               onPick={(latlng) => {
