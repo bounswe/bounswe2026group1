@@ -87,7 +87,6 @@ public class AdminUserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole());
         user.setStatus(UserStatus.ACTIVE);
-        user.setPoints(0);
 
         return AdminUserResponse.fromEntity(userRepository.save(user));
     }

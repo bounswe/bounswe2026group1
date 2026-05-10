@@ -56,7 +56,6 @@ public class RegisteredUserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(UserRole.USER);
         user.setStatus(com.bounswe2026group1.backend.model.UserStatus.ACTIVE);
-        user.setPoints(0);
 
         // 4. Save to Database
         RegisteredUser savedUser = registeredUserRepository.save(user);
