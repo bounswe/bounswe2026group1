@@ -5,6 +5,11 @@ import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
+// Mirrors backend `S3MediaService.ALLOWED_CONTENT_TYPES`. Apple devices
+// produce MOV (video/quicktime); most other devices produce MP4.
+const ALLOWED_MEDIA_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'video/quicktime']
+const MAX_MEDIA_BYTES = 15 * 1024 * 1024
+
 function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
@@ -17,6 +22,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
   const [imagePreviews, setImagePreviews] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  // Errors raised while picking a file (unsupported MIME, oversized).
+  // Kept separate from the submit-level `error` so they render right
+  // under the dropzone instead of at the bottom of the form where users
+  // would have to scroll to see them.
+  const [mediaError, setMediaError] = useState('')
   const fileInputRef = useRef(null)
   // Object type whose tutorial modal is currently shown, null when closed.
   const [tutorialFor, setTutorialFor] = useState(null)
@@ -81,12 +91,16 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
     : OBJECT_TYPES
   ).filter(t => t.environments.includes(environment))
 
-  // ── image ──────────────────────────────────────────────────────────────────
+  // ── media (image or video) ─────────────────────────────────────────────────
+  // Allowlist mirrors backend S3MediaService.ALLOWED_CONTENT_TYPES so the
+  // client rejects unsupported types before incurring an upload round-trip.
+  // 15 MB matches both backend behaviour and the avatar uploader.
 
   function handleImageChange(e) {
     const files = Array.from(e.target.files)
     if (!files.length) return
     addFiles(files)
+    e.target.value = ''
   }
 
   function handleDrop(e) {
@@ -97,6 +111,20 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
   }
 
   function addFiles(newFiles) {
+    // Validate MIME + size against the backend allowlist before adding. Reject
+    // the whole batch on the first bad file so the user fixes it explicitly
+    // rather than getting a partial success.
+    for (const f of newFiles) {
+      if (!ALLOWED_MEDIA_MIME.includes(f.type)) {
+        setMediaError('Unsupported file type. Use JPEG, PNG, MP4, or MOV.')
+        return
+      }
+      if (f.size > MAX_MEDIA_BYTES) {
+        setMediaError('File must be 15 MB or smaller.')
+        return
+      }
+    }
+    setMediaError('')
     setImageFiles(prev => {
       const combined = [...prev, ...newFiles].slice(0, 5) // Max 5 files
       setImagePreviews(combined.map(f => URL.createObjectURL(f)))
@@ -341,18 +369,31 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
           >
             {imagePreviews.length > 0 ? (
               <div className="grid grid-cols-2 gap-2 w-full">
-                {imagePreviews.map((preview, idx) => (
-                  <div key={idx} className="relative aspect-video rounded-lg overflow-hidden group border border-outline-variant/20 bg-black/5">
-                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
-                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      aria-label="Remove image"
-                    >
-                      <span className="material-symbols-outlined text-sm">close</span>
-                    </button>
-                  </div>
-                ))}
+                {imagePreviews.map((preview, idx) => {
+                  const isVideo = imageFiles[idx]?.type?.startsWith('video/')
+                  return (
+                    <div key={idx} className="relative aspect-video rounded-lg overflow-hidden group border border-outline-variant/20 bg-black/5">
+                      {isVideo ? (
+                        <video src={preview} className="w-full h-full object-cover" muted playsInline />
+                      ) : (
+                        <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                      )}
+                      {isVideo && (
+                        <span className="absolute top-1 left-1 flex items-center gap-1 bg-black/60 text-white text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full">
+                          <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>movie</span>
+                          Video
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                        className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Remove image"
+                      >
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  )
+                })}
                 {imagePreviews.length < 5 && (
                   <div className="aspect-video rounded-lg border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors">
                     <span className="material-symbols-outlined text-2xl mb-1">add</span>
@@ -363,8 +404,8 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             ) : (
               <>
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
-                <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG). Up to 5 files.</p>
+                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos / videos here</p>
+                <p className="text-xs text-outline">Up to 5 files, 15 MB each (JPEG, PNG, MP4, MOV).</p>
               </>
             )}
           </div>
@@ -372,10 +413,15 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/jpeg,image/png"
+            accept={ALLOWED_MEDIA_MIME.join(',')}
             className="hidden"
             onChange={handleImageChange}
           />
+          {mediaError && (
+            <p role="alert" className="mt-2 text-sm text-error bg-error-container/20 rounded-lg px-3 py-2">
+              {mediaError}
+            </p>
+          )}
         </div>
 
         {/* Report Type */}

@@ -26,6 +26,16 @@ import BadgeIcon from './BadgeIcon.jsx'
 
 const MAX_DESCRIPTION = 1000
 
+// S3 returns plain URLs ending in the original filename, so the extension is
+// the cheapest way to know whether a media URL points at a video. Backend's
+// allowlist (S3MediaService.ALLOWED_CONTENT_TYPES) is mp4 + quicktime today.
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm']
+function isVideoUrl(url) {
+  if (!url) return false
+  const path = url.toLowerCase().split('?')[0]
+  return VIDEO_EXTENSIONS.some((ext) => path.endsWith(ext))
+}
+
 function ImageCarousel({ allImages, title }) {
   const [currentIndex, setCurrentIndex] = useState(0)
 
@@ -490,11 +500,20 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 </div>
                 <div className="bg-white p-5 flex flex-col gap-4">
                   {activeFix.mediaUrls && activeFix.mediaUrls.length > 0 && (
-                    <img
-                      src={activeFix.mediaUrls[0]}
-                      alt="Proposed fix"
-                      className="w-full max-h-56 object-cover rounded-lg"
-                    />
+                    isVideoUrl(activeFix.mediaUrls[0]) ? (
+                      <video
+                        src={activeFix.mediaUrls[0]}
+                        controls
+                        playsInline
+                        className="w-full max-h-56 object-cover rounded-lg bg-black"
+                      />
+                    ) : (
+                      <img
+                        src={activeFix.mediaUrls[0]}
+                        alt="Proposed fix"
+                        className="w-full max-h-56 object-cover rounded-lg"
+                      />
+                    )
                   )}
                   <div className="flex items-center gap-2 text-xs">
                     <div className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center">
@@ -568,12 +587,26 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           )}
 
           <div className="px-6 pt-2 pb-2">
-            <ImageCarousel allImages={(() => {
-              const allImages = report.media?.length > 0
+            {(() => {
+              const allMedia = report.media?.length > 0
                 ? report.media.map(m => m.url || m)
                 : (report.mediaUrls?.length > 0 ? report.mediaUrls : (report.image ? [report.image] : []))
-              return allImages
-            })()} title={report.title} />
+              // If the first attachment is a video, render it directly with
+              // <video> so MP4/MOV play inline. Otherwise use the multi-image
+              // carousel. Mixed lists fall through to image-only carousel —
+              // good enough for now since the upload UI accepts one file.
+              if (allMedia.length > 0 && isVideoUrl(allMedia[0])) {
+                return (
+                  <video
+                    className="w-full h-64 object-cover rounded-xl shadow-sm bg-black"
+                    src={allMedia[0]}
+                    controls
+                    playsInline
+                  />
+                )
+              }
+              return <ImageCarousel allImages={allMedia} title={report.title} />
+            })()}
           </div>
 
           {/* Fix entry CTA — sits between hero and title so a returning visitor
