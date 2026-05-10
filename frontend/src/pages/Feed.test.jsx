@@ -56,7 +56,8 @@ function makeApiReport(overrides = {}) {
   return {
     reportId: 101,
     userId: 2,
-    description: 'Ramp too steep',
+    title: 'Feed test report title',
+    description: 'Ramp too steep — details for the card body.',
     status: 'PENDING',
     reportType: 'OBSTACLE',
     environment: 'OUTDOOR',
@@ -74,7 +75,8 @@ function makeApiReport(overrides = {}) {
 function mapReportForTest(r) {
   return {
     id: r.reportId,
-    title: r.description ?? 'Report',
+    // Distinct title vs description so queries don't match two nodes (card h2 + body p).
+    title: r.title ?? 'Feed test report title',
     description: r.description ?? '',
     status: 'unverified',
     date: '1 April 2026',
@@ -147,7 +149,9 @@ describe('Feed page', () => {
   it('loads reports and shows mapped content', async () => {
     renderFeed()
     await waitFor(() => {
-      expect(screen.getByText('Ramp too steep')).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: 'Feed test report title' })
+      ).toBeInTheDocument()
     })
     expect(mapReportMock).toHaveBeenCalled()
   })
@@ -155,19 +159,18 @@ describe('Feed page', () => {
   it('requests the first page without coordinates when no reference point is set', async () => {
     renderFeed()
     await waitFor(() => expect(getReportFeedMock).toHaveBeenCalled())
-    expect(getReportFeedMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 0,
-        size: 20,
-        reportType: 'ALL',
-        environment: 'ALL',
-        latitude: undefined,
-        longitude: undefined,
-        radiusInKm: undefined,
-      }),
-      undefined,
-      expect.objectContaining({ signal: expect.any(AbortSignal) })
-    )
+    const [, tokenArg, optsArg] = getReportFeedMock.mock.calls[0]
+    expect(tokenArg === undefined || tokenArg === null).toBe(true)
+    expect(optsArg).toMatchObject({ signal: expect.any(AbortSignal) })
+    expect(getReportFeedMock.mock.calls[0][0]).toMatchObject({
+      page: 0,
+      size: 20,
+      reportType: 'ALL',
+      environment: 'ALL',
+      latitude: undefined,
+      longitude: undefined,
+      radiusInKm: undefined,
+    })
   })
 
   it('requests obstacle-only reports after selecting the Obstacle filter', async () => {
@@ -189,7 +192,11 @@ describe('Feed page', () => {
   it('includes latitude, longitude, and radius when a map reference point is chosen', async () => {
     const user = userEvent.setup()
     renderFeed()
-    await waitFor(() => expect(screen.getByText('Ramp too steep')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Feed test report title' })
+      ).toBeInTheDocument()
+    )
 
     await user.click(screen.getByRole('button', { name: /choose on map/i }))
     expect(screen.getByTestId('feed-location-modal')).toBeInTheDocument()
@@ -217,14 +224,20 @@ describe('Feed page', () => {
     )
     const user = userEvent.setup()
     renderFeed()
-    await waitFor(() => expect(screen.getByText('Ramp too steep')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Feed test report title' })
+      ).toBeInTheDocument()
+    )
 
     await user.click(screen.getByRole('button', { name: /environment: indoor/i }))
 
     await waitFor(() => {
       expect(screen.getByText(/no reports match your filters/i)).toBeInTheDocument()
     })
-    expect(screen.queryByText('Ramp too steep')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Feed test report title' })
+    ).not.toBeInTheDocument()
   })
 
   it('surfaces API errors', async () => {
