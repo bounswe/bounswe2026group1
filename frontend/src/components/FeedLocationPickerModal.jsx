@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
+import { useTranslation } from 'react-i18next'
 import { feedFilterChipClass } from '../utils/feedFilterChip.js'
 import MapSearchBar from './MapSearchBar.jsx'
 
@@ -63,6 +64,7 @@ export default function FeedLocationPickerModal({
   onFeedCenterChange,
   onLocateUnavailable,
 }) {
+  const { t } = useTranslation()
   const wasOpenRef = useRef(false)
   const [bootCenter, setBootCenter] = useState(null)
   const [pin, setPin] = useState({
@@ -143,7 +145,7 @@ export default function FeedLocationPickerModal({
       className="fixed inset-0 z-[2000] flex flex-col bg-background"
       role="dialog"
       aria-modal="true"
-      aria-label="Choose reference location for community feed"
+      aria-label={t('feed.pickerAriaLabel')}
     >
       <header className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/95 backdrop-blur-md">
         <button
@@ -151,22 +153,22 @@ export default function FeedLocationPickerModal({
           onClick={onDismiss}
           className="px-4 py-2 rounded-xl font-semibold text-on-surface hover:bg-surface-container-high transition-colors"
         >
-          Cancel
+          {t('feed.pickerCancel')}
         </button>
         <p className="text-sm text-on-surface-variant text-center flex-1 hidden sm:block">
-          Search, tap the map, or use your location. The circle matches your search radius.
+          {t('feed.pickerHelp')}
         </p>
         <button
           type="button"
           onClick={onDismiss}
           className="px-5 py-2 rounded-xl font-semibold bg-primary text-on-primary shadow-sm hover:opacity-95 transition-opacity"
         >
-          Done
+          {t('feed.pickerDone')}
         </button>
       </header>
 
       <p className="sm:hidden px-4 py-2 text-xs text-on-surface-variant border-b border-outline-variant/20">
-        Search, tap the map, or use your location. The circle matches your search radius.
+        {t('feed.pickerHelp')}
       </p>
 
       <div className="flex-1 relative min-h-0">
@@ -211,7 +213,7 @@ export default function FeedLocationPickerModal({
             <span className="material-symbols-outlined text-lg" aria-hidden>
               my_location
             </span>
-            Use my location
+            {t('feed.pickerUseMyLocation')}
           </button>
         </div>
       </div>
