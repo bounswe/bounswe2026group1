@@ -23,5 +23,42 @@
     "profileMenu": "Profile menu",
     "userAvatar": "User avatar",
     "userAvatarOf": "{{name}}'s avatar"
+  },
+  "auth": {
+    "login": {
+      "heroHeadline": "Empowering mobility for every neighbour.",
+      "heroDescription": "Your reports help people with mobility challenges find accessible routes, ramps, and barrier-free paths in their neighbourhood.",
+      "welcomeBack": "Welcome back",
+      "subtitle": "Enter your credentials to continue your civic contribution.",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "name@example.com",
+      "passwordLabel": "Password",
+      "forgotPassword": "Forgot password?",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "signIn": "Sign In",
+      "signingIn": "Signing in…",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create an account",
+      "invalidCredentials": "Invalid email or password."
+    },
+    "signup": {
+      "heroHeadline": "Make your city accessible for everyone.",
+      "heroDescription": "Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence.",
+      "joinMapcess": "Join Mapcess",
+      "subtitle": "Create your profile and start improving your community.",
+      "fullNameLabel": "Full Name",
+      "fullNamePlaceholder": "Alex Rivera",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "alex@example.com",
+      "passwordLabel": "Password",
+      "createAccount": "Create Account",
+      "creatingAccount": "Creating account…",
+      "haveAccount": "Already have an account?",
+      "login": "Log in",
+      "termsLabel": "I agree to the Terms of Service and Privacy Policy",
+      "duplicateEmail": "An account with this email already exists.",
+      "genericError": "Something went wrong. Please try again."
+    }
   }
 }

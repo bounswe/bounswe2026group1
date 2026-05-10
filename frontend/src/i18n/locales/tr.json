@@ -23,5 +23,42 @@
     "profileMenu": "Profil menüsü",
     "userAvatar": "Kullanıcı avatarı",
     "userAvatarOf": "{{name}} kullanıcısının avatarı"
+  },
+  "auth": {
+    "login": {
+      "heroHeadline": "Her komşu için hareket özgürlüğü.",
+      "heroDescription": "Raporlarınız, hareket güçlüğü çekenlerin erişilebilir rotaları, rampaları ve engelsiz yolları bulmasına yardımcı oluyor.",
+      "welcomeBack": "Tekrar hoş geldin",
+      "subtitle": "Topluma katkına devam etmek için bilgilerini gir.",
+      "emailLabel": "E-posta Adresi",
+      "emailPlaceholder": "isim@ornek.com",
+      "passwordLabel": "Şifre",
+      "forgotPassword": "Şifremi unuttum",
+      "showPassword": "Şifreyi göster",
+      "hidePassword": "Şifreyi gizle",
+      "signIn": "Giriş Yap",
+      "signingIn": "Giriş yapılıyor…",
+      "noAccount": "Hesabın yok mu?",
+      "createAccount": "Hesap oluştur",
+      "invalidCredentials": "Geçersiz e-posta veya şifre."
+    },
+    "signup": {
+      "heroHeadline": "Şehrini herkes için erişilebilir kıl.",
+      "heroDescription": "Erişilebilirlik özelliklerini ve engelleri haritalayan topluluğa katıl — hareket güçlüğü çekenler mahallelerinde güvenle gezebilsin.",
+      "joinMapcess": "Mapcess'e Katıl",
+      "subtitle": "Profilini oluştur ve topluluğunu iyileştirmeye başla.",
+      "fullNameLabel": "Ad Soyad",
+      "fullNamePlaceholder": "Ayşe Yılmaz",
+      "emailLabel": "E-posta Adresi",
+      "emailPlaceholder": "ayse@ornek.com",
+      "passwordLabel": "Şifre",
+      "createAccount": "Hesap Oluştur",
+      "creatingAccount": "Hesap oluşturuluyor…",
+      "haveAccount": "Zaten hesabın var mı?",
+      "login": "Giriş yap",
+      "termsLabel": "Kullanım Koşulları ve Gizlilik Politikası'nı kabul ediyorum",
+      "duplicateEmail": "Bu e-posta ile zaten bir hesap mevcut.",
+      "genericError": "Bir hata oluştu. Lütfen tekrar deneyin."
+    }
   }
 }
