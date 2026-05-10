@@ -23,6 +23,11 @@ vi.mock('./NotificationDropdown.jsx', () => ({
 vi.mock('./ThemePicker.jsx', () => ({
   default: () => <div data-testid="theme-picker" />,
 }))
+// LanguageSwitcher needs QueryClientProvider (via useSetLanguage); stubbed
+// here so Navbar tests don't need to wire up the full TanStack tree.
+vi.mock('./LanguageSwitcher.jsx', () => ({
+  default: () => <div data-testid="lang-switcher" />,
+}))
 
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
