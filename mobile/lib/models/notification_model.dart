@@ -5,12 +5,14 @@ enum NotificationType {
   statusChange,
   newComment,
   navAlert,
+  badgeAwarded,
   unknown;
 
   static NotificationType fromJson(String? s) => switch (s) {
         'STATUS_CHANGE' => NotificationType.statusChange,
         'NEW_COMMENT' => NotificationType.newComment,
         'NAV_ALERT' => NotificationType.navAlert,
+        'BADGE_AWARDED' => NotificationType.badgeAwarded,
         _ => NotificationType.unknown,
       };
 
@@ -18,6 +20,7 @@ enum NotificationType {
         NotificationType.statusChange => Icons.flag_outlined,
         NotificationType.newComment => Icons.chat_bubble_outline,
         NotificationType.navAlert => Icons.navigation_outlined,
+        NotificationType.badgeAwarded => Icons.workspace_premium,
         NotificationType.unknown => Icons.notifications_outlined,
       };
 
@@ -25,6 +28,7 @@ enum NotificationType {
         NotificationType.statusChange => 'Status update',
         NotificationType.newComment => 'New comment',
         NotificationType.navAlert => 'Nearby alert',
+        NotificationType.badgeAwarded => 'Badge earned',
         NotificationType.unknown => 'Notification',
       };
 }
