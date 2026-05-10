@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 
-function CreateReportPanel({ position, onClose, onCreated }) {
+function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
 
@@ -274,13 +274,25 @@ function CreateReportPanel({ position, onClose, onCreated }) {
 
       {/* Header */}
       <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
-          <p className="text-sm text-on-surface-variant mt-1">
-            {position
-              ? `📍 ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`
-              : 'Click on the map to set location'}
-          </p>
+          {position ? (
+            // Place name from reverse-geocoding sits on the primary line; raw
+            // coordinates fall to a smaller secondary line so the user always
+            // has the precise location available even when Nominatim resolves.
+            <>
+              <p className="text-sm font-semibold text-on-surface mt-1 truncate" title={positionLabel || undefined}>
+                📍 {positionLabel || `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`}
+              </p>
+              {positionLabel && (
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-on-surface-variant mt-1">Click on the map to set location</p>
+          )}
         </div>
         <button
           onClick={onClose}

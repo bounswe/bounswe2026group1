@@ -272,6 +272,10 @@ function Home() {
   const searchDebounce = useRef(null)
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
+  // Reverse-geocoded place name for the new-report pin. Fetched async after
+  // the pin drops; CreateReportPanel falls back to raw coordinates while it
+  // resolves (or if Nominatim returns no result).
+  const [newReportPinLabel, setNewReportPinLabel] = useState('')
   const [userVotes, setUserVotes] = useState({})
   const [routeMode, setRouteMode] = useState(false)
   const [routeOrigin, setRouteOrigin] = useState(null)
@@ -566,8 +570,16 @@ function Home() {
             <MapClickHandler
               active={showCreatePanel || routeMode}
               onPick={(latlng) => {
-                if (routeMode) handleRouteMapClick(latlng)
-                else setNewReportPin(latlng)
+                if (routeMode) {
+                  handleRouteMapClick(latlng)
+                } else {
+                  setNewReportPin(latlng)
+                  setNewReportPinLabel('')
+                  // Resolve the human-readable place name asynchronously.
+                  // CreateReportPanel renders raw coords until this resolves,
+                  // so users see something immediately.
+                  reverseGeocode(latlng).then(setNewReportPinLabel)
+                }
               }}
             />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
@@ -767,10 +779,12 @@ function Home() {
       {showCreatePanel && (
         <CreateReportPanel
           position={newReportPin}
-          onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
+          positionLabel={newReportPinLabel}
+          onClose={() => { setShowCreatePanel(false); setNewReportPin(null); setNewReportPinLabel('') }}
           onCreated={() => {
             queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
             setNewReportPin(null)
+            setNewReportPinLabel('')
             setToast({ message: 'Report submitted successfully!', type: 'success' })
           }}
         />
