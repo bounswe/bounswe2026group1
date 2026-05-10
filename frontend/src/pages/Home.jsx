@@ -773,7 +773,7 @@ function Home() {
           <ReportPanel
             key={selectedReport.id}
             report={selectedReport}
-            userVote={userVotes[selectedReport.id] ?? null}
+            userVote={userVotes[selectedReport.id] ?? selectedReport.userVote ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
             // Toast lives on Home so it survives the panel unmounting
             // (e.g. after a successful delete that closes the panel).
