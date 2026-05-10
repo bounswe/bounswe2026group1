@@ -41,6 +41,7 @@ class ReportServiceTest {
     @Mock private OverpassService overpassService;
     @Mock private NotificationService notificationService;
     @Mock private GamificationService gamificationService;
+    @Mock private UserBadgeRepository userBadgeRepository;
 
     @InjectMocks
     private ReportService reportService;
@@ -817,6 +818,35 @@ class ReportServiceTest {
         reportService.verifyReport(1L, "user@test.com");
 
         verify(gamificationService, never()).onReportStatusTransition(any(), any(), any());
+    }
+
+    @Test
+    void getById_attachesAuthorTopBadge() {
+        UserBadge ub = new UserBadge(testUser, Badge.TRUSTED_REPORTER);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(userBadgeRepository.findByUserId(1L)).thenReturn(List.of(ub));
+
+        Optional<ReportResponse> result = reportService.getById(1L, "owner@test.com");
+
+        assertTrue(result.isPresent());
+        assertEquals(Badge.TRUSTED_REPORTER, result.get().getAuthorTopBadge());
+    }
+
+    @Test
+    void getAll_batchFetchesAuthorTopBadges() {
+        // Two reports by the same author should result in a single batch
+        // query, not one findByUserId per report.
+        when(reportRepository.findAll()).thenReturn(List.of(testReport, testReport));
+        when(userBadgeRepository.findBadgesByUserIds(any()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, Badge.EXPERT_MAPPER}));
+
+        List<ReportResponse> result = reportService.getAll(null);
+
+        assertEquals(2, result.size());
+        assertEquals(Badge.EXPERT_MAPPER, result.get(0).getAuthorTopBadge());
+        assertEquals(Badge.EXPERT_MAPPER, result.get(1).getAuthorTopBadge());
+        // Single batch query — never falls back to per-report fetches.
+        verify(userBadgeRepository, never()).findByUserId(any());
     }
 
     @Test

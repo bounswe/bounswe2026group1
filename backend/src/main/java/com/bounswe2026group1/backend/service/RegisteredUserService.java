@@ -6,17 +6,24 @@ import com.bounswe2026group1.backend.dto.RegisterRequest;
 import com.bounswe2026group1.backend.dto.RegisterResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.model.Badge;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.dto.PointEventResponse;
+import com.bounswe2026group1.backend.repository.PointEventRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
+import com.bounswe2026group1.backend.repository.UserBadgeRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +38,9 @@ public class RegisteredUserService {
     private final RegisteredUserRepository registeredUserRepository;
     private final ReportRepository reportRepository;
     private final RouteRepository routeRepository;
+    private final UserBadgeRepository userBadgeRepository;
+    private final PointEventRepository pointEventRepository;
+    private final LeaderboardService leaderboardService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -106,8 +116,10 @@ public class RegisteredUserService {
 
     // ───── Profile (issue #302) ─────────────────────────────────────────────
 
-    /** Public listing — uses batched count queries so this stays at 3 queries
-     *  total regardless of user count, instead of 1 + 3N. */
+    /** Public listing — uses batched count queries so this stays at a small
+     *  fixed query count regardless of user size, instead of N+1. Rank is
+     *  intentionally null for list views: filling it in would require a
+     *  count-above query per user, and admin/listing UIs only need points. */
     public List<UserProfileDTO> getAllProfiles() {
         List<RegisteredUser> users = registeredUserRepository.findAll();
         if (users.isEmpty()) return List.of();
@@ -115,11 +127,14 @@ public class RegisteredUserService {
         List<Long> ids = users.stream().map(RegisteredUser::getId).toList();
         Map<Long, Long> reportCounts = toCountMap(reportRepository.countByCreatedByIdIn(ids));
         Map<Long, Long> routeCounts = toCountMap(routeRepository.countByCreatedByIdIn(ids));
+        Map<Long, List<Badge>> badgesByUser = toBadgeMap(userBadgeRepository.findBadgesByUserIds(ids));
 
         return users.stream()
                 .map(u -> buildDTO(u, false,
                         reportCounts.getOrDefault(u.getId(), 0L),
-                        routeCounts.getOrDefault(u.getId(), 0L)))
+                        routeCounts.getOrDefault(u.getId(), 0L),
+                        badgesByUser.getOrDefault(u.getId(), List.of()),
+                        null))
                 .toList();
     }
 
@@ -127,6 +142,14 @@ public class RegisteredUserService {
         Map<Long, Long> map = new HashMap<>(rows.size());
         for (Object[] row : rows) {
             map.put((Long) row[0], (Long) row[1]);
+        }
+        return map;
+    }
+
+    private static Map<Long, List<Badge>> toBadgeMap(List<Object[]> rows) {
+        Map<Long, List<Badge>> map = new HashMap<>();
+        for (Object[] row : rows) {
+            map.computeIfAbsent((Long) row[0], k -> new ArrayList<>()).add((Badge) row[1]);
         }
         return map;
     }
@@ -166,15 +189,59 @@ public class RegisteredUserService {
         return toProfileDTO(saved, true);
     }
 
+    /** Toggles the user's leaderboard opt-out flag. Their accumulated points
+     *  stay intact — they re-enter the ranking instantly when this flips back. */
+    public UserProfileDTO setLeaderboardHidden(Long id, boolean hidden) {
+        RegisteredUser user = registeredUserRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + id));
+        user.setLeaderboardHidden(hidden);
+        RegisteredUser saved = registeredUserRepository.save(user);
+        return toProfileDTO(saved, true);
+    }
+
+    /** All badges currently held by a user — exposed as its own endpoint so
+     *  the public profile page can fetch badges without going through the
+     *  full profile DTO. */
+    public List<Badge> getBadges(Long id) {
+        if (!registeredUserRepository.existsById(id)) {
+            throw new NoSuchElementException("User not found with id: " + id);
+        }
+        return userBadgeRepository.findByUserId(id).stream()
+                .map(ub -> ub.getBadge())
+                .toList();
+    }
+
+    /** Paginated points-history view (most recent first). Surfaced through
+     *  the points history endpoint, gated to the user themselves and admins. */
+    public Page<PointEventResponse> listPointEvents(Long userId, Pageable pageable) {
+        if (!registeredUserRepository.existsById(userId)) {
+            throw new NoSuchElementException("User not found with id: " + userId);
+        }
+        return pointEventRepository
+                .findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(PointEventResponse::fromEntity);
+    }
+
     // includeEmail=true is reserved for self-views (/me, login, owner-only mutations).
     // Public lookups must pass false to avoid leaking another user's email.
     private UserProfileDTO toProfileDTO(RegisteredUser user, boolean includeEmail) {
         long reports = reportRepository.countByCreatedById(user.getId());
         long routes = routeRepository.countByCreatedById(user.getId());
-        return buildDTO(user, includeEmail, reports, routes);
+        List<Badge> badges = userBadgeRepository.findByUserId(user.getId()).stream()
+                .map(ub -> ub.getBadge())
+                .toList();
+        Integer rank = leaderboardService.getRankFor(user.getId())
+                .map(RankInfo::rank)
+                .orElse(null);
+        return buildDTO(user, includeEmail, reports, routes, badges, rank);
     }
 
-    private UserProfileDTO buildDTO(RegisteredUser user, boolean includeEmail, long reports, long routes) {
+    private UserProfileDTO buildDTO(RegisteredUser user,
+                                    boolean includeEmail,
+                                    long reports,
+                                    long routes,
+                                    List<Badge> badges,
+                                    Integer rank) {
         return UserProfileDTO.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -186,6 +253,11 @@ public class RegisteredUserService {
                         .reportsSubmitted(reports)
                         .routesPlanned(routes)
                         .build())
+                .points(user.getPoints())
+                .rank(rank)
+                .badges(badges)
+                .topBadge(Badge.pickHighestTier(badges))
+                .leaderboardHidden(user.isLeaderboardHidden())
                 .build();
     }
 }

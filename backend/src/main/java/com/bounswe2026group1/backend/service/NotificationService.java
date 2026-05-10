@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.dto.NotificationResponse;
 import com.bounswe2026group1.backend.dto.NotificationSseEvent;
+import com.bounswe2026group1.backend.model.Badge;
 import com.bounswe2026group1.backend.model.Comment;
 import com.bounswe2026group1.backend.model.Notification;
 import com.bounswe2026group1.backend.model.NotificationType;
@@ -93,6 +94,21 @@ public class NotificationService {
             String message = buildStatusMessage(recipientId, authorId, reportId, status);
             create(recipient, message, NotificationType.STATUS_CHANGE, reportId);
         }
+    }
+
+    /** Trigger: a gamification badge was awarded to a user. Notifies just
+     *  that user — badges are individual achievements, no fan-out audience. */
+    public void notifyBadgeAwarded(RegisteredUser recipient, Badge badge) {
+        if (recipient == null || badge == null) return;
+        create(recipient, buildBadgeMessage(badge), NotificationType.BADGE_AWARDED, null);
+    }
+
+    private static String buildBadgeMessage(Badge badge) {
+        return switch (badge) {
+            case TRUSTED_REPORTER -> "You earned the Trusted Reporter badge!";
+            case EXPERT_MAPPER -> "You earned the Expert Mapper badge!";
+            case TOP_10 -> "You broke into the Top 10 — congrats!";
+        };
     }
 
     /** Trigger: someone commented on a report. Notifies the report author,

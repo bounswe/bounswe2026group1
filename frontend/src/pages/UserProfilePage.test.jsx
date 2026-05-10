@@ -28,6 +28,11 @@ const SAMPLE_USER = {
   avatarUrl: null,
   role: 'USER',
   contributionStats: { reportsSubmitted: 5, routesPlanned: 2 },
+  points: 320,
+  rank: 4,
+  badges: ['TRUSTED_REPORTER', 'TOP_10'],
+  topBadge: 'TOP_10',
+  leaderboardHidden: false,
 }
 
 function renderPage(userId = '42') {
@@ -88,5 +93,46 @@ describe('UserProfilePage', () => {
     renderPage()
     expect(screen.getByText(/^reports \(0\)$/i)).toBeInTheDocument()
     expect(screen.queryByText(/my reports/i)).not.toBeInTheDocument()
+  })
+
+  describe('gamification', () => {
+    it('renders points, rank, and badges for a public profile', () => {
+      renderPage()
+      expect(screen.getByText('320')).toBeInTheDocument()
+      expect(screen.getByText('#4')).toBeInTheDocument()
+      // Both badges show their human-readable labels.
+      expect(screen.getByText('Trusted Reporter')).toBeInTheDocument()
+      expect(screen.getByText('Top 10')).toBeInTheDocument()
+    })
+
+    it('omits the rank tile entirely when the viewed user has opted out', () => {
+      // A foreign profile must not leak even the existence of a rank for an
+      // opt-out user — the owner of the profile sees their own rank as
+      // "Hidden" but other viewers see no tile at all.
+      useUserProfile.mockReturnValue({
+        data: { ...SAMPLE_USER, rank: null, leaderboardHidden: true },
+        isPending: false,
+        isError: false,
+      })
+      renderPage()
+      expect(screen.queryByText('Rank')).not.toBeInTheDocument()
+      expect(screen.queryByText('Hidden')).not.toBeInTheDocument()
+    })
+
+    it('omits the badges section when the viewed user has none', () => {
+      useUserProfile.mockReturnValue({
+        data: { ...SAMPLE_USER, badges: [], topBadge: null },
+        isPending: false,
+        isError: false,
+      })
+      renderPage()
+      expect(screen.queryByRole('heading', { name: /^badges$/i })).not.toBeInTheDocument()
+    })
+
+    it('does not render an opt-out toggle on a foreign profile', () => {
+      // Visibility toggle is the owner's privilege — never visible elsewhere.
+      renderPage()
+      expect(screen.queryByRole('checkbox', { name: /hide me/i })).not.toBeInTheDocument()
+    })
   })
 })

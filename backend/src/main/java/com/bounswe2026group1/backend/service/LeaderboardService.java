@@ -35,6 +35,7 @@ public class LeaderboardService {
 
     private final RegisteredUserRepository userRepository;
     private final UserBadgeRepository userBadgeRepository;
+    private final NotificationService notificationService;
 
     @Value("${app.gamification.leaderboard.size:100}")
     private int leaderboardSize;
@@ -117,6 +118,7 @@ public class LeaderboardService {
                 RegisteredUser u = usersById.get(id);
                 if (u != null) {
                     userBadgeRepository.save(new UserBadge(u, Badge.TOP_10));
+                    notificationService.notifyBadgeAwarded(u, Badge.TOP_10);
                 }
             }
         }
