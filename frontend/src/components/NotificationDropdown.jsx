@@ -6,6 +6,7 @@ const TYPE_ICON = {
   STATUS_CHANGE: 'task_alt',
   NEW_COMMENT: 'chat_bubble',
   NAV_ALERT: 'navigation',
+  BADGE_AWARDED: 'workspace_premium',
 }
 
 function timeAgo(isoString) {

@@ -128,6 +128,41 @@ describe('NotificationDropdown', () => {
     })
   })
 
+  describe('badge notifications', () => {
+    it('renders the workspace_premium icon for BADGE_AWARDED notifications', () => {
+      setupHooks([
+        makeNotif({
+          id: 9,
+          type: 'BADGE_AWARDED',
+          message: 'You earned the Trusted Reporter badge!',
+          relatedEntityId: null,
+        }),
+      ])
+      renderDropdown()
+      // Icon ligature is the text content of the material-symbols span.
+      expect(screen.getByText('workspace_premium')).toBeInTheDocument()
+    })
+
+    it('marks badge notification as read on click without navigating (no relatedEntityId)', async () => {
+      const user = userEvent.setup()
+      setupHooks([
+        makeNotif({
+          id: 9,
+          type: 'BADGE_AWARDED',
+          message: 'You earned the Trusted Reporter badge!',
+          relatedEntityId: null,
+          read: false,
+        }),
+      ])
+      renderDropdown()
+
+      await user.click(screen.getByText(/trusted reporter/i))
+
+      expect(markReadMutate).toHaveBeenCalledWith(9)
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+  })
+
   describe('dismiss behaviour', () => {
     it('calls onClose when Escape is pressed', async () => {
       const user = userEvent.setup()
