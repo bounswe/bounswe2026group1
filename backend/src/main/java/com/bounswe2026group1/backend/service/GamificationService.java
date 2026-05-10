@@ -81,23 +81,13 @@ public class GamificationService {
     }
 
     /**
-     * Voter cast a fresh vote on someone else's report. Modifying an
-     * existing vote (agree → disagree or vice versa) MUST NOT yield
-     * extra points; callers handle that by NOT calling this method on
-     * modify, only on first cast.
-     *
-     * The cast/withdraw cycle is allowed to net out: a user who casts (+5),
-     * withdraws (-5), and casts again receives a fresh +5. We detect that
-     * by comparing CAST and WITHDRAWN event counts on (user, report) — if
-     * casts already exceed withdrawals, the user is currently in "voted"
-     * state and another call here is a modify, not a fresh cast.
+     * Voter cast a fresh vote on someone else's report. Caller is the
+     * source of truth for fresh-cast vs. modify-vote; this method
+     * unconditionally awards the points.
      */
     @Transactional
     public void awardOnVoteCast(RegisteredUser voter, Long reportId) {
         if (voter == null || reportId == null) return;
-        if (isCurrentlyVoted(voter.getId(), reportId)) {
-            return; // Modify-vote path, no extra points.
-        }
         applyDelta(voter, voteCastDelta, PointReason.VOTE_CAST, reportId);
     }
 
