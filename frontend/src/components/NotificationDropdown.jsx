@@ -10,19 +10,20 @@ const TYPE_ICON = {
   BADGE_AWARDED: 'workspace_premium',
 }
 
-function timeAgo(isoString) {
+function timeAgo(t, isoString) {
   const diff = Date.now() - new Date(isoString).getTime()
   const s = Math.floor(diff / 1000)
-  if (s < 60) return 'just now'
+  if (s < 60) return t('notifications.justNow')
   const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
+  if (m < 60) return t('notifications.minutesAgo', { count: m })
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
+  if (h < 24) return t('notifications.hoursAgo', { count: h })
   const d = Math.floor(h / 24)
-  return `${d}d ago`
+  return t('notifications.daysAgo', { count: d })
 }
 
 function NotificationItem({ notification, onRead }) {
+  const { t } = useTranslation()
   const icon = TYPE_ICON[notification.type] ?? 'notifications'
 
   return (
@@ -45,7 +46,7 @@ function NotificationItem({ notification, onRead }) {
         <p className={`text-sm leading-snug ${notification.read ? 'text-on-surface-variant' : 'text-on-surface font-semibold'}`}>
           {notification.message}
         </p>
-        <p className="text-xs text-outline mt-0.5">{timeAgo(notification.createdAt)}</p>
+        <p className="text-xs text-outline mt-0.5">{timeAgo(t, notification.createdAt)}</p>
       </div>
       {!notification.read && (
         <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
