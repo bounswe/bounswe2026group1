@@ -43,6 +43,7 @@ public class ReportService {
     private final FixRequestVoteRepository fixRequestVoteRepository;
     private final PublicSseService publicSseService;
     private final NotificationService notificationService;
+    private final GamificationService gamificationService;
     private final S3MediaService s3MediaService;
     private final MeasurementValidator measurementValidator;
     private final OverpassService overpassService;
@@ -182,6 +183,8 @@ public class ReportService {
         Report finalSaved = saved;
         broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(finalSaved));
 
+        gamificationService.awardOnReportSubmit(user, saved.getReportId());
+
         return ReportResponse.fromEntity(saved, null, buildObjectResponses(saved),
                 resolveActiveFixRequest(user.getId(), saved.getReportId()));
     }
@@ -297,10 +300,15 @@ public class ReportService {
 
         var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
+        // Three branches: same-direction toggle = withdraw (delete row),
+        // opposite-direction = modify (no extra points), absent = fresh cast.
+        boolean fresh = false;
+        boolean withdrawn = false;
         if (existing.isPresent()) {
             if (existing.get().getVoteType() == VoteType.AGREE) {
                 report.decrementAgrees();
                 verificationRepository.delete(existing.get());
+                withdrawn = true;
             } else {
                 report.decrementDisagrees();
                 report.incrementAgrees();
@@ -310,16 +318,23 @@ public class ReportService {
         } else {
             report.incrementAgrees();
             verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
+            fresh = true;
         }
 
         ReportStatus previousStatus = report.getStatus();
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
+        if (fresh) {
+            gamificationService.awardOnVoteCast(user, saved.getReportId());
+        } else if (withdrawn) {
+            gamificationService.deductOnVoteWithdraw(user, saved.getReportId());
+        }
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         if (newStatus != previousStatus) {
             notificationService.notifyStatusChange(saved, user.getId());
+            gamificationService.onReportStatusTransition(saved, previousStatus, newStatus);
         }
         return ReportResponse.fromEntity(saved,
                 resolveUserVote(user.getId(), saved.getReportId()),
@@ -340,10 +355,15 @@ public class ReportService {
 
         var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
+        // Three branches: same-direction toggle = withdraw (delete row),
+        // opposite-direction = modify (no extra points), absent = fresh cast.
+        boolean fresh = false;
+        boolean withdrawn = false;
         if (existing.isPresent()) {
             if (existing.get().getVoteType() == VoteType.DISAGREE) {
                 report.decrementDisagrees();
                 verificationRepository.delete(existing.get());
+                withdrawn = true;
             } else {
                 report.decrementAgrees();
                 report.incrementDisagrees();
@@ -353,16 +373,23 @@ public class ReportService {
         } else {
             report.incrementDisagrees();
             verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
+            fresh = true;
         }
 
         ReportStatus previousStatus = report.getStatus();
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
+        if (fresh) {
+            gamificationService.awardOnVoteCast(user, saved.getReportId());
+        } else if (withdrawn) {
+            gamificationService.deductOnVoteWithdraw(user, saved.getReportId());
+        }
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         if (newStatus != previousStatus) {
             notificationService.notifyStatusChange(saved, user.getId());
+            gamificationService.onReportStatusTransition(saved, previousStatus, newStatus);
         }
         return ReportResponse.fromEntity(saved,
                 resolveUserVote(user.getId(), saved.getReportId()),
