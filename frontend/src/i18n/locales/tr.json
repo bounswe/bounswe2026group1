@@ -24,6 +24,19 @@
     "userAvatar": "Kullanıcı avatarı",
     "userAvatarOf": "{{name}} kullanıcısının avatarı"
   },
+  "home": {
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "myLocation": "Konumum",
+    "filter": "Filtre",
+    "filtersActive": "{{count}} filtre aktif",
+    "communityPulse": "Topluluk Nabzı",
+    "activeReports": "{{count}} Aktif Rapor",
+    "withinRange": "Konumunuzun 500 m yakınında",
+    "cityResolutionRate": "Şehir Çözüm Oranı",
+    "getRoutes": "Rota Al",
+    "reportIssue": "Sorun Bildir"
+  },
   "auth": {
     "login": {
       "heroHeadline": "Her komşu için hareket özgürlüğü.",

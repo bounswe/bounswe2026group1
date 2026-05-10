@@ -24,6 +24,19 @@
     "userAvatar": "User avatar",
     "userAvatarOf": "{{name}}'s avatar"
   },
+  "home": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "myLocation": "My location",
+    "filter": "Filter",
+    "filtersActive": "{{count}} filters active",
+    "communityPulse": "Community Pulse",
+    "activeReports": "{{count}} Active Reports",
+    "withinRange": "Within 500m of your location",
+    "cityResolutionRate": "City Resolution Rate",
+    "getRoutes": "Get Routes",
+    "reportIssue": "Report an Issue"
+  },
   "auth": {
     "login": {
       "heroHeadline": "Empowering mobility for every neighbour.",
