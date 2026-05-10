@@ -25,6 +25,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -204,6 +206,35 @@ class ObstacleServiceTest {
 
         assertNotNull(polygons);
         assertEquals(1, polygons.get("coordinates").size());
+    }
+
+    // -------------------------------------------------------------------------
+    // null constraints — explicit "skip avoidance" path (issue #544)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void buildAvoidPolygons_nullConstraints_skipsAvoidanceWithoutHittingRepository() {
+        // Signed-in users with RoutingPreset.NONE pass null to opt out of
+        // avoidance entirely. The method must short-circuit before any DB call
+        // so the route service can cheaply skip the Accessible Route alternative.
+        ObjectNode polygons = obstacleService.buildAvoidPolygons((Set<RoutingConstraint>) null);
+
+        assertNull(polygons,
+                "null constraints must produce no avoid polygons (issue #544)");
+        verify(reportRepository, never()).findByTypeAndStatusIn(any(), any());
+    }
+
+    @Test
+    void findObstaclesOnPath_nullConstraints_returnsEmptyWithoutHittingRepository() {
+        // Same null-as-opt-out contract for the on-path check that drives the
+        // hasObstacles flag — a NONE-preset user should never see warnings.
+        List<Report> obstacles = obstacleService.findObstaclesOnPath(
+                List.of(START, END), (Set<RoutingConstraint>) null);
+
+        assertTrue(obstacles.isEmpty(),
+                "null constraints must yield no on-path obstacles (issue #544)");
+        verify(reportRepository, never()).findReportsInBoundingBoxWithStatuses(
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
     }
 
     @Test

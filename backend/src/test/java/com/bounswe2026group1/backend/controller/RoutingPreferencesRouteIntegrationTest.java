@@ -31,6 +31,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -234,8 +235,32 @@ class RoutingPreferencesRouteIntegrationTest {
         for (JsonNode alternative : body) {
             assertThat(alternative.get("preferred").asBoolean()).isFalse();
         }
+    }
 
-        // ObstacleService should still receive an empty constraint set (NONE preset).
-        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(eq(Set.of()));
+    // ── NONE preset → null constraints reach ObstacleService (issue #544) ──
+
+    /**
+     * A signed-in user who explicitly chose {@code RoutingPreset.NONE} should
+     * NOT have their reports avoided. The controller must distinguish them
+     * from anonymous callers (who fall through to the {@code Set.of()}
+     * baseline) by passing {@code null} instead.
+     */
+    @Test
+    void authenticated_withNonePreset_passesNullConstraintsToObstacleService() throws Exception {
+        // Default setup already has preset=NONE; reaffirm explicitly for clarity.
+        user.setPreferredPreset(RoutingPreset.NONE);
+        user.setRoutingConstraints(new HashSet<>());
+        registeredUserRepository.save(user);
+
+        mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk());
+
+        // Anonymous would pass Set.of(); NONE-preset users pass null so
+        // ObstacleService skips avoidance entirely.
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
     }
 }
