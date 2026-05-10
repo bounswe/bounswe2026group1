@@ -4,6 +4,8 @@ import Signup from './pages/Signup.jsx'
 import Login from './pages/Login.jsx'
 import Feed from './pages/Feed.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import UserProfilePage from './pages/UserProfilePage.jsx'
+import UserSearchPage from './pages/UserSearchPage.jsx'
 import RequireAdmin from './components/RequireAdmin.jsx'
 import RequireAuth from './components/RequireAuth.jsx'
 import AdminLayout from './components/admin/AdminLayout.jsx'
@@ -27,6 +29,8 @@ function App() {
       <Route path="/feed" element={<Feed />} />
       <Route element={<RequireAuth />}>
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/:userId" element={<UserProfilePage />} />
+        <Route path="/search/users" element={<UserSearchPage />} />
       </Route>
       <Route element={<RequireAdmin />}>
         <Route element={<AdminLayout />}>

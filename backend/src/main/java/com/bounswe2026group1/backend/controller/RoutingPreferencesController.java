@@ -1,8 +1,10 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.config.OpenApiConfig;
 import com.bounswe2026group1.backend.dto.routing.RoutingPreferencesResponse;
 import com.bounswe2026group1.backend.dto.routing.UpdateRoutingPreferencesRequest;
 import com.bounswe2026group1.backend.service.RoutingPreferencesService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/users/me/routing-preferences")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
 public class RoutingPreferencesController {
 
     private final RoutingPreferencesService routingPreferencesService;

@@ -17,6 +17,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +49,32 @@ public class RegisteredUserController {
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     public List<UserProfileDTO> getAll() {
         return registeredUserService.getAllProfiles();
+    }
+
+    @GetMapping("/search")
+    @Operation(
+            summary = "Search users by name or email",
+            description = "Case-insensitive substring match across name OR email. " +
+                    "Authenticated users only. Email is omitted from the response (privacy)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of matching profiles."),
+            @ApiResponse(responseCode = "400", description = "Empty or missing query parameter.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Page<UserProfileDTO>> search(
+            @RequestParam("q") String query,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        // Cap page size so a malicious/clumsy caller can't ask for everything at once.
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        int safePage = Math.max(page, 0);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        try {
+            return ResponseEntity.ok(registeredUserService.searchUsers(query, pageable));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/{id}")

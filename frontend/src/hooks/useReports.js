@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getReports, getReportById, mapReport, mapReportStatus, updateReport } from '../services/reportService.js'
+import { getReports, getReportById, mapReport, mapReportStatus, updateReport, deleteReport } from '../services/reportService.js'
 import { useSseStatus } from '../context/SseContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -12,14 +12,19 @@ export const reportKeys = {
 /**
  * Fetch the full report list.
  * Falls back to polling every 30 s when SSE is disconnected.
+ *
+ * The auth token is forwarded so each report carries the caller's
+ * `userVote` — without it the agree/disagree buttons lose their selected
+ * state across navigations.
  */
 export function useReports() {
   const sseStatus = useSseStatus()
   const disconnected = sseStatus !== 'connected'
+  const { token } = useAuth()
 
   return useQuery({
     queryKey: reportKeys.lists(),
-    queryFn: () => getReports().then((data) => data.map(mapReport)),
+    queryFn: () => getReports(token).then((data) => data.map(mapReport)),
     staleTime: 30_000,
     refetchInterval: disconnected ? 30_000 : false,
   })
@@ -32,10 +37,11 @@ export function useReports() {
 export function useReport(id) {
   const sseStatus = useSseStatus()
   const disconnected = sseStatus !== 'connected'
+  const { token } = useAuth()
 
   return useQuery({
     queryKey: reportKeys.detail(id),
-    queryFn: () => getReportById(id).then(mapReport),
+    queryFn: () => getReportById(id, token).then(mapReport),
     enabled: id != null,
     staleTime: 30_000,
     refetchInterval: disconnected ? 30_000 : false,
@@ -52,6 +58,23 @@ export function useUpdateMapReport() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, body }) => updateReport(id, body, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reportKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['userReports'] })
+    },
+  })
+}
+
+/**
+ * Delete a report from the map's ReportPanel — used by the report's owner
+ * or an admin. Invalidates both the map list and any per-user lists shown
+ * on /profile so the row disappears in both surfaces.
+ */
+export function useDeleteMapReport() {
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => deleteReport(id, token),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reportKeys.all })
       queryClient.invalidateQueries({ queryKey: ['userReports'] })

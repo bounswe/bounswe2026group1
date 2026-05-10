@@ -6,7 +6,9 @@ import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.RoutingPreset;
 import com.bounswe2026group1.backend.model.TravelMode;
+import com.bounswe2026group1.backend.model.UserCustomRoutingProfile;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
+import com.bounswe2026group1.backend.repository.UserCustomRoutingProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Optional;
@@ -30,6 +33,7 @@ import static org.mockito.Mockito.*;
 class RoutingPreferencesServiceTest {
 
     @Mock private RegisteredUserRepository registeredUserRepository;
+    @Mock private UserCustomRoutingProfileRepository customRoutingProfileRepository;
 
     @InjectMocks
     private RoutingPreferencesService service;
@@ -43,6 +47,11 @@ class RoutingPreferencesServiceTest {
         user.setEmail("user@test.com");
         user.setPreferredPreset(RoutingPreset.NONE);
         user.setRoutingConstraints(new HashSet<>());
+        // toResponse always reads the user's custom profile list; default empty
+        // keeps every existing test focused on preset / constraint behaviour.
+        org.mockito.Mockito.lenient()
+                .when(customRoutingProfileRepository.findAllByUserIdOrderByCreatedAtAsc(any()))
+                .thenReturn(Collections.emptyList());
     }
 
     /**
@@ -295,6 +304,31 @@ class RoutingPreferencesServiceTest {
         assertTrue(saved.getRoutingConstraints().isEmpty());
         assertEquals(RoutingPreset.NONE, saved.getPreferredPreset());
         assertEquals(RoutingPreset.NONE, resp.getPreferredPreset());
+    }
+
+    @Test
+    void update_switchingToBuiltInPreset_clearsActiveCustomProfile() {
+        // User had a custom profile activated; switching to a built-in preset
+        // must drop the active reference so the UI doesn't keep showing it as active.
+        UserCustomRoutingProfile activeProfile = UserCustomRoutingProfile.builder()
+                .id(42L).user(user).name("Old custom")
+                .constraints(EnumSet.of(RoutingConstraint.AVOID_LOW_CLEARANCE))
+                .build();
+        user.setActiveCustomProfile(activeProfile);
+        user.setPreferredPreset(RoutingPreset.CUSTOM);
+        user.setRoutingConstraints(EnumSet.of(RoutingConstraint.AVOID_LOW_CLEARANCE));
+
+        stubHappyPathRepo();
+        UpdateRoutingPreferencesRequest req = new UpdateRoutingPreferencesRequest();
+        req.setPreferredPreset(RoutingPreset.WHEELCHAIR_USER);
+
+        service.update("user@test.com", req);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        RegisteredUser saved = captor.getValue();
+        assertEquals(RoutingPreset.WHEELCHAIR_USER, saved.getPreferredPreset());
+        assertNull(saved.getActiveCustomProfile());
     }
 
     @Test

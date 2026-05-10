@@ -65,21 +65,31 @@ Map<String, String> _decodeMeasurements(String? raw) {
 class ObjectsSection extends StatelessWidget {
   final List<ObjectDraft> objects;
   final ReportType reportType;
+  final ReportEnvironment environment;
   final VoidCallback onChanged;
 
   const ObjectsSection({
     super.key,
     required this.objects,
     required this.reportType,
+    required this.environment,
     required this.onChanged,
   });
 
   // ── Mutators ───────────────────────────────────────────────────────────────
 
-  /// Object types selectable given [reportType] — FEATURE only allows RAMP.
-  List<ObjectType> get _visibleObjectTypes => reportType == ReportType.feature
-      ? const [ObjectType.ramp]
-      : ObjectType.values;
+  /// Object types selectable given [reportType] AND [environment]:
+  ///   • FEATURE locks selection to RAMP only.
+  ///   • Each ObjectType declares which environments it supports
+  ///     (`SIDEWALK`/`PEDESTRIAN_CROSSING`/`CURB_RAMP` outdoor only,
+  ///     `WASHROOM`/`ROOM_SIGN` indoor only) so a flip of the env
+  ///     selector hides types that no longer apply.
+  List<ObjectType> get _visibleObjectTypes {
+    final pool = reportType == ReportType.feature
+        ? const [ObjectType.ramp]
+        : ObjectType.values;
+    return pool.where((t) => t.supports(environment)).toList();
+  }
 
   /// Set of types already assigned to other cards — prevents picking the same
   /// type twice on the same report.

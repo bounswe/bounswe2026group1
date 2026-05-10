@@ -16,6 +16,7 @@ import '../services/sse_service.dart';
 import '../main.dart' show MainShell, AuthShell;
 import 'create_fix_request_screen.dart';
 import 'edit_report_screen.dart';
+import 'user_profile_screen.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportModel report;
@@ -33,7 +34,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   ReportModel get report => _report;
 
   String? _fetchedUsername;
+  String? _fetchedAvatarUrl;
   bool _usernameLoading = false;
+
+  // Avatar for the fix-request submitter — backend's FixRequestResponse
+  // currently only ships the name + id, so we hydrate the avatar via a
+  // follow-up `getUserById` once the active fix request is known.
+  int? _fixSubmitterAvatarFor;
+  String? _fixSubmitterAvatarUrl;
 
   // ── Video player ───────────────────────────────────────────────────────────
   VideoPlayerController? _videoController;
@@ -83,15 +91,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _disagrees = report.disagrees;
     // Backend returns 'AGREE' / 'DISAGREE' / null — normalise to lowercase.
     _myVote = report.userVote?.toLowerCase();
-    if (report.username == null) {
-      _usernameLoading = true;
-      _loadUsername();
-    }
+    // Always fetch the author profile — even when the report ships a
+    // `username`, the avatarUrl isn't part of the report response so we
+    // need this round-trip for the avatar.
+    _usernameLoading = report.username == null;
+    _loadUsername();
     _loadComments();
     if (_hasVideo) _initVideo();
     // Fetch fresh report so userVote / counts reflect server state.
     _refreshReport();
     _loadFollowStatus();
+    _ensureFixSubmitterAvatar();
     // Subscribe to real-time updates.
     _sseSub = context.read<SseService>().events.listen(_onSseEvent);
   }
@@ -128,6 +138,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         _disagrees = fresh.disagrees;
         _myVote = fresh.userVote?.toLowerCase();
       });
+      // The fix request can appear/change between refreshes — re-hydrate
+      // the submitter avatar if the submitter id moved.
+      _ensureFixSubmitterAvatar();
     } catch (_) {
       // Non-fatal — stale data from the list is still shown.
     }
@@ -261,6 +274,25 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  /// Pushes the public profile for [userId]. Pre-passes any name/avatar we
+  /// already have so the title bar / hero don't pop in while the network
+  /// fetch is in flight.
+  void _openUserProfile({
+    required int userId,
+    String? name,
+    String? avatarUrl,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(
+          userId: userId,
+          initialName: name,
+          initialAvatarUrl: avatarUrl,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openEdit() async {
     final outcome = await Navigator.push<EditReportOutcome>(
       context,
@@ -358,12 +390,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Future<void> _loadUsername() async {
-    final name = await context.read<AuthService>().api.getUserName(report.userId);
-    if (mounted) {
-      setState(() {
-        _fetchedUsername = name;
-        _usernameLoading = false;
-      });
+    // Single round-trip — getUserById gives us both the display name and the
+    // avatarUrl, sparing the older `getUserName` call when we already need
+    // the latter for the title row.
+    final user =
+        await context.read<AuthService>().api.getUserById(report.userId);
+    if (!mounted) return;
+    setState(() {
+      _fetchedUsername =
+          user?['name'] as String? ?? user?['fullName'] as String?;
+      _fetchedAvatarUrl = user?['avatarUrl'] as String?;
+      _usernameLoading = false;
+    });
+  }
+
+  /// Hydrate the fix-request submitter's avatar — only one network call per
+  /// distinct submitter, so SSE-driven re-renders or vote updates don't
+  /// re-fetch.
+  Future<void> _ensureFixSubmitterAvatar() async {
+    final fix = report.activeFixRequest;
+    if (fix == null) return;
+    if (_fixSubmitterAvatarFor == fix.submittedByUserId) return;
+    _fixSubmitterAvatarFor = fix.submittedByUserId;
+    try {
+      final user = await context
+          .read<AuthService>()
+          .api
+          .getUserById(fix.submittedByUserId);
+      if (!mounted) return;
+      setState(() => _fixSubmitterAvatarUrl = user?['avatarUrl'] as String?);
+    } catch (_) {
+      // Best-effort — fall back to the placeholder avatar.
     }
   }
 
@@ -544,6 +601,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   String get _displayUsername =>
       _fetchedUsername ?? report.username ?? 'User #${report.userId}';
+
+  /// True when the current viewer hasn't authenticated. Drives privacy
+  /// gating across the page — guests don't see other users' names,
+  /// avatars, or get a tap-through to a profile screen.
+  bool get _isGuest => !context.watch<AuthService>().isAuthenticated;
 
   @override
   Widget build(BuildContext context) {
@@ -854,40 +916,48 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         const SizedBox(height: 14),
         Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: report.displayColor.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person_outline,
-                color: report.displayColor,
-                size: 20,
-              ),
+            _AvatarCircle(
+              avatarUrl: _isGuest ? null : _fetchedAvatarUrl,
+              tint: report.displayColor,
+              size: 40,
+              onTap: _isGuest
+                  ? null
+                  : () => _openUserProfile(
+                        userId: report.userId,
+                        name: _fetchedUsername ?? report.username,
+                        avatarUrl: _fetchedAvatarUrl,
+                      ),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _usernameLoading
-                    ? Container(
-                        width: 90,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      )
-                    : Text(
-                        _displayUsername,
+                _isGuest
+                    ? Text(
+                        'User #${report.userId}',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.onSurface,
                         ),
-                      ),
+                      )
+                    : _usernameLoading
+                        ? Container(
+                            width: 90,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          )
+                        : Text(
+                            _displayUsername,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
                 Text(
                   'Reported ${report.timeAgo}',
                   style: TextStyle(
@@ -1031,16 +1101,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ],
                 Row(
                   children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(Icons.person_outline,
-                          size: 14, color: AppColors.secondary),
+                    _AvatarCircle(
+                      avatarUrl: _isGuest ? null : _fixSubmitterAvatarUrl,
+                      tint: AppColors.primary,
+                      size: 28,
+                      onTap: _isGuest
+                          ? null
+                          : () => _openUserProfile(
+                                userId: fix.submittedByUserId,
+                                name: fix.submittedByName,
+                                avatarUrl: _fixSubmitterAvatarUrl,
+                              ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1052,7 +1123,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           ),
                           children: [
                             TextSpan(
-                              text: fix.submittedByName ?? 'Anonymous',
+                              text: _isGuest
+                                  ? 'User #${fix.submittedByUserId}'
+                                  : (fix.submittedByName ??
+                                      'User #${fix.submittedByUserId}'),
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.onSurface,
@@ -2202,14 +2276,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person_outline, size: 16, color: AppColors.secondary),
+          _AvatarCircle(
+            avatarUrl: _isGuest ? null : comment.avatarUrl,
+            tint: AppColors.secondary,
+            size: 32,
+            onTap: (_isGuest || comment.authorId == null)
+                ? null
+                : () => _openUserProfile(
+                      userId: comment.authorId!,
+                      name: comment.username,
+                      avatarUrl: comment.avatarUrl,
+                    ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2219,7 +2296,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 Row(
                   children: [
                     Text(
-                      comment.username,
+                      _isGuest
+                          ? 'User #${comment.authorId ?? '?'}'
+                          : comment.username,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -2411,13 +2490,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
 class _CommentData {
   final int id;
+  final int? authorId;
   final String username;
+  final String? avatarUrl;
   final String text;
   final String createdAt;
 
   const _CommentData({
     required this.id,
+    this.authorId,
     required this.username,
+    this.avatarUrl,
     required this.text,
     required this.createdAt,
   });
@@ -2438,9 +2521,31 @@ class _CommentData {
       return 'User';
     }
 
+    String? resolveAvatar() {
+      final raw = json['author'];
+      if (raw is Map) {
+        final url = raw['avatarUrl'];
+        if (url is String && url.isNotEmpty) return url;
+      }
+      return null;
+    }
+
+    int? resolveAuthorId() {
+      final raw = json['author'];
+      if (raw is Map) {
+        final id = raw['id'];
+        if (id is num) return id.toInt();
+      } else if (raw is num) {
+        return raw.toInt();
+      }
+      return null;
+    }
+
     return _CommentData(
       id: (json['id'] as num?)?.toInt() ?? 0,
+      authorId: resolveAuthorId(),
       username: resolveUsername(),
+      avatarUrl: resolveAvatar(),
       text: (json['content'] as String?) ?? '',
       createdAt: (json['createdAt'] as String?) ?? '',
     );
@@ -2547,6 +2652,62 @@ class _FullscreenMediaPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Round avatar with a colored fallback when [avatarUrl] is null/empty or
+/// the network image errors out. [tint] colours the fallback container so
+/// the placeholder picks up the surrounding accent (report tag colour for
+/// the author, secondary for comment authors). When [onTap] is non-null
+/// the avatar becomes tappable — used to route to a public profile.
+class _AvatarCircle extends StatelessWidget {
+  final String? avatarUrl;
+  final Color tint;
+  final double size;
+  final VoidCallback? onTap;
+
+  const _AvatarCircle({
+    required this.avatarUrl,
+    required this.tint,
+    required this.size,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.person_outline, size: size * 0.5, color: tint),
+    );
+    final url = avatarUrl;
+    final inner = (url == null || url.isEmpty)
+        ? fallback
+        : ClipOval(
+            child: Image.network(
+              url,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            ),
+          );
+    if (onTap == null) return inner;
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: inner,
       ),
     );
   }

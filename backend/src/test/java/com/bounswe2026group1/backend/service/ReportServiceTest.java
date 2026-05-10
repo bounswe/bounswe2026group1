@@ -260,6 +260,22 @@ class ReportServiceTest {
     }
 
     @Test
+    void delete_adminDeletesOtherUsersReport_deletesAndBroadcasts() {
+        RegisteredUser admin = new RegisteredUser();
+        admin.setId(2L);
+        admin.setEmail("admin@test.com");
+        admin.setRole(UserRole.ADMIN);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+
+        reportService.delete(1L, "admin@test.com");
+
+        verify(reportRepository).delete(testReport);
+        verify(publicSseService).broadcastReportDeleted(1L);
+    }
+
+    @Test
     void delete_withMedia_callsS3DeleteForEachFile() {
         Media media = new Media();
         media.setFilePath("https://bucket.s3.amazonaws.com/file.jpg");

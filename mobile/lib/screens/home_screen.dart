@@ -506,10 +506,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Marker> _buildMarkers(List<ReportModel> reports) {
     return reports.map((report) {
+      // Short label — `report.headline` can be 2-3 words ("Insufficient
+      // Clearance Sidewalk") which overflows even at font 8. Use the object
+      // type alone (one word) so dense clusters of markers stay readable.
+      final shortLabel =
+          report.primaryObject?.objectType.label ?? report.reportType.label;
+      // Dim pins that aren't community-validated (PENDING / REJECTED) so
+      // VERIFIED and FIXED reports stand out at a glance.
+      final isValidated = report.status == ReportStatus.verified ||
+          report.status == ReportStatus.fixed;
+      final markerOpacity = isValidated ? 1.0 : 0.55;
       return Marker(
         point: LatLng(report.latitude, report.longitude),
-        width: 88,
-        height: 80,
+        width: 72,
+        height: 64,
         child: GestureDetector(
           onTap: () => Navigator.push(
             context,
@@ -517,62 +527,73 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (_) => ReportDetailScreen(report: report),
             ),
           ),
-          child: Column(
+          child: Opacity(
+            opacity: markerOpacity,
+            child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.12),
-                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.14),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: report.displayColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(report.displayIcon, color: Colors.white, size: 17),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.93),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.18),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: Text(
-                  report.headline,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: AppColors.onSurfaceVariant,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: report.displayColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(report.displayIcon,
+                      color: Colors.white, size: 16),
+                ),
+              ),
+              const SizedBox(height: 3),
+              ConstrainedBox(
+                // Cap the label so it never expands past the marker box —
+                // long object labels get clipped with an ellipsis instead
+                // of pushing into neighbouring markers.
+                constraints: const BoxConstraints(maxWidth: 72),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    shortLabel,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: AppColors.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       );

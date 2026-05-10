@@ -158,11 +158,19 @@ describe('Signup page', () => {
   // ─── Password validation UI ──────────────────────────────────────────────────
 
   describe('password requirements checklist', () => {
-    it('shows a descriptive message for each unmet rule as the user types', async () => {
+    it('keeps unmet rules in a neutral state while typing, then surfaces error copy after blur', async () => {
       const user = userEvent.setup()
       renderSignup()
-      await user.type(screen.getByLabelText(/^password$/i), 'abc')
+      const passwordInput = screen.getByLabelText(/^password$/i)
+      await user.type(passwordInput, 'abc')
 
+      // While the user is still typing for the first time the unmet rules
+      // show their short label, not the long error message.
+      expect(screen.queryByText(/at least 8 characters long/i)).not.toBeInTheDocument()
+      expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument()
+
+      // After blur (or attempt to submit) the long descriptive error copy appears.
+      await user.tab()
       expect(screen.getByText(/at least 8 characters long/i)).toBeInTheDocument()
       expect(screen.getByText(/uppercase letter/i)).toBeInTheDocument()
       expect(screen.getByText(/at least one number/i)).toBeInTheDocument()

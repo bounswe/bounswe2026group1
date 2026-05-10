@@ -7,7 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -90,6 +92,34 @@ public class RegisteredUser {
     @Enumerated(EnumType.STRING)
     @Column(name = "preferred_travel_mode", length = 16)
     private TravelMode preferredTravelMode;
+
+    /**
+     * The user's currently activated {@link UserCustomRoutingProfile}, or
+     * {@code null} when a built-in {@link RoutingPreset} (or no preset) is
+     * active. Held as a {@code @ManyToOne} so Hibernate emits the foreign
+     * key automatically — the hybrid Flyway/Hibernate setup runs Flyway
+     * before {@code ddl-auto=update}, so referencing this column in a
+     * migration would not work.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_custom_profile_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private UserCustomRoutingProfile activeCustomProfile;
+
+    /**
+     * Leaderboard opt-out. When true the user is filtered out of the
+     * public top-100 list and their rank is hidden on their public
+     * profile, but their points field stays accurate so they can
+     * re-enter the ranking instantly if they toggle this off.
+     *
+     * Declared last so the Lombok-generated all-args constructor keeps the
+     * pre-existing parameter order — preserves call-sites in tests and code
+     * that build users via {@code new RegisteredUser(id, name, email, …)}.
+     */
+    @Column(name = "leaderboard_hidden", nullable = false,
+            columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean leaderboardHidden = false;
 
     @PrePersist
     protected void onCreate() {

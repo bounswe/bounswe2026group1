@@ -150,23 +150,26 @@
     --color-on-error: #690300;
     --color-on-error-container: #ffdad6;
 
-    --color-background: #111413;
-    --color-on-background: #e3e5e4;
-    --color-surface: #111413;
-    --color-surface-dim: #0a0c0b;
-    --color-surface-bright: #2c302f;
-    --color-surface-variant: #3a3d3c;
-    --color-surface-container-lowest: #0a0c0b;
-    --color-surface-container-low: #161a18;
-    --color-surface-container: #1b1f1e;
-    --color-surface-container-high: #252928;
-    --color-surface-container-highest: #2c302f;
-    --color-on-surface: #e3e5e4;
-    --color-on-surface-variant: #b0b3b2;
-    --color-inverse-surface: #e3e5e4;
-    --color-inverse-on-surface: #2d2f2f;
+    /* Dark surfaces: true-neutral greys (no green/teal undertone). The
+       earlier values were copied from mobile's AppColors which has a
+       slight green cast that reads as "military" in the web context. */
+    --color-background: #121212;
+    --color-on-background: #e6e6e6;
+    --color-surface: #121212;
+    --color-surface-dim: #0a0a0a;
+    --color-surface-bright: #2e2e2e;
+    --color-surface-variant: #3a3a3a;
+    --color-surface-container-lowest: #0e0e0e;
+    --color-surface-container-low: #1a1a1a;
+    --color-surface-container: #1f1f1f;
+    --color-surface-container-high: #292929;
+    --color-surface-container-highest: #333333;
+    --color-on-surface: #e6e6e6;
+    --color-on-surface-variant: #b3b3b3;
+    --color-inverse-surface: #e6e6e6;
+    --color-inverse-on-surface: #2e2e2e;
 
-    --color-outline: #6e7170;
-    --color-outline-variant: #3a3d3c;
+    --color-outline: #707070;
+    --color-outline-variant: #3a3a3a;
   }
 }

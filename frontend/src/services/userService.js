@@ -8,6 +8,15 @@ export async function getCurrentUser(token) {
   return apiFetch('/api/users/me', { headers: authHeaders(token) })
 }
 
+export async function getUserById(id, token) {
+  return apiFetch(`/api/users/${id}`, { headers: authHeaders(token) })
+}
+
+export async function searchUsers(query, { page = 0, size = 20 } = {}, token) {
+  const params = new URLSearchParams({ q: query, page: String(page), size: String(size) })
+  return apiFetch(`/api/users/search?${params.toString()}`, { headers: authHeaders(token) })
+}
+
 export async function updateProfile(id, body, token) {
   return apiFetch(`/api/users/${id}/profile`, {
     method: 'PUT',

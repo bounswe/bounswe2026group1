@@ -17,9 +17,11 @@ import {
 } from '../services/reportService.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
-import { reportKeys, useUpdateMapReport } from '../hooks/useReports.js'
+import { useUserProfile } from '../hooks/useUserProfile.js'
+import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
+import Toast from './Toast.jsx'
 
 const MAX_DESCRIPTION = 1000
 
@@ -35,9 +37,9 @@ const MAX_DESCRIPTION = 1000
  *  - onClose: () => void
  *  - onVoteUpdate: (updatedReport) => void
  */
-function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange }) {
+function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange, onShowToast }) {
 
-  const { token, isAuthenticated, userId } = useAuth()
+  const { token, isAuthenticated, userId, isAdmin } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [voteError, setVoteError] = useState('')
@@ -54,9 +56,23 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [editDescription, setEditDescription] = useState('')
   const [editEnvironment, setEditEnvironment] = useState('OUTDOOR')
   const [editError, setEditError] = useState('')
+  const [toast, setToast] = useState(null)
   const updateReportMutation = useUpdateMapReport()
+  const deleteReportMutation = useDeleteMapReport()
+
+  // Prefer the parent's toast slot when wired (Home does this), so a toast
+  // raised on actions that unmount the panel (e.g. successful delete) still
+  // renders. Falls back to local panel-scoped toast for callers that don't
+  // pass onShowToast — keeps existing tests untouched.
+  const showToast = (t) => {
+    if (onShowToast) onShowToast(t)
+    else setToast(t)
+  }
 
   const isOwner = !!userId && report?.ownerId != null && String(userId) === String(report.ownerId)
+  const { data: reporter } = useUserProfile(report?.ownerId)
+  // Admins can edit/delete any report; owners can edit/delete their own.
+  const canModify = isOwner || isAdmin
 
   // Bottom-sheet drag-to-resize (mobile only — desktop layout uses lg: utilities to ignore this).
   // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
@@ -271,9 +287,35 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
         body: { description: trimmed, environment: editEnvironment },
       })
       setIsEditing(false)
+      showToast({ type: 'success', message: 'Report updated.' })
     } catch (e) {
+      // Error stays inline in the form (setEditError) AND surfaces a toast
+      // so users notice it even if they've scrolled past the form fields.
       setEditError(e.message || 'Failed to save changes.')
+      showToast({ type: 'error', message: messageForApiError(e, 'Failed to save changes.') })
     }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('Delete this report? This cannot be undone.')) return
+    try {
+      await deleteReportMutation.mutateAsync(report.id)
+      showToast({ type: 'success', message: 'Report deleted.' })
+      // Close panel after the toast is visible — the parent removes the
+      // selection state and the SSE event fans the deletion to other
+      // clients via useSseSync (REPORT_DELETED).
+      onClose()
+    } catch (e) {
+      showToast({ type: 'error', message: messageForApiError(e, 'Failed to delete report.') })
+    }
+  }
+
+  // Map common HTTP statuses surfaced by apiFetch into user-friendly text.
+  function messageForApiError(err, fallback) {
+    const msg = err?.message ?? ''
+    if (msg.includes('403')) return 'You don’t have permission to do that.'
+    if (msg.includes('404')) return 'Report no longer exists.'
+    return msg || fallback
   }
 
   const editDescriptionTooLong = editDescription.length > MAX_DESCRIPTION
@@ -488,26 +530,49 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
                 {report.title}
               </h1>
-              {isOwner && !isEditing && (
-                <button
-                  type="button"
-                  onClick={handleStartEdit}
-                  className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer flex-shrink-0"
-                >
-                  Edit
-                </button>
+              {canModify && !isEditing && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleStartEdit}
+                    className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleteReportMutation.isPending}
+                    aria-label="Delete report"
+                    className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
+                  >
+                    {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
               )}
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">person</span>
+              <button
+                type="button"
+                onClick={() => report?.ownerId && navigate(isOwner ? '/profile' : `/profile/${report.ownerId}`)}
+                className="flex items-start gap-3 cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {reporter?.avatarUrl ? (
+                    <img src={reporter.avatarUrl} alt={reporter.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-on-surface">{report.reportedBy}</p>
-                  <p className="text-xs text-on-surface-variant">{report.date}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-on-surface group-hover:underline">
+                    {reporter?.name ?? report.reportedBy}
+                  </p>
+                  {report.date && (
+                    <p className="text-xs text-on-surface-variant">{report.date}</p>
+                  )}
                 </div>
-              </div>
+              </button>
               {report.environment && (
                 <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg">
                   <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
@@ -873,6 +938,14 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           reportTitle={report.title}
           onClose={() => setShowCreateFix(false)}
           onSubmitted={handleFixSubmitted}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
         />
       )}
     </>

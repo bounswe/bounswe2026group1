@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
+import OnboardingTutorial from '../components/OnboardingTutorial.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
 import MapFilters from '../components/MapFilters.jsx'
@@ -20,6 +21,20 @@ import {
   excludedCount,
 } from '../utils/mapFilters.js'
 import { useTheme } from '../context/ThemeContext.jsx'
+
+// First-visit onboarding flag. Cleared once the user dismisses or completes the
+// tour. Visit `/?tutorial=1` (e.g. from the Navbar "Replay tutorial" entry) to
+// force the modal to show again.
+const ONBOARDING_FLAG = 'mapcess_onboarding_v1'
+
+function shouldShowOnboarding(searchParams) {
+  if (searchParams.get('tutorial') === '1') return true
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(ONBOARDING_FLAG) !== 'done'
+  } catch {
+    return false
+  }
+}
 
 function decodePolyline(encoded) {
   const coords = []
@@ -36,9 +51,22 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, objectType, selected = false) {
-  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: 'warning', markerColor: '#767777' }
-  const borderColor = status === 'verified' ? '#176a21' : cfg.markerColor
+// Map marker colour rule (issue #362):
+//   FEATURE  reports = positive   → green
+//   OBSTACLE reports = negative   → red
+// Verified pins render at full opacity; unverified pins are visually faded
+// so the eye is drawn to confirmed reports first. Selected pins always
+// render at full opacity regardless so the user sees what they clicked.
+const MARKER_GREEN = '#2E7D32'
+const MARKER_RED   = '#C62828'
+const MARKER_NEUTRAL = '#767777'
+const MARKER_ICON_FALLBACK = 'warning'
+
+function makeMarkerIcon(status, objectType, reportType, selected = false) {
+  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: MARKER_ICON_FALLBACK, markerColor: MARKER_NEUTRAL }
+  const borderColor = reportType === 'FEATURE' ? MARKER_GREEN : MARKER_RED
+  const isVerified = status === 'verified'
+  const opacity = !isVerified && !selected ? 0.55 : 1
   const size = selected ? 56 : 40
   const iconFontSize = selected ? 28 : 20
   const borderWidth = selected ? 3.5 : 2.5
@@ -58,7 +86,8 @@ function makeMarkerIcon(status, objectType, selected = false) {
         box-shadow:${shadow};
         display:flex;align-items:center;justify-content:center;
         cursor:pointer;
-        transition:width 150ms ease, height 150ms ease;
+        opacity:${opacity};
+        transition:width 150ms ease, height 150ms ease, opacity 150ms ease;
       ">
         <span class="material-symbols-outlined" style="
           font-size:${iconFontSize}px;
@@ -148,6 +177,21 @@ function MapCenterTracker({ onCenterChange }) {
   return null
 }
 
+const SESSION_MAP_VIEW_KEY = 'home_map_view'
+
+function MapViewPersist() {
+  useMapEvents({
+    moveend(e) {
+      const { lat, lng } = e.target.getCenter()
+      const zoom = e.target.getZoom()
+      try {
+        sessionStorage.setItem(SESSION_MAP_VIEW_KEY, JSON.stringify({ lat, lng, zoom }))
+      } catch {}
+    },
+  })
+  return null
+}
+
 function GeolocateOnLoad({ onLocation, autoPan = true }) {
   const map = useMap()
   useEffect(() => {
@@ -194,6 +238,29 @@ function Home() {
   const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [showOnboarding, setShowOnboarding] = useState(() => shouldShowOnboarding(searchParams))
+
+  // Re-evaluate when ?tutorial=1 appears mid-session (e.g. from the Navbar entry).
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') setShowOnboarding(true)
+  }, [searchParams])
+
+  const handleOnboardingClose = useCallback(() => {
+    try { window.localStorage.setItem(ONBOARDING_FLAG, 'done') } catch {}
+    setShowOnboarding(false)
+    if (searchParams.get('tutorial')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('tutorial')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+  const [initialMapView] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_MAP_VIEW_KEY)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return null
+  })
   const queryClient = useQueryClient()
   const { data: reports = [], isLoading: loading, error } = useReports()
   // Honor /?report=ID — used by the Profile page's "Open on map" link
@@ -226,6 +293,10 @@ function Home() {
   const searchDebounce = useRef(null)
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
+  // Reverse-geocoded place name for the new-report pin. Fetched async after
+  // the pin drops; CreateReportPanel falls back to raw coordinates while it
+  // resolves (or if Nominatim returns no result).
+  const [newReportPinLabel, setNewReportPinLabel] = useState('')
   const [userVotes, setUserVotes] = useState({})
   const [routeMode, setRouteMode] = useState(false)
   const [routeOrigin, setRouteOrigin] = useState(null)
@@ -495,8 +566,8 @@ function Home() {
         {/* Map area */}
         <main className="relative flex-1">
           <MapContainer
-            center={[41.0683, 29.0505]}
-            zoom={16}
+            center={initialMapView ? [initialMapView.lat, initialMapView.lng] : [41.0683, 29.0505]}
+            zoom={initialMapView?.zoom ?? 16}
             zoomControl={false}
             className="w-full h-full"
             style={{ height: '100%', width: '100%' }}
@@ -510,7 +581,7 @@ function Home() {
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.id === selectedReportId)}
+                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.reportType, report.id === selectedReportId)}
                 zIndexOffset={report.id === selectedReportId ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
@@ -524,14 +595,23 @@ function Home() {
             {newReportPin && (
               <Marker position={newReportPin} icon={pinIcon} />
             )}
-            <GeolocateOnLoad onLocation={setUserLocation} autoPan={!searchParams.get('report')} />
+            <GeolocateOnLoad onLocation={setUserLocation} autoPan={!searchParams.get('report') && !initialMapView} />
             <MapFlyTo target={searchTarget} />
             <MapCenterTracker onCenterChange={setMapCenter} />
+            <MapViewPersist />
             <MapClickHandler
               active={showCreatePanel || routeMode}
               onPick={(latlng) => {
-                if (routeMode) handleRouteMapClick(latlng)
-                else setNewReportPin(latlng)
+                if (routeMode) {
+                  handleRouteMapClick(latlng)
+                } else {
+                  setNewReportPin(latlng)
+                  setNewReportPinLabel('')
+                  // Resolve the human-readable place name asynchronously.
+                  // CreateReportPanel renders raw coords until this resolves,
+                  // so users see something immediately.
+                  reverseGeocode(latlng).then(setNewReportPinLabel)
+                }
               }}
             />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
@@ -735,8 +815,11 @@ function Home() {
           <ReportPanel
             key={selectedReport.id}
             report={selectedReport}
-            userVote={userVotes[selectedReport.id] ?? null}
+            userVote={userVotes[selectedReport.id] ?? selectedReport.userVote ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
+            // Toast lives on Home so it survives the panel unmounting
+            // (e.g. after a successful delete that closes the panel).
+            onShowToast={(t) => setToast(t)}
             onClose={() => { setSelectedReportId(null); navigate('/', { replace: true }) }}
             onVoteUpdate={(updatedReport) => {
               setSelectedReportId(updatedReport.id)
@@ -752,10 +835,12 @@ function Home() {
       {showCreatePanel && (
         <CreateReportPanel
           position={newReportPin}
-          onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
+          positionLabel={newReportPinLabel}
+          onClose={() => { setShowCreatePanel(false); setNewReportPin(null); setNewReportPinLabel('') }}
           onCreated={() => {
             queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
             setNewReportPin(null)
+            setNewReportPinLabel('')
             setToast({ message: 'Report submitted successfully!', type: 'success' })
           }}
         />
@@ -767,6 +852,7 @@ function Home() {
           onDismiss={handleToastDismiss}
         />
       )}
+      {showOnboarding && <OnboardingTutorial onClose={handleOnboardingClose} />}
     </div>
   )
 }

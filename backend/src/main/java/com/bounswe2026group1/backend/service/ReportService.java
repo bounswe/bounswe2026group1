@@ -260,7 +260,9 @@ public class ReportService {
         RegisteredUser requester = registeredUserRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        if (!report.getCreatedBy().getId().equals(requester.getId())) {
+        boolean isOwner = report.getCreatedBy().getId().equals(requester.getId());
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+        if (!isOwner && !isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
         }
 
@@ -403,6 +405,19 @@ public class ReportService {
         media.setFilePath(mediaUrl);
         Media savedMedia = mediaRepository.save(media);
         broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
+    }
+
+    @Transactional
+    public void addMediaToReportBatch(Long reportId, List<String> mediaUrls) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
+        for (String mediaUrl : mediaUrls) {
+            Media media = new Media();
+            media.setReport(report);
+            media.setFilePath(mediaUrl);
+            Media savedMedia = mediaRepository.save(media);
+            broadcastAfterCommit(() -> publicSseService.broadcastMediaAdded(report, savedMedia));
+        }
     }
 
     // -------------------------------------------------------------------------
