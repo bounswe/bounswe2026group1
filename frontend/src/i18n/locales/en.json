@@ -163,6 +163,22 @@
       "fixed": "Fixed"
     }
   },
+  "userSearch": {
+    "title": "Find people",
+    "searchLabel": "Search by name or email",
+    "searchPlaceholder": "e.g. alice",
+    "searchAria": "Search users by name or email",
+    "tooShort": "Type at least {{count}} characters to search.",
+    "searching": "Searching…",
+    "searchFailed": "Search failed.",
+    "noUsers": "No users found.",
+    "matchOne": "{{count}} match.",
+    "matchOther": "{{count}} matches.",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{total}}",
+    "loading": "Loading…"
+  },
   "notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all read",

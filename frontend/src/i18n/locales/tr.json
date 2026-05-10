@@ -163,6 +163,22 @@
       "fixed": "Düzeltildi"
     }
   },
+  "userSearch": {
+    "title": "Kişi bul",
+    "searchLabel": "Ad veya e-posta ile ara",
+    "searchPlaceholder": "örn. ayşe",
+    "searchAria": "Kullanıcıları ad veya e-posta ile ara",
+    "tooShort": "Aramak için en az {{count}} karakter gir.",
+    "searching": "Aranıyor…",
+    "searchFailed": "Arama başarısız.",
+    "noUsers": "Kullanıcı bulunamadı.",
+    "matchOne": "{{count}} eşleşme.",
+    "matchOther": "{{count}} eşleşme.",
+    "previous": "Önceki",
+    "next": "Sonraki",
+    "pageOf": "Sayfa {{page}}/{{total}}",
+    "loading": "Yükleniyor…"
+  },
   "notifications": {
     "title": "Bildirimler",
     "markAllRead": "Tümünü okundu say",
