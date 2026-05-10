@@ -21,7 +21,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
-import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { OBJECT_TYPE_MAP, localizeObjectType } from '../utils/objectTypeConfig.js'
 import { reportJsonLdString } from '../utils/schemaOrg.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 import Toast from './Toast.jsx'
@@ -449,6 +449,28 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
 
   if (!report) return null
 
+  // Rebuild the report title at render time so the object labels follow the
+  // active language. mapReport() pre-builds an English title; we override it
+  // here using translated labels from OBJECT_TYPE_MAP.
+  const displayTitle = (() => {
+    if (!report.objects?.length) {
+      // Tests and legacy fixtures pass a pre-built `title`; honour it when
+      // there's no object list to derive from.
+      if (report.title) return report.title
+      return report.reportType === 'FEATURE'
+        ? t('objectTitle.featureFallback')
+        : t('objectTitle.obstacleFallback')
+    }
+    const labels = [...new Set(report.objects.map((o) =>
+      t(`object.${o.objectType}.label`, {
+        defaultValue: OBJECT_TYPE_MAP[o.objectType]?.label || o.objectType,
+      })
+    ))]
+    return report.reportType === 'FEATURE'
+      ? t('objectTitle.featureSuffix', { labels: labels.join(' & ') })
+      : t('objectTitle.obstacleSuffix', { labels: labels.join(' & ') })
+  })()
+
   const isValidated = report.status === 'verified'
   const isFixed = report.status === 'fixed'
   const isRejected = report.status === 'rejected'
@@ -758,7 +780,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               const allMedia = report.media?.length > 0
                 ? report.media.map(m => m.url || m)
                 : (report.mediaUrls?.length > 0 ? report.mediaUrls : (report.image ? [report.image] : []))
-              return <MediaCarousel items={allMedia} title={report.title} />
+              return <MediaCarousel items={allMedia} title={displayTitle} />
             })()}
           </div>
 
@@ -791,7 +813,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <div className="flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3">
                 <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
-                  {report.title}
+                  {displayTitle}
                 </h1>
                 {canModify && !isEditing && (
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -857,7 +879,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               <section className="flex flex-col gap-3">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{t('report.objects')}</h3>
                 {report.objects.map((obj, i) => {
-                  const cfg = OBJECT_TYPE_MAP[obj.objectType]
+                  const cfg = localizeObjectType(t, OBJECT_TYPE_MAP[obj.objectType])
                   return (
                     <div key={i} className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 flex flex-col gap-3">
                       <div className="flex items-center gap-2">
