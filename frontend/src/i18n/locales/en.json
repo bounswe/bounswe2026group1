@@ -127,7 +127,20 @@
     "deleteSuccess": "Report deleted.",
     "deleteFailed": "Failed to delete report.",
     "noPermission": "You don't have permission to do that.",
-    "reportGone": "Report no longer exists."
+    "reportGone": "Report no longer exists.",
+    "fixedConsensusNote": "Confirms as Fixed when 5+ agrees AND consensus ≥60%.",
+    "fixConsensus": "{{percent}}% consensus",
+    "hasThisBeenFixed": "Has this been fixed?",
+    "submitFixWithPhoto": "Submit a fix report with a photo",
+    "issueDetails": "Issue Details",
+    "communityConsensus": "Community Consensus",
+    "consensusPercent": "{{percent}}% Consensus",
+    "peopleAgreed": "{{count}} people have agreed that this issue is active.",
+    "comments": "Comments",
+    "noCommentsYet": "No comments yet.",
+    "recentActivity": "Recent Activity",
+    "system": "System",
+    "submittedActivity": "Report submitted and pending community verification."
   },
   "feed": {
     "title": "Community feed",

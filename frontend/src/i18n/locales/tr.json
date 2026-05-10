@@ -127,7 +127,20 @@
     "deleteSuccess": "Rapor silindi.",
     "deleteFailed": "Rapor silinemedi.",
     "noPermission": "Bunu yapma iznin yok.",
-    "reportGone": "Rapor artık mevcut değil."
+    "reportGone": "Rapor artık mevcut değil.",
+    "fixedConsensusNote": "5+ onay ve ≥%60 uzlaşıda Düzeltildi olarak işaretlenir.",
+    "fixConsensus": "%{{percent}} uzlaşı",
+    "hasThisBeenFixed": "Bu düzeltildi mi?",
+    "submitFixWithPhoto": "Fotoğrafla bir düzeltme raporu gönder",
+    "issueDetails": "Sorun Ayrıntıları",
+    "communityConsensus": "Topluluk Uzlaşısı",
+    "consensusPercent": "%{{percent}} Uzlaşı",
+    "peopleAgreed": "{{count}} kişi bu sorunun aktif olduğunda hemfikir.",
+    "comments": "Yorumlar",
+    "noCommentsYet": "Henüz yorum yok.",
+    "recentActivity": "Son Etkinlik",
+    "system": "Sistem",
+    "submittedActivity": "Rapor gönderildi, topluluk doğrulaması bekleniyor."
   },
   "feed": {
     "title": "Topluluk akışı",

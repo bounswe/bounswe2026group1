@@ -700,7 +700,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                         Does this look fixed to you?
                       </p>
-                      <span className="text-[11px] font-bold text-emerald-700">{fixPct}% consensus</span>
+                      <span className="text-[11px] font-bold text-emerald-700">{t('report.fixConsensus', { percent: fixPct })}</span>
                     </div>
                     <div className="bg-surface-container-high h-1.5 w-full rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-emerald-600" style={{ width: `${fixPct}%` }} />
@@ -745,7 +745,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       </p>
                     )}
                     <p className="text-[11px] text-on-surface-variant text-center mt-3">
-                      Confirms as <strong>Fixed</strong> when 5+ agrees AND consensus ≥60%.
+                      {t('report.fixedConsensusNote')}
                     </p>
                   </div>
                 </div>
@@ -776,8 +776,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     <span className="material-symbols-outlined text-emerald-700" style={{ fontSize: '20px' }}>build</span>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-on-surface">Has this been fixed?</p>
-                    <p className="text-xs text-on-surface-variant">Submit a fix report with a photo</p>
+                    <p className="text-sm font-bold text-on-surface">{t('report.hasThisBeenFixed')}</p>
+                    <p className="text-xs text-on-surface-variant">{t('report.submitFixWithPhoto')}</p>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition" style={{ fontSize: '20px' }}>chevron_right</span>
@@ -917,7 +917,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Description */}
             <section className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-                Issue Details
+                {t('report.issueDetails')}
               </h3>
               {!isEditing ? (
                 <p className="text-on-surface leading-relaxed font-body">
@@ -1004,9 +1004,9 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <section className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Community Consensus
+                  {t('report.communityConsensus')}
                 </h3>
-                <span className="text-xs font-bold text-primary">{consensusPct}% Consensus</span>
+                <span className="text-xs font-bold text-primary">{t('report.consensusPercent', { percent: consensusPct })}</span>
               </div>
               <div className="bg-surface-container-high h-2.5 w-full rounded-full overflow-hidden">
                 <div
@@ -1015,7 +1015,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 />
               </div>
               <div className="flex items-center justify-between text-sm text-on-surface-variant italic">
-                <span>{report.agrees || 0} people have agreed that this issue is active.</span>
+                <span>{t('report.peopleAgreed', { count: report.agrees || 0 })}</span>
                 <span className="flex gap-3 not-italic font-semibold">
                   <span className="flex items-center gap-1 text-primary">
                     <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
@@ -1067,7 +1067,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Comments Section */}
             <section className="flex flex-col gap-4">
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Comments {!commentsLoading && `(${comments.length})`}
+                {t('report.comments')} {!commentsLoading && `(${comments.length})`}
               </h3>
 
               {isAuthenticated ? (
@@ -1096,7 +1096,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               {commentsLoading ? (
                 <p className="text-sm text-on-surface-variant italic">Loading comments...</p>
               ) : comments.length === 0 ? (
-                <p className="text-sm text-on-surface-variant italic">No comments yet.</p>
+                <p className="text-sm text-on-surface-variant italic">{t('report.noCommentsYet')}</p>
               ) : (
                 <div className="flex flex-col gap-4">
                   {comments.map(comment => (
@@ -1132,16 +1132,16 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Activity Timeline */}
             <section className="flex flex-col gap-6">
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Recent Activity
+                {t('report.recentActivity')}
               </h3>
               <div className="relative pl-6 flex flex-col gap-8">
                 <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-surface-container-highest" />
                 <div className="relative">
                   <div className="absolute -left-[23px] top-1 w-4 h-4 rounded-full bg-primary ring-4 ring-surface-container-low" />
                   <div className="flex flex-col gap-1">
-                    <p className="text-sm font-bold text-on-surface">System</p>
+                    <p className="text-sm font-bold text-on-surface">{t('report.system')}</p>
                     <p className="text-sm text-on-surface-variant">
-                      Report submitted and pending community verification.
+                      {t('report.submittedActivity')}
                     </p>
                     <p className="text-xs text-outline mt-1 uppercase font-bold">{report.date}</p>
                   </div>
