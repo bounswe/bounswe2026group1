@@ -4,17 +4,23 @@ import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 /**
  * Fetch all reports from the backend.
  * GET /api/reports
+ *
+ * When a token is supplied the backend fills in each report's `userVote`
+ * from the caller's vote history — without it, the field is always null
+ * and the agree/disagree buttons can't render their selected state.
  */
-export async function getReports() {
-  return apiFetch('/api/reports')
+export async function getReports(token) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+  return apiFetch('/api/reports', headers ? { headers } : undefined)
 }
 
 /**
  * Fetch a single report by ID.
  * GET /api/reports/{id}
  */
-export async function getReportById(id) {
-  return apiFetch(`/api/reports/${id}`)
+export async function getReportById(id, token) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+  return apiFetch(`/api/reports/${id}`, headers ? { headers } : undefined)
 }
 
 /**
@@ -160,6 +166,16 @@ export function mapReportStatus(apiStatus) {
   }
 }
 
+function formatReportLocation(latitude, longitude) {
+  // `Number(null)` / `Number('')` are 0 — treat missing coords before coercing so we don't show "0.0000, 0.0000".
+  if (latitude == null || longitude == null) return 'Location unavailable'
+  if (latitude === '' || longitude === '') return 'Location unavailable'
+  const lat = Number(latitude)
+  const lon = Number(longitude)
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'Location unavailable'
+  return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+}
+
 /**
  * Map API ReportResponse fields to ReportPanel prop shape.
  */
@@ -191,10 +207,9 @@ export function mapReport(r) {
         })
       : 'Unknown date',
     fixedAt: r.fixedAt || null,
-    location: `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`,
+    location: formatReportLocation(r.latitude, r.longitude),
     reportedBy: `User #${r.userId}`,
     ownerId: r.userId,
-    environment: r.environment,
     agrees: r.agrees,
     disagrees: r.disagrees,
     userVote: r.userVote ? r.userVote.toLowerCase() : null,
@@ -237,6 +252,43 @@ export async function deleteComment(commentId, token) {
 
 export async function getReportsByUserId(userId) {
   return apiFetch(`/api/reports/user/${userId}`)
+}
+
+/**
+ * Paginated community feed.
+ * GET /api/reports/feed
+ * With coordinates + radiusInKm: proximity ordering. Without coordinates: global newest-first feed.
+ */
+export async function getReportFeed(
+  {
+    page = 0,
+    size = 20,
+    reportType,
+    environment,
+    latitude,
+    longitude,
+    radiusInKm,
+  },
+  token,
+  fetchOpts = {}
+) {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('size', String(size))
+  if (reportType && reportType !== 'ALL') params.set('reportType', reportType)
+  if (environment && environment !== 'ALL') params.set('environment', environment)
+  const latN = latitude != null ? Number(latitude) : NaN
+  const lonN = longitude != null ? Number(longitude) : NaN
+  if (Number.isFinite(latN) && Number.isFinite(lonN)) {
+    params.set('latitude', String(latN))
+    params.set('longitude', String(lonN))
+    if (radiusInKm != null && Number.isFinite(Number(radiusInKm))) {
+      params.set('radiusInKm', String(radiusInKm))
+    }
+  }
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  return apiFetch(`/api/reports/feed?${params.toString()}`, { headers, ...fetchOpts })
 }
 
 export async function updateReport(id, body, token) {

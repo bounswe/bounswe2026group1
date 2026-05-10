@@ -101,36 +101,24 @@ public class GamificationService {
     }
 
     /**
-     * Voter cast a fresh vote on someone else's report. Modifying an
-     * existing vote (agree → disagree or vice versa) MUST NOT yield
-     * extra points; callers handle that by NOT calling this method on
-     * modify, only on first cast.
-     *
-     * The cast/withdraw cycle is allowed to net out: a user who casts (+5),
-     * withdraws (-5), and casts again receives a fresh +5. We detect that
-     * by comparing CAST and WITHDRAWN event counts on (user, report) — if
-     * casts already exceed withdrawals, the user is currently in "voted"
-     * state and another call here is a modify, not a fresh cast.
+     * Voter cast a fresh vote on someone else's report. Caller is the
+     * source of truth for fresh-cast vs. modify-vote; this method
+     * unconditionally awards the points.
      */
     @Transactional
     public void awardOnVoteCast(RegisteredUser voter, Long reportId) {
         if (voter == null || reportId == null) return;
-        if (isCurrentlyVoted(voter.getId(), reportId)) {
-            return; // Modify-vote path, no extra points.
-        }
         applyDelta(voter, voteCastDelta, PointReason.VOTE_CAST, reportId);
     }
 
-    /** Voter fully withdrew their previously cast vote. */
+    /**
+     * Voter fully withdrew their previously cast vote. Caller is the
+     * source of truth for whether an active vote exists; this method
+     * unconditionally deducts the points.
+     */
     @Transactional
     public void deductOnVoteWithdraw(RegisteredUser voter, Long reportId) {
         if (voter == null || reportId == null) return;
-        if (!isCurrentlyVoted(voter.getId(), reportId)) {
-            // Defensive: never deduct points for a withdraw the user never
-            // paired with a cast (would otherwise let a malicious caller
-            // drive any user to zero via spurious withdraw events).
-            return;
-        }
         applyDelta(voter, voteWithdrawnDelta, PointReason.VOTE_WITHDRAWN, reportId);
     }
 

@@ -4,6 +4,7 @@ import Toast from '../components/Toast.jsx'
 import AvatarUploader from '../components/AvatarUploader.jsx'
 import BadgeList from '../components/BadgeList.jsx'
 import MyReportsSection from '../components/MyReportsSection.jsx'
+import RoutingPreferencesSection from '../components/RoutingPreferencesSection.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
@@ -248,6 +249,8 @@ function ProfilePage() {
                 </div>
               )}
             </section>
+
+            <RoutingPreferencesSection />
 
             <MyReportsSection userId={userId} />
           </>

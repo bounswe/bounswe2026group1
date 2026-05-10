@@ -18,9 +18,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
@@ -49,7 +54,7 @@ public class MediaController {
             )
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Media uploaded; returns `{ mediaUrl }`."),
+            @ApiResponse(responseCode = "201", description = "Media uploaded; returns `[{ \"id\": 1, \"url\": \"...\" }]`."),
             @ApiResponse(responseCode = "400", description = "Invalid or oversized file.",
                     content = @Content),
             @ApiResponse(responseCode = "401", description = "Authentication required.",
@@ -61,20 +66,52 @@ public class MediaController {
     })
     public ResponseEntity<?> uploadMediaForReport(
             @PathVariable("id") Long reportId,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile[] files) {
 
+        if (files == null || files.length == 0) {
+            return ResponseEntity.badRequest().body("No files provided.");
+        }
+
+        List<String> uploadedUrls = new ArrayList<>();
         try {
-            // Sends the file to AWS S3 and gets the public URL back
-            String mediaUrl = s3MediaService.uploadFile(file);
-            // Saves that URL to the database by linking it to a specified report
-            reportService.addMediaToReport(reportId, mediaUrl);
+            // 1. Validate all files before any network I/O
+            for (MultipartFile file : files) {
+                s3MediaService.validate(file);
+            }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("mediaUrl", mediaUrl));
+            // 2. Upload all files to S3
+            for (MultipartFile file : files) {
+                uploadedUrls.add(s3MediaService.uploadFile(file));
+            }
+
+            // 3. Link all uploaded files to the database
+            List<com.bounswe2026group1.backend.model.Media> savedMediaList = reportService.addMediaToReportBatch(reportId, uploadedUrls);
+            
+            // 4. Format the response as an array of objects [{ "id": 1, "url": "https..." }]
+            List<Map<String, Object>> responseBody = new ArrayList<>();
+            for (int i = 0; i < savedMediaList.size(); i++) {
+                responseBody.add(Map.of(
+                    "id", savedMediaList.get(i).getId(),
+                    "url", savedMediaList.get(i).getFilePath()
+                ));
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (NoSuchElementException e){
+            // If report is not found, delete any files we just uploaded to S3
+            for (String url : uploadedUrls) {
+                try { s3MediaService.deleteFile(url); } catch (Exception ignored) {}
+            }
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
+            log.error("Media upload failed for report {}", reportId, e);
+            // If any upload or DB operation fails midway, rollback S3 uploads
+            for (String url : uploadedUrls) {
+                try { s3MediaService.deleteFile(url); } catch (Exception ignored) {}
+            }
             return ResponseEntity.internalServerError().body("Upload failed.");
         }
     }

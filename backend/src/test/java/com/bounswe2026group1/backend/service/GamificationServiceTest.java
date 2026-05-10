@@ -114,42 +114,6 @@ class GamificationServiceTest {
     @Test
     void awardOnVoteCast_addsFivePointsOnFreshVote() {
         RegisteredUser voter = newUser(2L, 100);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_CAST)).thenReturn(0L);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_WITHDRAWN)).thenReturn(0L);
-
-        gamificationService.awardOnVoteCast(voter, 100L);
-
-        assertThat(voter.getPoints()).isEqualTo(105);
-        verify(pointEventRepository).save(any(PointEvent.class));
-    }
-
-    @Test
-    void awardOnVoteCast_isNoOpWhenAlreadyVoted_modifyVotePath() {
-        // Modify-vote (agree → disagree or vice versa) must NOT yield extra points.
-        RegisteredUser voter = newUser(2L, 100);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_CAST)).thenReturn(1L);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_WITHDRAWN)).thenReturn(0L);
-
-        gamificationService.awardOnVoteCast(voter, 100L);
-
-        assertThat(voter.getPoints()).isEqualTo(100);
-        verify(pointEventRepository, never()).save(any(PointEvent.class));
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void awardOnVoteCast_addsPointsAfterWithdraw_recastIsLegitimate() {
-        // cycle: cast(+5) → withdraw(-5) → cast(+5). Casts 1, withdrawals 1
-        // → currently NOT voted → fresh cast pays.
-        RegisteredUser voter = newUser(2L, 100);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_CAST)).thenReturn(1L);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_WITHDRAWN)).thenReturn(1L);
 
         gamificationService.awardOnVoteCast(voter, 100L);
 
@@ -162,10 +126,6 @@ class GamificationServiceTest {
     @Test
     void deductOnVoteWithdraw_subtractsFiveOnActiveVote() {
         RegisteredUser voter = newUser(2L, 100);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_CAST)).thenReturn(1L);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_WITHDRAWN)).thenReturn(0L);
 
         gamificationService.deductOnVoteWithdraw(voter, 100L);
 
@@ -174,21 +134,6 @@ class GamificationServiceTest {
         verify(pointEventRepository).save(ev.capture());
         assertThat(ev.getValue().getReason()).isEqualTo(PointReason.VOTE_WITHDRAWN);
         assertThat(ev.getValue().getDelta()).isEqualTo(-5);
-    }
-
-    @Test
-    void deductOnVoteWithdraw_isNoOpWhenNoActiveVote() {
-        // Defensive: never deduct for a withdraw without a paired cast.
-        RegisteredUser voter = newUser(2L, 100);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_CAST)).thenReturn(1L);
-        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
-                2L, 100L, PointReason.VOTE_WITHDRAWN)).thenReturn(1L);
-
-        gamificationService.deductOnVoteWithdraw(voter, 100L);
-
-        assertThat(voter.getPoints()).isEqualTo(100);
-        verify(pointEventRepository, never()).save(any(PointEvent.class));
     }
 
     // ─────────────────────── score-clamp at zero ────────────────────────

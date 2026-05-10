@@ -13,6 +13,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,7 +28,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -862,6 +870,91 @@ class ReportServiceTest {
         reportService.unverifyReport(1L, "user@test.com");
 
         verify(gamificationService).awardOnVoteCast(eq(testUser), any());
+    }
+
+    // ---------------- Feed (GET /api/reports/feed) ----------------
+
+    @Test
+    void feed_withoutCoordinates_callsFindFeedRecent() {
+        ReflectionTestUtils.setField(testReport, "reportId", 10L);
+        Page<Report> repoPage = new PageImpl<>(List.of(testReport));
+        when(reportRepository.findFeedRecent(isNull(), isNull(), any(Pageable.class))).thenReturn(repoPage);
+        when(fixRequestRepository.findOpenFixRequestIdsByReportIds(anyList())).thenReturn(List.of());
+
+        Page<ReportResponse> result = reportService.feed(
+                null, null, null, null, null,
+                PageRequest.of(0, 20),
+                null);
+
+        assertEquals(1, result.getContent().size());
+        assertEquals("Broken ramp", result.getContent().get(0).getDescription());
+        verify(reportRepository).findFeedRecent(null, null, PageRequest.of(0, 20));
+        verify(reportRepository, never()).findFeedWithinRadius(
+                any(), any(), anyDouble(), anyDouble(), anyDouble(), any(Pageable.class));
+    }
+
+    @Test
+    void feed_withCoordinates_callsFindFeedWithinRadius_withDefaultRadiusKmWhenNull() {
+        ReflectionTestUtils.setField(testReport, "reportId", 11L);
+        Page<Report> repoPage = new PageImpl<>(List.of(testReport));
+        Pageable expectedPaging = PageRequest.of(0, 20, Sort.unsorted());
+        when(reportRepository.findFeedWithinRadius(
+                isNull(),
+                isNull(),
+                eq(41.0),
+                eq(29.0),
+                eq(1.0),
+                eq(expectedPaging))).thenReturn(repoPage);
+        when(fixRequestRepository.findOpenFixRequestIdsByReportIds(anyList())).thenReturn(List.of());
+
+        Page<ReportResponse> result = reportService.feed(
+                null, null, 41.0, 29.0, null,
+                PageRequest.of(0, 20),
+                null);
+
+        assertEquals(1, result.getTotalElements());
+        verify(reportRepository).findFeedWithinRadius(
+                null, null, 41.0, 29.0, 1.0, PageRequest.of(0, 20, Sort.unsorted()));
+        verify(reportRepository, never()).findFeedRecent(any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void feed_withCoordinatesAndFilters_passesReportTypeEnvironmentAndRadiusToProximityRepository() {
+        ReflectionTestUtils.setField(testReport, "reportId", 12L);
+        Page<Report> repoPage = new PageImpl<>(List.of(testReport));
+        Pageable expectedPaging = PageRequest.of(0, 10, Sort.unsorted());
+        when(reportRepository.findFeedWithinRadius(
+                eq(ReportType.OBSTACLE),
+                eq(ReportEnvironment.INDOOR),
+                eq(41.5),
+                eq(29.5),
+                eq(3.0),
+                eq(expectedPaging))).thenReturn(repoPage);
+        when(fixRequestRepository.findOpenFixRequestIdsByReportIds(anyList())).thenReturn(List.of());
+
+        reportService.feed(
+                ReportType.OBSTACLE,
+                ReportEnvironment.INDOOR,
+                41.5,
+                29.5,
+                3.0,
+                PageRequest.of(0, 10),
+                null);
+
+        verify(reportRepository).findFeedWithinRadius(
+                ReportType.OBSTACLE,
+                ReportEnvironment.INDOOR,
+                41.5,
+                29.5,
+                3.0,
+                PageRequest.of(0, 10, Sort.unsorted()));
+    }
+
+    @Test
+    void feed_latitudeWithoutLongitude_throwsBadRequest() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.feed(null, null, 41.0, null, null, PageRequest.of(0, 20), null));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }
 
 }

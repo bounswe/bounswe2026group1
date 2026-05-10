@@ -2,6 +2,7 @@ import {
   agreeFixRequest,
   disagreeFixRequest,
   submitFixRequest,
+  getReportFeed,
   mapReport,
   mapFixRequest,
   mapReportStatus,
@@ -118,6 +119,80 @@ describe('reportService — fix request helpers', () => {
     })
   })
 
+  describe('getReportFeed', () => {
+    it('GETs /api/reports/feed with page and size; omits ALL filters and coords', async () => {
+      apiFetch.mockResolvedValue({ content: [], last: true })
+
+      await getReportFeed(
+        { page: 0, size: 20, reportType: 'ALL', environment: 'ALL' },
+        null
+      )
+
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/feed?page=0&size=20', { headers: {} })
+    })
+
+    it('adds reportType and environment when not ALL', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        { page: 1, size: 10, reportType: 'OBSTACLE', environment: 'OUTDOOR' },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.get('page')).toBe('1')
+      expect(sp.get('size')).toBe('10')
+      expect(sp.get('reportType')).toBe('OBSTACLE')
+      expect(sp.get('environment')).toBe('OUTDOOR')
+    })
+
+    it('adds latitude, longitude, and radiusInKm when coordinates are finite', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          reportType: 'ALL',
+          environment: 'ALL',
+          latitude: 41.08,
+          longitude: 29.04,
+          radiusInKm: 5,
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.get('latitude')).toBe('41.08')
+      expect(sp.get('longitude')).toBe('29.04')
+      expect(sp.get('radiusInKm')).toBe('5')
+    })
+
+    it('sends Bearer token when provided', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed({ page: 0, size: 20 }, 'secret-token')
+
+      expect(apiFetch).toHaveBeenCalledWith(expect.any(String), {
+        headers: { Authorization: 'Bearer secret-token' },
+      })
+    })
+
+    it('merges fetchOpts into apiFetch options', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+      const ac = new AbortController()
+
+      await getReportFeed({ page: 0, size: 20 }, null, { signal: ac.signal })
+
+      expect(apiFetch).toHaveBeenCalledWith(expect.any(String), {
+        headers: {},
+        signal: ac.signal,
+      })
+    })
+  })
+
   describe('mapReportStatus', () => {
     it.each([
       ['VERIFIED', 'verified'],
@@ -213,6 +288,15 @@ describe('reportService — fix request helpers', () => {
 
     it('maps FIXED status to lowercase fixed', () => {
       expect(mapReport({ ...baseReport, status: 'FIXED' }).status).toBe('fixed')
+    })
+
+    it('uses a safe location label when coordinates are missing or invalid', () => {
+      expect(mapReport({ ...baseReport, latitude: null, longitude: null }).location).toBe(
+        'Location unavailable'
+      )
+      expect(mapReport({ ...baseReport, latitude: 'x', longitude: 'y' }).location).toBe(
+        'Location unavailable'
+      )
     })
   })
 })

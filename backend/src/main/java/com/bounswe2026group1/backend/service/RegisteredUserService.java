@@ -138,6 +138,32 @@ public class RegisteredUserService {
                 .toList();
     }
 
+    /** User search (#306 / #501): paginated, case-insensitive substring match
+     *  across name OR email. Empty / blank query is rejected with
+     *  IllegalArgumentException so the controller can return 400.
+     *  Email is omitted in the DTO (privacy) — search results are public. */
+    public Page<UserProfileDTO> searchUsers(String query, Pageable pageable) {
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("Search query must not be empty.");
+        }
+        String trimmed = query.trim();
+        Page<RegisteredUser> page = registeredUserRepository
+                .searchRegularUsersByNameOrEmail(trimmed, pageable);
+        if (page.isEmpty()) return page.map(u -> buildDTO(u, false, 0L, 0L, List.of(), null));
+
+        // Batch the contribution-stats queries so we stay flat at 3 queries
+        // total regardless of page size — same pattern as getAllProfiles.
+        List<Long> ids = page.getContent().stream().map(RegisteredUser::getId).toList();
+        Map<Long, Long> reportCounts = toCountMap(reportRepository.countByCreatedByIdIn(ids));
+        Map<Long, Long> routeCounts = toCountMap(routeRepository.countByCreatedByIdIn(ids));
+        Map<Long, List<Badge>> badgesByUser = toBadgeMap(userBadgeRepository.findBadgesByUserIds(ids));
+        return page.map(u -> buildDTO(u, false,
+                reportCounts.getOrDefault(u.getId(), 0L),
+                routeCounts.getOrDefault(u.getId(), 0L),
+                badgesByUser.getOrDefault(u.getId(), List.of()),
+                null));
+    }
+
     private static Map<Long, Long> toCountMap(List<Object[]> rows) {
         Map<Long, Long> map = new HashMap<>(rows.size());
         for (Object[] row : rows) {
