@@ -7,6 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -27,7 +29,8 @@ public interface RegisteredUserRepository extends JpaRepository<RegisteredUser, 
     long countByRole(UserRole role);
     long countByStatus(UserStatus status);
 
-    // User search (#306 / #501): case-insensitive substring match across name OR email.
-    Page<RegisteredUser> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-            String name, String email, Pageable pageable);
+    // User search (#306 / #501): case-insensitive substring match across name OR email, regular users only.
+    @Query("SELECT u FROM RegisteredUser u WHERE u.role = com.bounswe2026group1.backend.model.UserRole.USER " +
+           "AND (LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RegisteredUser> searchRegularUsersByNameOrEmail(@Param("q") String q, Pageable pageable);
 }

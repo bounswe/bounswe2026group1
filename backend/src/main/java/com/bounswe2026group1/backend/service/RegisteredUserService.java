@@ -136,7 +136,7 @@ public class RegisteredUserService {
         }
         String trimmed = query.trim();
         Page<RegisteredUser> page = registeredUserRepository
-                .findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(trimmed, trimmed, pageable);
+                .searchRegularUsersByNameOrEmail(trimmed, pageable);
         if (page.isEmpty()) return page.map(u -> buildDTO(u, false, 0L, 0L));
 
         // Batch the contribution-stats queries so we stay flat at 3 queries
