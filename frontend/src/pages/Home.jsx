@@ -304,6 +304,7 @@ function Home() {
   const [routeError, setRouteError] = useState('')
   const [toast, setToast] = useState(null)
   const [showFilters, setShowFilters] = useState(false)
+  const filterButtonRef = useRef(null)
   // Filter state lives in URL so the view is shareable; this is just a
   // memoized parse of the current `?excluded=` token.
   const { types: excludedTypes, issues: excludedIssues } = parseExcluded(searchParams.get('excluded'))
@@ -642,6 +643,7 @@ function Home() {
             filterSlot={
               <>
                 <button
+                  ref={filterButtonRef}
                   type="button"
                   onClick={() => setShowFilters((v) => !v)}
                   className="p-2 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
@@ -664,6 +666,7 @@ function Home() {
                     excludedIssues={excludedIssues}
                     onChange={setExcluded}
                     onClose={() => setShowFilters(false)}
+                    triggerRef={filterButtonRef}
                   />
                 )}
               </>
