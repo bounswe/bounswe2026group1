@@ -27,5 +27,26 @@ public enum PointReason {
     VOTE_ALIGNED,
 
     /** Voter penalty when their vote opposed the final status. */
-    VOTE_OPPOSED
+    VOTE_OPPOSED,
+
+    /** A vote was cast on a fix request. Symmetric to VOTE_CAST but tracked
+     *  separately so the cast/withdraw cycle for fix requests is paired
+     *  against its own ledger entries, not against report votes. */
+    FIX_REQUEST_VOTE_CAST,
+
+    /** A previously cast fix-request vote was fully withdrawn. */
+    FIX_REQUEST_VOTE_WITHDRAWN,
+
+    /** Bonus to the fix-request submitter when their request reaches
+     *  RESOLVED_FIXED — analogous to REPORT_VERIFIED_BONUS but for the
+     *  person who proved the report is no longer an obstacle. */
+    FIX_RESOLVED_BONUS,
+
+    /** Voter reward when their fix-request vote agreed with the resolved
+     *  outcome (agree → request resolved as fixed). */
+    FIX_VOTE_ALIGNED,
+
+    /** Voter penalty when their fix-request vote opposed the resolved
+     *  outcome (disagree → request still resolved as fixed). */
+    FIX_VOTE_OPPOSED
 }
