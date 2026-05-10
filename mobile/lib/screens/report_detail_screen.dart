@@ -13,6 +13,7 @@ import '../models/sse_event.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
+import '../widgets/badge_chip.dart';
 import '../main.dart' show MainShell, AuthShell;
 import 'create_fix_request_screen.dart';
 import 'edit_report_screen.dart';
@@ -932,32 +933,41 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _isGuest
-                    ? Text(
-                        'User #${report.userId}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.onSurface,
-                        ),
-                      )
-                    : _usernameLoading
-                        ? Container(
-                            width: 90,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          )
-                        : Text(
-                            _displayUsername,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _isGuest
+                        ? Text(
+                            'User #${report.userId}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.onSurface,
                             ),
-                          ),
+                          )
+                        : _usernameLoading
+                            ? Container(
+                                width: 90,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              )
+                            : Text(
+                                _displayUsername,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.onSurface,
+                                ),
+                              ),
+                    if (report.authorTopBadge != null) ...[
+                      const SizedBox(width: 6),
+                      BadgeChip(badge: report.authorTopBadge!, compact: true),
+                    ],
+                  ],
+                ),
                 Text(
                   'Reported ${report.timeAgo}',
                   style: TextStyle(
