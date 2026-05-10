@@ -1221,7 +1221,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       {showCreateFix && (
         <CreateFixRequestPanel
           reportId={report.id}
-          reportTitle={report.title}
+          reportTitle={displayTitle}
           onClose={() => setShowCreateFix(false)}
           onSubmitted={handleFixSubmitted}
         />
