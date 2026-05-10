@@ -56,6 +56,10 @@ public class ReportResponse {
             example = "2026-05-08T09:10:00Z", nullable = true)
     private Instant fixedAt;
 
+    @Schema(description = "Database IDs of the media files attached to the report.",
+            example = "[1, 2, 3]")
+    private List<Long> mediaIds;
+
     @Schema(description = "Public S3 URLs for any photos or videos attached to the report.",
             example = "[\"https://mapcess-prod.s3.amazonaws.com/reports/1024-1.jpg\"]")
     private List<String> mediaUrls;
@@ -125,6 +129,7 @@ public class ReportResponse {
         r.setDisagrees(report.getDisagrees());
         r.setPublishDate(report.getPublishDate());
         r.setFixedAt(report.getFixedAt());
+        r.setMediaIds(report.getMediaList().stream().map(Media::getId).toList());
         r.setMediaUrls(report.getMediaList().stream().map(Media::getFilePath).toList());
         r.setUserVote(userVote);
         r.setActiveFixRequest(activeFixRequest);

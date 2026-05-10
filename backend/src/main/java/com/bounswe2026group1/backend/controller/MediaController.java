@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -66,7 +67,8 @@ public class MediaController {
     })
     public ResponseEntity<?> uploadMediaForReport(
             @PathVariable("id") Long reportId,
-            @RequestParam("file") MultipartFile[] files) {
+            @RequestParam("file") MultipartFile[] files,
+            @AuthenticationPrincipal String email) {
 
         if (files == null || files.length == 0) {
             return ResponseEntity.badRequest().body("No files provided.");
@@ -85,7 +87,7 @@ public class MediaController {
             }
 
             // 3. Link all uploaded files to the database
-            List<com.bounswe2026group1.backend.model.Media> savedMediaList = reportService.addMediaToReportBatch(reportId, uploadedUrls);
+            List<com.bounswe2026group1.backend.model.Media> savedMediaList = reportService.addMediaToReportBatch(reportId, uploadedUrls, email);
             
             // 4. Format the response as an array of objects [{ "id": 1, "url": "https..." }]
             List<Map<String, Object>> responseBody = new ArrayList<>();
