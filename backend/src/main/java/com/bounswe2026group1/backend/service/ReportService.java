@@ -215,6 +215,12 @@ public class ReportService {
         RegisteredUser editor = registeredUserRepository.findByEmail(editorEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
+        boolean isOwner = report.getCreatedBy().getId().equals(editor.getId());
+        boolean isAdmin = editor.getRole() == UserRole.ADMIN;
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
+        }
+
         Map<String, Object[]> diff = new LinkedHashMap<>();
 
         if (request.getDescription() != null && !request.getDescription().equals(report.getDescription())) {
@@ -447,9 +453,17 @@ public class ReportService {
         return target;
     }
 
-    public Media addMediaToReport(Long reportId, String mediaUrl) {
+    public Media addMediaToReport(Long reportId, String mediaUrl, String email) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
+
+        RegisteredUser requester = registeredUserRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        boolean isOwner = report.getCreatedBy().getId().equals(requester.getId());
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
+        }
         Media media = new Media();
         media.setReport(report);
         media.setFilePath(mediaUrl);
@@ -459,9 +473,17 @@ public class ReportService {
     }
 
     @Transactional
-    public List<Media> addMediaToReportBatch(Long reportId, List<String> mediaUrls) {
+    public List<Media> addMediaToReportBatch(Long reportId, List<String> mediaUrls, String email) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new NoSuchElementException("Report not found with id: " + reportId));
+
+        RegisteredUser requester = registeredUserRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        boolean isOwner = report.getCreatedBy().getId().equals(requester.getId());
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the owner of this report");
+        }
         List<Media> savedMediaList = new ArrayList<>();
         for (String mediaUrl : mediaUrls) {
             Media media = new Media();

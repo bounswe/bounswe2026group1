@@ -212,6 +212,24 @@ class ReportServiceTest {
     }
 
     @Test
+    void update_notOwner_throws403() {
+        RegisteredUser otherUser = new RegisteredUser();
+        otherUser.setId(2L);
+        otherUser.setEmail("other@test.com");
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("other@test.com")).thenReturn(Optional.of(otherUser));
+
+        UpdateReportRequest updateRequest = new UpdateReportRequest();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.update(1L, updateRequest, "other@test.com"));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+        verify(reportRepository, never()).save(any(Report.class));
+    }
+
+    @Test
     void update_withMediaIdsToRemove_deletesS3FilesAndRemovesFromList() {
         Media media = new Media();
         media.setFilePath("https://bucket.s3.amazonaws.com/file.jpg");
@@ -393,9 +411,10 @@ class ReportServiceTest {
     @Test
     void addMediaToReport_broadcastsMediaAdded() {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
         when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        reportService.addMediaToReport(1L, "https://cdn.example/media.jpg");
+        reportService.addMediaToReport(1L, "https://cdn.example/media.jpg", "owner@test.com");
 
         verify(mediaRepository).save(any(Media.class));
         verify(publicSseService).broadcastMediaAdded(eq(testReport), any(Media.class));

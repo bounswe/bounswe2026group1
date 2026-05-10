@@ -55,7 +55,7 @@ class MediaControllerTest {
                 "file", "photo.jpg", "image/jpeg", "fake-bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
-        when(reportService.addMediaToReportBatch(eq(1L), any()))
+        when(reportService.addMediaToReportBatch(eq(1L), any(), any()))
                 .thenReturn(java.util.List.of(stubMedia(10L, RETURNED_URL)));
 
         mockMvc.perform(multipart(UPLOAD_URL, 1L).file(file)
@@ -73,7 +73,7 @@ class MediaControllerTest {
         String expectedUrl = "https://bucket.s3.amazonaws.com/some-uuid_pic.png";
 
         when(s3MediaService.uploadFile(any())).thenReturn(expectedUrl);
-        when(reportService.addMediaToReportBatch(eq(5L), any()))
+        when(reportService.addMediaToReportBatch(eq(5L), any(), any()))
                 .thenReturn(java.util.List.of(stubMedia(20L, expectedUrl)));
 
         mockMvc.perform(multipart(UPLOAD_URL, 5L).file(file)
@@ -90,14 +90,14 @@ class MediaControllerTest {
                 "file", "photo.jpg", "image/jpeg", "bytes".getBytes());
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
-        when(reportService.addMediaToReportBatch(eq(42L), any()))
+        when(reportService.addMediaToReportBatch(eq(42L), any(), any()))
                 .thenReturn(java.util.List.of(stubMedia(30L, RETURNED_URL)));
 
         mockMvc.perform(multipart(UPLOAD_URL, 42L).file(file)
                         .header("Mapcess-Key", validApiKey))
                 .andExpect(status().isCreated());
 
-        verify(reportService, times(1)).addMediaToReportBatch(eq(42L), any());
+        verify(reportService, times(1)).addMediaToReportBatch(eq(42L), any(), any());
     }
 
     // ── 400 Bad Request ───────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ class MediaControllerTest {
 
         when(s3MediaService.uploadFile(any())).thenReturn(RETURNED_URL);
         doThrow(new NoSuchElementException("Report not found with id: 99"))
-                .when(reportService).addMediaToReportBatch(eq(99L), any());
+                .when(reportService).addMediaToReportBatch(eq(99L), any(), any());
 
         mockMvc.perform(multipart(UPLOAD_URL, 99L).file(file)
                         .header("Mapcess-Key", validApiKey))
