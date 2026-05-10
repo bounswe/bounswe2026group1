@@ -140,7 +140,6 @@ function Signup() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onBlur={() => setPasswordTouched(true)}
                     aria-invalid={passwordTouched && !passwordValidation.isValid}
                     aria-describedby="password-requirements"
                     required
@@ -151,10 +150,10 @@ function Signup() {
                     aria-live="polite"
                   >
                     {passwordValidation.results.map((rule) => {
-                      // Show red only after the user has tabbed away or
-                      // tried to submit (passwordTouched). While they're
-                      // still typing for the first time, unmet rules stay
-                      // grey so the form doesn't flash red on every keystroke.
+                      // Show red only after the user has actually tried to
+                      // submit (passwordTouched). While they're still working
+                      // on the form, unmet rules stay grey — passed rules
+                      // turn green in real time.
                       const showFailure = passwordTouched && !rule.passed
                       const colorClass = rule.passed
                         ? 'text-[#176a21]'
@@ -203,7 +202,7 @@ function Signup() {
               <button
                 className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
                 type="submit"
-                disabled={!terms || isLoading || !passwordValidation.isValid}
+                disabled={!terms || isLoading}
               >
                 {isLoading ? 'Creating account…' : 'Create Account'}
               </button>
