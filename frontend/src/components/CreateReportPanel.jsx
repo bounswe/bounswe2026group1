@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
@@ -11,6 +12,7 @@ const ALLOWED_MEDIA_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4',
 const MAX_MEDIA_BYTES = 15 * 1024 * 1024
 
 function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError }) {
+  const { t } = useTranslation()
   const { token, userId } = useAuth()
   const navigate = useNavigate()
 
@@ -215,18 +217,18 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
   async function handleSubmit() {
     if (!token) { onClose(); navigate('/login'); return }
-    if (!position) return setError('Click on the map to set a location.')
-    if (objects.length === 0) return setError('Add at least one object to describe the issue.')
+    if (!position) return setError(t('createReport.errorSetLocation'))
+    if (objects.length === 0) return setError(t('createReport.errorAddObject'))
 
     for (const obj of objects) {
-      if (!obj.objectType) return setError('Select a type for every object card.')
+      if (!obj.objectType) return setError(t('createReport.errorSelectType'))
       if (reportType === 'OBSTACLE' && obj.issues.length === 0) {
-        const label = OBJECT_TYPES.find(t => t.type === obj.objectType)?.label ?? obj.objectType
-        return setError(`Select at least one issue for the "${label}" object.`)
+        const label = OBJECT_TYPES.find((ot) => ot.type === obj.objectType)?.label ?? obj.objectType
+        return setError(t('createReport.errorSelectIssue', { label }))
       }
     }
 
-    if (!description.trim()) return setError('Please provide a description.')
+    if (!description.trim()) return setError(t('createReport.errorProvideDescription'))
 
     setSubmitting(true)
     setError('')
@@ -272,7 +274,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
       onCreated(mapped)
       onClose()
     } catch (err) {
-      const message = err.message || 'Failed to submit report. Please try again.'
+      const message = err.message || t('createReport.errorSubmitFailed')
       setError(message)
       // Surface the same message as a global toast for callers that wired one
       // up (Home does). The inline error stays for persistent context.
@@ -328,7 +330,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
       {/* Header */}
       <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
         <div className="min-w-0">
-          <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
+          <h2 className="text-2xl font-extrabold font-headline text-on-surface">{t('createReport.title')}</h2>
           {position ? (
             // Place name from reverse-geocoding sits on the primary line; raw
             // coordinates fall to a smaller secondary line so the user always
@@ -344,7 +346,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
               )}
             </>
           ) : (
-            <p className="text-sm text-on-surface-variant mt-1">Click on the map to set location</p>
+            <p className="text-sm text-on-surface-variant mt-1">{t('createReport.clickToSetLocation')}</p>
           )}
         </div>
         <button
@@ -360,7 +362,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
         {/* Visual Evidence */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">{t('createReport.visualEvidence')}</p>
           <div
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
@@ -381,13 +383,13 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                       {isVideo && (
                         <span className="absolute top-1 left-1 flex items-center gap-1 bg-black/60 text-white text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full">
                           <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>movie</span>
-                          Video
+                          {t('createReport.video')}
                         </span>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
                         className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Remove image"
+                        aria-label={t('createReport.removeImage')}
                       >
                         <span className="material-symbols-outlined text-sm">close</span>
                       </button>
@@ -397,15 +399,15 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                 {imagePreviews.length < 5 && (
                   <div className="aspect-video rounded-lg border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors">
                     <span className="material-symbols-outlined text-2xl mb-1">add</span>
-                    <span className="text-[10px] font-medium">Add more</span>
+                    <span className="text-[10px] font-medium">{t('createReport.addMore')}</span>
                   </div>
                 )}
               </div>
             ) : (
               <>
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos / videos here</p>
-                <p className="text-xs text-outline">Up to 5 files, 15 MB each (JPEG, PNG, MP4, MOV).</p>
+                <p className="text-sm font-medium text-on-surface-variant">{t('createReport.uploadOrDrag')}</p>
+                <p className="text-xs text-outline">{t('createReport.uploadHint')}</p>
               </>
             )}
           </div>
@@ -426,11 +428,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
         {/* Report Type */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Report Type</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">{t('createReport.reportType')}</p>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { value: 'OBSTACLE', icon: 'construction',      label: 'Obstacle', desc: 'Something broken or missing' },
-              { value: 'FEATURE',  icon: 'accessible_forward', label: 'Feature',  desc: 'Something helpful that exists' },
+              { value: 'OBSTACLE', icon: 'construction',      label: t('createReport.obstacle'), desc: t('createReport.obstacleDesc') },
+              { value: 'FEATURE',  icon: 'accessible_forward', label: t('createReport.feature'),  desc: t('createReport.featureDesc') },
             ].map(t => (
               <button
                 key={t.value}
@@ -451,11 +453,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
         {/* Environment */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Environment</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">{t('createReport.environment')}</p>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { value: 'OUTDOOR', icon: 'wb_sunny', label: 'Outdoor' },
-              { value: 'INDOOR',  icon: 'home',     label: 'Indoor' },
+              { value: 'OUTDOOR', icon: 'wb_sunny', label: t('createReport.outdoor') },
+              { value: 'INDOOR',  icon: 'home',     label: t('createReport.indoor') },
             ].map(e => (
               <button
                 key={e.value}
@@ -497,7 +499,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                       <span className="text-on-primary text-[10px] font-bold">{idx + 1}</span>
                     </div>
                     <span className={`flex-1 text-sm font-semibold ${obj.objectType ? 'text-on-surface' : 'text-on-surface-variant italic'}`}>
-                      {cfg ? cfg.label : 'Select a type…'}
+                      {cfg ? cfg.label : t('createReport.selectType')}
                     </span>
                     <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform" style={{ transform: obj.expanded ? 'rotate(180deg)' : '' }}>
                       expand_more
@@ -505,7 +507,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                     <button
                       onClick={e => { e.stopPropagation(); removeObject(obj.id) }}
                       className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors"
-                      aria-label="Remove object"
+                      aria-label={t('createReport.removeObject')}
                     >
                       <span className="material-symbols-outlined text-base">delete</span>
                     </button>
@@ -516,7 +518,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
                       {/* Object type picker */}
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Object Type</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">{t('createReport.objectType')}</p>
                         <div className="grid grid-cols-5 gap-1.5">
                           {visibleTypes.map(t => {
                             const isSelected = obj.objectType === t.type
@@ -545,7 +547,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                       {cfg && reportType === 'OBSTACLE' && (
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
-                            Issues <span className="text-error">*</span>
+                            {t('createReport.issues')} <span className="text-error">*</span>
                           </p>
                           <div className="grid grid-cols-2 gap-1">
                             {cfg.issues.map(issue => (
@@ -575,16 +577,16 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                               className="flex items-center gap-1.5 text-xs font-semibold text-primary"
                             >
                               <span className="material-symbols-outlined text-base">straighten</span>
-                              {obj.showMeasurements ? 'Hide measurements' : 'Show measurements (optional)'}
+                              {obj.showMeasurements ? t('createReport.hideMeasurements') : t('createReport.showMeasurements')}
                             </button>
                             <button
                               type="button"
                               onClick={() => setTutorialFor(obj.objectType)}
-                              aria-label={`How to measure ${cfg.label}`}
+                              aria-label={t('createReport.howToMeasureAria', { label: cfg.label })}
                               className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant hover:text-primary cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-sm">help_outline</span>
-                              How to measure
+                              {t('createReport.howToMeasure')}
                             </button>
                           </div>
                           {obj.showMeasurements && (
@@ -637,19 +639,19 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             className="w-full py-3 rounded-xl border-2 border-dashed border-primary/35 text-primary text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/5 hover:border-primary/50 transition-colors"
           >
             <span className="material-symbols-outlined text-lg">add_circle</span>
-            Add Object
+            {t('createReport.addObject')}
           </button>
         </div>
 
         {/* Description */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">{t('createReport.details')}</p>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value.slice(0, 1000))}
             rows={4}
             maxLength={1000}
-            placeholder="Provide a brief description of the issue..."
+            placeholder={t('createReport.descriptionPlaceholder')}
             className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
@@ -668,14 +670,14 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             onClick={onClose}
             className="py-4 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container transition-colors"
           >
-            Cancel
+            {t('createReport.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
             className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
           >
-            {submitting ? 'Submitting…' : 'Submit Report'}
+            {submitting ? t('createReport.submitting') : t('createReport.submitReport')}
           </button>
         </div>
 
