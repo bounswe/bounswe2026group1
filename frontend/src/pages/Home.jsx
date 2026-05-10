@@ -843,6 +843,7 @@ function Home() {
             setNewReportPinLabel('')
             setToast({ message: 'Report submitted successfully!', type: 'success' })
           }}
+          onError={(message) => setToast({ message, type: 'error' })}
         />
       )}
       {toast && (
