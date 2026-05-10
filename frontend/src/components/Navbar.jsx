@@ -197,7 +197,7 @@ function Navbar() {
               aria-label="Open profile menu"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary flex items-center justify-center overflow-hidden cursor-pointer ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center overflow-hidden cursor-pointer ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {showAvatarImage ? (
                 <img
@@ -207,7 +207,7 @@ function Navbar() {
                   onError={() => setFailedAvatarUrl(avatarUrl)}
                 />
               ) : (
-                <span className="material-symbols-outlined text-white" style={{ fontSize: '20px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
                   person
                 </span>
               )}
