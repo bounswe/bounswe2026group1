@@ -146,31 +146,39 @@ describe('Signup page', () => {
       expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
     })
 
-    it('stays disabled when password does not meet all rules', async () => {
+    it('stays enabled when password is invalid so the user can click and see the rule errors (#518)', async () => {
       const user = userEvent.setup()
       renderSignup()
       await user.type(screen.getByLabelText(/^password$/i), 'weakpass')
       await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
-      expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
     })
   })
 
   // ─── Password validation UI ──────────────────────────────────────────────────
 
   describe('password requirements checklist', () => {
-    it('keeps unmet rules in a neutral state while typing, then surfaces error copy after blur', async () => {
+    it('keeps unmet rules in a neutral state while typing, then surfaces error copy after a submit attempt', async () => {
       const user = userEvent.setup()
       renderSignup()
+      await user.type(screen.getByLabelText(/full name/i), 'Test User')
+      await user.type(screen.getByLabelText(/^email/i), 'test@test.com')
       const passwordInput = screen.getByLabelText(/^password$/i)
       await user.type(passwordInput, 'abc')
 
-      // While the user is still typing for the first time the unmet rules
-      // show their short label, not the long error message.
+      // Short labels while still working on the form.
       expect(screen.queryByText(/at least 8 characters long/i)).not.toBeInTheDocument()
       expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument()
 
-      // After blur (or attempt to submit) the long descriptive error copy appears.
+      // Tabbing to another field must NOT flash red — that was the regression
+      // from #489 (issue #518).
       await user.tab()
+      expect(screen.queryByText(/at least 8 characters long/i)).not.toBeInTheDocument()
+
+      // After clicking Create Account with an invalid password the descriptive
+      // copy appears. (Need the terms box ticked so the button isn't disabled.)
+      await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
+      await user.click(screen.getByRole('button', { name: /create account/i }))
       expect(screen.getByText(/at least 8 characters long/i)).toBeInTheDocument()
       expect(screen.getByText(/uppercase letter/i)).toBeInTheDocument()
       expect(screen.getByText(/at least one number/i)).toBeInTheDocument()
