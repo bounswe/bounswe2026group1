@@ -185,4 +185,12 @@ describe('Navbar', () => {
       expect(screen.getByText('home page')).toBeInTheDocument()
     })
   })
+
+  describe('top-level nav links', () => {
+    it('exposes a Leaderboard link pointing at /leaderboard', () => {
+      renderNavbar()
+      const link = screen.getByRole('link', { name: /leaderboard/i })
+      expect(link).toHaveAttribute('href', '/leaderboard')
+    })
+  })
 })
