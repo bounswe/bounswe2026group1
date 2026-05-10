@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
 import NotificationDropdown from './NotificationDropdown.jsx'
 import ThemeToggleButton from './ThemePicker.jsx'
@@ -13,6 +14,7 @@ function Navbar() {
   const { isAuthenticated, isAdmin, logout } = useAuth()
   const { data: user } = useCurrentUser()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const unreadCount = useUnreadCount()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -80,12 +82,12 @@ function Navbar() {
             on /profile or /admin without a way back to the map otherwise. */}
         <Link
           to="/"
-          aria-label="Mapcess home"
+          aria-label={t('nav.mapcessHome')}
           className="flex items-center gap-2 sm:gap-3 -translate-y-[2px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
         >
           <img
             src={logo}
-            alt="Mapcess logo"
+            alt={t('nav.mapcessLogo')}
             className="h-12 md:h-18 w-auto block shrink-0"
           />
           <span className="text-xl md:text-2xl font-bold text-primary tracking-tight font-headline leading-none -translate-y-[1px]">
@@ -102,7 +104,7 @@ function Navbar() {
                 : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
             }
           >
-            Home
+            {t('nav.home')}
           </NavLink>
           <NavLink
             to="/feed"
@@ -112,7 +114,7 @@ function Navbar() {
                 : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
             }
           >
-            Feed
+            {t('nav.feed')}
           </NavLink>
           <NavLink
             to="/leaderboard"
@@ -129,7 +131,7 @@ function Navbar() {
             onClick={handleReplayTutorialClick}
             className="text-on-surface-variant hover:text-primary transition-colors font-medium pb-1 cursor-pointer"
           >
-            Tutorial
+            {t('nav.tutorial')}
           </button>
           {isAdmin && (
             <NavLink
@@ -140,7 +142,7 @@ function Navbar() {
                   : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
               }
             >
-              Admin
+              {t('nav.admin')}
             </NavLink>
           )}
         </nav>
@@ -153,7 +155,7 @@ function Navbar() {
         {isAuthenticated && (
           <Link
             to="/search/users"
-            aria-label="Search users"
+            aria-label={t('nav.searchUsers')}
             className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
           >
             <span className="material-symbols-outlined text-on-surface-variant">search</span>
@@ -166,7 +168,7 @@ function Navbar() {
               type="button"
               onClick={() => { setNotifOpen((prev) => !prev); setMenuOpen(false) }}
               className="flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
-              aria-label="Notifications"
+              aria-label={t('nav.notifications')}
             >
               <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
               {unreadCount > 0 && (
@@ -185,7 +187,7 @@ function Navbar() {
         )}
         <button
           className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
-          aria-label="Settings"
+          aria-label={t('nav.settings')}
         >
           <span className="material-symbols-outlined text-on-surface-variant">settings</span>
         </button>
@@ -196,7 +198,7 @@ function Navbar() {
               ref={buttonRef}
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
-              aria-label="Open profile menu"
+              aria-label={t('nav.openProfileMenu')}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center overflow-hidden cursor-pointer ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -204,7 +206,7 @@ function Navbar() {
               {showAvatarImage ? (
                 <img
                   src={avatarUrl}
-                  alt={user?.name ? `${user.name}'s avatar` : 'User avatar'}
+                  alt={user?.name ? t('nav.userAvatarOf', { name: user.name }) : t('nav.userAvatar')}
                   className="w-full h-full object-cover"
                   onError={() => setFailedAvatarUrl(avatarUrl)}
                 />
@@ -219,7 +221,7 @@ function Navbar() {
               <div
                 ref={menuRef}
                 role="menu"
-                aria-label="Profile menu"
+                aria-label={t('nav.profileMenu')}
                 className="absolute right-0 mt-2 w-44 rounded-md bg-surface-container-lowest shadow-lg ring-1 ring-outline-variant/30 py-1 z-[1100]"
               >
                 <button
@@ -231,7 +233,7 @@ function Navbar() {
                   <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>
                     person
                   </span>
-                  Profile
+                  {t('nav.profile')}
                 </button>
                 <button
                   type="button"
@@ -242,7 +244,7 @@ function Navbar() {
                   <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>
                     school
                   </span>
-                  Replay tutorial
+                  {t('nav.replayTutorial')}
                 </button>
                 <button
                   type="button"
@@ -253,7 +255,7 @@ function Navbar() {
                   <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>
                     logout
                   </span>
-                  Log Out
+                  {t('nav.logout')}
                 </button>
               </div>
             )}
@@ -264,13 +266,13 @@ function Navbar() {
               to="/login"
               className="text-on-surface-variant hover:text-primary transition-colors font-medium text-sm sm:text-base"
             >
-              Log In
+              {t('nav.login')}
             </Link>
             <Link
               to="/signup"
               className="bg-primary text-on-primary rounded-full px-3 py-1.5 sm:px-4 sm:py-2 hover:bg-primary/90 transition-colors font-semibold text-sm sm:text-base"
             >
-              Sign Up
+              {t('nav.signup')}
             </Link>
           </div>
         )}
