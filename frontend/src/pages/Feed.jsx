@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import Navbar from '../components/Navbar.jsx'
 import FeedLocationPickerModal from '../components/FeedLocationPickerModal.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
@@ -30,12 +31,8 @@ const STATUS_STYLES = {
   fixed: 'bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-100',
 }
 
-const STATUS_LABELS = {
-  unverified: 'Unverified',
-  verified: 'Validated',
-  rejected: 'Rejected',
-  fixed: 'Fixed',
-}
+// Status labels live in i18n (see "feed.status.*"). Status keys themselves
+// (unverified/verified/rejected/fixed) match the API enum and stay untranslated.
 
 export { feedFilterChipClass }
 
@@ -68,19 +65,11 @@ function formatDistanceKm(center, lat, lon) {
   return `${km.toFixed(1)} km`
 }
 
-function envLabel(env) {
-  if (env === 'INDOOR') return 'Indoor'
-  if (env === 'OUTDOOR') return 'Outdoor'
-  return null
-}
-
-function typeLabel(t) {
-  if (t === 'FEATURE') return 'Feature'
-  if (t === 'OBSTACLE') return 'Obstacle'
-  return null
-}
+// envLabel / typeLabel now live inline at the render site using i18n keys
+// (feed.indoor / feed.outdoor / feed.feature / feed.obstacle).
 
 export default function Feed() {
+  const { t } = useTranslation()
   const { resolved: themeResolved } = useTheme()
   const isDark = themeResolved === 'dark'
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT
@@ -203,14 +192,14 @@ export default function Feed() {
 
   const emptyMessage = useMemo(() => {
     if (reportsSorted.length > 0 || isPending || isError) return null
-    if (hasActiveFilter) return 'No reports match your filters.'
-    if (feedCenterDraft != null) return 'No reports within this search radius.'
-    return 'No reports yet.'
-  }, [reportsSorted.length, isPending, isError, hasActiveFilter, feedCenterDraft])
+    if (hasActiveFilter) return t('feed.emptyWithFilters')
+    if (feedCenterDraft != null) return t('feed.emptyWithRadius')
+    return t('feed.emptyNoFilters')
+  }, [reportsSorted.length, isPending, isError, hasActiveFilter, feedCenterDraft, t])
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
-      setLocateHint('Location is not available on this device.')
+      setLocateHint(t('feed.locationUnavailable'))
       return
     }
     navigator.geolocation.getCurrentPosition(
@@ -220,10 +209,7 @@ export default function Feed() {
           lng: pos.coords.longitude,
         })
       },
-      () =>
-        setLocateHint(
-          'Could not get your position. Allow location access or set a point on the map.'
-        ),
+      () => setLocateHint(t('feed.locateFailedSetOnMap')),
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
     )
   }
@@ -235,7 +221,7 @@ export default function Feed() {
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12 flex flex-col gap-8">
         <header>
           <h1 className="text-4xl md:text-5xl font-extrabold font-headline text-on-surface tracking-tight">
-            Community feed
+            {t('feed.title')}
           </h1>
         </header>
 
@@ -245,19 +231,19 @@ export default function Feed() {
             <div className="flex flex-wrap items-end gap-x-8 gap-y-4 flex-1 min-w-0">
               <div className="flex flex-col gap-2 min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                  Report type
+                  {t('feed.reportType')}
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { id: 'ALL', label: 'All' },
-                    { id: 'OBSTACLE', label: 'Obstacle' },
-                    { id: 'FEATURE', label: 'Feature' },
+                    { id: 'ALL', label: t('feed.all') },
+                    { id: 'OBSTACLE', label: t('feed.obstacle') },
+                    { id: 'FEATURE', label: t('feed.feature') },
                   ].map(({ id, label }) => (
                     <button
                       key={id}
                       type="button"
                       aria-pressed={reportTypeFilter === id}
-                      aria-label={`Report type: ${label}`}
+                      aria-label={t('feed.filterReportTypeAria', { label })}
                       className={feedFilterChipClass(reportTypeFilter === id)}
                       onClick={() => setReportTypeFilter(id)}
                     >
@@ -268,19 +254,19 @@ export default function Feed() {
               </div>
               <div className="flex flex-col gap-2 min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                  Environment
+                  {t('feed.environment')}
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { id: 'ALL', label: 'All' },
-                    { id: 'OUTDOOR', label: 'Outdoor' },
-                    { id: 'INDOOR', label: 'Indoor' },
+                    { id: 'ALL', label: t('feed.all') },
+                    { id: 'OUTDOOR', label: t('feed.outdoor') },
+                    { id: 'INDOOR', label: t('feed.indoor') },
                   ].map(({ id, label }) => (
                     <button
                       key={id}
                       type="button"
                       aria-pressed={environmentFilter === id}
-                      aria-label={`Environment: ${label}`}
+                      aria-label={t('feed.filterEnvironmentAria', { label })}
                       className={feedFilterChipClass(environmentFilter === id)}
                       onClick={() => setEnvironmentFilter(id)}
                     >
@@ -293,7 +279,7 @@ export default function Feed() {
             <div className="shrink-0 w-full sm:w-auto">
               <label className="flex flex-col gap-1">
                 <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                  Search radius (km)
+                  {t('feed.searchRadius')}
                 </span>
                 <input
                   type="number"
@@ -320,7 +306,7 @@ export default function Feed() {
               <span className="material-symbols-outlined text-lg" aria-hidden>
                 map
               </span>
-              Choose on map
+              {t('feed.chooseOnMap')}
             </button>
             <button
               type="button"
@@ -330,13 +316,16 @@ export default function Feed() {
               <span className="material-symbols-outlined text-lg" aria-hidden>
                 my_location
               </span>
-              Use current location
+              {t('feed.useCurrentLocation')}
             </button>
           </div>
 
           {feedCenterDraft != null && (
             <p className="text-sm text-on-surface-variant">
-              Reference point: {feedCenterDraft.lat.toFixed(4)}, {feedCenterDraft.lng.toFixed(4)}
+              {t('feed.referencePoint', {
+                lat: feedCenterDraft.lat.toFixed(4),
+                lng: feedCenterDraft.lng.toFixed(4),
+              })}
             </p>
           )}
         </section>
@@ -349,7 +338,7 @@ export default function Feed() {
 
         {isError && (
           <p role="alert" className="text-sm text-error font-medium">
-            {error?.message || 'Could not load the feed.'}
+            {error?.message || t('feed.loadError')}
           </p>
         )}
 
@@ -360,8 +349,14 @@ export default function Feed() {
               report.latitude,
               report.longitude
             )
-            const env = envLabel(report.environment)
-            const rtype = typeLabel(report.reportType)
+            const env =
+              report.environment === 'INDOOR' ? t('feed.indoor')
+              : report.environment === 'OUTDOOR' ? t('feed.outdoor')
+              : null
+            const rtype =
+              report.reportType === 'FEATURE' ? t('feed.feature')
+              : report.reportType === 'OBSTACLE' ? t('feed.obstacle')
+              : null
 
             return (
               <li key={report.id} className="min-w-0">
@@ -402,7 +397,7 @@ export default function Feed() {
                         STATUS_STYLES[report.status] ?? 'bg-surface-container-high text-on-surface'
                       }`}
                     >
-                      {STATUS_LABELS[report.status] ?? report.status}
+                      {t(`feed.status.${report.status}`, { defaultValue: report.status })}
                     </span>
                     {rtype && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/25 bg-primary/8 text-primary dark:bg-primary/15 dark:text-primary">
@@ -426,7 +421,7 @@ export default function Feed() {
                     </p>
                   ) : (
                     <p className="text-xs text-on-surface-variant/70 italic mb-2 flex-1">
-                      No description
+                      {t('feed.noDescription')}
                     </p>
                   )}
 
@@ -453,7 +448,7 @@ export default function Feed() {
                       <span className="inline-flex items-center gap-2 shrink-0 text-xs font-semibold not-italic">
                         <span
                           className="inline-flex items-center gap-1 text-primary"
-                          title="Agree"
+                          title={t('feed.agree')}
                         >
                           <span
                             className="material-symbols-outlined text-[14px]"
@@ -465,7 +460,7 @@ export default function Feed() {
                         </span>
                         <span
                           className="inline-flex items-center gap-1 text-error"
-                          title="Disagree"
+                          title={t('feed.disagree')}
                         >
                           <span
                             className="material-symbols-outlined text-[14px]"
@@ -489,13 +484,13 @@ export default function Feed() {
         )}
 
         {isPending && (
-          <p className="text-center text-lg text-on-surface-variant py-12">Loading feed…</p>
+          <p className="text-center text-lg text-on-surface-variant py-12">{t('feed.loading')}</p>
         )}
 
         <div ref={loadMoreRef} className="h-6 w-full shrink-0" aria-hidden />
 
         {isFetchingNextPage && (
-          <p className="text-center text-base text-on-surface-variant pb-6">Loading more…</p>
+          <p className="text-center text-base text-on-surface-variant pb-6">{t('feed.loadingMore')}</p>
         )}
       </main>
 
@@ -507,11 +502,7 @@ export default function Feed() {
         tileUrl={tileUrl}
         tileAttr={tileAttr}
         onFeedCenterChange={(c) => setFeedCenterDraft(c)}
-        onLocateUnavailable={() =>
-          setLocateHint(
-            'Could not get your position. Allow location access or pick a point on the map.'
-          )
-        }
+        onLocateUnavailable={() => setLocateHint(t('feed.locateFailedPickOnMap'))}
       />
     </div>
   )
