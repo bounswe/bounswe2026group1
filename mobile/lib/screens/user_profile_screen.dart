@@ -5,6 +5,7 @@ import '../models/report_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/badge_chip.dart';
 import 'report_detail_screen.dart';
 
 /// Read-only public profile shown when a user taps someone else's avatar
@@ -176,6 +177,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final reportsSubmitted =
         stats?['reportsSubmitted'] ?? _reports.length;
     final routesPlanned = stats?['routesPlanned'] ?? 0;
+    final points = (_userInfo?['points'] as num?)?.toInt() ?? 0;
+    final rank = _userInfo?['rank'] as int?;
+    final leaderboardHidden =
+        (_userInfo?['leaderboardHidden'] as bool?) ?? false;
+    final badges = (_userInfo?['badges'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toList() ??
+        const <String>[];
+    // Foreign profiles intentionally omit the rank tile when the viewed user
+    // opted out — the existence of a hidden rank is private to the owner.
+    final showRankTile = !leaderboardHidden && rank != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -203,6 +215,39 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.star_outline,
+                  label: 'POINTS',
+                  value: '$points',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: showRankTile
+                    ? _buildStatCard(
+                        icon: Icons.leaderboard_outlined,
+                        label: 'RANK',
+                        value: '#$rank',
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          if (badges.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Badges',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            BadgeList(badges: badges),
+          ],
           const SizedBox(height: 24),
           if (_reports.isNotEmpty) ...[
             Text(
