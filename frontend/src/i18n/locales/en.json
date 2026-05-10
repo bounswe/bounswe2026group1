@@ -163,6 +163,11 @@
       "fixed": "Fixed"
     }
   },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications yet"
+  },
   "avatar": {
     "upload": "Upload avatar",
     "change": "Change avatar",

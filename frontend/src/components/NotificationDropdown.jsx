@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '../hooks/useNotifications.js'
 
 const TYPE_ICON = {
@@ -61,6 +62,7 @@ function NotificationItem({ notification, onRead }) {
  *      can toggle the dropdown closed without racing this listener.
  */
 function NotificationDropdown({ onClose, triggerRef }) {
+  const { t } = useTranslation()
   const { data: notifications, isLoading } = useNotifications()
   const { mutate: markRead } = useMarkNotificationRead()
   const { mutate: markAllRead, isPending: markingAll } = useMarkAllNotificationsRead()
@@ -100,11 +102,11 @@ function NotificationDropdown({ onClose, triggerRef }) {
       ref={ref}
       className="absolute right-0 mt-2 w-80 max-h-[480px] flex flex-col rounded-xl bg-surface-container-high shadow-lg ring-1 ring-outline-variant/30 z-[1100] overflow-hidden"
       role="dialog"
-      aria-label="Notifications"
+      aria-label={t('notifications.title')}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30 shrink-0">
-        <span className="font-semibold text-sm text-on-surface">Notifications</span>
+        <span className="font-semibold text-sm text-on-surface">{t('notifications.title')}</span>
         {unreadCount > 0 && (
           <button
             type="button"
@@ -112,7 +114,7 @@ function NotificationDropdown({ onClose, triggerRef }) {
             disabled={markingAll}
             className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
           >
-            Mark all read
+            {t('notifications.markAllRead')}
           </button>
         )}
       </div>
@@ -128,7 +130,7 @@ function NotificationDropdown({ onClose, triggerRef }) {
         ) : !notifications || notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant gap-2">
             <span className="material-symbols-outlined text-3xl">notifications_none</span>
-            <p className="text-sm">No notifications yet</p>
+            <p className="text-sm">{t('notifications.empty')}</p>
           </div>
         ) : (
           <div className="divide-y divide-outline-variant/20">

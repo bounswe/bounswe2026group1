@@ -163,6 +163,11 @@
       "fixed": "Düzeltildi"
     }
   },
+  "notifications": {
+    "title": "Bildirimler",
+    "markAllRead": "Tümünü okundu say",
+    "empty": "Henüz bildirim yok"
+  },
   "avatar": {
     "upload": "Avatar yükle",
     "change": "Avatarı değiştir",
