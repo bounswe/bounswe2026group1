@@ -222,6 +222,7 @@ export function mapReport(r) {
     latitude: r.latitude,
     longitude: r.longitude,
     activeFixRequest: mapFixRequest(r.activeFixRequest),
+    authorTopBadge: r.authorTopBadge ?? null,
   }
 }
 

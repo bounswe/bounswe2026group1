@@ -3,6 +3,7 @@ import Home from './pages/Home.jsx'
 import Signup from './pages/Signup.jsx'
 import Login from './pages/Login.jsx'
 import Feed from './pages/Feed.jsx'
+import Leaderboard from './pages/Leaderboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import UserProfilePage from './pages/UserProfilePage.jsx'
 import UserSearchPage from './pages/UserSearchPage.jsx'
@@ -27,6 +28,7 @@ function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/login" element={<Login />} />
       <Route path="/feed" element={<Feed />} />
+      <Route path="/leaderboard" element={<Leaderboard />} />
       <Route element={<RequireAuth />}>
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/:userId" element={<UserProfilePage />} />

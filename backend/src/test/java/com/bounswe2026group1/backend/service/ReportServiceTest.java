@@ -48,6 +48,8 @@ class ReportServiceTest {
     @Mock private MeasurementValidator measurementValidator;
     @Mock private OverpassService overpassService;
     @Mock private NotificationService notificationService;
+    @Mock private GamificationService gamificationService;
+    @Mock private UserBadgeRepository userBadgeRepository;
 
     @InjectMocks
     private ReportService reportService;
@@ -726,6 +728,148 @@ class ReportServiceTest {
 
         assertEquals(2, result.size());
         assertTrue(result.stream().anyMatch(r -> r.getStatus() == ReportStatus.REJECTED));
+    }
+
+    // ───────────────────────── Gamification wiring ──────────────────────────
+
+    @Test
+    void create_awardsReportSubmitPoints() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(reportRepository.save(any(Report.class))).thenReturn(testReport);
+
+        reportService.create(testRequest);
+
+        verify(gamificationService).awardOnReportSubmit(eq(testUser), any());
+    }
+
+    @Test
+    void verifyReport_freshCast_awardsVoteCastPoints() {
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        verify(gamificationService).awardOnVoteCast(eq(testUser), any());
+        verify(gamificationService, never()).deductOnVoteWithdraw(any(), any());
+    }
+
+    @Test
+    void verifyReport_toggleOffSameDirection_deductsWithdrawPoints() {
+        ReflectionTestUtils.setField(testReport, "agrees", 1);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+        ReportVerification existing = new ReportVerification(testUser, testReport, VoteType.AGREE);
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.of(existing));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        verify(gamificationService).deductOnVoteWithdraw(eq(testUser), any());
+        verify(gamificationService, never()).awardOnVoteCast(any(), any());
+    }
+
+    @Test
+    void verifyReport_modifyOppositeVote_doesNotAwardOrDeduct() {
+        // Switching DISAGREE → AGREE is a modify, not a fresh cast or withdraw —
+        // gamification stays out of the picture (vote-modify yields no extra points).
+        ReflectionTestUtils.setField(testReport, "disagrees", 1);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+        ReportVerification existing = new ReportVerification(testUser, testReport, VoteType.DISAGREE);
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.of(existing));
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        verify(gamificationService, never()).awardOnVoteCast(any(), any());
+        verify(gamificationService, never()).deductOnVoteWithdraw(any(), any());
+    }
+
+    @Test
+    void verifyReport_statusTransition_invokesOnReportStatusTransition() {
+        ReflectionTestUtils.setField(testReport, "agrees", 4);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        verify(gamificationService).onReportStatusTransition(testReport, ReportStatus.PENDING, ReportStatus.VERIFIED);
+    }
+
+    @Test
+    void verifyReport_belowThreshold_doesNotInvokeStatusTransition() {
+        ReflectionTestUtils.setField(testReport, "agrees", 1);
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.verifyReport(1L, "user@test.com");
+
+        verify(gamificationService, never()).onReportStatusTransition(any(), any(), any());
+    }
+
+    @Test
+    void getById_attachesAuthorTopBadge() {
+        UserBadge ub = new UserBadge(testUser, Badge.TRUSTED_REPORTER);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(userBadgeRepository.findByUserId(1L)).thenReturn(List.of(ub));
+
+        Optional<ReportResponse> result = reportService.getById(1L, "owner@test.com");
+
+        assertTrue(result.isPresent());
+        assertEquals(Badge.TRUSTED_REPORTER, result.get().getAuthorTopBadge());
+    }
+
+    @Test
+    void getAll_batchFetchesAuthorTopBadges() {
+        // Two reports by the same author should result in a single batch
+        // query, not one findByUserId per report.
+        when(reportRepository.findAll()).thenReturn(List.of(testReport, testReport));
+        when(userBadgeRepository.findBadgesByUserIds(any()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, Badge.EXPERT_MAPPER}));
+
+        List<ReportResponse> result = reportService.getAll(null);
+
+        assertEquals(2, result.size());
+        assertEquals(Badge.EXPERT_MAPPER, result.get(0).getAuthorTopBadge());
+        assertEquals(Badge.EXPERT_MAPPER, result.get(1).getAuthorTopBadge());
+        // Single batch query — never falls back to per-report fetches.
+        verify(userBadgeRepository, never()).findByUserId(any());
+    }
+
+    @Test
+    void unverifyReport_freshCast_awardsVoteCastPoints() {
+        ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
+        testUser.setEmail("user@test.com");
+
+        when(registeredUserRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(verificationRepository.findByUserIdAndReportReportId(1L, 1L)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        reportService.unverifyReport(1L, "user@test.com");
+
+        verify(gamificationService).awardOnVoteCast(eq(testUser), any());
     }
 
     // ---------------- Feed (GET /api/reports/feed) ----------------

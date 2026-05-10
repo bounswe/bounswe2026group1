@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.Badge;
+import com.bounswe2026group1.backend.model.FixRequest;
 import com.bounswe2026group1.backend.model.PointEvent;
 import com.bounswe2026group1.backend.model.PointReason;
 import com.bounswe2026group1.backend.model.RegisteredUser;
@@ -8,6 +9,7 @@ import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.UserBadge;
 import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.repository.FixRequestVoteRepository;
 import com.bounswe2026group1.backend.repository.PointEventRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -40,8 +42,11 @@ public class GamificationService {
     private final RegisteredUserRepository userRepository;
     private final ReportRepository reportRepository;
     private final ReportVerificationRepository verificationRepository;
+    private final FixRequestVoteRepository fixRequestVoteRepository;
     private final PointEventRepository pointEventRepository;
     private final UserBadgeRepository userBadgeRepository;
+    private final LeaderboardService leaderboardService;
+    private final NotificationService notificationService;
 
     @Value("${app.gamification.points.report-submit:10}")
     private int reportSubmitDelta;
@@ -69,6 +74,21 @@ public class GamificationService {
 
     @Value("${app.gamification.badges.expert-mapper-threshold:50}")
     private int expertMapperThreshold;
+
+    @Value("${app.gamification.points.fix-request-vote-cast:5}")
+    private int fixRequestVoteCastDelta;
+
+    @Value("${app.gamification.points.fix-request-vote-withdrawn:-5}")
+    private int fixRequestVoteWithdrawnDelta;
+
+    @Value("${app.gamification.points.fix-resolved-bonus:20}")
+    private int fixResolvedBonusDelta;
+
+    @Value("${app.gamification.points.fix-vote-aligned:15}")
+    private int fixVoteAlignedDelta;
+
+    @Value("${app.gamification.points.fix-vote-opposed:-5}")
+    private int fixVoteOpposedDelta;
 
     // ────────────────────────── Public API ──────────────────────────────
 
@@ -189,7 +209,87 @@ public class GamificationService {
                 newlyAwarded.add(Badge.EXPERT_MAPPER);
             }
         }
+        for (Badge badge : newlyAwarded) {
+            notificationService.notifyBadgeAwarded(user, badge);
+        }
         return newlyAwarded;
+    }
+
+    // ────────────────────── Fix-request flow (symmetric) ────────────────
+
+    /**
+     * Voter cast a fresh vote on a fix request. Same semantics as
+     * {@link #awardOnVoteCast} but tracked against fix-request-specific
+     * ledger reasons so cast/withdraw cycles for fix requests are paired
+     * against each other, not against report votes on the same row.
+     */
+    @Transactional
+    public void awardOnFixRequestVoteCast(RegisteredUser voter, Long fixRequestId) {
+        if (voter == null || fixRequestId == null) return;
+        if (isCurrentlyVotedOnFixRequest(voter.getId(), fixRequestId)) {
+            return; // Modify-vote path, no extra points.
+        }
+        applyDelta(voter, fixRequestVoteCastDelta, PointReason.FIX_REQUEST_VOTE_CAST, fixRequestId);
+    }
+
+    /** Voter fully withdrew their previously cast fix-request vote. */
+    @Transactional
+    public void deductOnFixRequestVoteWithdraw(RegisteredUser voter, Long fixRequestId) {
+        if (voter == null || fixRequestId == null) return;
+        if (!isCurrentlyVotedOnFixRequest(voter.getId(), fixRequestId)) {
+            return;
+        }
+        applyDelta(voter, fixRequestVoteWithdrawnDelta, PointReason.FIX_REQUEST_VOTE_WITHDRAWN, fixRequestId);
+    }
+
+    /**
+     * A fix request reached the resolved-fixed state. The submitter (who
+     * proved the report is no longer an obstacle) gets the bonus; voters
+     * are paid out by alignment with the resolved outcome.
+     *
+     * <p>The original report author is intentionally NOT paid here — they
+     * already received the verified-bonus when the report first reached
+     * VERIFIED. Re-rewarding them on resolution would double-count.
+     */
+    @Transactional
+    public void onFixRequestResolved(FixRequest fixRequest) {
+        if (fixRequest == null) return;
+        Long fixRequestId = fixRequest.getId();
+
+        // 1) Submitter bonus.
+        RegisteredUser submitter = fixRequest.getSubmittedBy();
+        if (submitter != null) {
+            applyDelta(submitter, fixResolvedBonusDelta,
+                    PointReason.FIX_RESOLVED_BONUS, fixRequestId);
+        }
+
+        // 2) Voter alignment payout. Resolved-fixed → AGREE was the right call.
+        List<Object[]> voteTuples = fixRequestVoteRepository
+                .findVoteTuplesByFixRequestId(fixRequestId);
+        if (voteTuples.isEmpty()) return;
+
+        List<Long> voterIds = voteTuples.stream()
+                .map(row -> (Long) row[0])
+                .filter(id -> submitter == null || !id.equals(submitter.getId()))
+                .toList();
+        if (voterIds.isEmpty()) return;
+
+        Map<Long, RegisteredUser> votersById = userRepository.findAllById(voterIds).stream()
+                .collect(Collectors.toMap(RegisteredUser::getId, Function.identity()));
+
+        for (Object[] row : voteTuples) {
+            Long voterId = (Long) row[0];
+            VoteType voteType = (VoteType) row[1];
+            if (submitter != null && voterId.equals(submitter.getId())) continue;
+
+            RegisteredUser voter = votersById.get(voterId);
+            if (voter == null) continue;
+
+            boolean aligned = (voteType == VoteType.AGREE);
+            int delta = aligned ? fixVoteAlignedDelta : fixVoteOpposedDelta;
+            PointReason reason = aligned ? PointReason.FIX_VOTE_ALIGNED : PointReason.FIX_VOTE_OPPOSED;
+            applyDelta(voter, delta, reason, fixRequestId);
+        }
     }
 
     // ────────────────────────── Internals ───────────────────────────────
@@ -214,6 +314,11 @@ public class GamificationService {
         user.setPoints(after);
         userRepository.save(user);
         pointEventRepository.save(new PointEvent(user, actualDelta, reason, relatedId));
+
+        // Eager top-10 badge churn — the user may have entered or fallen
+        // out of the top cutoff with this delta, and we want the badge to
+        // track rank changes in real time rather than via a cron lag.
+        leaderboardService.onPointsChanged(user.getId());
     }
 
     private boolean awardBadgeIfMissing(RegisteredUser user, Badge badge) {
@@ -224,4 +329,33 @@ public class GamificationService {
         return true;
     }
 
+    /**
+     * True iff the user currently holds an un-withdrawn vote on this report,
+     * computed from the ledger so we don't have to add a flag column on
+     * {@link com.bounswe2026group1.backend.model.ReportVerification}.
+     * Each cast inserts a VOTE_CAST event; each withdraw inserts a
+     * VOTE_WITHDRAWN event. The user is "currently voted" when CAST count
+     * exceeds WITHDRAWN count.
+     */
+    private boolean isCurrentlyVoted(Long userId, Long reportId) {
+        long casts = pointEventRepository
+                .countByUserIdAndRelatedEntityIdAndReason(userId, reportId, PointReason.VOTE_CAST);
+        long withdrawals = pointEventRepository
+                .countByUserIdAndRelatedEntityIdAndReason(userId, reportId, PointReason.VOTE_WITHDRAWN);
+        return casts > withdrawals;
+    }
+
+    /**
+     * Fix-request analogue of {@link #isCurrentlyVoted}. Tracked against
+     * its own pair of ledger reasons so a user voting on both a report
+     * and a fix request for that report can still be paid for both —
+     * the two cast/withdraw cycles are independent.
+     */
+    private boolean isCurrentlyVotedOnFixRequest(Long userId, Long fixRequestId) {
+        long casts = pointEventRepository
+                .countByUserIdAndRelatedEntityIdAndReason(userId, fixRequestId, PointReason.FIX_REQUEST_VOTE_CAST);
+        long withdrawals = pointEventRepository
+                .countByUserIdAndRelatedEntityIdAndReason(userId, fixRequestId, PointReason.FIX_REQUEST_VOTE_WITHDRAWN);
+        return casts > withdrawals;
+    }
 }

@@ -46,6 +46,7 @@ class FixRequestServiceTest {
     @Mock private S3MediaService s3MediaService;
     @Mock private PublicSseService publicSseService;
     @Mock private NotificationService notificationService;
+    @Mock private GamificationService gamificationService;
 
     @InjectMocks
     private FixRequestService fixRequestService;
@@ -361,4 +362,74 @@ class FixRequestServiceTest {
     }
 
     private static FixRequestState eqState(FixRequestState s) { return eq(s); }
+
+    // ── gamification wiring ──────────────────────────────────────────────────
+
+    @Test
+    void agree_freshCast_awardsFixRequestVoteCastPoints() {
+        FixRequest fr = new FixRequest(parentReport, submitter, null);
+        ReflectionTestUtils.setField(fr, "id", 50L);
+        when(registeredUserRepository.findByEmail("voter@test.com")).thenReturn(Optional.of(voter));
+        when(fixRequestRepository.findById(50L)).thenReturn(Optional.of(fr));
+        when(fixRequestVoteRepository.findByUserIdAndFixRequestId(3L, 50L)).thenReturn(Optional.empty());
+        when(fixRequestRepository.save(any(FixRequest.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        fixRequestService.agree(50L, "voter@test.com");
+
+        verify(gamificationService).awardOnFixRequestVoteCast(eq(voter), eq(50L));
+        verify(gamificationService, never()).deductOnFixRequestVoteWithdraw(any(), any());
+    }
+
+    @Test
+    void agree_toggleOff_deductsFixRequestWithdrawPoints() {
+        FixRequest fr = new FixRequest(parentReport, submitter, null);
+        ReflectionTestUtils.setField(fr, "id", 50L);
+        fr.incrementAgrees();
+        FixRequestVote existing = new FixRequestVote(voter, fr, VoteType.AGREE);
+        when(registeredUserRepository.findByEmail("voter@test.com")).thenReturn(Optional.of(voter));
+        when(fixRequestRepository.findById(50L)).thenReturn(Optional.of(fr));
+        when(fixRequestVoteRepository.findByUserIdAndFixRequestId(3L, 50L)).thenReturn(Optional.of(existing));
+        when(fixRequestRepository.save(any(FixRequest.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        fixRequestService.agree(50L, "voter@test.com");
+
+        verify(gamificationService).deductOnFixRequestVoteWithdraw(eq(voter), eq(50L));
+        verify(gamificationService, never()).awardOnFixRequestVoteCast(any(), any());
+    }
+
+    @Test
+    void agree_modifyOppositeVote_doesNotInvokeGamification() {
+        // DISAGREE → AGREE is a modify, not a fresh cast or withdraw — no points event.
+        FixRequest fr = new FixRequest(parentReport, submitter, null);
+        ReflectionTestUtils.setField(fr, "id", 50L);
+        fr.incrementDisagrees();
+        FixRequestVote existing = new FixRequestVote(voter, fr, VoteType.DISAGREE);
+        when(registeredUserRepository.findByEmail("voter@test.com")).thenReturn(Optional.of(voter));
+        when(fixRequestRepository.findById(50L)).thenReturn(Optional.of(fr));
+        when(fixRequestVoteRepository.findByUserIdAndFixRequestId(3L, 50L)).thenReturn(Optional.of(existing));
+        when(fixRequestRepository.save(any(FixRequest.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        fixRequestService.agree(50L, "voter@test.com");
+
+        verify(gamificationService, never()).awardOnFixRequestVoteCast(any(), any());
+        verify(gamificationService, never()).deductOnFixRequestVoteWithdraw(any(), any());
+    }
+
+    @Test
+    void agree_thresholdReached_invokesOnFixRequestResolved() {
+        // Pre-state: 4 agrees, this 5th vote pushes past the threshold and
+        // ratio (5/5 = 1.0 ≥ 0.6) so the request resolves to FIXED.
+        FixRequest fr = new FixRequest(parentReport, submitter, null);
+        ReflectionTestUtils.setField(fr, "id", 50L);
+        for (int i = 0; i < 4; i++) fr.incrementAgrees();
+        when(registeredUserRepository.findByEmail("voter@test.com")).thenReturn(Optional.of(voter));
+        when(fixRequestRepository.findById(50L)).thenReturn(Optional.of(fr));
+        when(fixRequestVoteRepository.findByUserIdAndFixRequestId(3L, 50L)).thenReturn(Optional.empty());
+        when(fixRequestRepository.save(any(FixRequest.class))).thenAnswer(i -> i.getArguments()[0]);
+        when(reportRepository.save(any(Report.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        fixRequestService.agree(50L, "voter@test.com");
+
+        verify(gamificationService).onFixRequestResolved(fr);
+    }
 }

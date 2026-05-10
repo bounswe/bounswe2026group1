@@ -27,4 +27,14 @@ public interface FixRequestVoteRepository extends JpaRepository<FixRequestVote, 
             """)
     List<Object[]> findVotesByUserIdAndFixRequestIds(@Param("userId") Long userId,
                                                      @Param("fixRequestIds") Collection<Long> fixRequestIds);
+
+    /** Returns {@code [userId, VoteType]} tuples for everyone who voted on a fix request.
+     *  Used by GamificationService at FIXED-transition time to award/deduct points to
+     *  voters based on whether they aligned with the resolved outcome. */
+    @Query("""
+            select frv.user.id, frv.voteType
+            from FixRequestVote frv
+            where frv.fixRequest.id = :fixRequestId
+            """)
+    List<Object[]> findVoteTuplesByFixRequestId(@Param("fixRequestId") Long fixRequestId);
 }

@@ -406,6 +406,21 @@ describe('ReportPanel', () => {
       expect(screen.getByText('User #42')).toBeInTheDocument()
     })
 
+    it('renders the author top badge chip next to the username when present', () => {
+      useUserProfile.mockReturnValue({ data: { name: 'Alice Mapper', avatarUrl: null } })
+      renderPanel({ report: { ...reportWithOwner, authorTopBadge: 'TOP_10' } })
+      // BadgeIcon (size="sm") exposes the badge label via aria-label.
+      expect(screen.getByLabelText('Top 10')).toBeInTheDocument()
+    })
+
+    it('omits the author badge when the report has no top badge', () => {
+      useUserProfile.mockReturnValue({ data: { name: 'Alice Mapper', avatarUrl: null } })
+      renderPanel({ report: { ...reportWithOwner, authorTopBadge: null } })
+      expect(screen.queryByLabelText('Top 10')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Trusted Reporter')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Expert Mapper')).not.toBeInTheDocument()
+    })
+
     it('navigates to /profile/:ownerId when the reporter row is clicked', async () => {
       useUserProfile.mockReturnValue({ data: { name: 'Alice Mapper', avatarUrl: null } })
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })

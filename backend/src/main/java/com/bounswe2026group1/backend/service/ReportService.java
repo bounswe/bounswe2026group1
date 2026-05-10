@@ -41,8 +41,10 @@ public class ReportService {
     private final ReportVerificationRepository verificationRepository;
     private final FixRequestRepository fixRequestRepository;
     private final FixRequestVoteRepository fixRequestVoteRepository;
+    private final UserBadgeRepository userBadgeRepository;
     private final PublicSseService publicSseService;
     private final NotificationService notificationService;
+    private final GamificationService gamificationService;
     private final S3MediaService s3MediaService;
     private final MeasurementValidator measurementValidator;
     private final OverpassService overpassService;
@@ -58,32 +60,43 @@ public class ReportService {
         List<Report> reports = reportRepository.findAll();
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, reports);
         Map<Long, FixRequestResponse> activeFixByReportId = resolveActiveFixRequests(userId, reports);
+        Map<Long, Badge> topBadgesByAuthor = resolveAuthorTopBadges(reports);
         return reports.stream()
-                .map(r -> ReportResponse.fromEntity(
-                        r,
-                        votesByReportId.get(r.getReportId()),
-                        buildObjectResponses(r),
-                        activeFixByReportId.get(r.getReportId())))
+                .map(r -> withAuthorTopBadge(
+                        ReportResponse.fromEntity(
+                                r,
+                                votesByReportId.get(r.getReportId()),
+                                buildObjectResponses(r),
+                                activeFixByReportId.get(r.getReportId())),
+                        r, topBadgesByAuthor))
                 .toList();
     }
 
     public Optional<ReportResponse> getById(Long id, String email) {
         Long userId = resolveUserId(email);
         return reportRepository.findById(id)
-                .map(r -> ReportResponse.fromEntity(
-                        r,
-                        resolveUserVote(userId, r.getReportId()),
-                        buildObjectResponses(r),
-                        resolveActiveFixRequest(userId, r.getReportId())));
+                .map(r -> {
+                    ReportResponse resp = ReportResponse.fromEntity(
+                            r,
+                            resolveUserVote(userId, r.getReportId()),
+                            buildObjectResponses(r),
+                            resolveActiveFixRequest(userId, r.getReportId()));
+                    resp.setAuthorTopBadge(resolveAuthorTopBadge(r.getCreatedBy().getId()));
+                    return resp;
+                });
     }
 
     public List<ReportResponse> getByUserId(Long userId) {
-        return reportRepository.findByCreatedById(userId).stream()
-                .map(r -> ReportResponse.fromEntity(
-                        r,
-                        resolveUserVote(userId, r.getReportId()),
-                        buildObjectResponses(r),
-                        resolveActiveFixRequest(userId, r.getReportId())))
+        List<Report> reports = reportRepository.findByCreatedById(userId);
+        Map<Long, Badge> topBadgesByAuthor = resolveAuthorTopBadges(reports);
+        return reports.stream()
+                .map(r -> withAuthorTopBadge(
+                        ReportResponse.fromEntity(
+                                r,
+                                resolveUserVote(userId, r.getReportId()),
+                                buildObjectResponses(r),
+                                resolveActiveFixRequest(userId, r.getReportId())),
+                        r, topBadgesByAuthor))
                 .toList();
     }
 
@@ -122,12 +135,15 @@ public class ReportService {
 
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());
         Map<Long, FixRequestResponse> activeFixByReportId = resolveActiveFixRequests(userId, page.getContent());
+        Map<Long, Badge> topBadgesByAuthor = resolveAuthorTopBadges(page.getContent());
         List<ReportResponse> responses = page.getContent().stream()
-                .map(r -> ReportResponse.fromEntity(
-                        r,
-                        votesByReportId.get(r.getReportId()),
-                        buildObjectResponses(r),
-                        activeFixByReportId.get(r.getReportId())))
+                .map(r -> withAuthorTopBadge(
+                        ReportResponse.fromEntity(
+                                r,
+                                votesByReportId.get(r.getReportId()),
+                                buildObjectResponses(r),
+                                activeFixByReportId.get(r.getReportId())),
+                        r, topBadgesByAuthor))
                 .toList();
         return new PageImpl<>(responses, paged, page.getTotalElements());
     }
@@ -182,8 +198,12 @@ public class ReportService {
         Report finalSaved = saved;
         broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(finalSaved));
 
-        return ReportResponse.fromEntity(saved, null, buildObjectResponses(saved),
+        gamificationService.awardOnReportSubmit(user, saved.getReportId());
+
+        ReportResponse response = ReportResponse.fromEntity(saved, null, buildObjectResponses(saved),
                 resolveActiveFixRequest(user.getId(), saved.getReportId()));
+        response.setAuthorTopBadge(resolveAuthorTopBadge(user.getId()));
+        return response;
     }
 
     @Transactional
@@ -245,10 +265,12 @@ public class ReportService {
         Report saved = reportRepository.save(report);
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "update"));
 
-        return ReportResponse.fromEntity(saved,
+        ReportResponse response = ReportResponse.fromEntity(saved,
                 resolveUserVote(editor.getId(), saved.getReportId()),
                 buildObjectResponses(saved),
                 resolveActiveFixRequest(editor.getId(), saved.getReportId()));
+        response.setAuthorTopBadge(resolveAuthorTopBadge(saved.getCreatedBy().getId()));
+        return response;
     }
 
     @Transactional
@@ -297,10 +319,15 @@ public class ReportService {
 
         var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
+        // Three branches: same-direction toggle = withdraw (delete row),
+        // opposite-direction = modify (no extra points), absent = fresh cast.
+        boolean fresh = false;
+        boolean withdrawn = false;
         if (existing.isPresent()) {
             if (existing.get().getVoteType() == VoteType.AGREE) {
                 report.decrementAgrees();
                 verificationRepository.delete(existing.get());
+                withdrawn = true;
             } else {
                 report.decrementDisagrees();
                 report.incrementAgrees();
@@ -310,21 +337,30 @@ public class ReportService {
         } else {
             report.incrementAgrees();
             verificationRepository.save(new ReportVerification(user, report, VoteType.AGREE));
+            fresh = true;
         }
 
         ReportStatus previousStatus = report.getStatus();
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
+        if (fresh) {
+            gamificationService.awardOnVoteCast(user, saved.getReportId());
+        } else if (withdrawn) {
+            gamificationService.deductOnVoteWithdraw(user, saved.getReportId());
+        }
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         if (newStatus != previousStatus) {
             notificationService.notifyStatusChange(saved, user.getId());
+            gamificationService.onReportStatusTransition(saved, previousStatus, newStatus);
         }
-        return ReportResponse.fromEntity(saved,
+        ReportResponse response = ReportResponse.fromEntity(saved,
                 resolveUserVote(user.getId(), saved.getReportId()),
                 buildObjectResponses(saved),
                 resolveActiveFixRequest(user.getId(), saved.getReportId()));
+        response.setAuthorTopBadge(resolveAuthorTopBadge(saved.getCreatedBy().getId()));
+        return response;
     }
 
     @Transactional
@@ -340,10 +376,15 @@ public class ReportService {
 
         var existing = verificationRepository.findByUserIdAndReportReportId(user.getId(), id);
 
+        // Three branches: same-direction toggle = withdraw (delete row),
+        // opposite-direction = modify (no extra points), absent = fresh cast.
+        boolean fresh = false;
+        boolean withdrawn = false;
         if (existing.isPresent()) {
             if (existing.get().getVoteType() == VoteType.DISAGREE) {
                 report.decrementDisagrees();
                 verificationRepository.delete(existing.get());
+                withdrawn = true;
             } else {
                 report.decrementAgrees();
                 report.incrementDisagrees();
@@ -353,21 +394,30 @@ public class ReportService {
         } else {
             report.incrementDisagrees();
             verificationRepository.save(new ReportVerification(user, report, VoteType.DISAGREE));
+            fresh = true;
         }
 
         ReportStatus previousStatus = report.getStatus();
         ReportStatus newStatus = evaluateStatus(report);
 
         Report saved = reportRepository.save(report);
+        if (fresh) {
+            gamificationService.awardOnVoteCast(user, saved.getReportId());
+        } else if (withdrawn) {
+            gamificationService.deductOnVoteWithdraw(user, saved.getReportId());
+        }
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         if (newStatus != previousStatus) {
             notificationService.notifyStatusChange(saved, user.getId());
+            gamificationService.onReportStatusTransition(saved, previousStatus, newStatus);
         }
-        return ReportResponse.fromEntity(saved,
+        ReportResponse response = ReportResponse.fromEntity(saved,
                 resolveUserVote(user.getId(), saved.getReportId()),
                 buildObjectResponses(saved),
                 resolveActiveFixRequest(user.getId(), saved.getReportId()));
+        response.setAuthorTopBadge(resolveAuthorTopBadge(saved.getCreatedBy().getId()));
+        return response;
     }
 
     private ReportStatus evaluateStatus(Report report) {
@@ -502,6 +552,49 @@ public class ReportService {
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (VoteType) row[1]));
+    }
+
+    /** Inline setter used inside list-stream callsites — picks the author's
+     *  top badge from the prefetched map and attaches it to the response.
+     *  Returns the same response so it can chain inside a {@code map(...)}. */
+    private static ReportResponse withAuthorTopBadge(ReportResponse response,
+                                                     Report report,
+                                                     Map<Long, Badge> topBadgesByAuthor) {
+        if (report.getCreatedBy() != null) {
+            response.setAuthorTopBadge(topBadgesByAuthor.get(report.getCreatedBy().getId()));
+        }
+        return response;
+    }
+
+    /** Single-author lookup — used after create/update/vote where we already
+     *  have the author entity in scope. Picks the highest-tier badge to surface
+     *  next to the author chip on the report panel. */
+    private Badge resolveAuthorTopBadge(Long authorId) {
+        if (authorId == null) return null;
+        List<Badge> badges = userBadgeRepository.findByUserId(authorId).stream()
+                .map(UserBadge::getBadge)
+                .toList();
+        return Badge.pickHighestTier(badges);
+    }
+
+    /** Batch variant for list/feed paths — single query for all distinct
+     *  author ids, then a tier-pick per author. Avoids N+1 on /api/reports
+     *  and the feed paginator. */
+    private Map<Long, Badge> resolveAuthorTopBadges(Collection<Report> reports) {
+        if (reports.isEmpty()) return Map.of();
+        Set<Long> authorIds = reports.stream()
+                .map(r -> r.getCreatedBy() != null ? r.getCreatedBy().getId() : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (authorIds.isEmpty()) return Map.of();
+
+        Map<Long, List<Badge>> byUser = new HashMap<>();
+        for (Object[] row : userBadgeRepository.findBadgesByUserIds(authorIds)) {
+            byUser.computeIfAbsent((Long) row[0], k -> new ArrayList<>()).add((Badge) row[1]);
+        }
+        Map<Long, Badge> result = new HashMap<>();
+        byUser.forEach((id, list) -> result.put(id, Badge.pickHighestTier(list)));
+        return result;
     }
 
     private FixRequestResponse resolveActiveFixRequest(Long userId, Long reportId) {

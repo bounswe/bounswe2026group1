@@ -1,0 +1,16 @@
+-- Drop the legacy CHECK constraint on point_events.reason. Hibernate
+-- generated it from the original 7 PointReason values when the table was
+-- first created; the fix-request flow adds 5 new values
+-- (FIX_REQUEST_VOTE_CAST, FIX_REQUEST_VOTE_WITHDRAWN, FIX_RESOLVED_BONUS,
+-- FIX_VOTE_ALIGNED, FIX_VOTE_OPPOSED). ddl-auto does NOT extend existing
+-- CHECK constraints when new enum values are added later, so inserts using
+-- the new values would fail at the DB layer with a 23514 violation.
+--
+-- Same pattern as V2 and V3: the column stays plain VARCHAR; enum
+-- validation is enforced application-side via @Enumerated(EnumType.STRING)
+-- and Spring's JSON deserialization, which already rejects unknown values
+-- at the request layer with a 400 before any DB write.
+--
+-- IF EXISTS keeps this safe on fresh environments where the constraint
+-- never existed in the first place.
+ALTER TABLE IF EXISTS point_events DROP CONSTRAINT IF EXISTS point_events_reason_check;

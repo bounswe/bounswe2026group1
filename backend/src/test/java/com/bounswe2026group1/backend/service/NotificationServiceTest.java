@@ -353,6 +353,43 @@ class NotificationServiceTest {
     }
 
     @Test
+    void notifyBadgeAwarded_persistsBadgeNotificationForRecipient() {
+        stubSaveAssignsId();
+
+        notificationService.notifyBadgeAwarded(author, com.bounswe2026group1.backend.model.Badge.TRUSTED_REPORTER);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        Notification saved = captor.getValue();
+        assertEquals(NotificationType.BADGE_AWARDED, saved.getType());
+        assertEquals(author, saved.getRecipient());
+        assertTrue(saved.getMessage().contains("Trusted Reporter"),
+                "Message should mention the badge name: " + saved.getMessage());
+    }
+
+    @Test
+    void notifyBadgeAwarded_top10HasDistinctMessage() {
+        stubSaveAssignsId();
+
+        notificationService.notifyBadgeAwarded(author, com.bounswe2026group1.backend.model.Badge.TOP_10);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        // TOP_10 is dynamic so its phrasing differs from the milestone-style
+        // "you earned" copy used for the permanent badges.
+        assertTrue(captor.getValue().getMessage().contains("Top 10"),
+                "Message should mention Top 10: " + captor.getValue().getMessage());
+    }
+
+    @Test
+    void notifyBadgeAwarded_isNoOpOnNullArgs() {
+        notificationService.notifyBadgeAwarded(null, com.bounswe2026group1.backend.model.Badge.TOP_10);
+        notificationService.notifyBadgeAwarded(author, null);
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
     void listForUser_returnsRecipientNotifications() {
         Notification n = new Notification();
         ReflectionTestUtils.setField(n, "id", 11L);

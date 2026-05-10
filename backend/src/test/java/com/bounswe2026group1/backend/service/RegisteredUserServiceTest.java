@@ -9,9 +9,11 @@ import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.model.UserStatus;
+import com.bounswe2026group1.backend.repository.PointEventRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
+import com.bounswe2026group1.backend.repository.UserBadgeRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,9 @@ class RegisteredUserServiceTest {
     @Mock private RegisteredUserRepository registeredUserRepository;
     @Mock private ReportRepository reportRepository;
     @Mock private RouteRepository routeRepository;
+    @Mock private UserBadgeRepository userBadgeRepository;
+    @Mock private PointEventRepository pointEventRepository;
+    @Mock private LeaderboardService leaderboardService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
 
@@ -445,6 +450,97 @@ class RegisteredUserServiceTest {
         verify(reportRepository, never()).countByCreatedById(any());
         verify(routeRepository, never()).countByCreatedById(any());
         verify(jwtUtil, never()).generateToken(any(), any(), any());
+    }
+
+    // ───── Gamification — profile DTO enrichment + new endpoints ────────────
+
+    @Test
+    void getProfileById_populatesPointsBadgesRankAndTopBadge() {
+        com.bounswe2026group1.backend.model.UserBadge ub1 = new com.bounswe2026group1.backend.model.UserBadge(
+                mockUser, com.bounswe2026group1.backend.model.Badge.TRUSTED_REPORTER);
+        com.bounswe2026group1.backend.model.UserBadge ub2 = new com.bounswe2026group1.backend.model.UserBadge(
+                mockUser, com.bounswe2026group1.backend.model.Badge.TOP_10);
+        mockUser.setPoints(245);
+
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(userBadgeRepository.findByUserId(1L)).thenReturn(List.of(ub1, ub2));
+        when(leaderboardService.getRankFor(1L))
+                .thenReturn(Optional.of(new RankInfo(7, 245)));
+
+        UserProfileDTO dto = registeredUserService.getProfileById(1L);
+
+        assertEquals(245, dto.getPoints());
+        assertEquals(7, dto.getRank());
+        assertEquals(2, dto.getBadges().size());
+        // Top badge surfaces the highest tier (TOP_10 > TRUSTED_REPORTER).
+        assertEquals(com.bounswe2026group1.backend.model.Badge.TOP_10, dto.getTopBadge());
+        assertFalse(dto.isLeaderboardHidden());
+    }
+
+    @Test
+    void getProfileById_optedOutUserHasNullRank() {
+        // Service.getRankFor returns empty for opt-out users — DTO should
+        // surface that as a null rank so the UI can hide the banner.
+        mockUser.setLeaderboardHidden(true);
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(leaderboardService.getRankFor(1L)).thenReturn(Optional.empty());
+
+        UserProfileDTO dto = registeredUserService.getProfileById(1L);
+
+        assertNull(dto.getRank());
+        assertTrue(dto.isLeaderboardHidden());
+    }
+
+    @Test
+    void getBadges_returnsAllBadgesHeld() {
+        com.bounswe2026group1.backend.model.UserBadge ub = new com.bounswe2026group1.backend.model.UserBadge(
+                mockUser, com.bounswe2026group1.backend.model.Badge.TRUSTED_REPORTER);
+        when(registeredUserRepository.existsById(1L)).thenReturn(true);
+        when(userBadgeRepository.findByUserId(1L)).thenReturn(List.of(ub));
+
+        var badges = registeredUserService.getBadges(1L);
+
+        assertEquals(1, badges.size());
+        assertEquals(com.bounswe2026group1.backend.model.Badge.TRUSTED_REPORTER, badges.get(0));
+    }
+
+    @Test
+    void getBadges_unknownUserThrows() {
+        when(registeredUserRepository.existsById(99L)).thenReturn(false);
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.getBadges(99L));
+    }
+
+    @Test
+    void setLeaderboardHidden_persistsFlag() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UserProfileDTO dto = registeredUserService.setLeaderboardHidden(1L, true);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertTrue(captor.getValue().isLeaderboardHidden());
+        assertTrue(dto.isLeaderboardHidden());
+    }
+
+    @Test
+    void setLeaderboardHidden_unknownUserThrows() {
+        when(registeredUserRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.setLeaderboardHidden(99L, true));
+        verify(registeredUserRepository, never()).save(any());
+    }
+
+    @Test
+    void listPointEvents_unknownUserThrows() {
+        when(registeredUserRepository.existsById(99L)).thenReturn(false);
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.listPointEvents(
+                        99L, org.springframework.data.domain.PageRequest.of(0, 20)));
     }
 
     // --- SEARCH USERS TESTS (#306 / #501) ---

@@ -22,6 +22,7 @@ import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/use
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 import Toast from './Toast.jsx'
+import BadgeIcon from './BadgeIcon.jsx'
 
 const MAX_DESCRIPTION = 1000
 
@@ -641,9 +642,14 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-on-surface group-hover:underline">
-                      {reporter?.name ?? report.reportedBy}
-                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-bold text-on-surface group-hover:underline">
+                        {reporter?.name ?? report.reportedBy}
+                      </p>
+                      {report.authorTopBadge && (
+                        <BadgeIcon badge={report.authorTopBadge} size="sm" />
+                      )}
+                    </div>
                     {report.date && (
                       <p className="text-xs text-on-surface-variant">{report.date}</p>
                     )}

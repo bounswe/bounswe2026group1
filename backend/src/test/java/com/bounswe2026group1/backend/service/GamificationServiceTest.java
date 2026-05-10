@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.service;
 
 import com.bounswe2026group1.backend.model.Badge;
+import com.bounswe2026group1.backend.model.FixRequest;
 import com.bounswe2026group1.backend.model.PointEvent;
 import com.bounswe2026group1.backend.model.PointReason;
 import com.bounswe2026group1.backend.model.RegisteredUser;
@@ -10,6 +11,7 @@ import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.model.UserBadge;
 import com.bounswe2026group1.backend.model.VoteType;
+import com.bounswe2026group1.backend.repository.FixRequestVoteRepository;
 import com.bounswe2026group1.backend.repository.PointEventRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportRepository;
@@ -41,8 +43,11 @@ class GamificationServiceTest {
     @Mock private RegisteredUserRepository userRepository;
     @Mock private ReportRepository reportRepository;
     @Mock private ReportVerificationRepository verificationRepository;
+    @Mock private FixRequestVoteRepository fixRequestVoteRepository;
     @Mock private PointEventRepository pointEventRepository;
     @Mock private UserBadgeRepository userBadgeRepository;
+    @Mock private LeaderboardService leaderboardService;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks
     private GamificationService gamificationService;
@@ -60,6 +65,11 @@ class GamificationServiceTest {
         ReflectionTestUtils.setField(gamificationService, "voteOpposedDelta", -5);
         ReflectionTestUtils.setField(gamificationService, "trustedReporterThreshold", 10);
         ReflectionTestUtils.setField(gamificationService, "expertMapperThreshold", 50);
+        ReflectionTestUtils.setField(gamificationService, "fixRequestVoteCastDelta", 5);
+        ReflectionTestUtils.setField(gamificationService, "fixRequestVoteWithdrawnDelta", -5);
+        ReflectionTestUtils.setField(gamificationService, "fixResolvedBonusDelta", 20);
+        ReflectionTestUtils.setField(gamificationService, "fixVoteAlignedDelta", 15);
+        ReflectionTestUtils.setField(gamificationService, "fixVoteOpposedDelta", -5);
     }
 
     // ───────────────────── awardOnReportSubmit ──────────────────────────
@@ -84,6 +94,19 @@ class GamificationServiceTest {
         gamificationService.awardOnReportSubmit(null, 100L);
         verify(userRepository, never()).save(any());
         verify(pointEventRepository, never()).save(any());
+        verify(leaderboardService, never()).onPointsChanged(any());
+    }
+
+    @Test
+    void applyDelta_triggersLeaderboardRecompute() {
+        // Top-10 badge churn must track every point change in real time —
+        // applyDelta is the single mutation point, so any award/deduct
+        // method on the public API ends up triggering this.
+        RegisteredUser author = newUser(1L, 0);
+
+        gamificationService.awardOnReportSubmit(author, 100L);
+
+        verify(leaderboardService).onPointsChanged(1L);
     }
 
     // ───────────────────────── awardOnVoteCast ──────────────────────────
@@ -247,6 +270,22 @@ class GamificationServiceTest {
 
         assertThat(awarded).containsExactly(Badge.TRUSTED_REPORTER);
         verify(userBadgeRepository, times(1)).save(any(UserBadge.class));
+        // Each newly awarded milestone fires a BADGE_AWARDED notification.
+        verify(notificationService).notifyBadgeAwarded(user, Badge.TRUSTED_REPORTER);
+    }
+
+    @Test
+    void evaluateMilestoneBadges_existingBadgeDoesNotReFireNotification() {
+        // Idempotent path: badge already held → no save, no notification.
+        RegisteredUser user = newUser(1L, 0);
+        when(reportRepository.countByCreatedByIdAndStatus(1L, ReportStatus.VERIFIED))
+                .thenReturn(15L);
+        when(userBadgeRepository.existsByUserIdAndBadge(1L, Badge.TRUSTED_REPORTER))
+                .thenReturn(true);
+
+        gamificationService.evaluateMilestoneBadges(user);
+
+        verify(notificationService, never()).notifyBadgeAwarded(any(), any());
     }
 
     @Test
@@ -290,6 +329,115 @@ class GamificationServiceTest {
         verify(userBadgeRepository, never()).save(any(UserBadge.class));
     }
 
+    // ───────────────────── fix-request flow ─────────────────────────────
+
+    @Test
+    void awardOnFixRequestVoteCast_addsFivePointsOnFreshVote() {
+        RegisteredUser voter = newUser(2L, 100);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_CAST)).thenReturn(0L);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_WITHDRAWN)).thenReturn(0L);
+
+        gamificationService.awardOnFixRequestVoteCast(voter, 500L);
+
+        assertThat(voter.getPoints()).isEqualTo(105);
+        ArgumentCaptor<PointEvent> ev = ArgumentCaptor.forClass(PointEvent.class);
+        verify(pointEventRepository).save(ev.capture());
+        assertThat(ev.getValue().getReason()).isEqualTo(PointReason.FIX_REQUEST_VOTE_CAST);
+        assertThat(ev.getValue().getRelatedEntityId()).isEqualTo(500L);
+    }
+
+    @Test
+    void awardOnFixRequestVoteCast_isNoOpWhenAlreadyVoted_modifyVotePath() {
+        RegisteredUser voter = newUser(2L, 100);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_CAST)).thenReturn(1L);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_WITHDRAWN)).thenReturn(0L);
+
+        gamificationService.awardOnFixRequestVoteCast(voter, 500L);
+
+        assertThat(voter.getPoints()).isEqualTo(100);
+        verify(pointEventRepository, never()).save(any(PointEvent.class));
+    }
+
+    @Test
+    void awardOnFixRequestVoteCast_independentFromReportVoteLedger() {
+        // Defensive: a user who already cast a VOTE_CAST on report 500 should
+        // still be paid for the FIRST FIX_REQUEST_VOTE_CAST on a fix request
+        // that happens to share id 500 — the two ledgers are independent.
+        RegisteredUser voter = newUser(2L, 100);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_CAST)).thenReturn(0L);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_WITHDRAWN)).thenReturn(0L);
+
+        gamificationService.awardOnFixRequestVoteCast(voter, 500L);
+
+        assertThat(voter.getPoints()).isEqualTo(105);
+    }
+
+    @Test
+    void deductOnFixRequestVoteWithdraw_subtractsFiveOnActiveVote() {
+        RegisteredUser voter = newUser(2L, 100);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_CAST)).thenReturn(1L);
+        when(pointEventRepository.countByUserIdAndRelatedEntityIdAndReason(
+                2L, 500L, PointReason.FIX_REQUEST_VOTE_WITHDRAWN)).thenReturn(0L);
+
+        gamificationService.deductOnFixRequestVoteWithdraw(voter, 500L);
+
+        assertThat(voter.getPoints()).isEqualTo(95);
+    }
+
+    @Test
+    void onFixRequestResolved_paysSubmitterBonusAndAlignsVoters() {
+        RegisteredUser submitter = newUser(1L, 0);
+        RegisteredUser agreer = newUser(2L, 0);
+        RegisteredUser disagreer = newUser(3L, 100);
+        FixRequest fixRequest = stubFixRequest(submitter);
+
+        when(fixRequestVoteRepository.findVoteTuplesByFixRequestId(500L))
+                .thenReturn(java.util.List.<Object[]>of(
+                        new Object[]{2L, VoteType.AGREE},
+                        new Object[]{3L, VoteType.DISAGREE}));
+        when(userRepository.findAllById(any()))
+                .thenReturn(java.util.List.of(agreer, disagreer));
+
+        gamificationService.onFixRequestResolved(fixRequest);
+
+        assertThat(submitter.getPoints()).isEqualTo(20);  // resolved bonus
+        assertThat(agreer.getPoints()).isEqualTo(15);     // aligned
+        assertThat(disagreer.getPoints()).isEqualTo(95);  // opposed (-5)
+        verify(pointEventRepository, times(3)).save(any(PointEvent.class));
+    }
+
+    @Test
+    void onFixRequestResolved_skipsSubmitterFromVoterFanOut() {
+        // If the submitter somehow appears in their own fix-request vote
+        // tuples, they should not be paid the +15 voter-aligned reward on
+        // top of the +20 resolved-bonus.
+        RegisteredUser submitter = newUser(1L, 0);
+        FixRequest fixRequest = stubFixRequest(submitter);
+
+        when(fixRequestVoteRepository.findVoteTuplesByFixRequestId(500L))
+                .thenReturn(java.util.List.<Object[]>of(
+                        new Object[]{1L, VoteType.AGREE}));
+
+        gamificationService.onFixRequestResolved(fixRequest);
+
+        // Submitter only gets the +20 bonus, never the +15 voter reward.
+        assertThat(submitter.getPoints()).isEqualTo(20);
+        verify(pointEventRepository, times(1)).save(any(PointEvent.class));
+    }
+
+    @Test
+    void onFixRequestResolved_nullFixRequestIsNoOp() {
+        gamificationService.onFixRequestResolved(null);
+        verify(pointEventRepository, never()).save(any(PointEvent.class));
+    }
+
     // ───────────────────────── helpers ──────────────────────────────────
 
     private static RegisteredUser newUser(Long id, int initialPoints) {
@@ -306,5 +454,12 @@ class GamificationServiceTest {
                 ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
         ReflectionTestUtils.setField(r, "reportId", 100L);
         return r;
+    }
+
+    private static FixRequest stubFixRequest(RegisteredUser submitter) {
+        FixRequest fr = new FixRequest();
+        ReflectionTestUtils.setField(fr, "id", 500L);
+        ReflectionTestUtils.setField(fr, "submittedBy", submitter);
+        return fr;
     }
 }
