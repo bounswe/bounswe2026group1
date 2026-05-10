@@ -606,7 +606,7 @@ function Home() {
             <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
               <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">location_on</span>
-                Click on the map to set report location
+                {t('home.pinDropHint')}
               </div>
             </div>
           )}
@@ -616,7 +616,7 @@ function Home() {
             <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
               <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">route</span>
-                Click on the map to set your starting point
+                {t('home.routeStartHint')}
               </div>
             </div>
           )}
@@ -624,7 +624,7 @@ function Home() {
             <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
               <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">route</span>
-                Now click your destination
+                {t('home.routeDestHint')}
               </div>
             </div>
           )}
