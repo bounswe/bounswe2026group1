@@ -66,10 +66,16 @@ function makeMarkerIcon(status, objectType, selected = false) {
   })
 }
 
-function ZoomControls() {
+function ZoomControls({ shiftRight = false }) {
   const map = useMap()
+  // RoutePanel is a 360px left sidebar at ≥lg. When it's open, shift the zoom
+  // controls past it on desktop so they aren't hidden behind the panel.
+  // Mobile keeps the upper-left position (RoutePanel is a bottom sheet there).
+  const positionClasses = shiftRight
+    ? 'left-3 sm:left-10 lg:left-[376px] top-24 sm:top-28'
+    : 'left-3 sm:left-10 top-24 sm:top-28'
   return (
-    <div className="absolute left-3 sm:left-10 top-24 sm:top-28 flex flex-col gap-2 z-[1000]">
+    <div className={`absolute ${positionClasses} flex flex-col gap-2 z-[1000] transition-[left] duration-200`}>
       <button
         onClick={() => map.zoomIn()}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
@@ -537,7 +543,7 @@ function Home() {
                 />
               )
             })}
-            <ZoomControls />
+            <ZoomControls shiftRight={routeMode} />
           </MapContainer>
 
           {/* Loading / error overlay */}
