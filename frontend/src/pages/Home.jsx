@@ -10,10 +10,24 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
-import MapSearchBar from '../components/MapSearchBar.jsx'
+import OnboardingTutorial from '../components/OnboardingTutorial.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { useTheme } from '../context/ThemeContext.jsx'
+
+// First-visit onboarding flag. Cleared once the user dismisses or completes the
+// tour. Visit `/?tutorial=1` (e.g. from the Navbar "Replay tutorial" entry) to
+// force the modal to show again.
+const ONBOARDING_FLAG = 'mapcess_onboarding_v1'
+
+function shouldShowOnboarding(searchParams) {
+  if (searchParams.get('tutorial') === '1') return true
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(ONBOARDING_FLAG) !== 'done'
+  } catch {
+    return false
+  }
+}
 
 function decodePolyline(encoded) {
   const coords = []
@@ -202,7 +216,23 @@ function Home() {
   const tileAttr = isDark ? TILE_ATTR_DARK : TILE_ATTR_LIGHT
   const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [showOnboarding, setShowOnboarding] = useState(() => shouldShowOnboarding(searchParams))
+
+  // Re-evaluate when ?tutorial=1 appears mid-session (e.g. from the Navbar entry).
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') setShowOnboarding(true)
+  }, [searchParams])
+
+  const handleOnboardingClose = useCallback(() => {
+    try { window.localStorage.setItem(ONBOARDING_FLAG, 'done') } catch {}
+    setShowOnboarding(false)
+    if (searchParams.get('tutorial')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('tutorial')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
   const [initialMapView] = useState(() => {
     try {
       const raw = sessionStorage.getItem(SESSION_MAP_VIEW_KEY)
@@ -657,6 +687,7 @@ function Home() {
           onDismiss={handleToastDismiss}
         />
       )}
+      {showOnboarding && <OnboardingTutorial onClose={handleOnboardingClose} />}
     </div>
   )
 }
