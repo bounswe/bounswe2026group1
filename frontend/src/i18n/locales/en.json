@@ -241,7 +241,11 @@
     "profileUpdated": "Profile updated.",
     "profileUpdateFailed": "Failed to update profile.",
     "avatarUpdated": "Avatar updated.",
-    "avatarRemoved": "Avatar removed."
+    "avatarRemoved": "Avatar removed.",
+    "role": {
+      "USER": "USER",
+      "ADMIN": "ADMIN"
+    }
   },
   "onboarding": {
     "closeTutorial": "Close tutorial",

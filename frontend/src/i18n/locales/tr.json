@@ -241,7 +241,11 @@
     "profileUpdated": "Profil güncellendi.",
     "profileUpdateFailed": "Profil güncellenemedi.",
     "avatarUpdated": "Avatar güncellendi.",
-    "avatarRemoved": "Avatar kaldırıldı."
+    "avatarRemoved": "Avatar kaldırıldı.",
+    "role": {
+      "USER": "KULLANICI",
+      "ADMIN": "YÖNETİCİ"
+    }
   },
   "onboarding": {
     "closeTutorial": "Tanıtımı kapat",

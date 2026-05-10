@@ -119,7 +119,7 @@ function ProfilePage() {
                   </h1>
                   <p className="text-sm text-on-surface-variant break-all">{user.email}</p>
                   <span className="inline-block mt-2 text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {user.role}
+                    {t(`profile.role.${user.role}`, { defaultValue: user.role })}
                   </span>
                 </div>
               </div>
