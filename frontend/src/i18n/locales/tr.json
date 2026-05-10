@@ -37,6 +37,56 @@
     "getRoutes": "Rota Al",
     "reportIssue": "Sorun Bildir"
   },
+  "onboarding": {
+    "closeTutorial": "Tanıtımı kapat",
+    "skipTour": "Tanıtımı atla",
+    "back": "Geri",
+    "next": "İleri",
+    "gotIt": "Anladım",
+    "tipDefault": "İpucu",
+    "welcome": {
+      "title": "Mapcess'e hoş geldin",
+      "tipTitle": "Ne öğreneceksin",
+      "tip": "İnsanların en sık bildirdiği dört şeyin — rampalar, kaldırımlar, asansörler ve kapılar — kısa bir turu ve ilk raporunu bir dakikadan kısa sürede nasıl hazırlayacağın."
+    },
+    "ramps": {
+      "title": "Rampalar",
+      "bullet1": "Eğim ≤ %10 — daha dik rampa tekerlekli sandalyeleri engeller",
+      "bullet2": "Net genişlik ≥ 100 cm — yürüteç + yardımcı için yer",
+      "bullet3": "İki yanda 90 cm yükseklikte korkuluk (kısa boylular için ek 70 cm korkuluk)",
+      "bullet4": "Rampanın üst ve alt başlangıcında dokunsal uyarı şeridi",
+      "diagramCaption": "eğim = Y ÷ U · ≤ %10 olduğunda erişilebilir"
+    },
+    "sidewalks": {
+      "title": "Kaldırımlar",
+      "bullet1": "Net genişlik ≥ 150 cm — tekerlekli sandalyelerin geçişi için",
+      "bullet2": "Üst boşluk ≥ 220 cm — alçak dal veya tabela olmamalı",
+      "bullet3": "Bordür kenarında yola karşı görünür olacak kontrast şerit",
+      "diagramCaption": "Kaldırımın üstten görünümü"
+    },
+    "elevators": {
+      "title": "Asansörler",
+      "bullet1": "Tam açıldığında kapı net genişliği ≥ 90 cm",
+      "bullet2": "Her düğmede braille etiket ve sesli duyuru",
+      "bullet3": "Görsel kat göstergesi + yanıp sönen acil durum alarmı",
+      "diagramCaption": "Kabinin üstten görünümü"
+    },
+    "doors": {
+      "title": "Kapılar",
+      "bullet1": "Tam açıldığında net genişlik ≥ 90 cm",
+      "bullet2": "Topuz değil kol kulp — zayıf kavrayışta daha kolay",
+      "bullet3": "Cam panellerde göz hizasında kontrast şeritler"
+    },
+    "howTo": {
+      "title": "Nasıl rapor edilir",
+      "step1": "Haritaya dokun",
+      "step2": "Medya ekle",
+      "step3": "Açıkla",
+      "step4": "Gönder",
+      "tipTitle": "Bir dakikadan kısa",
+      "tip": "Beş komşu onayladığında raporun doğrulanmış olur ve herkes için erişilebilir rotalar şekillenmeye başlar."
+    }
+  },
   "auth": {
     "login": {
       "heroHeadline": "Her komşu için hareket özgürlüğü.",

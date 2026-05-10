@@ -37,6 +37,57 @@
     "getRoutes": "Get Routes",
     "reportIssue": "Report an Issue"
   },
+  "onboarding": {
+    "closeTutorial": "Close tutorial",
+    "skipTour": "Skip tour",
+    "back": "Back",
+    "next": "Next",
+    "gotIt": "Got it",
+    "tipDefault": "Tip",
+    "welcome": {
+      "title": "Welcome to Mapcess",
+      "tipTitle": "What you'll learn",
+      "tip": "A quick tour of the four most common things people report — ramps, sidewalks, elevators, and doors — and how to file your first report in under a minute."
+    },
+    "ramps": {
+      "title": "Ramps",
+      "bullet1": "Slope ≤ 10% — steeper blocks wheelchairs",
+      "bullet2": "Clear width ≥ 100 cm — room for a walker + helper",
+      "bullet3": "Handrails on both sides at 90 cm (extra rail at 70 cm for shorter users)",
+      "bullet4": "Tactile warning strip at the top and bottom of the ramp",
+      "diagramCaption": "slope = H ÷ L · accessible when ≤ 10%"
+    },
+    "sidewalks": {
+      "title": "Sidewalks",
+      "bullet1": "Clear width ≥ 150 cm — wheelchairs need to pass each other",
+      "bullet2": "Overhead clearance ≥ 220 cm — no low branches or signs",
+      "bullet3": "Contrasting strip along the curb edge so it's visible against the road",
+      "diagramCaption": "Top-down view of the sidewalk"
+    },
+    "elevators": {
+      "title": "Elevators",
+      "bullet1": "Door clear width ≥ 90 cm when fully open",
+      "bullet2": "Braille labels on every button and voice announcement",
+      "bullet3": "Visual floor display + flashing emergency alarm",
+      "diagramCaption": "Top-down view of the cabin"
+    },
+    "doors": {
+      "title": "Doors",
+      "bullet1": "Clear width ≥ 90 cm when fully open",
+      "bullet2": "Lever handle (not a knob) — easier with weak grip",
+      "bullet3": "Glass panels marked with contrasting bands at eye level",
+      "diagramCaption": "Front view — entrance door"
+    },
+    "howTo": {
+      "title": "How to file a report",
+      "step1": "Tap the map",
+      "step2": "Add media",
+      "step3": "Describe",
+      "step4": "Submit",
+      "tipTitle": "Done in under a minute",
+      "tip": "Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone."
+    }
+  },
   "auth": {
     "login": {
       "heroHeadline": "Empowering mobility for every neighbour.",
