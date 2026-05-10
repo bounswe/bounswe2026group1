@@ -5,7 +5,7 @@ import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
-function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
+function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
 
@@ -226,7 +226,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
       onCreated(mapped)
       onClose()
     } catch (err) {
-      setError(err.message || 'Failed to submit report. Please try again.')
+      const message = err.message || 'Failed to submit report. Please try again.'
+      setError(message)
+      // Surface the same message as a global toast for callers that wired one
+      // up (Home does). The inline error stays for persistent context.
+      if (onError) onError(message)
     } finally {
       setSubmitting(false)
     }
