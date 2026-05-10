@@ -250,6 +250,64 @@ class _MainShellState extends State<MainShell>
     );
   }
 
+  void _openUserSearch(BuildContext context) {
+    // The /api/users/search endpoint requires a bearer token — guests would
+    // just hit a 401, so short-circuit with the same login-required prompt
+    // used by the report FAB instead of opening a doomed screen.
+    final auth = context.read<AuthService>();
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const UserSearchScreen()),
+    );
+  }
+
+  void _showLoginRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Sign In Required',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: Text(
+          'You need to log in to use this feature.',
+          style: TextStyle(color: AppColors.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel',
+                style: TextStyle(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthShell()),
+                (r) => false,
+              );
+            },
+            child: Text(
+              'Sign In',
+              style: TextStyle(
+                  color: AppColors.primary, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSettingsMenu(BuildContext context) {
     final auth = context.read<AuthService>();
     showModalBottomSheet(
@@ -409,9 +467,7 @@ class _MainShellState extends State<MainShell>
           IconButton(
             icon: Icon(Icons.search, color: AppColors.onSurface),
             tooltip: 'Search users',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const UserSearchScreen()),
-            ),
+            onPressed: () => _openUserSearch(context),
           ),
           IconButton(
             icon: Icon(Icons.settings_outlined, color: AppColors.onSurface),
