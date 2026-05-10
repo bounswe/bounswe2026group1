@@ -91,16 +91,14 @@ public class GamificationService {
         applyDelta(voter, voteCastDelta, PointReason.VOTE_CAST, reportId);
     }
 
-    /** Voter fully withdrew their previously cast vote. */
+    /**
+     * Voter fully withdrew their previously cast vote. Caller is the
+     * source of truth for whether an active vote exists; this method
+     * unconditionally deducts the points.
+     */
     @Transactional
     public void deductOnVoteWithdraw(RegisteredUser voter, Long reportId) {
         if (voter == null || reportId == null) return;
-        if (!isCurrentlyVoted(voter.getId(), reportId)) {
-            // Defensive: never deduct points for a withdraw the user never
-            // paired with a cast (would otherwise let a malicious caller
-            // drive any user to zero via spurious withdraw events).
-            return;
-        }
         applyDelta(voter, voteWithdrawnDelta, PointReason.VOTE_WITHDRAWN, reportId);
     }
 
