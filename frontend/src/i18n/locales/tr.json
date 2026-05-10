@@ -175,7 +175,7 @@
     "hint": "JPEG veya PNG, en fazla 15 MB. Bu kutuya sürükleyip bırakabilirsin."
   },
   "routing": {
-    "title": "Rotalama tercihleri",
+    "title": "Rota tercihleri",
     "customCount": "{{count}}/{{max}} özel hazır ayar",
     "intro": "Her erişilebilir rota isteğini şekillendirmek için bir hazır ayar seç. Yerleşik ayarlar yaygın ihtiyaçları kapsar; ayrıca en fazla 5 kendi ayarını da kaydedebilirsin.",
     "active": "Aktif",
