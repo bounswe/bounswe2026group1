@@ -1,4 +1,4 @@
-import { apiFetch } from './api.js'
+import { apiFetch, currentLanguageTag } from './api.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 
 /**
@@ -64,6 +64,7 @@ export async function submitFixRequest(reportId, file, description, token) {
       headers: {
         Authorization: `Bearer ${token}`,
         'Mapcess-Key': import.meta.env.VITE_API_KEY,
+        'Accept-Language': currentLanguageTag(),
       },
       body: formData,
     }

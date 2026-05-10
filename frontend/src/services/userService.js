@@ -1,4 +1,4 @@
-import { apiFetch } from './api.js'
+import { apiFetch, currentLanguageTag } from './api.js'
 
 function authHeaders(token) {
   return { Authorization: `Bearer ${token}` }
@@ -41,7 +41,7 @@ export async function uploadAvatar(id, file, token) {
 
   const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/profile/avatar`, {
     method: 'POST',
-    headers: authHeaders(token),
+    headers: { ...authHeaders(token), 'Accept-Language': currentLanguageTag() },
     body: formData,
   })
 
