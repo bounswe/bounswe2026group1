@@ -600,7 +600,7 @@ enum ReportStatus {
         ReportStatus.pending => const Color(0xFF8B6A00),
         ReportStatus.verified => const Color(0xFF176a21),
         ReportStatus.rejected => const Color(0xFFB02500),
-        ReportStatus.fixed => const Color(0xFF2E7D32),
+        ReportStatus.fixed => const Color(0xFF1565C0),
       };
 }
 

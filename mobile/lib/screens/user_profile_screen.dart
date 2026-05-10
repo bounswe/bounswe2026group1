@@ -372,8 +372,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildReportTile(ReportModel report) {
-    final verified = report.status == ReportStatus.verified ||
-        report.status == ReportStatus.fixed;
+    final isFixed = report.status == ReportStatus.fixed;
+    final isVerified = report.status == ReportStatus.verified;
+    final pillBg = isFixed
+        ? AppColors.infoContainer
+        : isVerified
+            ? AppColors.successContainer
+            : AppColors.surfaceContainer;
+    final pillFg = isFixed
+        ? AppColors.info
+        : isVerified
+            ? AppColors.success
+            : AppColors.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -433,9 +443,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: verified
-                        ? AppColors.successContainer
-                        : AppColors.surfaceContainer,
+                    color: pillBg,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -444,9 +452,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,
-                      color: verified
-                          ? AppColors.success
-                          : AppColors.onSurfaceVariant,
+                      color: pillFg,
                     ),
                   ),
                 ),
