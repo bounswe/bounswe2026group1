@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import {
   agreeReport,
@@ -43,6 +44,7 @@ function isVideoUrl(url) {
 // when there is more than one item. Portaled to <body> so the panel's
 // pointer-events-none wrapper doesn't swallow clicks.
 function MediaLightbox({ items, startIndex = 0, title, onClose }) {
+  const { t } = useTranslation()
   const [index, setIndex] = useState(startIndex)
 
   useEffect(() => {
@@ -101,7 +103,7 @@ function MediaLightbox({ items, startIndex = 0, title, onClose }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setIndex((i) => (i === 0 ? items.length - 1 : i - 1)) }}
-            aria-label="Previous"
+            aria-label={t('report.previousImage')}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
           >
             <span className="material-symbols-outlined text-2xl">chevron_left</span>
@@ -109,7 +111,7 @@ function MediaLightbox({ items, startIndex = 0, title, onClose }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setIndex((i) => (i === items.length - 1 ? 0 : i + 1)) }}
-            aria-label="Next"
+            aria-label={t('report.nextImage')}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
           >
             <span className="material-symbols-outlined text-2xl">chevron_right</span>
@@ -149,6 +151,7 @@ function MediaLightbox({ items, startIndex = 0, title, onClose }) {
 // <video> and dropped the carousel entirely when slot 0 was a video).
 // Click an image (or the expand button on a video) to open MediaLightbox.
 function MediaCarousel({ items, title, heightClass = 'h-64' }) {
+  const { t } = useTranslation()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
 
@@ -194,7 +197,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
-              aria-label="Open in viewer"
+              aria-label={t('report.openInViewer')}
               className="absolute top-2 right-2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm cursor-pointer z-10"
             >
               <span className="material-symbols-outlined text-lg">open_in_full</span>
@@ -204,12 +207,12 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
           <button
             type="button"
             onClick={() => setLightboxOpen(true)}
-            aria-label={`Open ${title ? title + ' ' : ''}photo ${safeIndex + 1} in viewer`}
+            aria-label={t('report.openInViewer')}
             className="block w-full h-full cursor-zoom-in"
           >
             <img
               src={current}
-              alt={`${title} - Photo ${safeIndex + 1}`}
+              alt={`${title} - ${t('report.photo')} ${safeIndex + 1}`}
               className="w-full h-full object-cover transition-opacity duration-300"
             />
           </button>
@@ -222,7 +225,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
             <button
               onClick={handlePrev}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-sm transition-colors z-10 shadow-md"
-              aria-label="Previous"
+              aria-label={t('report.previousImage')}
             >
               <span className="material-symbols-outlined text-xl">chevron_left</span>
             </button>
@@ -230,7 +233,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
             <button
               onClick={handleNext}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-sm transition-colors z-10 shadow-md"
-              aria-label="Next"
+              aria-label={t('report.nextImage')}
             >
               <span className="material-symbols-outlined text-xl">chevron_right</span>
             </button>
@@ -241,7 +244,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
                   key={i}
                   onClick={(e) => { e.stopPropagation(); setCurrentIndex(i) }}
                   className={`w-1.5 h-1.5 rounded-full transition-all ${safeIndex === i ? 'bg-white w-3' : 'bg-white/50 hover:bg-white/80'}`}
-                  aria-label={`Go to media ${i + 1}`}
+                  aria-label={t('report.goToMedia', { index: i + 1 })}
                 />
               ))}
             </div>
@@ -274,7 +277,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
  *  - onVoteUpdate: (updatedReport) => void
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange, onShowToast }) {
-
+  const { t } = useTranslation()
   const { token, isAuthenticated, userId, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -401,7 +404,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       onVoteChange(mappedUpdated.userVote ?? null)
     },
     onError: () => {
-      setVoteError('Failed to submit vote. Please try again.')
+      setVoteError(t('report.voteFailed'))
     },
   })
 
@@ -422,7 +425,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
     },
     onError: () => {
-      setFixVoteError('Failed to vote on fix. Please try again.')
+      setFixVoteError(t('report.fixVoteFailed'))
     },
   })
 
@@ -605,7 +608,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           {/* Mobile drag handle — pill is decorative, the wider hit-area carries the pointer events. */}
           <div
             role="slider"
-            aria-label="Resize report panel"
+            aria-label={t('report.resizePanel')}
             aria-valuemin={SHEET_SNAP_POINTS[0]}
             aria-valuemax={SHEET_SNAP_POINTS[SHEET_SNAP_POINTS.length - 1]}
             aria-valuenow={Math.round(sheetHeightDvh)}
@@ -631,13 +634,13 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                   className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/30 hover:bg-primary/15 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                  Back to feed
+                  {t('report.backToFeed')}
                 </button>
               )}
               <button
                 onClick={onClose}
                 className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors shrink-0"
-                aria-label="Close panel"
+                aria-label={t('report.closePanel')}
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
@@ -803,7 +806,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       type="button"
                       onClick={handleDelete}
                       disabled={deleteReportMutation.isPending}
-                      aria-label="Delete report"
+                      aria-label={t('report.deleteReport')}
                       className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
                     >
                       {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
@@ -1036,7 +1039,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <button
                   onClick={() => handleVote('agree')}
                   disabled={voting}
-                  aria-label="Agree"
+                  aria-label={t('report.agree')}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${userVote === 'agree'
                     ? 'bg-primary text-on-primary'
                     : 'bg-surface-container-highest text-on-surface hover:bg-primary/10 hover:text-primary'
@@ -1048,7 +1051,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <button
                   onClick={() => handleVote('disagree')}
                   disabled={voting}
-                  aria-label="Disagree"
+                  aria-label={t('report.disagree')}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${userVote === 'disagree'
                     ? 'bg-error text-white'
                     : 'bg-surface-container-highest text-on-surface hover:bg-error/10 hover:text-error'
@@ -1111,7 +1114,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             <button
                               onClick={() => handleDeleteComment(comment.id)}
                               className="text-outline hover:text-error transition-colors"
-                              aria-label="Delete comment"
+                              aria-label={t('report.deleteComment')}
                             >
                               <span className="material-symbols-outlined text-sm">delete</span>
                             </button>

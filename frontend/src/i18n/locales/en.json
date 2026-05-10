@@ -85,7 +85,11 @@
     "disagree": "Disagree",
     "deleteComment": "Delete comment",
     "voteFailed": "Failed to submit vote. Please try again.",
-    "fixVoteFailed": "Failed to vote on fix. Please try again."
+    "fixVoteFailed": "Failed to vote on fix. Please try again.",
+    "openInViewer": "Open in viewer",
+    "photo": "Photo",
+    "goToMedia": "Go to media {{index}}",
+    "backToFeed": "Back to feed"
   },
   "feed": {
     "title": "Community feed",

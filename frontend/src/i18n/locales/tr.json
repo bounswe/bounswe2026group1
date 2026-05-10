@@ -85,7 +85,11 @@
     "disagree": "Katılmıyorum",
     "deleteComment": "Yorumu sil",
     "voteFailed": "Oy gönderilemedi. Lütfen tekrar dene.",
-    "fixVoteFailed": "Düzeltme oylanamadı. Lütfen tekrar dene."
+    "fixVoteFailed": "Düzeltme oylanamadı. Lütfen tekrar dene.",
+    "openInViewer": "Görüntüleyicide aç",
+    "photo": "Fotoğraf",
+    "goToMedia": "{{index}}. medyaya git",
+    "backToFeed": "Akışa dön"
   },
   "feed": {
     "title": "Topluluk akışı",
