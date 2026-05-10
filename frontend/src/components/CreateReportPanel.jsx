@@ -13,8 +13,8 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
   const [environment, setEnvironment] = useState('OUTDOOR')
   const [objects, setObjects] = useState([])
   const [description, setDescription] = useState('')
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(null)
+  const [imageFiles, setImageFiles] = useState([])
+  const [imagePreviews, setImagePreviews] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
@@ -84,18 +84,33 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
   // ── image ──────────────────────────────────────────────────────────────────
 
   function handleImageChange(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+    addFiles(files)
   }
 
   function handleDrop(e) {
     e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    const files = Array.from(e.dataTransfer.files)
+    if (!files.length) return
+    addFiles(files)
+  }
+
+  function addFiles(newFiles) {
+    setImageFiles(prev => {
+      const combined = [...prev, ...newFiles].slice(0, 5) // Max 5 files
+      setImagePreviews(combined.map(f => URL.createObjectURL(f)))
+      return combined
+    })
+  }
+
+  function removeImage(index) {
+    setImageFiles(prev => {
+      const next = [...prev]
+      next.splice(index, 1)
+      setImagePreviews(next.map(f => URL.createObjectURL(f)))
+      return next
+    })
   }
 
   // ── report type toggle ─────────────────────────────────────────────────────
@@ -206,23 +221,26 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
       }
       const created = await createReport(body)
 
-      let imageUrl = null
-      if (imageFile) {
+      let uploadedMedia = []
+      if (imageFiles.length > 0) {
         const formData = new FormData()
-        formData.append('file', imageFile)
+        imageFiles.forEach(file => formData.append('file', file))
         const mediaRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${created.reportId}/media`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
         })
         if (mediaRes.ok) {
-          const mediaData = await mediaRes.json()
-          imageUrl = mediaData.mediaUrl
+          // Get the json directly, do not map it
+          uploadedMedia = await mediaRes.json()
         }
       }
 
       const mapped = mapReport(created)
-      if (imageUrl) mapped.image = imageUrl
+      if (uploadedMedia.length > 0) {
+        mapped.image = uploadedMedia[0].url // Use the first photo URL for the map preview
+        mapped.media = uploadedMedia
+      }
       onCreated(mapped)
       onClose()
     } catch (err) {
@@ -315,21 +333,41 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={e => e.preventDefault()}
-            className="w-full h-44 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
+            className="w-full min-h-[11rem] p-4 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
           >
-            {imagePreview ? (
-              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+            {imagePreviews.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 w-full">
+                {imagePreviews.map((preview, idx) => (
+                  <div key={idx} className="relative aspect-video rounded-lg overflow-hidden group border border-outline-variant/20 bg-black/5">
+                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Remove image"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                ))}
+                {imagePreviews.length < 5 && (
+                  <div className="aspect-video rounded-lg border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                    <span className="material-symbols-outlined text-2xl mb-1">add</span>
+                    <span className="text-[10px] font-medium">Add more</span>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
                 <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
-                <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG)</p>
+                <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG). Up to 5 files.</p>
               </>
             )}
           </div>
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept="image/jpeg,image/png"
             className="hidden"
             onChange={handleImageChange}
