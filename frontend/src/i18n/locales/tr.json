@@ -163,6 +163,57 @@
       "fixed": "Düzeltildi"
     }
   },
+  "avatar": {
+    "upload": "Avatar yükle",
+    "change": "Avatarı değiştir",
+    "save": "Avatarı kaydet",
+    "uploading": "Yükleniyor…",
+    "remove": "Kaldır",
+    "removing": "Kaldırılıyor…",
+    "cancel": "İptal",
+    "dropToPreview": "Önizleme için bırak…",
+    "hint": "JPEG veya PNG, en fazla 15 MB. Bu kutuya sürükleyip bırakabilirsin."
+  },
+  "routing": {
+    "title": "Rotalama tercihleri",
+    "customCount": "{{count}}/{{max}} özel hazır ayar",
+    "intro": "Her erişilebilir rota isteğini şekillendirmek için bir hazır ayar seç. Yerleşik ayarlar yaygın ihtiyaçları kapsar; ayrıca en fazla 5 kendi ayarını da kaydedebilirsin.",
+    "active": "Aktif",
+    "ruleOne": "{{count}} kural",
+    "ruleOther": "{{count}} kural",
+    "createCustom": "Özel hazır ayar oluştur",
+    "atCapTitle": "En fazla {{max}} özel hazır ayar kaydedebilirsin.",
+    "saveFailed": "Hazır ayar kaydedilemedi.",
+    "deleteFailed": "Hazır ayar silinemedi.",
+    "activateLabel": "{{label}} ayarını etkinleştir",
+    "detailsLabel": "{{label}} ayrıntılarını gör",
+    "presets": {
+      "NONE": "Tercih yok",
+      "WHEELCHAIR_USER": "Tekerlekli sandalye kullanıcısı",
+      "BLIND_OR_LOW_VISION": "Görme engelli veya az gören",
+      "MOBILITY_LIMITED": "Hareket kısıtlı (baston, yürüteç, yaşlı)"
+    },
+    "travelMode": {
+      "WALKING": "Yürüme",
+      "WHEELCHAIR": "Tekerlekli sandalye"
+    }
+  },
+  "myReports": {
+    "headingOwn": "Raporlarım",
+    "headingOther": "Raporlar",
+    "loading": "Raporların yükleniyor…",
+    "loadFailed": "Raporlar yüklenemedi",
+    "emptyOwnPrefix": "Henüz hiç rapor göndermedin.",
+    "addOneOnMap": "Haritadan bir tane ekle.",
+    "emptyOther": "Henüz rapor gönderilmemiş.",
+    "noDescription": "(açıklama yok)",
+    "status": {
+      "unverified": "Beklemede",
+      "verified": "Doğrulandı",
+      "rejected": "Reddedildi",
+      "fixed": "Düzeltildi"
+    }
+  },
   "profile": {
     "loadingYours": "Profilin yükleniyor…",
     "loadingOther": "Profil yükleniyor…",

@@ -163,6 +163,57 @@
       "fixed": "Fixed"
     }
   },
+  "avatar": {
+    "upload": "Upload avatar",
+    "change": "Change avatar",
+    "save": "Save avatar",
+    "uploading": "Uploading…",
+    "remove": "Remove",
+    "removing": "Removing…",
+    "cancel": "Cancel",
+    "dropToPreview": "Drop image to preview…",
+    "hint": "JPEG or PNG, max 15 MB. You can also drag-and-drop into this box."
+  },
+  "routing": {
+    "title": "Routing preferences",
+    "customCount": "{{count}}/{{max}} custom presets",
+    "intro": "Pick a preset to shape every accessible-route request you make. Built-in presets cover common needs; you can also save up to 5 of your own.",
+    "active": "Active",
+    "ruleOne": "{{count}} rule",
+    "ruleOther": "{{count}} rules",
+    "createCustom": "Create custom preset",
+    "atCapTitle": "You can save at most {{max}} custom presets.",
+    "saveFailed": "Failed to save preset.",
+    "deleteFailed": "Failed to delete preset.",
+    "activateLabel": "Activate {{label}}",
+    "detailsLabel": "View {{label}} details",
+    "presets": {
+      "NONE": "No preferences",
+      "WHEELCHAIR_USER": "Wheelchair user",
+      "BLIND_OR_LOW_VISION": "Blind or low vision",
+      "MOBILITY_LIMITED": "Mobility limited (cane, walker, elderly)"
+    },
+    "travelMode": {
+      "WALKING": "Walking",
+      "WHEELCHAIR": "Wheelchair"
+    }
+  },
+  "myReports": {
+    "headingOwn": "My Reports",
+    "headingOther": "Reports",
+    "loading": "Loading your reports…",
+    "loadFailed": "Failed to load reports",
+    "emptyOwnPrefix": "You haven't submitted any reports yet.",
+    "addOneOnMap": "Add one on the map.",
+    "emptyOther": "No reports submitted yet.",
+    "noDescription": "(no description)",
+    "status": {
+      "unverified": "Pending",
+      "verified": "Verified",
+      "rejected": "Rejected",
+      "fixed": "Fixed"
+    }
+  },
   "profile": {
     "loadingYours": "Loading your profile…",
     "loadingOther": "Loading profile…",
