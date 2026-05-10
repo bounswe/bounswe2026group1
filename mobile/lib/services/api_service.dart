@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart';
 import '../models/fix_request_model.dart';
 import '../models/notification_model.dart';
 import '../models/report_model.dart';
+import '../models/routing_preferences.dart';
 
 const _baseUrl = 'https://api.mapcess.live';
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
@@ -167,6 +168,151 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  // ─── Routing preferences ───────────────────────────────────────────────────
+
+  Future<RoutingPreferences> getRoutingPreferences() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/users/me/routing-preferences'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return RoutingPreferences.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// PUT body. Only the fields you set are sent — the backend interprets
+  /// the combination per `UpdateRoutingPreferencesRequest`:
+  ///   • `preset` only → fills constraints + travel mode from the preset
+  ///   • `constraints` only → auto-detects preset
+  ///   • both → constraints win, preset is auto-detected from them
+  Future<RoutingPreferences> updateRoutingPreferences({
+    String? preset,
+    Set<String>? constraints,
+    String? travelMode,
+  }) async {
+    final body = <String, dynamic>{
+      if (preset != null) 'preferredPreset': preset,
+      if (constraints != null) 'constraints': constraints.toList(),
+      if (travelMode != null) 'preferredTravelMode': travelMode,
+    };
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/api/users/me/routing-preferences'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      return RoutingPreferences.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  // ─── Custom routing profiles ───────────────────────────────────────────────
+
+  Future<List<CustomRoutingProfile>> listCustomRoutingProfiles() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/users/me/routing-profiles'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list
+          .map(
+              (e) => CustomRoutingProfile.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<CustomRoutingProfile> createCustomRoutingProfile({
+    required String name,
+    Set<String>? constraints,
+    String? travelMode,
+  }) async {
+    final body = <String, dynamic>{
+      'name': name,
+      if (constraints != null) 'constraints': constraints.toList(),
+      if (travelMode != null) 'preferredTravelMode': travelMode,
+    };
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/users/me/routing-profiles'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return CustomRoutingProfile.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<CustomRoutingProfile> updateCustomRoutingProfile({
+    required int id,
+    String? name,
+    Set<String>? constraints,
+    String? travelMode,
+  }) async {
+    final body = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (constraints != null) 'constraints': constraints.toList(),
+      if (travelMode != null) 'preferredTravelMode': travelMode,
+    };
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      return CustomRoutingProfile.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> deleteCustomRoutingProfile(int id) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// Activates a custom profile and returns the updated routing-preferences
+  /// snapshot — same shape as `getRoutingPreferences()`.
+  Future<RoutingPreferences> activateCustomRoutingProfile(int id) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id/activate'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      return RoutingPreferences.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   // ─── Reports ───────────────────────────────────────────────────────────────
 
   Future<List<ReportModel>> getReports() async {
@@ -299,7 +445,10 @@ class ApiService {
     required double startLon,
     required double endLat,
     required double endLon,
-    String mode = 'WALKING',
+    // null lets the backend use the user's saved travelMode preference
+    // (and active preset / constraints) — matches the web's behaviour.
+    // Pass an explicit `'WALKING'` / `'WHEELCHAIR'` only to override.
+    String? mode,
   }) async {
     final response = await http
         .post(
@@ -310,6 +459,9 @@ class ApiService {
             'startLon': startLon,
             'endLat': endLat,
             'endLon': endLon,
+            // Sent as `null` (not omitted) so the backend's deserializer
+            // sees the field and falls back to the user's preference
+            // rather than its global default.
             'mode': mode,
           }),
         )

@@ -32,14 +32,14 @@ const FAKE_REPORT_RESPONSE = {
   mediaUrls: [],
 }
 
-function renderPanel({ token = FAKE_TOKEN, onClose = vi.fn(), onCreated = vi.fn(), position = null } = {}) {
+function renderPanel({ token = FAKE_TOKEN, onClose = vi.fn(), onCreated = vi.fn(), onError = vi.fn(), position = null } = {}) {
   if (token) localStorage.setItem('token', token)
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <CreateReportPanel position={position} onClose={onClose} onCreated={onCreated} />
+          <CreateReportPanel position={position} onClose={onClose} onCreated={onCreated} onError={onError} />
         </AuthProvider>
       </QueryClientProvider>
     </MemoryRouter>
@@ -250,6 +250,24 @@ describe('CreateReportPanel', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/server error/i)).toBeInTheDocument()
+      })
+    })
+
+    it('calls onError with the failure message so Home can raise a toast (#522)', async () => {
+      api.apiFetch.mockRejectedValue(new Error('Server error'))
+      const onError = vi.fn()
+      const user = userEvent.setup()
+
+      renderPanelWithPosition({ onError })
+
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      await user.click(screen.getByRole('checkbox', { name: /too steep/i }))
+      await user.type(screen.getByPlaceholderText(/provide a brief description/i), 'test')
+      await user.click(screen.getByRole('button', { name: /submit report/i }))
+
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalledWith('Server error')
       })
     })
   })

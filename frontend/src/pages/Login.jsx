@@ -36,16 +36,17 @@ function Login() {
   }
 
   return (
-    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar min-h-screen flex flex-col">
-      <main className="flex flex-1">
+    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar md:h-screen min-h-screen md:overflow-hidden flex flex-col">
+      <main className="flex flex-1 md:min-h-0">
         <AuthLeftPanel
           headline="Empowering mobility for every neighbour."
           description="Your reports help people with mobility challenges find accessible routes, ramps, and barrier-free paths in their neighbourhood."
         />
 
         {/* Right Side */}
-        <section className="w-full md:w-1/2 lg:w-2/5 bg-white flex items-center justify-center px-6 py-12 md:px-16 lg:px-24">
-          <div className="w-full max-w-[440px] space-y-10">
+        <section className="w-full md:w-1/2 lg:w-2/5 bg-white px-6 py-12 md:px-16 lg:px-24 md:overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center">
+            <div className="w-full max-w-[440px] space-y-8">
             {/* Mobile Branding */}
             <div className="md:hidden">
               <span className="text-2xl font-headline font-bold text-[#176a21] italic">
@@ -64,7 +65,7 @@ function Login() {
             </header>
 
             {/* Form */}
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               {/* Error message */}
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
@@ -164,6 +165,7 @@ function Login() {
                 Create an account
               </a>
             </p>
+            </div>
           </div>
         </section>
       </main>

@@ -50,16 +50,17 @@ function Signup() {
   }
 
   return (
-    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar min-h-screen flex flex-col">
-      <main className="flex flex-1">
+    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar md:h-screen min-h-screen md:overflow-hidden flex flex-col">
+      <main className="flex flex-1 md:min-h-0">
         <AuthLeftPanel
           headline="Make your city accessible for everyone."
           description="Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence."
         />
 
         {/* Right Side */}
-        <section className="w-full md:w-1/2 lg:w-2/5 bg-white flex items-center justify-center px-6 py-8 md:px-16 lg:px-24">
-          <div className="w-full max-w-[440px] space-y-6">
+        <section className="w-full md:w-1/2 lg:w-2/5 bg-white px-6 py-12 md:px-16 lg:px-24 md:overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center">
+            <div className="w-full max-w-[440px] space-y-8">
             {/* Mobile Branding */}
             <div className="md:hidden flex justify-center">
               <span className="text-2xl font-headline font-bold text-[#176a21] italic tracking-tight">
@@ -140,7 +141,6 @@ function Signup() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onBlur={() => setPasswordTouched(true)}
                     aria-invalid={passwordTouched && !passwordValidation.isValid}
                     aria-describedby="password-requirements"
                     required
@@ -151,10 +151,10 @@ function Signup() {
                     aria-live="polite"
                   >
                     {passwordValidation.results.map((rule) => {
-                      // Show red only after the user has tabbed away or
-                      // tried to submit (passwordTouched). While they're
-                      // still typing for the first time, unmet rules stay
-                      // grey so the form doesn't flash red on every keystroke.
+                      // Show red only after the user has actually tried to
+                      // submit (passwordTouched). While they're still working
+                      // on the form, unmet rules stay grey — passed rules
+                      // turn green in real time.
                       const showFailure = passwordTouched && !rule.passed
                       const colorClass = rule.passed
                         ? 'text-[#176a21]'
@@ -203,7 +203,7 @@ function Signup() {
               <button
                 className="w-full py-4 bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-headline font-bold text-lg rounded-full shadow-lg hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
                 type="submit"
-                disabled={!terms || isLoading || !passwordValidation.isValid}
+                disabled={!terms || isLoading}
               >
                 {isLoading ? 'Creating account…' : 'Create Account'}
               </button>
@@ -226,6 +226,7 @@ function Signup() {
                 Log in
               </a>
             </p>
+            </div>
           </div>
         </section>
       </main>

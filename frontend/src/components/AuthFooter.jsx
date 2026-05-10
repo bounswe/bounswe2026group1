@@ -3,7 +3,7 @@ const LINKS = ['Privacy Policy', 'Terms of Service', 'Accessibility', 'Contact S
 function AuthFooter() {
   return (
     <footer className="bg-[#f6f6f6] border-t border-[#2d2f2f]/10">
-      <div className="flex flex-col md:flex-row justify-between items-center px-12 py-12 w-full max-w-[1440px] mx-auto gap-8">
+      <div className="flex flex-col md:flex-row justify-between items-center px-12 py-2 w-full max-w-[1440px] mx-auto gap-2">
         <div className="text-lg font-bold text-[#495f69] uppercase tracking-widest font-headline">
           Mapcess
         </div>

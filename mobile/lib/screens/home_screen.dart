@@ -31,6 +31,31 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _errorMessage;
 
+  // ── Filters ───────────────────────────────────────────────────────────────
+  // Null env = "Both"; null/empty type set = "All categories". Filtering is
+  // client-side over the already-fetched _reports list — keeps the network
+  // unchanged and reacts instantly as the user toggles chips.
+  ReportEnvironment? _envFilter;
+  Set<ObjectType> _typeFilter = <ObjectType>{};
+
+  /// Reports actually shown on the map after applying the env + category
+  /// filters. Unfiltered (`_envFilter == null`, empty type set) returns the
+  /// raw list unchanged.
+  List<ReportModel> get _visibleReports {
+    if (_envFilter == null && _typeFilter.isEmpty) return _reports;
+    return _reports.where((r) {
+      if (_envFilter != null && r.environment != _envFilter) return false;
+      if (_typeFilter.isNotEmpty) {
+        final type = r.primaryObject?.objectType;
+        if (type == null || !_typeFilter.contains(type)) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  int get _activeFilterCount =>
+      (_envFilter != null ? 1 : 0) + _typeFilter.length;
+
   // ── SSE ───────────────────────────────────────────────────────────────────
   StreamSubscription<SseEvent>? _sseSub;
   bool _wasConnected = false;
@@ -107,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (event.eventType == 'REPORT_DELETED') {
       setState(() {
         _reports = _reports.where((r) => r.reportId != event.reportId).toList();
-        _markers = _buildMarkers(_reports);
+        _markers = _buildMarkers(_visibleReports);
       });
       return;
     }
@@ -139,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _reports = List.of(_reports)..[idx] = updated;
-      _markers = _buildMarkers(_reports);
+      _markers = _buildMarkers(_visibleReports);
     });
   }
 
@@ -149,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _reports = reports;
-        _markers = _buildMarkers(reports);
+        _markers = _buildMarkers(_visibleReports);
       });
     } catch (_) {}
   }
@@ -480,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _reports = reports;
-        _markers = _buildMarkers(reports);
+        _markers = _buildMarkers(_visibleReports);
         _loading = false;
       });
       if (reports.isNotEmpty && _userLocation == null) {
@@ -502,6 +527,439 @@ class _HomeScreenState extends State<HomeScreen> {
     final lon = reports.map((r) => r.longitude).reduce((a, b) => a + b) /
         reports.length;
     return LatLng(lat, lon);
+  }
+
+  // ── Filters UI ──────────────────────────────────────────────────────────
+
+  Widget _buildFilterChipsRow() {
+    final visibleCount = _visibleReports.length;
+    final totalCount = _reports.length;
+    final activeCount = _activeFilterCount;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          _filterPill(
+            icon: Icons.tune,
+            label: activeCount == 0 ? 'Filters' : 'Filters · $activeCount',
+            active: activeCount > 0,
+            onTap: _showFilterSheet,
+          ),
+          if (_envFilter != null)
+            _activeFilterChip(
+              icon: _envFilter!.icon,
+              label: _envFilter!.label,
+              onRemove: () {
+                setState(() {
+                  _envFilter = null;
+                  _markers = _buildMarkers(_visibleReports);
+                });
+              },
+            ),
+          for (final t in _typeFilter)
+            _activeFilterChip(
+              icon: t.icon,
+              label: t.label,
+              onRemove: () {
+                setState(() {
+                  _typeFilter = {..._typeFilter}..remove(t);
+                  _markers = _buildMarkers(_visibleReports);
+                });
+              },
+            ),
+          if (activeCount > 0)
+            _hintPill('Showing $visibleCount of $totalCount'),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterPill({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    final fg = active ? AppColors.onPrimarySolid : AppColors.onSurface;
+    final bg = active ? AppColors.primary : AppColors.cardSurface;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+      elevation: 1,
+      shadowColor: AppColors.shadow,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: fg),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _activeFilterChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onRemove,
+  }) {
+    return Material(
+      color: AppColors.primary.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onRemove,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.close, size: 13, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hintPill(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFilterSheet() async {
+    // Local edit copy — only commit on Apply, so backing out via the close
+    // button leaves the map untouched.
+    ReportEnvironment? env = _envFilter;
+    final types = <ObjectType>{..._typeFilter};
+
+    final result = await showModalBottomSheet<_FilterResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            minChildSize: 0.45,
+            maxChildSize: 0.92,
+            expand: false,
+            builder: (_, scrollController) => Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Filter reports',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: (env == null && types.isEmpty)
+                              ? null
+                              : () => setSheet(() {
+                                    env = null;
+                                    types.clear();
+                                  }),
+                          child: Text(
+                            'Reset',
+                            style: TextStyle(
+                              color: (env == null && types.isEmpty)
+                                  ? AppColors.outlineVariant
+                                  : AppColors.error,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.surfaceContainerHigh,
+                  ),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                      children: [
+                        _sheetSectionLabel('ENVIRONMENT'),
+                        const SizedBox(height: 10),
+                        _envSegment(
+                          current: env,
+                          onChanged: (next) => setSheet(() => env = next),
+                        ),
+                        const SizedBox(height: 22),
+                        _sheetSectionLabel('CATEGORIES',
+                            trailing: types.isEmpty
+                                ? null
+                                : Text(
+                                    '${types.length} selected',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                    ),
+                                  )),
+                        const SizedBox(height: 10),
+                        _categoryWrap(
+                          selected: types,
+                          onToggle: (t) => setSheet(() {
+                            if (!types.add(t)) types.remove(t);
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLowest,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.shadow,
+                          blurRadius: 18,
+                          offset: const Offset(0, -3),
+                        ),
+                      ],
+                    ),
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          Navigator.pop(ctx, _FilterResult(env, types)),
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: const Text('Apply filters'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimary,
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (result == null) return;
+    setState(() {
+      _envFilter = result.env;
+      _typeFilter = result.types;
+      _markers = _buildMarkers(_visibleReports);
+    });
+  }
+
+  Widget _sheetSectionLabel(String label, {Widget? trailing}) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        const Spacer(),
+        if (trailing != null) trailing,
+      ],
+    );
+  }
+
+  Widget _envSegment({
+    required ReportEnvironment? current,
+    required ValueChanged<ReportEnvironment?> onChanged,
+  }) {
+    final options = <_EnvSegmentOpt>[
+      const _EnvSegmentOpt(value: null, icon: Icons.public, label: 'Both'),
+      _EnvSegmentOpt(
+        value: ReportEnvironment.outdoor,
+        icon: ReportEnvironment.outdoor.icon,
+        label: ReportEnvironment.outdoor.label,
+      ),
+      _EnvSegmentOpt(
+        value: ReportEnvironment.indoor,
+        icon: ReportEnvironment.indoor.icon,
+        label: ReportEnvironment.indoor.label,
+      ),
+    ];
+    return Row(
+      children: [
+        for (int i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(child: _envSegmentButton(options[i], current, onChanged)),
+        ],
+      ],
+    );
+  }
+
+  Widget _envSegmentButton(
+    _EnvSegmentOpt opt,
+    ReportEnvironment? current,
+    ValueChanged<ReportEnvironment?> onChanged,
+  ) {
+    final selected = current == opt.value;
+    final fg = selected ? AppColors.primary : AppColors.onSurfaceVariant;
+    return GestureDetector(
+      onTap: () => onChanged(opt.value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(opt.icon, size: 16, color: fg),
+            const SizedBox(width: 6),
+            Text(
+              opt.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryWrap({
+    required Set<ObjectType> selected,
+    required ValueChanged<ObjectType> onToggle,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: ObjectType.values.map((type) {
+        final isOn = selected.contains(type);
+        return GestureDetector(
+          onTap: () => onToggle(type),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isOn
+                  ? AppColors.primary
+                  : AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: isOn
+                    ? AppColors.primary
+                    : AppColors.outlineVariant.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isOn ? Icons.check : type.icon,
+                  size: 14,
+                  color: isOn
+                      ? AppColors.onPrimarySolid
+                      : AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  type.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isOn
+                        ? AppColors.onPrimarySolid
+                        : AppColors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   List<Marker> _buildMarkers(List<ReportModel> reports) {
@@ -800,6 +1258,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_searchResults.isNotEmpty ||
                       (_searchActive && _editingStart))
                     _buildSearchResultsList(),
+                  // Hide the filter row while a search list is open so it
+                  // doesn't compete for taps with the result tiles.
+                  if (_searchResults.isEmpty &&
+                      !(_searchActive && _editingStart)) ...[
+                    const SizedBox(height: 8),
+                    _buildFilterChipsRow(),
+                  ],
                 ],
               ),
             ),
@@ -1814,4 +2279,23 @@ class _Place {
       lon: double.parse(json['lon'] as String),
     );
   }
+}
+
+/// Result returned from the filter sheet — kept as a small data class so
+/// the bottom-sheet's local edits commit atomically on Apply.
+class _FilterResult {
+  final ReportEnvironment? env;
+  final Set<ObjectType> types;
+  const _FilterResult(this.env, this.types);
+}
+
+class _EnvSegmentOpt {
+  final ReportEnvironment? value;
+  final IconData icon;
+  final String label;
+  const _EnvSegmentOpt({
+    required this.value,
+    required this.icon,
+    required this.label,
+  });
 }

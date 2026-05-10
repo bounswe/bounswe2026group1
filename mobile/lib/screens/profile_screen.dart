@@ -10,6 +10,7 @@ import '../models/report_model.dart';
 import '../main.dart' show AuthShell;
 import 'avatar_crop_screen.dart';
 import 'report_detail_screen.dart';
+import 'routing_preferences_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -890,11 +891,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openPreferences() {
-    // Preferences screen isn't built yet — surface a friendly placeholder
-    // instead of leaving the button silent. Swap in a real navigator push
-    // when the screen lands.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Preferences are coming soon.')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const RoutingPreferencesScreen(),
+      ),
     );
   }
 
