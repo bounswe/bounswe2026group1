@@ -514,7 +514,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   async function handleSaveEdit() {
     const trimmed = editDescription.trim()
     if (!trimmed) {
-      setEditError('Description cannot be empty.')
+      setEditError(t('report.descriptionEmpty'))
       return
     }
     if (trimmed.length > MAX_DESCRIPTION) {
@@ -528,34 +528,34 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
         body: { description: trimmed, environment: editEnvironment },
       })
       setIsEditing(false)
-      showToast({ type: 'success', message: 'Report updated.' })
+      showToast({ type: 'success', message: t('report.updateSuccess') })
     } catch (e) {
       // Error stays inline in the form (setEditError) AND surfaces a toast
       // so users notice it even if they've scrolled past the form fields.
-      setEditError(e.message || 'Failed to save changes.')
-      showToast({ type: 'error', message: messageForApiError(e, 'Failed to save changes.') })
+      setEditError(e.message || t('report.updateFailed'))
+      showToast({ type: 'error', message: messageForApiError(e, t('report.updateFailed')) })
     }
   }
 
   async function handleDelete() {
-    if (!window.confirm('Delete this report? This cannot be undone.')) return
+    if (!window.confirm(t('report.deleteConfirm'))) return
     try {
       await deleteReportMutation.mutateAsync(report.id)
-      showToast({ type: 'success', message: 'Report deleted.' })
+      showToast({ type: 'success', message: t('report.deleteSuccess') })
       // Close panel after the toast is visible — the parent removes the
       // selection state and the SSE event fans the deletion to other
       // clients via useSseSync (REPORT_DELETED).
       onClose()
     } catch (e) {
-      showToast({ type: 'error', message: messageForApiError(e, 'Failed to delete report.') })
+      showToast({ type: 'error', message: messageForApiError(e, t('report.deleteFailed')) })
     }
   }
 
   // Map common HTTP statuses surfaced by apiFetch into user-friendly text.
   function messageForApiError(err, fallback) {
     const msg = err?.message ?? ''
-    if (msg.includes('403')) return 'You don’t have permission to do that.'
-    if (msg.includes('404')) return 'Report no longer exists.'
+    if (msg.includes('403')) return t('report.noPermission')
+    if (msg.includes('404')) return t('report.reportGone')
     return msg || fallback
   }
 
@@ -654,7 +654,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     ? 'bg-primary-container text-on-primary-container'
                     : 'bg-amber-100 text-amber-800'
                 }`}>
-                {isFixed ? 'Fixed' : isRejected ? 'Rejected' : isValidated ? 'Validated' : 'Unverified'}
+                {isFixed ? t('report.statusFixed') : isRejected ? t('report.statusRejected') : isValidated ? t('report.statusValidated') : t('report.statusUnverified')}
               </span>
               {activeFix && (
                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
@@ -725,7 +725,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             : 'bg-surface-container-highest text-on-surface hover:bg-emerald-100 hover:text-emerald-800'
                             }`}
                         >
-                          {fixVoting ? '…' : 'Yes, fixed'}
+                          {fixVoting ? '…' : t('report.yesFixed')}
                         </button>
                         <button
                           onClick={() => handleFixVote('disagree')}
@@ -735,7 +735,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             : 'bg-surface-container-highest text-on-surface hover:bg-red-100 hover:text-red-800'
                             }`}
                         >
-                          {fixVoting ? '…' : 'No, still there'}
+                          {fixVoting ? '…' : t('report.noStillThere')}
                         </button>
                       </div>
                     )}
@@ -809,7 +809,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       aria-label={t('report.deleteReport')}
                       className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
                     >
-                      {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
+                      {deleteReportMutation.isPending ? t('report.deleting') : t('report.delete')}
                     </button>
                   </div>
                 )}
@@ -846,7 +846,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
                       {report.environment === 'INDOOR' ? 'home' : 'wb_sunny'}
                     </span>
-                    {report.environment === 'INDOOR' ? 'Indoor' : 'Outdoor'}
+                    {report.environment === 'INDOOR' ? t('report.indoor') : t('report.outdoor')}
                   </span>
                 )}
               </div>
@@ -855,7 +855,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Objects */}
             {report.objects?.length > 0 && (
               <section className="flex flex-col gap-3">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Objects</h3>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{t('report.objects')}</h3>
                 {report.objects.map((obj, i) => {
                   const cfg = OBJECT_TYPE_MAP[obj.objectType]
                   return (
@@ -921,7 +921,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               </h3>
               {!isEditing ? (
                 <p className="text-on-surface leading-relaxed font-body">
-                  {report.description || 'No description provided.'}
+                  {report.description || t('report.noDescription')}
                 </p>
               ) : (
                 <div className="flex flex-col gap-4">
@@ -975,7 +975,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       disabled={saveEditDisabled}
                       className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
                     >
-                      {updateReportMutation.isPending ? 'Saving…' : 'Save'}
+                      {updateReportMutation.isPending ? t('report.saving') : t('report.save')}
                     </button>
                     <button
                       type="button"
@@ -1046,7 +1046,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     }`}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'agree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_up</span>
-                  {voting ? '...' : 'Agree'}
+                  {voting ? '...' : t('report.agree')}
                 </button>
                 <button
                   onClick={() => handleVote('disagree')}
@@ -1058,7 +1058,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     }`}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'disagree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_down</span>
-                  {voting ? '...' : 'Disagree'}
+                  {voting ? '...' : t('report.disagree')}
                 </button>
               </div>
             </section>
@@ -1075,7 +1075,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                   <textarea
                     className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                     rows={3}
-                    placeholder="Add a comment..."
+                    placeholder={t('report.addComment')}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                   />
@@ -1084,7 +1084,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     disabled={submittingComment || !newComment.trim()}
                     className="self-end px-6 py-2 bg-primary text-on-primary rounded-full text-sm font-bold active:scale-95 transition-all disabled:opacity-50"
                   >
-                    {submittingComment ? 'Posting...' : 'Post'}
+                    {submittingComment ? t('report.posting') : t('report.post')}
                   </button>
                 </div>
               ) : (
@@ -1183,12 +1183,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     {following ? 'notifications_off' : 'notifications_active'}
                   </span>
                 }
-                {following ? 'Unfollow' : 'Follow Updates'}
+                {following ? t('report.unfollow') : t('report.follow')}
               </button>
               <p className="text-center text-xs text-on-surface-variant mt-4 px-6">
                 {following
-                  ? 'You will be notified of every status change on this report.'
-                  : 'Follow to receive notifications when this report status changes.'}
+                  ? t('report.followCopyFollowing')
+                  : t('report.followCopyNotFollowing')}
               </p>
             </div>
 
