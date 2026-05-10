@@ -3,6 +3,7 @@ package com.bounswe2026group1.backend.service;
 import com.bounswe2026group1.backend.dto.admin.AdminChangeRoleRequest;
 import com.bounswe2026group1.backend.dto.admin.AdminCreateUserRequest;
 import com.bounswe2026group1.backend.dto.admin.AdminUserResponse;
+import com.bounswe2026group1.backend.model.Language;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.model.UserStatus;
@@ -44,9 +45,9 @@ class AdminUserServiceTest {
     @BeforeEach
     void setUp() {
         adminUser = new RegisteredUser(1L, "Admin", "admin@test.com", "hash", UserRole.ADMIN,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false, Language.EN);
         regularUser = new RegisteredUser(2L, "User", "user@test.com", "hash", UserRole.USER,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false, Language.EN);
     }
 
     // --- listUsers ---
@@ -170,7 +171,7 @@ class AdminUserServiceTest {
     @Test
     void changeRole_Fail_LastAdmin() {
         RegisteredUser anotherAdmin = new RegisteredUser(3L, "Admin2", "admin2@test.com", "hash", UserRole.ADMIN,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false, Language.EN);
         when(userRepository.findById(3L)).thenReturn(Optional.of(anotherAdmin));
         when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
 
@@ -190,7 +191,7 @@ class AdminUserServiceTest {
         when(userRepository.existsByEmail("new@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("encoded");
         RegisteredUser saved = new RegisteredUser(5L, "New", "new@test.com", "encoded", UserRole.USER,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false, Language.EN);
         when(userRepository.save(any())).thenReturn(saved);
 
         AdminCreateUserRequest req = new AdminCreateUserRequest();
@@ -249,7 +250,7 @@ class AdminUserServiceTest {
     @Test
     void deleteUser_Fail_LastAdmin() {
         RegisteredUser anotherAdmin = new RegisteredUser(3L, "Admin2", "admin2@test.com", "hash", UserRole.ADMIN,
-                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false);
+                UserStatus.ACTIVE, null, 0, null, null, null, null, null, null, false, Language.EN);
         when(userRepository.findById(3L)).thenReturn(Optional.of(anotherAdmin));
         when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
 
