@@ -329,6 +329,45 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  /// Paginated, filterable feed. Mirrors the web's `getReportFeed` and the
+  /// backend's `GET /api/reports/feed` (Spring `Page<ReportResponse>`).
+  /// When [latitude] and [longitude] are both provided, the backend orders
+  /// results by PostGIS distance and applies [radiusInKm] (defaults to 1.0
+  /// server-side when omitted).
+  Future<FeedPage<ReportModel>> getReportFeed({
+    int page = 0,
+    int size = 20,
+    ReportType? reportType,
+    ReportEnvironment? environment,
+    double? latitude,
+    double? longitude,
+    double? radiusInKm,
+  }) async {
+    final params = <String, String>{
+      'page': '$page',
+      'size': '$size',
+      if (reportType != null) 'reportType': reportType.jsonValue,
+      if (environment != null) 'environment': environment.jsonValue,
+    };
+    if (latitude != null && longitude != null) {
+      params['latitude'] = '$latitude';
+      params['longitude'] = '$longitude';
+      if (radiusInKm != null) params['radiusInKm'] = '$radiusInKm';
+    }
+    final uri = Uri.parse('$_baseUrl/api/reports/feed')
+        .replace(queryParameters: params);
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      return FeedPage.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+        ReportModel.fromJson,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   Future<ReportModel> createReport({
     required int userId,
     required double latitude,
@@ -720,6 +759,40 @@ class ApiService {
     } catch (_) {
       return response.reasonPhrase ?? 'Unknown error';
     }
+  }
+}
+
+/// Spring `Page<T>` JSON projection — only the fields the mobile app needs
+/// to drive an infinite-scroll feed (content + cursor + termination flag).
+class FeedPage<T> {
+  final List<T> content;
+  final int number;
+  final int size;
+  final bool last;
+  final int totalPages;
+
+  const FeedPage({
+    required this.content,
+    required this.number,
+    required this.size,
+    required this.last,
+    required this.totalPages,
+  });
+
+  factory FeedPage.fromJson(
+    Map<String, dynamic> json,
+    T Function(Map<String, dynamic>) parse,
+  ) {
+    final raw = (json['content'] as List<dynamic>?) ?? const [];
+    return FeedPage(
+      content: raw
+          .map((e) => parse(e as Map<String, dynamic>))
+          .toList(growable: false),
+      number: (json['number'] as num?)?.toInt() ?? 0,
+      size: (json['size'] as num?)?.toInt() ?? raw.length,
+      last: json['last'] as bool? ?? true,
+      totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
+    );
   }
 }
 
