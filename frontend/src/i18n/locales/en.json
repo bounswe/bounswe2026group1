@@ -37,6 +37,28 @@
     "getRoutes": "Get Routes",
     "reportIssue": "Report an Issue"
   },
+  "profile": {
+    "loadingYours": "Loading your profile…",
+    "loadingOther": "Loading profile…",
+    "loadFailed": "Failed to load profile",
+    "userNotFound": "User not found.",
+    "goBack": "Go back",
+    "reportsSubmitted": "Reports submitted",
+    "routesPlanned": "Routes planned",
+    "about": "About",
+    "edit": "Edit",
+    "noBio": "No bio yet.",
+    "displayName": "Display name",
+    "bio": "Bio",
+    "nameMinError": "Name must be at least {{count}} characters.",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "profileUpdated": "Profile updated.",
+    "profileUpdateFailed": "Failed to update profile.",
+    "avatarUpdated": "Avatar updated.",
+    "avatarRemoved": "Avatar removed."
+  },
   "onboarding": {
     "closeTutorial": "Close tutorial",
     "skipTour": "Skip tour",
