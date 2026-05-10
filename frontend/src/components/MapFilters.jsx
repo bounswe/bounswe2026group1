@@ -14,8 +14,9 @@ import { excludedCount } from '../utils/mapFilters.js'
  *  - excludedIssues: Set<string>            (`${objectType}:${issue}`)
  *  - onChange:       (nextTypes, nextIssues) => void
  *  - onClose:        () => void
+ *  - triggerRef:     React.RefObject<HTMLElement>  (button that opens this panel)
  */
-function MapFilters({ excludedTypes, excludedIssues, onChange, onClose }) {
+function MapFilters({ excludedTypes, excludedIssues, onChange, onClose, triggerRef }) {
   const [expanded, setExpanded] = useState(() => new Set())
   const containerRef = useRef(null)
 
@@ -36,9 +37,12 @@ function MapFilters({ excludedTypes, excludedIssues, onChange, onClose }) {
   useEffect(() => {
     function handleKey(e) { if (e.key === 'Escape') onClose() }
     function handlePointer(e) {
-      if (!isMobileSheet && containerRef.current && !containerRef.current.contains(e.target)) {
-        onClose()
-      }
+      if (isMobileSheet) return
+      if (containerRef.current?.contains(e.target)) return
+      // Skip the trigger so its own onClick can toggle cleanly. Without this,
+      // pointerdown closes the panel first, then click reopens it — flicker.
+      if (triggerRef?.current?.contains(e.target)) return
+      onClose()
     }
     document.addEventListener('keydown', handleKey)
     document.addEventListener('pointerdown', handlePointer)
@@ -46,7 +50,7 @@ function MapFilters({ excludedTypes, excludedIssues, onChange, onClose }) {
       document.removeEventListener('keydown', handleKey)
       document.removeEventListener('pointerdown', handlePointer)
     }
-  }, [onClose, isMobileSheet])
+  }, [onClose, isMobileSheet, triggerRef])
 
   function toggleExpanded(type) {
     setExpanded((prev) => {

@@ -29,40 +29,44 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             double radiusInKm,
             Pageable pageable) {
 
+        // Single ST_MakePoint via CTE so :feedLon/:feedLat appear only once. Some JDBC/Hibernate
+        // stacks mishandle duplicate native named parameters; that surfaced as 500 when combining
+        // proximity + enum filters.
+        String withClause = """
+                WITH ref AS (
+                    SELECT ST_SetSRID(ST_MakePoint(:feedLon, :feedLat), 4326)::geography AS g
+                )
+                """;
+
         StringBuilder fromWhere = new StringBuilder("""
-                FROM reports r
+                FROM reports r, ref
                 WHERE ST_DWithin(
                     r.location::geography,
-                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
-                    :radiusMeters
+                    ref.g,
+                    :feedRadiusMeters
                 )
                 """);
 
         Map<String, Object> params = new HashMap<>();
-        params.put("lat", latitude);
-        params.put("lon", longitude);
-        params.put("radiusMeters", radiusInKm * 1000.0);
+        params.put("feedLat", latitude);
+        params.put("feedLon", longitude);
+        params.put("feedRadiusMeters", radiusInKm * 1000.0);
 
         appendNativeReportTypeFilter(fromWhere, params, reportType);
         appendNativeEnvironmentFilter(fromWhere, params, environment);
 
-        String orderBy = """
-                ORDER BY ST_Distance(
-                    r.location::geography,
-                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
-                ) ASC
-                """;
+        String orderBy = " ORDER BY ST_Distance(r.location::geography, ref.g) ASC";
 
-        String countSql = "SELECT count(*) " + fromWhere;
+        String countSql = withClause + "SELECT count(*) " + fromWhere;
         Query countQuery = entityManager.createNativeQuery(countSql);
         bindAll(countQuery, params);
         long total = ((Number) countQuery.getSingleResult()).longValue();
 
-        String dataSql = "SELECT r.* " + fromWhere + orderBy + " LIMIT :limit OFFSET :offset";
+        String dataSql = withClause + "SELECT r.* " + fromWhere + orderBy;
         Query dataQuery = entityManager.createNativeQuery(dataSql, Report.class);
         bindAll(dataQuery, params);
-        dataQuery.setParameter("limit", pageable.getPageSize());
-        dataQuery.setParameter("offset", (int) pageable.getOffset());
+        dataQuery.setFirstResult((int) pageable.getOffset());
+        dataQuery.setMaxResults(pageable.getPageSize());
 
         @SuppressWarnings("unchecked")
         List<Report> content = dataQuery.getResultList();
@@ -100,16 +104,16 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         if (reportType == null) {
             return;
         }
-        sql.append(" AND r.report_type = :reportType");
-        params.put("reportType", reportType.name());
+        sql.append(" AND r.report_type = :feedReportType");
+        params.put("feedReportType", reportType.name());
     }
 
     private static void appendNativeEnvironmentFilter(StringBuilder sql, Map<String, Object> params, ReportEnvironment environment) {
         if (environment == null) {
             return;
         }
-        sql.append(" AND r.environment = :environment");
-        params.put("environment", environment.name());
+        sql.append(" AND r.environment = :feedEnvironment");
+        params.put("feedEnvironment", environment.name());
     }
 
     private static void appendJpqlReportTypeFilter(StringBuilder jpql, Map<String, Object> params, ReportType reportType) {
@@ -124,8 +128,8 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         if (environment == null) {
             return;
         }
-        jpql.append(" AND r.environment = :environment");
-        params.put("environment", environment);
+        jpql.append(" AND r.environment = :feedEnv");
+        params.put("feedEnv", environment);
     }
 
     private static void bindAll(Query query, Map<String, Object> params) {
