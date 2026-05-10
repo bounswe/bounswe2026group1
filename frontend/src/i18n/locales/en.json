@@ -35,7 +35,14 @@
     "withinRange": "Within 500m of your location",
     "cityResolutionRate": "City Resolution Rate",
     "getRoutes": "Get Routes",
-    "reportIssue": "Report an Issue"
+    "reportIssue": "Report an Issue",
+    "currentLocation": "Current Location",
+    "searchLocationPlaceholder": "Search location...",
+    "searchNoResults": "No results found.",
+    "searchFailed": "Search failed. Please try again.",
+    "pinDropHint": "Click on the map to set report location",
+    "routeStartHint": "Click on the map to set your starting point",
+    "routeDestHint": "Now click your destination"
   },
   "createReport": {
     "title": "New Report",

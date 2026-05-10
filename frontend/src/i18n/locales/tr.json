@@ -35,7 +35,14 @@
     "withinRange": "Konumunuzun 500 m yakınında",
     "cityResolutionRate": "Şehir Çözüm Oranı",
     "getRoutes": "Rota Al",
-    "reportIssue": "Sorun Bildir"
+    "reportIssue": "Sorun Bildir",
+    "currentLocation": "Mevcut Konum",
+    "searchLocationPlaceholder": "Konum ara...",
+    "searchNoResults": "Sonuç bulunamadı.",
+    "searchFailed": "Arama başarısız. Lütfen tekrar dene.",
+    "pinDropHint": "Rapor konumu için haritaya tıkla",
+    "routeStartHint": "Başlangıç noktası için haritaya tıkla",
+    "routeDestHint": "Şimdi varış noktanı seç"
   },
   "createReport": {
     "title": "Yeni Rapor",
