@@ -14,6 +14,13 @@ import MapSearchBar from '../components/MapSearchBar.jsx'
 import OnboardingTutorial from '../components/OnboardingTutorial.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
+import MapFilters from '../components/MapFilters.jsx'
+import {
+  parseExcluded,
+  serializeExcluded,
+  isReportVisible,
+  excludedCount,
+} from '../utils/mapFilters.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 // First-visit onboarding flag. Cleared once the user dismisses or completes the
@@ -45,9 +52,22 @@ function decodePolyline(encoded) {
   return coords
 }
 
-function makeMarkerIcon(status, objectType, selected = false) {
-  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: 'warning', markerColor: '#767777' }
-  const borderColor = status === 'verified' ? '#176a21' : cfg.markerColor
+// Map marker colour rule (issue #362):
+//   FEATURE  reports = positive   → green
+//   OBSTACLE reports = negative   → red
+// Verified pins render at full opacity; unverified pins are visually faded
+// so the eye is drawn to confirmed reports first. Selected pins always
+// render at full opacity regardless so the user sees what they clicked.
+const MARKER_GREEN = '#2E7D32'
+const MARKER_RED   = '#C62828'
+const MARKER_NEUTRAL = '#767777'
+const MARKER_ICON_FALLBACK = 'warning'
+
+function makeMarkerIcon(status, objectType, reportType, selected = false) {
+  const cfg = OBJECT_TYPE_MAP[objectType] ?? { icon: MARKER_ICON_FALLBACK, markerColor: MARKER_NEUTRAL }
+  const borderColor = reportType === 'FEATURE' ? MARKER_GREEN : MARKER_RED
+  const isVerified = status === 'verified'
+  const opacity = !isVerified && !selected ? 0.55 : 1
   const size = selected ? 56 : 40
   const iconFontSize = selected ? 28 : 20
   const borderWidth = selected ? 3.5 : 2.5
@@ -67,7 +87,8 @@ function makeMarkerIcon(status, objectType, selected = false) {
         box-shadow:${shadow};
         display:flex;align-items:center;justify-content:center;
         cursor:pointer;
-        transition:width 150ms ease, height 150ms ease;
+        opacity:${opacity};
+        transition:width 150ms ease, height 150ms ease, opacity 150ms ease;
       ">
         <span class="material-symbols-outlined" style="
           font-size:${iconFontSize}px;
@@ -269,6 +290,10 @@ function Home() {
   const [mapCenter, setMapCenter] = useState(null)
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newReportPin, setNewReportPin] = useState(null)
+  // Reverse-geocoded place name for the new-report pin. Fetched async after
+  // the pin drops; CreateReportPanel falls back to raw coordinates while it
+  // resolves (or if Nominatim returns no result).
+  const [newReportPinLabel, setNewReportPinLabel] = useState('')
   const [userVotes, setUserVotes] = useState({})
   const [routeMode, setRouteMode] = useState(false)
   const [routeOrigin, setRouteOrigin] = useState(null)
@@ -278,6 +303,17 @@ function Home() {
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState('')
   const [toast, setToast] = useState(null)
+  const [showFilters, setShowFilters] = useState(false)
+  // Filter state lives in URL so the view is shareable; this is just a
+  // memoized parse of the current `?excluded=` token.
+  const { types: excludedTypes, issues: excludedIssues } = parseExcluded(searchParams.get('excluded'))
+  function setExcluded(nextTypes, nextIssues) {
+    const params = new URLSearchParams(searchParams)
+    const token = serializeExcluded(nextTypes, nextIssues)
+    if (token) params.set('excluded', token)
+    else params.delete('excluded')
+    setSearchParams(params, { replace: true })
+  }
   const handleToastDismiss = useCallback(() => setToast(null), [])
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
 
@@ -484,11 +520,11 @@ function Home() {
               url={tileUrl}
               attribution={tileAttr}
             />
-            {reports.map((report) => (
+            {reports.filter((r) => isReportVisible(r, excludedTypes, excludedIssues)).map((report) => (
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
-                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.id === selectedReportId)}
+                icon={makeMarkerIcon(report.status, report.primaryObjectType, report.reportType, report.id === selectedReportId)}
                 zIndexOffset={report.id === selectedReportId ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
@@ -509,8 +545,16 @@ function Home() {
             <MapClickHandler
               active={showCreatePanel || routeMode}
               onPick={(latlng) => {
-                if (routeMode) handleRouteMapClick(latlng)
-                else setNewReportPin(latlng)
+                if (routeMode) {
+                  handleRouteMapClick(latlng)
+                } else {
+                  setNewReportPin(latlng)
+                  setNewReportPinLabel('')
+                  // Resolve the human-readable place name asynchronously.
+                  // CreateReportPanel renders raw coords until this resolves,
+                  // so users see something immediately.
+                  reverseGeocode(latlng).then(setNewReportPinLabel)
+                }
               }}
             />
             {routeOrigin && <Marker position={routeOrigin} icon={pinIcon} />}
@@ -595,6 +639,35 @@ function Home() {
           <MapSearchBar
             mapCenter={mapCenter}
             onLocationPicked={({ lat, lon }) => setSearchTarget({ lat, lon })}
+            filterSlot={
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((v) => !v)}
+                  className="p-2 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Filter"
+                  aria-expanded={showFilters}
+                >
+                  <span className="material-symbols-outlined text-secondary">tune</span>
+                  {excludedCount(excludedTypes, excludedIssues) > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center"
+                      aria-label={`${excludedCount(excludedTypes, excludedIssues)} filters active`}
+                    >
+                      {excludedCount(excludedTypes, excludedIssues)}
+                    </span>
+                  )}
+                </button>
+                {showFilters && (
+                  <MapFilters
+                    excludedTypes={excludedTypes}
+                    excludedIssues={excludedIssues}
+                    onChange={setExcluded}
+                    onClose={() => setShowFilters(false)}
+                  />
+                )}
+              </>
+            }
           />
 
           {/* Community Pulse card + FAB */}
@@ -653,7 +726,7 @@ function Home() {
           <ReportPanel
             key={selectedReport.id}
             report={selectedReport}
-            userVote={userVotes[selectedReport.id] ?? null}
+            userVote={userVotes[selectedReport.id] ?? selectedReport.userVote ?? null}
             onVoteChange={(vote) => setUserVotes(prev => ({ ...prev, [selectedReport.id]: vote }))}
             // Toast lives on Home so it survives the panel unmounting
             // (e.g. after a successful delete that closes the panel).
@@ -673,10 +746,12 @@ function Home() {
       {showCreatePanel && (
         <CreateReportPanel
           position={newReportPin}
-          onClose={() => { setShowCreatePanel(false); setNewReportPin(null) }}
+          positionLabel={newReportPinLabel}
+          onClose={() => { setShowCreatePanel(false); setNewReportPin(null); setNewReportPinLabel('') }}
           onCreated={() => {
             queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
             setNewReportPin(null)
+            setNewReportPinLabel('')
             setToast({ message: 'Report submitted successfully!', type: 'success' })
           }}
         />

@@ -16,9 +16,9 @@ export const OBJECT_TYPES = [
       { key: 'INSUFFICIENT_LANDING_AREA', label: 'Insufficient Landing Area' },
     ],
     measurements: [
-      { key: 'slope_percent', label: 'Slope',  unit: '%',  accessible_max: 10 },
-      { key: 'width_cm',      label: 'Width',  unit: 'cm', accessible_min: 100 },
-      { key: 'height_cm',     label: 'Height', unit: 'cm' },
+      { key: 'slope_percent', label: 'Slope',  unit: '%',  accessible_max: 10,  description: 'Steepness of the ramp. A wheelchair user can manage up to about 10% (a 1 cm rise per 10 cm of length) without exhausting effort.' },
+      { key: 'width_cm',      label: 'Width',  unit: 'cm', accessible_min: 100, description: 'Clear travel width. 100 cm lets a single wheelchair pass; wider lets two people pass each other.' },
+      { key: 'height_cm',     label: 'Height', unit: 'cm',                      description: 'Total vertical rise the ramp covers, used to gauge whether the slope is sustainable over its length.' },
     ],
   },
   {
@@ -40,9 +40,9 @@ export const OBJECT_TYPES = [
       { key: 'INSUFFICIENT_LIGHTING', label: 'Insufficient Lighting' },
     ],
     measurements: [
-      { key: 'door_width_cm',  label: 'Door Width',  unit: 'cm', accessible_min: 90 },
-      { key: 'cabin_width_cm', label: 'Cabin Width', unit: 'cm', accessible_min: 120 },
-      { key: 'cabin_depth_cm', label: 'Cabin Depth', unit: 'cm', accessible_min: 140 },
+      { key: 'door_width_cm',  label: 'Door Width',  unit: 'cm', accessible_min: 90,  description: 'Clear opening when the doors are fully open. 90 cm fits a standard wheelchair plus its handgrips.' },
+      { key: 'cabin_width_cm', label: 'Cabin Width', unit: 'cm', accessible_min: 120, description: 'Inside width of the cabin. 120 cm gives a wheelchair user enough room to fit comfortably.' },
+      { key: 'cabin_depth_cm', label: 'Cabin Depth', unit: 'cm', accessible_min: 140, description: 'Inside depth front-to-back. 140 cm lets a wheelchair turn or fit beside another passenger.' },
     ],
   },
   {
@@ -62,8 +62,8 @@ export const OBJECT_TYPES = [
       { key: 'UNRAMPED_LEVEL_DIFFERENCE', label: 'Unramped Level Difference' },
     ],
     measurements: [
-      { key: 'height_cm', label: 'Curb Height', unit: 'cm', accessible_max: 15 },
-      { key: 'width_cm',  label: 'Width',       unit: 'cm', accessible_min: 150 },
+      { key: 'height_cm', label: 'Curb Height', unit: 'cm', accessible_max: 15,  description: 'Step from sidewalk to road. Above ~15 cm without a curb ramp blocks wheels and walkers.' },
+      { key: 'width_cm',  label: 'Width',       unit: 'cm', accessible_min: 150, description: 'Usable walking width (ignore lamp posts and benches). 150 cm lets two wheelchairs pass each other.' },
     ],
   },
   {
@@ -85,8 +85,8 @@ export const OBJECT_TYPES = [
       { key: 'INTERCOM_INACCESSIBLE', label: 'Intercom Inaccessible' },
     ],
     measurements: [
-      { key: 'width_cm',            label: 'Width',            unit: 'cm', accessible_min: 90 },
-      { key: 'threshold_height_cm', label: 'Threshold Height', unit: 'cm', accessible_max: 0.6 },
+      { key: 'width_cm',            label: 'Width',            unit: 'cm', accessible_min: 90,  description: 'Clear opening when the door is fully open. 90 cm fits a standard wheelchair.' },
+      { key: 'threshold_height_cm', label: 'Threshold Height', unit: 'cm', accessible_max: 0.6, description: 'The lip at the bottom of the doorway. Above ~0.6 cm catches small front wheels on a wheelchair.' },
     ],
   },
   {
@@ -109,8 +109,8 @@ export const OBJECT_TYPES = [
       { key: 'MISSING_NOSING_STRIP', label: 'Missing Nosing Strip' },
     ],
     measurements: [
-      { key: 'riser_cm', label: 'Riser Height', unit: 'cm', accessible_max: 16 },
-      { key: 'tread_cm', label: 'Tread Depth',  unit: 'cm', accessible_min: 27 },
+      { key: 'riser_cm', label: 'Riser Height', unit: 'cm', accessible_max: 16, description: 'Height of each step. Above 16 cm gets exhausting and risky for people with mobility limits.' },
+      { key: 'tread_cm', label: 'Tread Depth',  unit: 'cm', accessible_min: 27, description: 'Front-to-back depth of each step. Below 27 cm is too narrow to land a whole foot safely.' },
     ],
   },
   {
@@ -130,9 +130,9 @@ export const OBJECT_TYPES = [
       { key: 'NO_PEDESTRIAN_REFUGE', label: 'No Pedestrian Refuge' },
     ],
     measurements: [
-      { key: 'signal_duration_sec',    label: 'Signal Duration',    unit: 's',  accessible_min: 15 },
-      { key: 'crossing_width_cm',      label: 'Crossing Width',     unit: 'cm', accessible_min: 300 },
-      { key: 'dropped_curb_height_cm', label: 'Dropped Curb Height', unit: 'cm', accessible_max: 1.3 },
+      { key: 'signal_duration_sec',    label: 'Signal Duration',     unit: 's',  accessible_min: 15,  description: 'How long the walk signal stays on. 15 s is enough for a slow walker to cross a typical street.' },
+      { key: 'crossing_width_cm',      label: 'Crossing Width',      unit: 'cm', accessible_min: 300, description: 'Width of the marked crossing. 300 cm fits two wheelchairs passing in opposite directions.' },
+      { key: 'dropped_curb_height_cm', label: 'Dropped Curb Height', unit: 'cm', accessible_max: 1.3, description: 'Step from the crossing onto the sidewalk. Above ~1.3 cm catches wheels and trips canes.' },
     ],
   },
   {
@@ -149,9 +149,9 @@ export const OBJECT_TYPES = [
       { key: 'RAISED_LIP',         label: 'Raised Lip' },
     ],
     measurements: [
-      { key: 'slope_percent', label: 'Slope',      unit: '%',  accessible_max: 8 },
-      { key: 'width_cm',      label: 'Width',      unit: 'cm', accessible_min: 120 },
-      { key: 'lip_height_cm', label: 'Lip Height', unit: 'cm', accessible_max: 1.3 },
+      { key: 'slope_percent', label: 'Slope',      unit: '%',  accessible_max: 8,   description: 'Steepness of the curb ramp. 8% is the comfortable maximum for a person pushing themself in a wheelchair.' },
+      { key: 'width_cm',      label: 'Width',      unit: 'cm', accessible_min: 120, description: 'Width of the ramp surface. 120 cm matches the wheelchair-friendly minimum.' },
+      { key: 'lip_height_cm', label: 'Lip Height', unit: 'cm', accessible_max: 1.3, description: 'Bump where the ramp meets the road. Above 1.3 cm jolts wheels and trips canes.' },
     ],
   },
   {
@@ -171,10 +171,10 @@ export const OBJECT_TYPES = [
       { key: 'NO_EMERGENCY_BUTTON',        label: 'No Emergency Button' },
     ],
     measurements: [
-      { key: 'door_width_cm',      label: 'Door Width',      unit: 'cm', accessible_min: 90 },
-      { key: 'turning_space_cm',   label: 'Turning Space',   unit: 'cm', accessible_min: 150 },
-      { key: 'sink_height_cm',     label: 'Sink Height',     unit: 'cm', accessible_max: 85 },
-      { key: 'grab_bar_height_cm', label: 'Grab Bar Height', unit: 'cm', accessible_min: 70 },
+      { key: 'door_width_cm',      label: 'Door Width',      unit: 'cm', accessible_min: 90,  description: 'Clear opening when the door is fully open. 90 cm fits a standard wheelchair.' },
+      { key: 'turning_space_cm',   label: 'Turning Space',   unit: 'cm', accessible_min: 150, description: 'Open circle of clear floor space. 150 cm lets a wheelchair turn fully around.' },
+      { key: 'sink_height_cm',     label: 'Sink Height',     unit: 'cm', accessible_max: 85,  description: 'Top of the sink rim from the floor. Below 85 cm lets a seated user reach the tap.' },
+      { key: 'grab_bar_height_cm', label: 'Grab Bar Height', unit: 'cm', accessible_min: 70,  description: 'Height of the grab bars from the floor. 70 cm or higher lines up with most transfer holds.' },
     ],
   },
   {
@@ -192,8 +192,8 @@ export const OBJECT_TYPES = [
       { key: 'INVALID_HEIGHT',        label: 'Invalid Height' },
     ],
     measurements: [
-      { key: 'mounting_height_cm', label: 'Mounting Height', unit: 'cm', accessible_min: 120, accessible_max: 160 },
-      { key: 'text_height_mm',     label: 'Text Height',     unit: 'mm', accessible_min: 15 },
+      { key: 'mounting_height_cm', label: 'Mounting Height', unit: 'cm', accessible_min: 120, accessible_max: 160, description: 'Center of the sign from the floor. 120-160 cm aligns with eye level for both standing and seated users.' },
+      { key: 'text_height_mm',     label: 'Text Height',     unit: 'mm', accessible_min: 15,                       description: 'Height of the letterforms. Below 15 mm is hard to read from door distance.' },
     ],
   },
 ]

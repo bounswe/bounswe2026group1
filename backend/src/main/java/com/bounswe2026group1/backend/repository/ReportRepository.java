@@ -21,6 +21,9 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     long countByCreatedById(Long userId);
 
+    /** Used by the milestone badge engine (Trusted Reporter / Expert Mapper). */
+    long countByCreatedByIdAndStatus(Long userId, ReportStatus status);
+
     /** Batch variant of {@link #countByCreatedById}: one query, grouped by user.
      *  Returns rows of {@code [userId, count]}; absent users mean zero. */
     @Query("""

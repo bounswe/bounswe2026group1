@@ -34,12 +34,16 @@ function tryParseLatLngInput(raw) {
  * @param {(loc: { lat: number, lon: number }) => void} props.onLocationPicked — `lon` matches Home / Leaflet convention
  * @param {string} [props.initialValue]
  * @param {string} [props.inputId]
+ * @param {React.ReactNode} [props.filterSlot] — optional content rendered on the right of the search input
+ *   (used by Home for the category-filter button + dropdown). The slot is wrapped in a `relative` flex
+ *   container so a popover can position itself against it.
  */
 export default function MapSearchBar({
   mapCenter,
   onLocationPicked,
   initialValue = 'Boğaziçi, Istanbul',
   inputId = 'map-search-location',
+  filterSlot = null,
 }) {
   const [searchValue, setSearchValue] = useState(initialValue)
   const [searchError, setSearchError] = useState('')
@@ -142,10 +146,12 @@ export default function MapSearchBar({
             className="bg-transparent border-none p-0 w-full text-on-surface font-headline font-semibold focus:ring-0 text-sm outline-none"
           />
         </div>
-        <div className="hidden sm:block h-8 w-px bg-outline-variant/30" />
-        <button type="button" className="p-2 hover:bg-primary/10 rounded-lg transition-colors flex-shrink-0" aria-label="Filter">
-          <span className="material-symbols-outlined text-secondary">tune</span>
-        </button>
+        {filterSlot && (
+          <>
+            <div className="hidden sm:block h-8 w-px bg-outline-variant/30" />
+            <div className="relative flex-shrink-0">{filterSlot}</div>
+          </>
+        )}
       </div>
       {searchSuggestions.length > 0 && (
         <ul className="mt-1 bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/10 overflow-hidden pointer-events-auto">

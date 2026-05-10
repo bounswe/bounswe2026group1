@@ -35,4 +35,14 @@ public interface ReportVerificationRepository extends JpaRepository<ReportVerifi
      *  Used by the notification audience fan-out, so we project ids only. */
     @Query("select distinct rv.user.id from ReportVerification rv where rv.report.reportId = :reportId")
     List<Long> findVoterUserIdsByReportId(@Param("reportId") Long reportId);
+
+    /** Returns {@code [userId, VoteType]} tuples for everyone who voted on a report.
+     *  Used by GamificationService at status-transition time to award/deduct points
+     *  to voters based on whether they aligned with the final status. */
+    @Query("""
+            select rv.user.id, rv.voteType
+            from ReportVerification rv
+            where rv.report.reportId = :reportId
+            """)
+    List<Object[]> findVoteTuplesByReportId(@Param("reportId") Long reportId);
 }
