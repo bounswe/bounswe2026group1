@@ -436,4 +436,28 @@ describe('ReportPanel', () => {
       })
     })
   })
+
+  describe('media rendering', () => {
+    test('renders an <img> when the report image URL is a JPEG', () => {
+      const { container } = renderPanel({
+        report: { ...report, image: 'https://cdn.example.com/foo.jpg' },
+      })
+      expect(container.querySelector('img[src="https://cdn.example.com/foo.jpg"]')).toBeTruthy()
+      expect(container.querySelector('video')).toBeFalsy()
+    })
+
+    test('renders a <video> when the report image URL is an MP4', () => {
+      const { container } = renderPanel({
+        report: { ...report, image: 'https://cdn.example.com/clip.mp4' },
+      })
+      expect(container.querySelector('video[src="https://cdn.example.com/clip.mp4"]')).toBeTruthy()
+    })
+
+    test('renders a <video> when the report image URL is a MOV (Apple default)', () => {
+      const { container } = renderPanel({
+        report: { ...report, image: 'https://cdn.example.com/clip.MOV?X-Amz-Sig=abc' },
+      })
+      expect(container.querySelector('video')).toBeTruthy()
+    })
+  })
 })
