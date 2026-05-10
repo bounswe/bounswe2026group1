@@ -382,6 +382,13 @@
       "WHEELCHAIR": "Tekerlekli sandalye"
     }
   },
+  "myReportModal": {
+    "ariaLabel": "Rapor ayrıntıları",
+    "close": "Kapat",
+    "editOnMap": "Haritada düzenle",
+    "delete": "Sil",
+    "deleting": "Siliniyor…"
+  },
   "myReports": {
     "headingOwn": "Raporlarım",
     "headingOther": "Raporlar",

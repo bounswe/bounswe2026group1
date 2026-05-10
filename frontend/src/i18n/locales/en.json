@@ -382,6 +382,13 @@
       "WHEELCHAIR": "Wheelchair"
     }
   },
+  "myReportModal": {
+    "ariaLabel": "Report details",
+    "close": "Close",
+    "editOnMap": "Edit on map",
+    "delete": "Delete",
+    "deleting": "Deleting…"
+  },
   "myReports": {
     "headingOwn": "My Reports",
     "headingOther": "Reports",
