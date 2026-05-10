@@ -349,7 +349,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         </div>
         <button
           onClick={onClose}
-          className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
+          className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors"
           aria-label="Close"
         >
           <span className="material-symbols-outlined text-base">close</span>
