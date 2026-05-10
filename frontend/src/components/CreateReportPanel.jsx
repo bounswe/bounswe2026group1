@@ -478,7 +478,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         {/* Objects */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-            Objects <span className="text-error text-[10px] font-normal normal-case tracking-normal">required</span>
+            {t('createReport.objects')} <span className="text-error text-[10px] font-normal normal-case tracking-normal">{t('createReport.required')}</span>
           </p>
 
           <div className="flex flex-col gap-2 mb-2">

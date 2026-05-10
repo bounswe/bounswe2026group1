@@ -61,6 +61,8 @@
     "environment": "Ortam",
     "outdoor": "Açık alan",
     "indoor": "Kapalı alan",
+    "objects": "Nesneler",
+    "required": "zorunlu",
     "objectType": "Nesne Türü",
     "selectType": "Tür seç…",
     "removeObject": "Nesneyi kaldır",

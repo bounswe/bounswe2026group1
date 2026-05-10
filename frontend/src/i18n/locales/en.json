@@ -61,6 +61,8 @@
     "environment": "Environment",
     "outdoor": "Outdoor",
     "indoor": "Indoor",
+    "objects": "Objects",
+    "required": "required",
     "objectType": "Object Type",
     "selectType": "Select a type…",
     "removeObject": "Remove object",
