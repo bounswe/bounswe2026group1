@@ -37,6 +37,7 @@ public class FixRequestService {
     private final S3MediaService s3MediaService;
     private final PublicSseService publicSseService;
     private final NotificationService notificationService;
+    private final GamificationService gamificationService;
 
     @Value("${app.report.fix.threshold:5}")
     private int fixThreshold;
@@ -115,6 +116,11 @@ public class FixRequestService {
 
         var existing = fixRequestVoteRepository.findByUserIdAndFixRequestId(user.getId(), fixRequestId);
 
+        // Three branches mirror ReportService.verify/unverify: same-direction
+        // toggle = withdraw, opposite-direction = modify (no extra points),
+        // absent = fresh cast.
+        boolean fresh = false;
+        boolean withdrawn = false;
         if (existing.isPresent()) {
             FixRequestVote vote = existing.get();
             if (vote.getVoteType() == desired) {
@@ -122,6 +128,7 @@ public class FixRequestService {
                 if (desired == VoteType.AGREE) fixRequest.decrementAgrees();
                 else fixRequest.decrementDisagrees();
                 fixRequestVoteRepository.delete(vote);
+                withdrawn = true;
             } else {
                 // Switch
                 if (desired == VoteType.AGREE) {
@@ -138,10 +145,16 @@ public class FixRequestService {
             if (desired == VoteType.AGREE) fixRequest.incrementAgrees();
             else fixRequest.incrementDisagrees();
             fixRequestVoteRepository.save(new FixRequestVote(user, fixRequest, desired));
+            fresh = true;
         }
 
         evaluateFixStatus(fixRequest);
         FixRequest saved = fixRequestRepository.save(fixRequest);
+        if (fresh) {
+            gamificationService.awardOnFixRequestVoteCast(user, saved.getId());
+        } else if (withdrawn) {
+            gamificationService.deductOnFixRequestVoteWithdraw(user, saved.getId());
+        }
         // Broadcast on every vote so other clients see the consensus % update live.
         // Skipped when the vote just triggered a FIXED transition -- broadcastFixed
         // already fires for that case from evaluateFixStatus.
@@ -176,6 +189,7 @@ public class FixRequestService {
         reportRepository.save(report);
 
         notificationService.notifyStatusChange(report, fixRequest.getSubmittedBy().getId());
+        gamificationService.onFixRequestResolved(fixRequest);
         TransactionalEvents.runAfterCommit(() -> publicSseService.broadcastFixed(report));
     }
 
