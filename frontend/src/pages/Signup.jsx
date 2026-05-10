@@ -151,8 +151,11 @@ function Signup() {
                     aria-live="polite"
                   >
                     {passwordValidation.results.map((rule) => {
-                      const showFailure =
-                        (passwordTouched || password.length > 0) && !rule.passed
+                      // Show red only after the user has tabbed away or
+                      // tried to submit (passwordTouched). While they're
+                      // still typing for the first time, unmet rules stay
+                      // grey so the form doesn't flash red on every keystroke.
+                      const showFailure = passwordTouched && !rule.passed
                       const colorClass = rule.passed
                         ? 'text-[#176a21]'
                         : showFailure

@@ -4,17 +4,23 @@ import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 /**
  * Fetch all reports from the backend.
  * GET /api/reports
+ *
+ * When a token is supplied the backend fills in each report's `userVote`
+ * from the caller's vote history — without it, the field is always null
+ * and the agree/disagree buttons can't render their selected state.
  */
-export async function getReports() {
-  return apiFetch('/api/reports')
+export async function getReports(token) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+  return apiFetch('/api/reports', headers ? { headers } : undefined)
 }
 
 /**
  * Fetch a single report by ID.
  * GET /api/reports/{id}
  */
-export async function getReportById(id) {
-  return apiFetch(`/api/reports/${id}`)
+export async function getReportById(id, token) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+  return apiFetch(`/api/reports/${id}`, headers ? { headers } : undefined)
 }
 
 /**

@@ -446,4 +446,72 @@ class RegisteredUserServiceTest {
         verify(routeRepository, never()).countByCreatedById(any());
         verify(jwtUtil, never()).generateToken(any(), any(), any());
     }
+
+    // --- SEARCH USERS TESTS (#306 / #501) ---
+
+    @Test
+    void searchUsers_emptyQuery_throwsIllegalArgument() {
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
+        assertThrows(IllegalArgumentException.class, () -> registeredUserService.searchUsers("", page));
+        assertThrows(IllegalArgumentException.class, () -> registeredUserService.searchUsers("   ", page));
+        assertThrows(IllegalArgumentException.class, () -> registeredUserService.searchUsers(null, page));
+    }
+
+    @Test
+    void searchUsers_match_returnsDtosWithoutEmail() {
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
+        org.springframework.data.domain.Page<RegisteredUser> results =
+                new org.springframework.data.domain.PageImpl<>(List.of(mockUser));
+        when(registeredUserRepository
+                .searchRegularUsersByNameOrEmail("test", page))
+                .thenReturn(results);
+        // singletonList — List.of(Object[]) gets varargs-unpacked into a
+        // List<Long>, and doReturn skips compile-time checking, so the cast
+        // inside toCountMap blows up at runtime.
+        org.mockito.Mockito.doReturn(java.util.Collections.singletonList(new Object[]{1L, 4L}))
+                .when(reportRepository).countByCreatedByIdIn(anyCollection());
+        org.mockito.Mockito.doReturn(java.util.Collections.singletonList(new Object[]{1L, 1L}))
+                .when(routeRepository).countByCreatedByIdIn(anyCollection());
+
+        org.springframework.data.domain.Page<UserProfileDTO> dtos =
+                registeredUserService.searchUsers("test", page);
+
+        assertEquals(1, dtos.getTotalElements());
+        UserProfileDTO dto = dtos.getContent().get(0);
+        assertEquals("Test User", dto.getName());
+        assertNull(dto.getEmail(), "Email must be omitted from search results for privacy");
+        assertEquals(4L, dto.getContributionStats().getReportsSubmitted());
+        assertEquals(1L, dto.getContributionStats().getRoutesPlanned());
+    }
+
+    @Test
+    void searchUsers_trimsAndLowercasesArgs() {
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
+        org.springframework.data.domain.Page<RegisteredUser> results =
+                new org.springframework.data.domain.PageImpl<>(List.of());
+        when(registeredUserRepository
+                .searchRegularUsersByNameOrEmail("foo", page))
+                .thenReturn(results);
+
+        registeredUserService.searchUsers("  foo  ", page);
+
+        // Whitespace stripped before passing to the repo. The repo method itself
+        // is case-insensitive, so we don't need to lowercase here.
+        verify(registeredUserRepository)
+                .searchRegularUsersByNameOrEmail("foo", page);
+    }
+
+    @Test
+    void searchUsers_emptyResults_returnsEmptyPage() {
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(registeredUserRepository
+                .searchRegularUsersByNameOrEmail("zzz", page))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
+
+        org.springframework.data.domain.Page<UserProfileDTO> dtos =
+                registeredUserService.searchUsers("zzz", page);
+
+        assertEquals(0, dtos.getTotalElements());
+        verify(reportRepository, never()).countByCreatedByIdIn(anyCollection());
+    }
 }

@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
+import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
-function CreateReportPanel({ position, onClose, onCreated }) {
+function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
 
@@ -17,6 +18,8 @@ function CreateReportPanel({ position, onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
+  // Object type whose tutorial modal is currently shown, null when closed.
+  const [tutorialFor, setTutorialFor] = useState(null)
 
   // Bottom-sheet drag-to-resize (mobile only — desktop keeps right-sidebar layout).
   // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
@@ -254,20 +257,20 @@ function CreateReportPanel({ position, onClose, onCreated }) {
       <aside
         style={isMobileSheet
           ? {
-            height: `${sheetHeightDvh}dvh`,
-            maxHeight: `${sheetHeightDvh}dvh`,
-            width: '100%',
-            borderTopLeftRadius: '32px',
-            borderTopRightRadius: '32px',
-            borderTop: '1px solid rgba(172,173,173,.2)',
-            boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
-          }
+              height: `${sheetHeightDvh}dvh`,
+              maxHeight: `${sheetHeightDvh}dvh`,
+              width: '100%',
+              borderTopLeftRadius: '32px',
+              borderTopRightRadius: '32px',
+              borderTop: '1px solid rgba(172,173,173,.2)',
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+            }
           : {
-            width: '500px',
-            height: '100%',
-            maxHeight: '100%',
-            borderLeft: '1px solid rgba(172,173,173,.1)',
-          }}
+              width: '500px',
+              height: '100%',
+              maxHeight: '100%',
+              borderLeft: '1px solid rgba(172,173,173,.1)',
+            }}
         className={`pointer-events-auto bg-surface-container-low flex flex-col relative overflow-y-auto ${isDragging ? '' : 'transition-[height,max-height] duration-200 ease-out'}`}
       >
 
@@ -290,321 +293,350 @@ function CreateReportPanel({ position, onClose, onCreated }) {
           </div>
         )}
 
-        {/* Header */}
-        <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
-          <div>
-            <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
-            <p className="text-sm text-on-surface-variant mt-1">
-              {position
-                ? `📍 ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`
-                : 'Click on the map to set location'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
-            aria-label="Close"
+      {/* Header */}
+      <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
+          {position ? (
+            // Place name from reverse-geocoding sits on the primary line; raw
+            // coordinates fall to a smaller secondary line so the user always
+            // has the precise location available even when Nominatim resolves.
+            <>
+              <p className="text-sm font-semibold text-on-surface mt-1 truncate" title={positionLabel || undefined}>
+                📍 {positionLabel || `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`}
+              </p>
+              {positionLabel && (
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-on-surface-variant mt-1">Click on the map to set location</p>
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
+          aria-label="Close"
+        >
+          <span className="material-symbols-outlined text-base">close</span>
+        </button>
+      </div>
+
+      <div className="px-8 pb-10 flex flex-col gap-6">
+
+        {/* Visual Evidence */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={e => e.preventDefault()}
+            className="w-full min-h-[11rem] p-4 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
           >
-            <span className="material-symbols-outlined text-base">close</span>
-          </button>
+            {imagePreviews.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 w-full">
+                {imagePreviews.map((preview, idx) => (
+                  <div key={idx} className="relative aspect-video rounded-lg overflow-hidden group border border-outline-variant/20 bg-black/5">
+                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Remove image"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                ))}
+                {imagePreviews.length < 5 && (
+                  <div className="aspect-video rounded-lg border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                    <span className="material-symbols-outlined text-2xl mb-1">add</span>
+                    <span className="text-[10px] font-medium">Add more</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
+                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
+                <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG). Up to 5 files.</p>
+              </>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png"
+            className="hidden"
+            onChange={handleImageChange}
+          />
         </div>
 
-        <div className="px-8 pb-10 flex flex-col gap-6">
-
-          {/* Visual Evidence */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={handleDrop}
-              onDragOver={e => e.preventDefault()}
-              className="w-full min-h-[11rem] p-4 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
-            >
-              {imagePreviews.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2 w-full">
-                  {imagePreviews.map((preview, idx) => (
-                    <div key={idx} className="relative aspect-video rounded-lg overflow-hidden group border border-outline-variant/20 bg-black/5">
-                      <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
-                        className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Remove image"
-                      >
-                        <span className="material-symbols-outlined text-sm">close</span>
-                      </button>
-                    </div>
-                  ))}
-                  {imagePreviews.length < 5 && (
-                    <div className="aspect-video rounded-lg border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors">
-                      <span className="material-symbols-outlined text-2xl mb-1">add</span>
-                      <span className="text-[10px] font-medium">Add more</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                  <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos here</p>
-                  <p className="text-xs text-outline">Maximum file size: 15 MB (JPG, PNG). Up to 5 files.</p>
-                </>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png"
-              className="hidden"
-              onChange={handleImageChange}
-            />
+        {/* Report Type */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Report Type</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: 'OBSTACLE', icon: 'construction',      label: 'Obstacle', desc: 'Something broken or missing' },
+              { value: 'FEATURE',  icon: 'accessible_forward', label: 'Feature',  desc: 'Something helpful that exists' },
+            ].map(t => (
+              <button
+                key={t.value}
+                aria-label={t.label}
+                onClick={() => handleReportTypeChange(t.value)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold"
+                style={reportType === t.value
+                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
+                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '', color: '#5a5c5c' }}
+              >
+                <span className="material-symbols-outlined text-xl">{t.icon}</span>
+                <span className="font-bold text-xs">{t.label}</span>
+                <span className="text-[10px] opacity-70 text-center leading-tight">{t.desc}</span>
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Report Type */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Report Type</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { value: 'OBSTACLE', icon: 'construction', label: 'Obstacle', desc: 'Something broken or missing' },
-                { value: 'FEATURE', icon: 'accessible_forward', label: 'Feature', desc: 'Something helpful that exists' },
-              ].map(t => (
-                <button
-                  key={t.value}
-                  aria-label={t.label}
-                  onClick={() => handleReportTypeChange(t.value)}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold"
-                  style={reportType === t.value
-                    ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
-                    : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '', color: '#5a5c5c' }}
+        {/* Environment */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Environment</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: 'OUTDOOR', icon: 'wb_sunny', label: 'Outdoor' },
+              { value: 'INDOOR',  icon: 'home',     label: 'Indoor' },
+            ].map(e => (
+              <button
+                key={e.value}
+                aria-label={e.label}
+                onClick={() => handleEnvironmentChange(e.value)}
+                className="flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all"
+                style={environment === e.value
+                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
+                  : { borderColor: 'rgba(172,173,173,.25)', color: '#5a5c5c' }}
+              >
+                <span className="material-symbols-outlined text-base">{e.icon}</span>
+                {e.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Objects */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
+            Objects <span className="text-error text-[10px] font-normal normal-case tracking-normal">required</span>
+          </p>
+
+          <div className="flex flex-col gap-2 mb-2">
+            {objects.map((obj, idx) => {
+              const cfg = OBJECT_TYPES.find(t => t.type === obj.objectType) ?? null
+              return (
+                <div
+                  key={obj.id}
+                  className="rounded-2xl border-2 bg-surface-container overflow-hidden transition-colors"
+                  style={{ borderColor: obj.objectType ? 'rgba(23,106,33,.2)' : 'rgba(172,173,173,.2)' }}
                 >
-                  <span className="material-symbols-outlined text-xl">{t.icon}</span>
-                  <span className="font-bold text-xs">{t.label}</span>
-                  <span className="text-[10px] opacity-70 text-center leading-tight">{t.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Environment */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Environment</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { value: 'OUTDOOR', icon: 'wb_sunny', label: 'Outdoor' },
-                { value: 'INDOOR', icon: 'home', label: 'Indoor' },
-              ].map(e => (
-                <button
-                  key={e.value}
-                  aria-label={e.label}
-                  onClick={() => handleEnvironmentChange(e.value)}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all"
-                  style={environment === e.value
-                    ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
-                    : { borderColor: 'rgba(172,173,173,.25)', color: '#5a5c5c' }}
-                >
-                  <span className="material-symbols-outlined text-base">{e.icon}</span>
-                  {e.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Objects */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-              Objects <span className="text-error text-[10px] font-normal normal-case tracking-normal">required</span>
-            </p>
-
-            <div className="flex flex-col gap-2 mb-2">
-              {objects.map((obj, idx) => {
-                const cfg = OBJECT_TYPES.find(t => t.type === obj.objectType) ?? null
-                return (
+                  {/* Card header */}
                   <div
-                    key={obj.id}
-                    className="rounded-2xl border-2 bg-surface-container overflow-hidden transition-colors"
-                    style={{ borderColor: obj.objectType ? 'rgba(23,106,33,.2)' : 'rgba(172,173,173,.2)' }}
+                    className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                    onClick={() => toggleExpanded(obj.id)}
                   >
-                    {/* Card header */}
-                    <div
-                      className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-                      onClick={() => toggleExpanded(obj.id)}
-                    >
-                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <span className="text-on-primary text-[10px] font-bold">{idx + 1}</span>
-                      </div>
-                      <span className={`flex-1 text-sm font-semibold ${obj.objectType ? 'text-on-surface' : 'text-on-surface-variant italic'}`}>
-                        {cfg ? cfg.label : 'Select a type…'}
-                      </span>
-                      <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform" style={{ transform: obj.expanded ? 'rotate(180deg)' : '' }}>
-                        expand_more
-                      </span>
-                      <button
-                        onClick={e => { e.stopPropagation(); removeObject(obj.id) }}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors"
-                        aria-label="Remove object"
-                      >
-                        <span className="material-symbols-outlined text-base">delete</span>
-                      </button>
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                      <span className="text-on-primary text-[10px] font-bold">{idx + 1}</span>
                     </div>
+                    <span className={`flex-1 text-sm font-semibold ${obj.objectType ? 'text-on-surface' : 'text-on-surface-variant italic'}`}>
+                      {cfg ? cfg.label : 'Select a type…'}
+                    </span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform" style={{ transform: obj.expanded ? 'rotate(180deg)' : '' }}>
+                      expand_more
+                    </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); removeObject(obj.id) }}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors"
+                      aria-label="Remove object"
+                    >
+                      <span className="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
 
-                    {obj.expanded && (
-                      <div className="px-4 pb-4 flex flex-col gap-4 border-t border-outline-variant/20 pt-3">
+                  {obj.expanded && (
+                    <div className="px-4 pb-4 flex flex-col gap-4 border-t border-outline-variant/20 pt-3">
 
-                        {/* Object type picker */}
+                      {/* Object type picker */}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Object Type</p>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {visibleTypes.map(t => {
+                            const isSelected = obj.objectType === t.type
+                            const isDisabled = !isSelected && selectedTypes.has(t.type)
+                            return (
+                              <button
+                                key={t.type}
+                                aria-label={t.label}
+                                disabled={isDisabled}
+                                onClick={() => selectObjectType(obj.id, t.type)}
+                                title={isDisabled ? `${t.label} already added` : t.label}
+                                className="flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed"
+                                style={isSelected
+                                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.08)', color: '#176a21' }
+                                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '#f0f1f1', color: '#5a5c5c' }}
+                              >
+                                <span className="material-symbols-outlined text-xl">{t.icon}</span>
+                                {t.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Issues — only for OBSTACLE and when type is selected */}
+                      {cfg && reportType === 'OBSTACLE' && (
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Object Type</p>
-                          <div className="grid grid-cols-5 gap-1.5">
-                            {visibleTypes.map(t => {
-                              const isSelected = obj.objectType === t.type
-                              const isDisabled = !isSelected && selectedTypes.has(t.type)
-                              return (
-                                <button
-                                  key={t.type}
-                                  aria-label={t.label}
-                                  disabled={isDisabled}
-                                  onClick={() => selectObjectType(obj.id, t.type)}
-                                  title={isDisabled ? `${t.label} already added` : t.label}
-                                  className="flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed"
-                                  style={isSelected
-                                    ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.08)', color: '#176a21' }
-                                    : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '#f0f1f1', color: '#5a5c5c' }}
-                                >
-                                  <span className="material-symbols-outlined text-xl">{t.icon}</span>
-                                  {t.label}
-                                </button>
-                              )
-                            })}
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                            Issues <span className="text-error">*</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-1">
+                            {cfg.issues.map(issue => (
+                              <label
+                                key={issue.key}
+                                className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={obj.issues.includes(issue.key)}
+                                  onChange={() => toggleIssue(obj.id, issue.key)}
+                                  className="w-3.5 h-3.5 accent-primary"
+                                />
+                                <span className="text-xs font-medium text-on-surface">{issue.label}</span>
+                              </label>
+                            ))}
                           </div>
                         </div>
+                      )}
 
-                        {/* Issues — only for OBSTACLE and when type is selected */}
-                        {cfg && reportType === 'OBSTACLE' && (
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
-                              Issues <span className="text-error">*</span>
-                            </p>
-                            <div className="grid grid-cols-2 gap-1">
-                              {cfg.issues.map(issue => (
-                                <label
-                                  key={issue.key}
-                                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={obj.issues.includes(issue.key)}
-                                    onChange={() => toggleIssue(obj.id, issue.key)}
-                                    className="w-3.5 h-3.5 accent-primary"
-                                  />
-                                  <span className="text-xs font-medium text-on-surface">{issue.label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Measurements — optional, collapsible */}
-                        {cfg && cfg.measurements.length > 0 && (
-                          <div>
+                      {/* Measurements — optional, collapsible */}
+                      {cfg && cfg.measurements.length > 0 && (
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
                             <button
                               onClick={() => toggleShowMeasurements(obj.id)}
-                              className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2"
+                              className="flex items-center gap-1.5 text-xs font-semibold text-primary"
                             >
                               <span className="material-symbols-outlined text-base">straighten</span>
                               {obj.showMeasurements ? 'Hide measurements' : 'Show measurements (optional)'}
                             </button>
-                            {obj.showMeasurements && (
-                              <div className="flex flex-col gap-3">
-                                {cfg.measurements.map(m => (
-                                  <div key={m.key}>
-                                    <p className="text-[10px] font-semibold text-on-surface-variant mb-1">{m.label}</p>
-                                    <div className="flex items-center rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden focus-within:border-primary/50">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.1"
-                                        value={obj.measurements[m.key] ?? ''}
-                                        onChange={e => setMeasurement(obj.id, m.key, e.target.value)}
-                                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-on-surface"
-                                        placeholder="—"
-                                      />
-                                      <span className="px-2.5 text-xs text-on-surface-variant font-medium border-l border-outline-variant/25 bg-surface-container">
-                                        {m.unit}
-                                      </span>
-                                    </div>
-                                    {m.accessible_min !== undefined && (
-                                      <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                                        ≥ {m.accessible_min} {m.unit} is accessible
-                                      </p>
-                                    )}
-                                    {m.accessible_max !== undefined && (
-                                      <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                                        ≤ {m.accessible_max} {m.unit} is accessible
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setTutorialFor(obj.objectType)}
+                              aria-label={`How to measure ${cfg.label}`}
+                              className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant hover:text-primary cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-sm">help_outline</span>
+                              How to measure
+                            </button>
                           </div>
-                        )}
+                          {obj.showMeasurements && (
+                            <div className="flex flex-col gap-3">
+                              {cfg.measurements.map(m => (
+                                <div key={m.key}>
+                                  <p className="text-[10px] font-semibold text-on-surface-variant mb-1">{m.label}</p>
+                                  <div className="flex items-center rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden focus-within:border-primary/50">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.1"
+                                      value={obj.measurements[m.key] ?? ''}
+                                      onChange={e => setMeasurement(obj.id, m.key, e.target.value)}
+                                      className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-on-surface"
+                                      placeholder="—"
+                                    />
+                                    <span className="px-2.5 text-xs text-on-surface-variant font-medium border-l border-outline-variant/25 bg-surface-container">
+                                      {m.unit}
+                                    </span>
+                                  </div>
+                                  {m.accessible_min !== undefined && (
+                                    <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                                      ≥ {m.accessible_min} {m.unit} is accessible
+                                    </p>
+                                  )}
+                                  {m.accessible_max !== undefined && (
+                                    <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                                      ≤ {m.accessible_max} {m.unit} is accessible
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            <button
-              onClick={addObject}
-              className="w-full py-3 rounded-xl border-2 border-dashed border-primary/35 text-primary text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/5 hover:border-primary/50 transition-colors"
-            >
-              <span className="material-symbols-outlined text-lg">add_circle</span>
-              Add Object
-            </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
-          {/* Description */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value.slice(0, 1000))}
-              rows={4}
-              maxLength={1000}
-              placeholder="Provide a brief description of the issue..."
-              className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
-              {description.length}/1000
-            </p>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
-          )}
-
-          {/* Actions */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="py-4 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
-            >
-              {submitting ? 'Submitting…' : 'Submit Report'}
-            </button>
-          </div>
-
+          <button
+            onClick={addObject}
+            className="w-full py-3 rounded-xl border-2 border-dashed border-primary/35 text-primary text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/5 hover:border-primary/50 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">add_circle</span>
+            Add Object
+          </button>
         </div>
+
+        {/* Description */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value.slice(0, 1000))}
+            rows={4}
+            maxLength={1000}
+            placeholder="Provide a brief description of the issue..."
+            className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
+            {description.length}/1000
+          </p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
+        )}
+
+        {/* Actions */}
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <button
+            onClick={onClose}
+            className="py-4 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
+          >
+            {submitting ? 'Submitting…' : 'Submit Report'}
+          </button>
+        </div>
+
+      </div>
       </aside>
+      {tutorialFor && (
+        <ObjectTutorialModal
+          objectType={tutorialFor}
+          onClose={() => setTutorialFor(null)}
+        />
+      )}
     </div>
   )
 }

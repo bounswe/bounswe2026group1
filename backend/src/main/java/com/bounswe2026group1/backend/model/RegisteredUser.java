@@ -107,6 +107,20 @@ public class RegisteredUser {
     @EqualsAndHashCode.Exclude
     private UserCustomRoutingProfile activeCustomProfile;
 
+    /**
+     * Leaderboard opt-out. When true the user is filtered out of the
+     * public top-100 list and their rank is hidden on their public
+     * profile, but their points field stays accurate so they can
+     * re-enter the ranking instantly if they toggle this off.
+     *
+     * Declared last so the Lombok-generated all-args constructor keeps the
+     * pre-existing parameter order — preserves call-sites in tests and code
+     * that build users via {@code new RegisteredUser(id, name, email, …)}.
+     */
+    @Column(name = "leaderboard_hidden", nullable = false,
+            columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean leaderboardHidden = false;
+
     @PrePersist
     protected void onCreate() {
         if (this.registeredAt == null) {

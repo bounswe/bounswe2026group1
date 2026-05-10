@@ -54,7 +54,7 @@ public class MediaController {
             )
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Media uploaded; returns `{ mediaUrl }`."),
+            @ApiResponse(responseCode = "201", description = "Media uploaded; returns `[{ \"id\": 1, \"url\": \"...\" }]`."),
             @ApiResponse(responseCode = "400", description = "Invalid or oversized file.",
                     content = @Content),
             @ApiResponse(responseCode = "401", description = "Authentication required.",
@@ -84,13 +84,20 @@ public class MediaController {
                 uploadedUrls.add(s3MediaService.uploadFile(file));
             }
 
-            // 3. Link all uploaded files to the database in a single transaction
-            reportService.addMediaToReportBatch(reportId, uploadedUrls);
+            // 3. Link all uploaded files to the database
+            List<com.bounswe2026group1.backend.model.Media> savedMediaList = reportService.addMediaToReportBatch(reportId, uploadedUrls);
+            
+            // 4. Format the response as an array of objects [{ "id": 1, "url": "https..." }]
+            List<Map<String, Object>> responseBody = new ArrayList<>();
+            for (int i = 0; i < savedMediaList.size(); i++) {
+                responseBody.add(Map.of(
+                    "id", savedMediaList.get(i).getId(),
+                    "url", savedMediaList.get(i).getFilePath()
+                ));
+            }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "mediaUrl", uploadedUrls.isEmpty() ? null : uploadedUrls.get(0),
-                "mediaUrls", uploadedUrls
-            ));
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (NoSuchElementException e){

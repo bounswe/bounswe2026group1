@@ -139,6 +139,15 @@ function Navbar() {
         <SseStatusIndicator />
         <ThemeToggleButton />
         {isAuthenticated && (
+          <Link
+            to="/search/users"
+            aria-label="Search users"
+            className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">search</span>
+          </Link>
+        )}
+        {isAuthenticated && (
           <div className="relative hidden sm:block">
             <button
               ref={notifButtonRef}
@@ -238,7 +247,7 @@ function Navbar() {
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 ml-1 sm:ml-2">
+          <div className="flex items-center gap-3 sm:gap-4 ml-1 sm:ml-2">
             <Link
               to="/login"
               className="text-on-surface-variant hover:text-primary transition-colors font-medium text-sm sm:text-base"
@@ -247,7 +256,7 @@ function Navbar() {
             </Link>
             <Link
               to="/signup"
-              className="bg-primary text-white rounded-full px-3 py-1.5 sm:px-4 sm:py-2 hover:bg-primary/90 transition-colors font-semibold text-sm sm:text-base"
+              className="bg-primary text-on-primary rounded-full px-3 py-1.5 sm:px-4 sm:py-2 hover:bg-primary/90 transition-colors font-semibold text-sm sm:text-base"
             >
               Sign Up
             </Link>
