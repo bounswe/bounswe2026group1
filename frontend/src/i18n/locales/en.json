@@ -3,5 +3,25 @@
     "language": "Language",
     "english": "English",
     "turkish": "Turkish"
+  },
+  "nav": {
+    "home": "Home",
+    "feed": "Feed",
+    "tutorial": "Tutorial",
+    "replayTutorial": "Replay tutorial",
+    "admin": "Admin",
+    "profile": "Profile",
+    "logout": "Log Out",
+    "login": "Log In",
+    "signup": "Sign Up",
+    "mapcessHome": "Mapcess home",
+    "mapcessLogo": "Mapcess logo",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "searchUsers": "Search users",
+    "openProfileMenu": "Open profile menu",
+    "profileMenu": "Profile menu",
+    "userAvatar": "User avatar",
+    "userAvatarOf": "{{name}}'s avatar"
   }
 }

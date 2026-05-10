@@ -3,5 +3,25 @@
     "language": "Dil",
     "english": "İngilizce",
     "turkish": "Türkçe"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "feed": "Akış",
+    "tutorial": "Tanıtım",
+    "replayTutorial": "Tanıtımı tekrar oynat",
+    "admin": "Yönetici",
+    "profile": "Profil",
+    "logout": "Çıkış Yap",
+    "login": "Giriş Yap",
+    "signup": "Kayıt Ol",
+    "mapcessHome": "Mapcess ana sayfa",
+    "mapcessLogo": "Mapcess logosu",
+    "notifications": "Bildirimler",
+    "settings": "Ayarlar",
+    "searchUsers": "Kullanıcı ara",
+    "openProfileMenu": "Profil menüsünü aç",
+    "profileMenu": "Profil menüsü",
+    "userAvatar": "Kullanıcı avatarı",
+    "userAvatarOf": "{{name}} kullanıcısının avatarı"
   }
 }
