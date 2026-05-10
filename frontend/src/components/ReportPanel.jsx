@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { reportJsonLdString } from '../utils/schemaOrg.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 import Toast from './Toast.jsx'
 import BadgeIcon from './BadgeIcon.jsx'
@@ -405,9 +406,27 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const saveEditDisabled =
     updateReportMutation.isPending || !editDescription.trim() || editDescriptionTooLong
 
+  // Schema.org JSON-LD describing this report as a Place — lets search engines
+  // and assistive tools surface its accessibility metadata. The url field
+  // mirrors the panel's deep-link (`/?report=<id>`) so the canonical resource
+  // matches what a crawler would land on.
+  const jsonLdString = reportJsonLdString(report, {
+    url: typeof window !== 'undefined'
+      ? `${window.location.origin}/?report=${report.id}`
+      : undefined,
+  })
+
 
   return (
     <>
+      {jsonLdString && (
+        <script
+          type="application/ld+json"
+          data-testid="report-jsonld"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: jsonLdString }}
+        />
+      )}
       <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
         <aside
           style={isMobileSheet
