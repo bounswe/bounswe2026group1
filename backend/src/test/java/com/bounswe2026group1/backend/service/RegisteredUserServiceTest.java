@@ -651,8 +651,9 @@ class RegisteredUserServiceTest {
 
     @Test
     void updateLanguage_unknownValue_throwsIllegalArgument() {
-        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
-
+        // No findById stub — enum validation runs first and short-circuits
+        // before the repository is touched. Mockito strict mode would flag
+        // any stub here as unused.
         assertThrows(IllegalArgumentException.class, () ->
                 registeredUserService.updateLanguage(1L,
                         new com.bounswe2026group1.backend.dto.UpdateLanguageRequest("DE")));
