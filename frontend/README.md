@@ -56,3 +56,11 @@ const data = await apiFetch('/posts')
 | `npm run build` | Production build |
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
+| `npm test` | Run Vitest in watch mode |
+| `npm run test:run` | Run Vitest once (CI / full suite) |
+
+## Testing
+
+Tests use **Vitest** (Jest-compatible API), **React Testing Library**, and **user-event**, configured in `vite.config.js` with `src/test/setup.js`. Spec files live next to sources (`*.test.jsx`, `*.test.js`). Components that call the API are tested with `vi.mock` on hooks or services so UI behavior (loading, success, validation errors) does not depend on a running backend. Coverage includes custom hooks, services, shared utils, presentational components, and key pages (with navigation and context mocked as needed).
+
+To generate a **coverage** report after installing the optional dev dependency `@vitest/coverage-v8` (same major as `vitest`), add a `coverage` block under `test` in `vite.config.js` and run e.g. `npx vitest run --coverage`.
