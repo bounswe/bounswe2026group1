@@ -35,10 +35,10 @@ function ObjectTutorialModal({ objectType, onClose }) {
 
   function thresholdText(m) {
     if (m.accessible_min !== undefined && m.accessible_max !== undefined) {
-      return `${m.accessible_min}–${m.accessible_max} ${m.unit} is accessible`
+      return t('createReport.thresholdRange', { min: m.accessible_min, max: m.accessible_max, unit: m.unit })
     }
-    if (m.accessible_min !== undefined) return `≥ ${m.accessible_min} ${m.unit} is accessible`
-    if (m.accessible_max !== undefined) return `≤ ${m.accessible_max} ${m.unit} is accessible`
+    if (m.accessible_min !== undefined) return t('createReport.thresholdMin', { min: m.accessible_min, unit: m.unit })
+    if (m.accessible_max !== undefined) return t('createReport.thresholdMax', { max: m.accessible_max, unit: m.unit })
     return null
   }
 
@@ -76,7 +76,7 @@ function ObjectTutorialModal({ objectType, onClose }) {
         <div className="p-5 flex flex-col gap-4">
           {cfg.measurements.length === 0 ? (
             <p className="text-sm text-on-surface-variant">
-              No measurements are tracked for this object type.
+              {t('createReport.howToMeasureEmpty')}
             </p>
           ) : (
             <ul className="flex flex-col gap-4">
@@ -103,7 +103,7 @@ function ObjectTutorialModal({ objectType, onClose }) {
           )}
 
           <p className="text-[11px] text-on-surface-variant pt-2 border-t border-outline-variant/15">
-            Use these as a guide, not a strict rule. When in doubt, report what you observe and let the community verify.
+            {t('createReport.howToMeasureFooter')}
           </p>
         </div>
       </div>
