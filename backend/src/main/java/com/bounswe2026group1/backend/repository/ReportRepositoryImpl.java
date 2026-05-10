@@ -29,13 +29,20 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             double radiusInKm,
             Pageable pageable) {
 
-        // Use feed-specific parameter names — short names like :lat/:lon/:reportType can clash with
-        // Hibernate internals or repeat-binding quirks in native SQL; this keeps proximity + filters reliable.
+        // Single ST_MakePoint via CTE so :feedLon/:feedLat appear only once. Some JDBC/Hibernate
+        // stacks mishandle duplicate native named parameters; that surfaced as 500 when combining
+        // proximity + enum filters.
+        String withClause = """
+                WITH ref AS (
+                    SELECT ST_SetSRID(ST_MakePoint(:feedLon, :feedLat), 4326)::geography AS g
+                )
+                """;
+
         StringBuilder fromWhere = new StringBuilder("""
-                FROM reports r
+                FROM reports r, ref
                 WHERE ST_DWithin(
                     r.location::geography,
-                    ST_SetSRID(ST_MakePoint(:feedLon, :feedLat), 4326)::geography,
+                    ref.g,
                     :feedRadiusMeters
                 )
                 """);
@@ -48,23 +55,18 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         appendNativeReportTypeFilter(fromWhere, params, reportType);
         appendNativeEnvironmentFilter(fromWhere, params, environment);
 
-        String orderBy = """
-                ORDER BY ST_Distance(
-                    r.location::geography,
-                    ST_SetSRID(ST_MakePoint(:feedLon, :feedLat), 4326)::geography
-                ) ASC
-                """;
+        String orderBy = " ORDER BY ST_Distance(r.location::geography, ref.g) ASC";
 
-        String countSql = "SELECT count(*) " + fromWhere;
+        String countSql = withClause + "SELECT count(*) " + fromWhere;
         Query countQuery = entityManager.createNativeQuery(countSql);
         bindAll(countQuery, params);
         long total = ((Number) countQuery.getSingleResult()).longValue();
 
-        String dataSql = "SELECT r.* " + fromWhere + orderBy + " LIMIT :feedLimit OFFSET :feedOffset";
+        String dataSql = withClause + "SELECT r.* " + fromWhere + orderBy;
         Query dataQuery = entityManager.createNativeQuery(dataSql, Report.class);
         bindAll(dataQuery, params);
-        dataQuery.setParameter("feedLimit", pageable.getPageSize());
-        dataQuery.setParameter("feedOffset", (int) pageable.getOffset());
+        dataQuery.setFirstResult((int) pageable.getOffset());
+        dataQuery.setMaxResults(pageable.getPageSize());
 
         @SuppressWarnings("unchecked")
         List<Report> content = dataQuery.getResultList();
