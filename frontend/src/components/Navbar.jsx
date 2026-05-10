@@ -105,6 +105,16 @@ function Navbar() {
           >
             Feed
           </NavLink>
+          <NavLink
+            to="/leaderboard"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-primary border-b-2 border-primary font-semibold pb-1'
+                : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
+            }
+          >
+            Leaderboard
+          </NavLink>
           {isAdmin && (
             <NavLink
               to="/admin"
