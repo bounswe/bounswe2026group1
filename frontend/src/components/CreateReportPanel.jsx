@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
-import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
+import { OBJECT_TYPES, localizeObjectType } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
 // Mirrors backend `S3MediaService.ALLOWED_CONTENT_TYPES`. Apple devices
@@ -87,11 +87,14 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
   // Recomputed every render — drives duplicate-type prevention
   const selectedTypes = new Set(objects.map(o => o.objectType).filter(Boolean))
 
-  // Which OBJECT_TYPES are visible given the current reportType + environment
+  // Which OBJECT_TYPES are visible given the current reportType + environment.
+  // Labels translated via localizeObjectType so the picker swaps with locale.
   const visibleTypes = (reportType === 'FEATURE'
-    ? OBJECT_TYPES.filter(t => t.type === 'RAMP')
+    ? OBJECT_TYPES.filter((ot) => ot.type === 'RAMP')
     : OBJECT_TYPES
-  ).filter(t => t.environments.includes(environment))
+  )
+    .filter((ot) => ot.environments.includes(environment))
+    .map((ot) => localizeObjectType(t, ot))
 
   // ── media (image or video) ─────────────────────────────────────────────────
   // Allowlist mirrors backend S3MediaService.ALLOWED_CONTENT_TYPES so the
@@ -483,7 +486,8 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
           <div className="flex flex-col gap-2 mb-2">
             {objects.map((obj, idx) => {
-              const cfg = OBJECT_TYPES.find(t => t.type === obj.objectType) ?? null
+              const rawCfg = OBJECT_TYPES.find((ot) => ot.type === obj.objectType) ?? null
+              const cfg = localizeObjectType(t, rawCfg)
               return (
                 <div
                   key={obj.id}
