@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'screens/report_detail_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/user_search_screen.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/sse_service.dart';
@@ -403,6 +404,13 @@ class _MainShellState extends State<MainShell>
                   color: AppColors.primary,
                 ),
               ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.search, color: AppColors.onSurface),
+            tooltip: 'Search users',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const UserSearchScreen()),
             ),
           ),
           IconButton(
