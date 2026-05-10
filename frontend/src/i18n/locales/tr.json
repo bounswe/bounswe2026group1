@@ -40,6 +40,12 @@
     "searchLocationPlaceholder": "Konum ara...",
     "searchNoResults": "Sonuç bulunamadı.",
     "searchFailed": "Arama başarısız. Lütfen tekrar dene.",
+    "showAria": "{{label}} göster",
+    "showIssueAria": "{{label}} {{issue}} göster",
+    "collapseAria": "{{label}} daralt",
+    "expandAria": "{{label}} genişlet",
+    "issuesHiddenOne": "{{count}} sorun gizli",
+    "issuesHiddenOther": "{{count}} sorun gizli",
     "pinDropHint": "Rapor konumu için haritaya tıkla",
     "routeStartHint": "Başlangıç noktası için haritaya tıkla",
     "routeDestHint": "Şimdi varış noktanı seç"
@@ -174,6 +180,146 @@
       "verified": "Doğrulandı",
       "rejected": "Reddedildi",
       "fixed": "Düzeltildi"
+    }
+  },
+  "objectTitle": {
+    "obstacleSuffix": "{{labels}} Sorunu",
+    "featureSuffix": "{{labels}} — Özellik",
+    "obstacleFallback": "Engel Raporu",
+    "featureFallback": "Özellik Raporu"
+  },
+  "object": {
+    "RAMP": {
+      "label": "Rampa",
+      "issue": {
+        "MISSING": "Eksik", "TOO_STEEP": "Çok Dik", "TOO_NARROW": "Çok Dar",
+        "MISSING_HANDRAIL": "Korkuluk Eksik", "NO_LANDING": "Sahanlık Yok",
+        "SLIPPERY_SURFACE": "Kaygan Yüzey", "HANDRAIL_TOO_LOW": "Korkuluk Çok Alçak",
+        "INSUFFICIENT_LANDING_AREA": "Yetersiz Sahanlık"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Eğim" },
+        "width_cm": { "label": "Genişlik" },
+        "height_cm": { "label": "Yükseklik" }
+      }
+    },
+    "ELEVATOR": {
+      "label": "Asansör",
+      "issue": {
+        "MISSING": "Eksik", "OUT_OF_SERVICE": "Servis Dışı",
+        "DOOR_TOO_NARROW": "Kapı Çok Dar", "CABIN_TOO_SMALL": "Kabin Çok Küçük",
+        "NO_AUDIO": "Sesli Anons Yok", "NO_GRAB_BAR": "Tutamak Yok",
+        "INSUFFICIENT_LANDING": "Yetersiz Sahanlık", "NO_BRAILLE": "Braille Yok",
+        "BUTTON_HEIGHT_INVALID": "Geçersiz Buton Yüksekliği",
+        "INSUFFICIENT_LIGHTING": "Yetersiz Aydınlatma"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Kapı Genişliği" },
+        "cabin_width_cm": { "label": "Kabin Genişliği" },
+        "cabin_depth_cm": { "label": "Kabin Derinliği" }
+      }
+    },
+    "SIDEWALK": {
+      "label": "Kaldırım",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "SLIPPERY_SURFACE": "Kaygan Yüzey", "BLOCKED": "Engellenmiş",
+        "NO_TACTILE_PAVING": "Hissedilebilir Yüzey Yok",
+        "INSUFFICIENT_CLEARANCE": "Yetersiz Boşluk",
+        "UNEVEN_SURFACE": "Düzensiz Yüzey",
+        "UNRAMPED_LEVEL_DIFFERENCE": "Rampasız Seviye Farkı"
+      },
+      "measurement": {
+        "height_cm": { "label": "Bordür Yüksekliği" },
+        "width_cm": { "label": "Genişlik" }
+      }
+    },
+    "DOOR": {
+      "label": "Kapı",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "HIGH_THRESHOLD": "Yüksek Eşik", "STEP_AT_ENTRANCE": "Girişte Basamak",
+        "NO_LEVER_HANDLE": "Kol Kulp Yok", "HEAVY_DOOR": "Ağır Kapı",
+        "NO_AUTOMATIC_DOOR": "Otomatik Kapı Yok", "NO_GLASS_MARKING": "Cam İşaretlemesi Yok",
+        "HANDLE_HEIGHT_INVALID": "Geçersiz Kol Yüksekliği",
+        "INTERCOM_INACCESSIBLE": "Erişilemez İnterkom"
+      },
+      "measurement": {
+        "width_cm": { "label": "Genişlik" },
+        "threshold_height_cm": { "label": "Eşik Yüksekliği" }
+      }
+    },
+    "STAIR": {
+      "label": "Merdiven",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "MISSING_HANDRAIL": "Korkuluk Eksik", "NO_LANDING": "Sahanlık Yok",
+        "SLIPPERY_SURFACE": "Kaygan Yüzey", "RISER_TOO_HIGH": "Basamak Çok Yüksek",
+        "TREAD_TOO_SHALLOW": "Basamak Çok Sığ", "NO_ANTI_SLIP": "Kaymaz Şerit Yok",
+        "OPEN_RISERS": "Açık Basamaklar", "IRREGULAR_STEPS": "Düzensiz Basamaklar",
+        "MISSING_NOSING_STRIP": "Basamak Burnu Şeridi Yok"
+      },
+      "measurement": {
+        "riser_cm": { "label": "Basamak Yüksekliği" },
+        "tread_cm": { "label": "Basamak Derinliği" }
+      }
+    },
+    "PEDESTRIAN_CROSSING": {
+      "label": "Yaya Geçidi",
+      "issue": {
+        "MISSING": "Eksik", "BLOCKED": "Engellenmiş",
+        "NO_TACTILE_PAVING": "Hissedilebilir Yüzey Yok",
+        "NO_AUDIO_SIGNAL": "Sesli Sinyal Yok", "SIGNAL_TOO_SHORT": "Sinyal Çok Kısa",
+        "NO_DROPPED_CURB": "İndirilmiş Bordür Yok", "FADED_MARKINGS": "Solmuş İşaretler",
+        "NO_PEDESTRIAN_REFUGE": "Yaya Refüjü Yok"
+      },
+      "measurement": {
+        "signal_duration_sec": { "label": "Sinyal Süresi" },
+        "crossing_width_cm": { "label": "Geçit Genişliği" },
+        "dropped_curb_height_cm": { "label": "İndirilmiş Bordür Yüksekliği" }
+      }
+    },
+    "CURB_RAMP": {
+      "label": "Bordür Rampası",
+      "issue": {
+        "MISSING": "Eksik", "TOO_STEEP": "Çok Dik",
+        "TOO_NARROW": "Çok Dar", "NO_TACTILE_WARNING": "Hissedilebilir Uyarı Yok",
+        "RAISED_LIP": "Yüksek Kenar"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Eğim" },
+        "width_cm": { "label": "Genişlik" },
+        "lip_height_cm": { "label": "Kenar Yüksekliği" }
+      }
+    },
+    "WASHROOM": {
+      "label": "Tuvalet",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "NO_GRAB_BAR": "Tutamak Yok", "HIGH_THRESHOLD": "Yüksek Eşik",
+        "NO_ACCESSIBLE_STALL": "Erişilebilir Kabin Yok",
+        "INSUFFICIENT_TURNING_SPACE": "Yetersiz Manevra Alanı",
+        "SINK_TOO_HIGH": "Lavabo Çok Yüksek", "NO_EMERGENCY_BUTTON": "Acil Durum Butonu Yok"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Kapı Genişliği" },
+        "turning_space_cm": { "label": "Manevra Alanı" },
+        "sink_height_cm": { "label": "Lavabo Yüksekliği" },
+        "grab_bar_height_cm": { "label": "Tutamak Yüksekliği" }
+      }
+    },
+    "ROOM_SIGN": {
+      "label": "Oda Tabelası",
+      "issue": {
+        "MISSING": "Eksik", "NO_BRAILLE": "Braille Yok",
+        "INSUFFICIENT_LIGHTING": "Yetersiz Aydınlatma",
+        "LOW_CONTRAST": "Düşük Kontrast", "TEXT_TOO_SMALL": "Yazı Çok Küçük",
+        "INVALID_HEIGHT": "Geçersiz Yükseklik"
+      },
+      "measurement": {
+        "mounting_height_cm": { "label": "Montaj Yüksekliği" },
+        "text_height_mm": { "label": "Yazı Yüksekliği" }
+      }
     }
   },
   "userSearch": {

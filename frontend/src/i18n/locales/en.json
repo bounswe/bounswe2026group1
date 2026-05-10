@@ -40,6 +40,12 @@
     "searchLocationPlaceholder": "Search location...",
     "searchNoResults": "No results found.",
     "searchFailed": "Search failed. Please try again.",
+    "showAria": "Show {{label}}",
+    "showIssueAria": "Show {{label}} {{issue}}",
+    "collapseAria": "Collapse {{label}}",
+    "expandAria": "Expand {{label}}",
+    "issuesHiddenOne": "{{count}} issue hidden",
+    "issuesHiddenOther": "{{count}} issues hidden",
     "pinDropHint": "Click on the map to set report location",
     "routeStartHint": "Click on the map to set your starting point",
     "routeDestHint": "Now click your destination"
@@ -174,6 +180,146 @@
       "verified": "Validated",
       "rejected": "Rejected",
       "fixed": "Fixed"
+    }
+  },
+  "objectTitle": {
+    "obstacleSuffix": "{{labels}} Issue",
+    "featureSuffix": "{{labels}} — Feature",
+    "obstacleFallback": "Obstacle Report",
+    "featureFallback": "Feature Report"
+  },
+  "object": {
+    "RAMP": {
+      "label": "Ramp",
+      "issue": {
+        "MISSING": "Missing", "TOO_STEEP": "Too Steep", "TOO_NARROW": "Too Narrow",
+        "MISSING_HANDRAIL": "Missing Handrail", "NO_LANDING": "No Landing",
+        "SLIPPERY_SURFACE": "Slippery Surface", "HANDRAIL_TOO_LOW": "Handrail Too Low",
+        "INSUFFICIENT_LANDING_AREA": "Insufficient Landing Area"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Slope" },
+        "width_cm": { "label": "Width" },
+        "height_cm": { "label": "Height" }
+      }
+    },
+    "ELEVATOR": {
+      "label": "Elevator",
+      "issue": {
+        "MISSING": "Missing", "OUT_OF_SERVICE": "Out of Service",
+        "DOOR_TOO_NARROW": "Door Too Narrow", "CABIN_TOO_SMALL": "Cabin Too Small",
+        "NO_AUDIO": "No Audio", "NO_GRAB_BAR": "No Grab Bar",
+        "INSUFFICIENT_LANDING": "Insufficient Landing", "NO_BRAILLE": "No Braille",
+        "BUTTON_HEIGHT_INVALID": "Button Height Invalid",
+        "INSUFFICIENT_LIGHTING": "Insufficient Lighting"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Door Width" },
+        "cabin_width_cm": { "label": "Cabin Width" },
+        "cabin_depth_cm": { "label": "Cabin Depth" }
+      }
+    },
+    "SIDEWALK": {
+      "label": "Sidewalk",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "SLIPPERY_SURFACE": "Slippery Surface", "BLOCKED": "Blocked",
+        "NO_TACTILE_PAVING": "No Tactile Paving",
+        "INSUFFICIENT_CLEARANCE": "Insufficient Clearance",
+        "UNEVEN_SURFACE": "Uneven Surface",
+        "UNRAMPED_LEVEL_DIFFERENCE": "Unramped Level Difference"
+      },
+      "measurement": {
+        "height_cm": { "label": "Curb Height" },
+        "width_cm": { "label": "Width" }
+      }
+    },
+    "DOOR": {
+      "label": "Door",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "HIGH_THRESHOLD": "High Threshold", "STEP_AT_ENTRANCE": "Step at Entrance",
+        "NO_LEVER_HANDLE": "No Lever Handle", "HEAVY_DOOR": "Heavy Door",
+        "NO_AUTOMATIC_DOOR": "No Automatic Door", "NO_GLASS_MARKING": "No Glass Marking",
+        "HANDLE_HEIGHT_INVALID": "Handle Height Invalid",
+        "INTERCOM_INACCESSIBLE": "Intercom Inaccessible"
+      },
+      "measurement": {
+        "width_cm": { "label": "Width" },
+        "threshold_height_cm": { "label": "Threshold Height" }
+      }
+    },
+    "STAIR": {
+      "label": "Stair",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "MISSING_HANDRAIL": "Missing Handrail", "NO_LANDING": "No Landing",
+        "SLIPPERY_SURFACE": "Slippery Surface", "RISER_TOO_HIGH": "Riser Too High",
+        "TREAD_TOO_SHALLOW": "Tread Too Shallow", "NO_ANTI_SLIP": "No Anti-Slip",
+        "OPEN_RISERS": "Open Risers", "IRREGULAR_STEPS": "Irregular Steps",
+        "MISSING_NOSING_STRIP": "Missing Nosing Strip"
+      },
+      "measurement": {
+        "riser_cm": { "label": "Riser Height" },
+        "tread_cm": { "label": "Tread Depth" }
+      }
+    },
+    "PEDESTRIAN_CROSSING": {
+      "label": "Pedestrian Crossing",
+      "issue": {
+        "MISSING": "Missing", "BLOCKED": "Blocked",
+        "NO_TACTILE_PAVING": "No Tactile Paving",
+        "NO_AUDIO_SIGNAL": "No Audio Signal", "SIGNAL_TOO_SHORT": "Signal Too Short",
+        "NO_DROPPED_CURB": "No Dropped Curb", "FADED_MARKINGS": "Faded Markings",
+        "NO_PEDESTRIAN_REFUGE": "No Pedestrian Refuge"
+      },
+      "measurement": {
+        "signal_duration_sec": { "label": "Signal Duration" },
+        "crossing_width_cm": { "label": "Crossing Width" },
+        "dropped_curb_height_cm": { "label": "Dropped Curb Height" }
+      }
+    },
+    "CURB_RAMP": {
+      "label": "Curb Ramp",
+      "issue": {
+        "MISSING": "Missing", "TOO_STEEP": "Too Steep",
+        "TOO_NARROW": "Too Narrow", "NO_TACTILE_WARNING": "No Tactile Warning",
+        "RAISED_LIP": "Raised Lip"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Slope" },
+        "width_cm": { "label": "Width" },
+        "lip_height_cm": { "label": "Lip Height" }
+      }
+    },
+    "WASHROOM": {
+      "label": "Washroom",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "NO_GRAB_BAR": "No Grab Bar", "HIGH_THRESHOLD": "High Threshold",
+        "NO_ACCESSIBLE_STALL": "No Accessible Stall",
+        "INSUFFICIENT_TURNING_SPACE": "Insufficient Turning Space",
+        "SINK_TOO_HIGH": "Sink Too High", "NO_EMERGENCY_BUTTON": "No Emergency Button"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Door Width" },
+        "turning_space_cm": { "label": "Turning Space" },
+        "sink_height_cm": { "label": "Sink Height" },
+        "grab_bar_height_cm": { "label": "Grab Bar Height" }
+      }
+    },
+    "ROOM_SIGN": {
+      "label": "Room Sign",
+      "issue": {
+        "MISSING": "Missing", "NO_BRAILLE": "No Braille",
+        "INSUFFICIENT_LIGHTING": "Insufficient Lighting",
+        "LOW_CONTRAST": "Low Contrast", "TEXT_TOO_SMALL": "Text Too Small",
+        "INVALID_HEIGHT": "Invalid Height"
+      },
+      "measurement": {
+        "mounting_height_cm": { "label": "Mounting Height" },
+        "text_height_mm": { "label": "Text Height" }
+      }
     }
   },
   "userSearch": {
