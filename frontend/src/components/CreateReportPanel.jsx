@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
+import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
 function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
   const { token, userId } = useAuth()
@@ -17,6 +18,8 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
+  // Object type whose tutorial modal is currently shown, null when closed.
+  const [tutorialFor, setTutorialFor] = useState(null)
 
   // Bottom-sheet drag-to-resize (mobile only — desktop keeps right-sidebar layout).
   // Snap points in dvh; below DISMISS_THRESHOLD on release we call onClose().
@@ -478,13 +481,24 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
                       {/* Measurements — optional, collapsible */}
                       {cfg && cfg.measurements.length > 0 && (
                         <div>
-                          <button
-                            onClick={() => toggleShowMeasurements(obj.id)}
-                            className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2"
-                          >
-                            <span className="material-symbols-outlined text-base">straighten</span>
-                            {obj.showMeasurements ? 'Hide measurements' : 'Show measurements (optional)'}
-                          </button>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <button
+                              onClick={() => toggleShowMeasurements(obj.id)}
+                              className="flex items-center gap-1.5 text-xs font-semibold text-primary"
+                            >
+                              <span className="material-symbols-outlined text-base">straighten</span>
+                              {obj.showMeasurements ? 'Hide measurements' : 'Show measurements (optional)'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTutorialFor(obj.objectType)}
+                              aria-label={`How to measure ${cfg.label}`}
+                              className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant hover:text-primary cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-sm">help_outline</span>
+                              How to measure
+                            </button>
+                          </div>
                           {obj.showMeasurements && (
                             <div className="flex flex-col gap-3">
                               {cfg.measurements.map(m => (
@@ -579,6 +593,12 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated }) {
 
       </div>
       </aside>
+      {tutorialFor && (
+        <ObjectTutorialModal
+          objectType={tutorialFor}
+          onClose={() => setTutorialFor(null)}
+        />
+      )}
     </div>
   )
 }
