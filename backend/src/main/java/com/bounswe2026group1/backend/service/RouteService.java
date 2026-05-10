@@ -41,7 +41,11 @@ public class RouteService {
      * alternative whose mode matches their preferred travel mode.
      *
      * @param request           start/end coordinates from the controller
-     * @param constraints       caller's selected routing constraints; empty for anonymous / NONE preset
+     * @param constraints       caller's selected routing constraints. {@code null}
+     *                          means the signed-in caller picked
+     *                          {@code RoutingPreset.NONE} and explicitly opted out
+     *                          of avoidance (issue #544); empty set means the
+     *                          anonymous baseline; non-empty filters by hazard.
      * @param preferredMode     caller's preferred travel mode; null for no preference
      */
     public List<RouteResponse> getRouteOptions(
@@ -52,8 +56,9 @@ public class RouteService {
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
 
-        // Build avoid polygons once — reused for routes 2 and 3.
-        // Empty constraints preserves the pre-#365 baseline (every VERIFIED obstacle becomes a polygon).
+        // Build avoid polygons once — reused for routes 2 and 3. Three-state
+        // contract on `constraints`: null skips avoidance entirely, empty set
+        // is the anonymous baseline (avoid all), non-empty filters by hazard.
         ObjectNode avoidPolygons = obstacleService.buildAvoidPolygons(constraints);
 
         List<RouteResponse> routes = new ArrayList<>();

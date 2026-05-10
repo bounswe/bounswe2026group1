@@ -7,6 +7,7 @@ import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Route;
 import com.bounswe2026group1.backend.model.RoutingConstraint;
+import com.bounswe2026group1.backend.model.RoutingPreset;
 import com.bounswe2026group1.backend.model.TravelMode;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
@@ -60,9 +61,20 @@ public class RouteController {
         // and the user object again for recording the planned route. Anonymous → null.
         RegisteredUser caller = currentUserOrNull();
 
-        Set<RoutingConstraint> constraints = caller != null && caller.getRoutingConstraints() != null
-                ? caller.getRoutingConstraints()
-                : Set.of();
+        // Three-state contract for the constraints argument (issue #544):
+        //   • null     — signed-in user with NONE preset; skip avoidance entirely.
+        //   • Set.of() — anonymous baseline; avoid every verified obstacle.
+        //   • non-empty — filter avoid set to hazards the user actually cares about.
+        Set<RoutingConstraint> constraints;
+        if (caller == null) {
+            constraints = Set.of();
+        } else if (caller.getPreferredPreset() == RoutingPreset.NONE) {
+            constraints = null;
+        } else {
+            constraints = caller.getRoutingConstraints() != null
+                    ? caller.getRoutingConstraints()
+                    : Set.of();
+        }
         TravelMode preferredMode = caller != null ? caller.getPreferredTravelMode() : null;
 
         List<RouteResponse> options = routeService.getRouteOptions(request, constraints, preferredMode);
