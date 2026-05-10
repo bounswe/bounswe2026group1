@@ -50,16 +50,17 @@ function Signup() {
   }
 
   return (
-    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar min-h-screen flex flex-col">
-      <main className="flex flex-1">
+    <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar md:h-screen min-h-screen md:overflow-hidden flex flex-col">
+      <main className="flex flex-1 md:min-h-0">
         <AuthLeftPanel
           headline="Make your city accessible for everyone."
           description="Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence."
         />
 
         {/* Right Side */}
-        <section className="w-full md:w-1/2 lg:w-2/5 bg-white flex items-center justify-center px-6 py-8 md:px-16 lg:px-24">
-          <div className="w-full max-w-[440px] space-y-6">
+        <section className="w-full md:w-1/2 lg:w-2/5 bg-white px-6 py-12 md:px-16 lg:px-24 md:overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center">
+            <div className="w-full max-w-[440px] space-y-8">
             {/* Mobile Branding */}
             <div className="md:hidden flex justify-center">
               <span className="text-2xl font-headline font-bold text-[#176a21] italic tracking-tight">
@@ -226,6 +227,7 @@ function Signup() {
                 Log in
               </a>
             </p>
+            </div>
           </div>
         </section>
       </main>
