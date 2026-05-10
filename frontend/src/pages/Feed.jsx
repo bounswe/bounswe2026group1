@@ -6,6 +6,7 @@ import FeedLocationPickerModal from '../components/FeedLocationPickerModal.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getReportFeed, mapReport } from '../services/reportService.js'
+import { feedFilterChipClass } from '../utils/feedFilterChip.js'
 
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY
 const TILE_LIGHT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -36,25 +37,7 @@ const STATUS_LABELS = {
   fixed: 'Fixed',
 }
 
-/** Chip colors aligned with Navbar “Mapcess” wordmark (`text-primary`) */
-export function feedFilterChipClass(active) {
-  return [
-    'inline-flex items-center justify-center px-4 py-2 rounded-2xl text-sm font-semibold border transition-colors',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-    active
-      ? 'bg-primary text-on-primary border-primary shadow-sm'
-      : 'bg-surface-container-highest text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/45',
-  ].join(' ')
-}
-
-function useDebouncedValue(value, delay) {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
-}
+export { feedFilterChipClass }
 
 function clampRadiusKm(km) {
   const n = Number(km)
@@ -106,7 +89,6 @@ export default function Feed() {
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [feedCenterDraft, setFeedCenterDraft] = useState(null)
-  const feedCenter = useDebouncedValue(feedCenterDraft, 400)
   const [radiusKmInput, setRadiusKmInput] = useState('5')
   const radiusKm = clampRadiusKm(radiusKmInput)
 
@@ -121,21 +103,19 @@ export default function Feed() {
     return () => clearTimeout(t)
   }, [locateHint])
 
-  const queryParams = useMemo(() => {
-    const lat = feedCenter?.lat
-    const lng = feedCenter?.lng
-    const hasValidCenter =
-      feedCenter != null &&
-      Number.isFinite(Number(lat)) &&
-      Number.isFinite(Number(lng))
-    return {
-      reportType: reportTypeFilter,
-      environment: environmentFilter,
-      latitude: hasValidCenter ? Number(lat) : undefined,
-      longitude: hasValidCenter ? Number(lng) : undefined,
-      radiusInKm: hasValidCenter ? radiusKm : undefined,
-    }
-  }, [reportTypeFilter, environmentFilter, feedCenter, radiusKm])
+  const feedLat =
+    feedCenterDraft != null && Number.isFinite(Number(feedCenterDraft.lat))
+      ? Number(feedCenterDraft.lat)
+      : null
+  const feedLng =
+    feedCenterDraft != null && Number.isFinite(Number(feedCenterDraft.lng))
+      ? Number(feedCenterDraft.lng)
+      : null
+
+  const feedQueryKey = useMemo(
+    () => ['reportFeed', reportTypeFilter, environmentFilter, feedLat, feedLng, radiusKm, token ?? ''],
+    [reportTypeFilter, environmentFilter, feedLat, feedLng, radiusKm, token]
+  )
 
   const {
     data,
@@ -146,21 +126,26 @@ export default function Feed() {
     isError,
     error,
   } = useInfiniteQuery({
-    queryKey: ['reportFeed', queryParams],
-    queryFn: ({ pageParam, signal }) =>
-      getReportFeed(
+    queryKey: feedQueryKey,
+    // Build the request from `queryKey` so filters always match the cache entry (avoids stale
+    // closures when combining location + report type / environment).
+    queryFn: ({ pageParam, signal, queryKey }) => {
+      const [, rt, env, lat, lng, rKm] = queryKey
+      const hasLocation = lat != null && lng != null
+      return getReportFeed(
         {
           page: pageParam,
           size: 20,
-          reportType: queryParams.reportType,
-          environment: queryParams.environment,
-          latitude: queryParams.latitude,
-          longitude: queryParams.longitude,
-          radiusInKm: queryParams.radiusInKm,
+          reportType: rt,
+          environment: env,
+          latitude: hasLocation ? lat : undefined,
+          longitude: hasLocation ? lng : undefined,
+          radiusInKm: hasLocation ? rKm : undefined,
         },
         token,
         { signal }
-      ),
+      )
+    },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
   })
@@ -170,20 +155,29 @@ export default function Feed() {
     return data.pages.flatMap((p) => (p.content || []).map(mapReport))
   }, [data])
 
-  const modalCenter = feedCenter ?? DEFAULT_CENTER
-  const referenceForDistance = feedCenterDraft ?? feedCenter
+  /** Ensures chips match visible cards if the API ever returns extra rows (e.g. proximity + enum filters). */
+  const reportsMatchingFilters = useMemo(() => {
+    return reports.filter((r) => {
+      if (reportTypeFilter !== 'ALL' && r.reportType !== reportTypeFilter) return false
+      if (environmentFilter !== 'ALL' && r.environment !== environmentFilter) return false
+      return true
+    })
+  }, [reports, reportTypeFilter, environmentFilter])
+
+  const modalCenter = feedCenterDraft ?? DEFAULT_CENTER
+  const referenceForDistance = feedCenterDraft
 
   const reportsSorted = useMemo(() => {
     const ref = referenceForDistance
-    if (!ref) return reports
-    return [...reports].sort((a, b) => {
+    if (!ref) return reportsMatchingFilters
+    return [...reportsMatchingFilters].sort((a, b) => {
       const da = haversineKm(ref.lat, ref.lng, Number(a.latitude), Number(a.longitude))
       const db = haversineKm(ref.lat, ref.lng, Number(b.latitude), Number(b.longitude))
       const fa = Number.isFinite(da) ? da : Number.POSITIVE_INFINITY
       const fb = Number.isFinite(db) ? db : Number.POSITIVE_INFINITY
       return fa - fb
     })
-  }, [reports, referenceForDistance])
+  }, [reportsMatchingFilters, referenceForDistance])
 
   const loadMoreRef = useRef(null)
   const onIntersect = useCallback(
@@ -210,9 +204,9 @@ export default function Feed() {
   const emptyMessage = useMemo(() => {
     if (reportsSorted.length > 0 || isPending || isError) return null
     if (hasActiveFilter) return 'No reports match your filters.'
-    if (feedCenter != null) return 'No reports within this search radius.'
+    if (feedCenterDraft != null) return 'No reports within this search radius.'
     return 'No reports yet.'
-  }, [reportsSorted.length, isPending, isError, hasActiveFilter, feedCenter])
+  }, [reportsSorted.length, isPending, isError, hasActiveFilter, feedCenterDraft])
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
@@ -317,21 +311,25 @@ export default function Feed() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-container text-on-primary-container font-bold text-sm border border-primary/30 shadow-sm hover:opacity-90 transition-opacity"
+              className={`${feedFilterChipClass(false)} gap-2`}
             >
-              <span className="material-symbols-outlined text-lg">map</span>
+              <span className="material-symbols-outlined text-lg" aria-hidden>
+                map
+              </span>
               Choose on map
             </button>
             <button
               type="button"
               onClick={handleUseCurrentLocation}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border border-outline-variant/30 bg-white dark:bg-transparent font-bold text-sm text-on-surface hover:bg-surface-container-low transition-colors shadow-sm"
+              className={`${feedFilterChipClass(false)} gap-2`}
             >
-              <span className="material-symbols-outlined text-lg">my_location</span>
+              <span className="material-symbols-outlined text-lg" aria-hidden>
+                my_location
+              </span>
               Use current location
             </button>
           </div>
@@ -355,7 +353,7 @@ export default function Feed() {
           </p>
         )}
 
-        <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 list-none p-0 m-0">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 list-none p-0 m-0">
           {reportsSorted.map((report) => {
             const distLabel = formatDistanceKm(
               referenceForDistance,
@@ -369,9 +367,9 @@ export default function Feed() {
               <li key={report.id} className="min-w-0">
                 <Link
                   to={`/?report=${report.id}&from=feed`}
-                  className="flex flex-col h-full rounded-2xl border border-outline-variant/20 bg-white dark:bg-surface-container-lowest shadow-sm p-4 hover:shadow-md transition-shadow group"
+                  className="flex flex-col h-full rounded-xl border border-outline-variant/20 bg-white dark:bg-surface-container-lowest shadow-sm p-3 hover:shadow-md transition-shadow group"
                 >
-                  <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-surface-container-high mb-3">
+                  <div className="relative aspect-[5/3] max-h-[140px] w-full rounded-lg overflow-hidden bg-surface-container-high mb-2">
                     {report.image ? (
                       <img
                         src={report.image}
@@ -380,7 +378,7 @@ export default function Feed() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
-                        <span className="material-symbols-outlined text-5xl opacity-40">image</span>
+                        <span className="material-symbols-outlined text-4xl opacity-40">image</span>
                       </div>
                     )}
                     {distLabel && (
@@ -398,67 +396,67 @@ export default function Feed() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div className="flex flex-wrap gap-1 mb-1.5">
                     <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         STATUS_STYLES[report.status] ?? 'bg-surface-container-high text-on-surface'
                       }`}
                     >
                       {STATUS_LABELS[report.status] ?? report.status}
                     </span>
                     {rtype && (
-                      <span className="text-xs font-bold px-3 py-1 rounded-full border border-primary/25 bg-primary/8 text-primary dark:bg-primary/15 dark:text-primary">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/25 bg-primary/8 text-primary dark:bg-primary/15 dark:text-primary">
                         {rtype}
                       </span>
                     )}
                     {env && (
-                      <span className="text-xs font-bold px-3 py-1 rounded-full border border-outline-variant/35 bg-surface-container-lowest text-on-surface-variant">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container-lowest text-on-surface-variant">
                         {env}
                       </span>
                     )}
                   </div>
 
-                  <h2 className="text-lg md:text-xl font-bold font-headline text-on-surface leading-snug line-clamp-2 mb-1.5">
+                  <h2 className="text-sm md:text-base font-bold font-headline text-on-surface leading-snug line-clamp-2 mb-1">
                     {report.title}
                   </h2>
 
                   {report.description ? (
-                    <p className="text-sm text-on-surface-variant line-clamp-2 mb-3 flex-1">
+                    <p className="text-xs text-on-surface-variant line-clamp-2 mb-2 flex-1">
                       {report.description}
                     </p>
                   ) : (
-                    <p className="text-sm text-on-surface-variant/70 italic mb-3 flex-1">
+                    <p className="text-xs text-on-surface-variant/70 italic mb-2 flex-1">
                       No description
                     </p>
                   )}
 
-                  <div className="mt-auto pt-2 border-t border-outline-variant/20 flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
+                  <div className="mt-auto pt-1.5 border-t border-outline-variant/20 flex flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-on-surface-variant">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
                           calendar_today
                         </span>
                         {report.date}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <span className="inline-flex items-center gap-1.5 text-on-surface-variant truncate max-w-[55%] min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
+                      <span className="inline-flex items-center gap-1 text-on-surface-variant truncate max-w-[55%] min-w-0">
                         <span
-                          className="material-symbols-outlined text-[16px] text-primary shrink-0"
+                          className="material-symbols-outlined text-[14px] text-primary shrink-0"
                           style={{ fontVariationSettings: "'FILL' 1" }}
                           aria-hidden
                         >
                           location_on
                         </span>
-                        <span className="truncate font-medium text-on-surface">{report.location}</span>
+                        <span className="truncate font-medium text-on-surface text-[11px]">{report.location}</span>
                       </span>
-                      <span className="inline-flex items-center gap-3 shrink-0 text-sm font-semibold not-italic">
+                      <span className="inline-flex items-center gap-2 shrink-0 text-xs font-semibold not-italic">
                         <span
                           className="inline-flex items-center gap-1 text-primary"
                           title="Agree"
                         >
                           <span
-                            className="material-symbols-outlined text-[16px]"
+                            className="material-symbols-outlined text-[14px]"
                             style={{ fontVariationSettings: "'FILL' 1" }}
                           >
                             thumb_up
@@ -470,7 +468,7 @@ export default function Feed() {
                           title="Disagree"
                         >
                           <span
-                            className="material-symbols-outlined text-[16px]"
+                            className="material-symbols-outlined text-[14px]"
                             style={{ fontVariationSettings: "'FILL' 1" }}
                           >
                             thumb_down

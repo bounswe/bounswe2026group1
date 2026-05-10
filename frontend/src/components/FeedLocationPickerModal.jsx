@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
+import { feedFilterChipClass } from '../utils/feedFilterChip.js'
+import MapSearchBar from './MapSearchBar.jsx'
 
 const pinIcon = L.divIcon({
   className: '',
@@ -37,10 +39,19 @@ function MapClickPick({ onPick }) {
   return null
 }
 
+/** Move map to a location chosen via search (not used for plain map clicks). */
+function FlyToSearchResult({ target }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!target) return
+    map.setView([target.lat, target.lng], Math.max(map.getZoom(), 14), { animate: true })
+  }, [map, target])
+  return null
+}
+
 /**
- * Full-screen map modal to pick the feed reference point. Map center syncs from
- * `center` only when the modal opens (wasOpenRef); parent debounces must not
- * reset the map while this stays open.
+ * Full-screen map modal to pick the feed reference point. Uses the same floating
+ * search bar as the Home map (`MapSearchBar`).
  */
 export default function FeedLocationPickerModal({
   open,
@@ -58,6 +69,8 @@ export default function FeedLocationPickerModal({
     lat: center?.lat ?? 41.0683,
     lng: center?.lng ?? 29.0505,
   })
+  const [flyTarget, setFlyTarget] = useState(null)
+  const [searchBarKey, setSearchBarKey] = useState(0)
 
   useLayoutEffect(() => {
     if (open) {
@@ -68,11 +81,14 @@ export default function FeedLocationPickerModal({
         }
         setBootCenter(c)
         setPin(c)
+        setFlyTarget(null)
+        setSearchBarKey((k) => k + 1)
       }
       wasOpenRef.current = true
     } else {
       wasOpenRef.current = false
       setBootCenter(null)
+      setFlyTarget(null)
     }
   }, [open, center])
 
@@ -84,6 +100,15 @@ export default function FeedLocationPickerModal({
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, onDismiss])
+
+  const applyLocation = useCallback(
+    (lat, lng, shouldFly = false) => {
+      setPin({ lat, lng })
+      onFeedCenterChange({ lat, lng })
+      if (shouldFly) setFlyTarget({ lat, lng, key: Date.now() })
+    },
+    [onFeedCenterChange]
+  )
 
   const handleMapClick = useCallback(
     (lat, lng) => {
@@ -102,8 +127,7 @@ export default function FeedLocationPickerModal({
       (pos) => {
         const lat = pos.coords.latitude
         const lng = pos.coords.longitude
-        setPin({ lat, lng })
-        onFeedCenterChange({ lat, lng })
+        applyLocation(lat, lng, true)
       },
       () => onLocateUnavailable?.(),
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
@@ -130,7 +154,7 @@ export default function FeedLocationPickerModal({
           Cancel
         </button>
         <p className="text-sm text-on-surface-variant text-center flex-1 hidden sm:block">
-          Tap the map to set your reference point. The shaded circle matches your search radius.
+          Search, tap the map, or use your location. The circle matches your search radius.
         </p>
         <button
           type="button"
@@ -142,7 +166,7 @@ export default function FeedLocationPickerModal({
       </header>
 
       <p className="sm:hidden px-4 py-2 text-xs text-on-surface-variant border-b border-outline-variant/20">
-        Tap the map to set your reference point. The shaded circle matches your search radius.
+        Search, tap the map, or use your location. The circle matches your search radius.
       </p>
 
       <div className="flex-1 relative min-h-0">
@@ -154,6 +178,7 @@ export default function FeedLocationPickerModal({
           style={{ height: '100%', width: '100%' }}
         >
           <MapInvalidate active={open} />
+          <FlyToSearchResult target={flyTarget} />
           <MapClickPick onPick={handleMapClick} />
           <TileLayer url={tileUrl} attribution={tileAttr} />
           <Circle
@@ -169,13 +194,23 @@ export default function FeedLocationPickerModal({
           <Marker position={[pin.lat, pin.lng]} icon={pinIcon} />
         </MapContainer>
 
+        <MapSearchBar
+          key={searchBarKey}
+          mapCenter={{ lat: pin.lat, lng: pin.lng }}
+          initialValue=""
+          inputId="feed-map-search-location"
+          onLocationPicked={({ lat, lon }) => applyLocation(lat, lon, true)}
+        />
+
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 pointer-events-auto max-w-[calc(100%-2rem)]">
           <button
             type="button"
             onClick={handleUseMyLocation}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-container-lowest/95 backdrop-blur-md border border-outline-variant/40 shadow-lg text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors"
+            className={`${feedFilterChipClass(false)} gap-2`}
           >
-            <span className="material-symbols-outlined text-lg">my_location</span>
+            <span className="material-symbols-outlined text-lg" aria-hidden>
+              my_location
+            </span>
             Use my location
           </button>
         </div>

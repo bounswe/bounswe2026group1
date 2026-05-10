@@ -29,19 +29,21 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             double radiusInKm,
             Pageable pageable) {
 
+        // Use feed-specific parameter names — short names like :lat/:lon/:reportType can clash with
+        // Hibernate internals or repeat-binding quirks in native SQL; this keeps proximity + filters reliable.
         StringBuilder fromWhere = new StringBuilder("""
                 FROM reports r
                 WHERE ST_DWithin(
                     r.location::geography,
-                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
-                    :radiusMeters
+                    ST_SetSRID(ST_MakePoint(:feedLon, :feedLat), 4326)::geography,
+                    :feedRadiusMeters
                 )
                 """);
 
         Map<String, Object> params = new HashMap<>();
-        params.put("lat", latitude);
-        params.put("lon", longitude);
-        params.put("radiusMeters", radiusInKm * 1000.0);
+        params.put("feedLat", latitude);
+        params.put("feedLon", longitude);
+        params.put("feedRadiusMeters", radiusInKm * 1000.0);
 
         appendNativeReportTypeFilter(fromWhere, params, reportType);
         appendNativeEnvironmentFilter(fromWhere, params, environment);
@@ -49,7 +51,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         String orderBy = """
                 ORDER BY ST_Distance(
                     r.location::geography,
-                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+                    ST_SetSRID(ST_MakePoint(:feedLon, :feedLat), 4326)::geography
                 ) ASC
                 """;
 
@@ -58,11 +60,11 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         bindAll(countQuery, params);
         long total = ((Number) countQuery.getSingleResult()).longValue();
 
-        String dataSql = "SELECT r.* " + fromWhere + orderBy + " LIMIT :limit OFFSET :offset";
+        String dataSql = "SELECT r.* " + fromWhere + orderBy + " LIMIT :feedLimit OFFSET :feedOffset";
         Query dataQuery = entityManager.createNativeQuery(dataSql, Report.class);
         bindAll(dataQuery, params);
-        dataQuery.setParameter("limit", pageable.getPageSize());
-        dataQuery.setParameter("offset", (int) pageable.getOffset());
+        dataQuery.setParameter("feedLimit", pageable.getPageSize());
+        dataQuery.setParameter("feedOffset", (int) pageable.getOffset());
 
         @SuppressWarnings("unchecked")
         List<Report> content = dataQuery.getResultList();
@@ -100,16 +102,16 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         if (reportType == null) {
             return;
         }
-        sql.append(" AND r.report_type = :reportType");
-        params.put("reportType", reportType.name());
+        sql.append(" AND r.report_type = :feedReportType");
+        params.put("feedReportType", reportType.name());
     }
 
     private static void appendNativeEnvironmentFilter(StringBuilder sql, Map<String, Object> params, ReportEnvironment environment) {
         if (environment == null) {
             return;
         }
-        sql.append(" AND r.environment = :feedEnv");
-        params.put("feedEnv", environment.name());
+        sql.append(" AND r.environment = :feedEnvironment");
+        params.put("feedEnvironment", environment.name());
     }
 
     private static void appendJpqlReportTypeFilter(StringBuilder jpql, Map<String, Object> params, ReportType reportType) {
