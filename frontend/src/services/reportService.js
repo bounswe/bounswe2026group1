@@ -161,12 +161,13 @@ export function mapReportStatus(apiStatus) {
 }
 
 function formatReportLocation(latitude, longitude) {
+  // `Number(null)` / `Number('')` are 0 — treat missing coords before coercing so we don't show "0.0000, 0.0000".
+  if (latitude == null || longitude == null) return 'Location unavailable'
+  if (latitude === '' || longitude === '') return 'Location unavailable'
   const lat = Number(latitude)
   const lon = Number(longitude)
-  if (Number.isFinite(lat) && Number.isFinite(lon)) {
-    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
-  }
-  return 'Location unavailable'
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'Location unavailable'
+  return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 }
 
 /**
