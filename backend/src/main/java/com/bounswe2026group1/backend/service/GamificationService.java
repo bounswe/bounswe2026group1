@@ -224,19 +224,4 @@ public class GamificationService {
         return true;
     }
 
-    /**
-     * True iff the user currently holds an un-withdrawn vote on this report,
-     * computed from the ledger so we don't have to add a flag column on
-     * {@link com.bounswe2026group1.backend.model.ReportVerification}.
-     * Each cast inserts a VOTE_CAST event; each withdraw inserts a
-     * VOTE_WITHDRAWN event. The user is "currently voted" when CAST count
-     * exceeds WITHDRAWN count.
-     */
-    private boolean isCurrentlyVoted(Long userId, Long reportId) {
-        long casts = pointEventRepository
-                .countByUserIdAndRelatedEntityIdAndReason(userId, reportId, PointReason.VOTE_CAST);
-        long withdrawals = pointEventRepository
-                .countByUserIdAndRelatedEntityIdAndReason(userId, reportId, PointReason.VOTE_WITHDRAWN);
-        return casts > withdrawals;
-    }
 }
