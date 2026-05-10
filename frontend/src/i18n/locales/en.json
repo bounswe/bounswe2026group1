@@ -49,7 +49,8 @@
     "issuesHiddenOther": "{{count}} issues hidden",
     "pinDropHint": "Click on the map to set report location",
     "routeStartHint": "Click on the map to set your starting point",
-    "routeDestHint": "Now click your destination"
+    "routeDestHint": "Now click your destination",
+    "reportSubmittedToast": "Report submitted successfully!"
   },
   "createReport": {
     "title": "New Report",

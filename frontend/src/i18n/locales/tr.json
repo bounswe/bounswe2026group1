@@ -49,7 +49,8 @@
     "issuesHiddenOther": "{{count}} sorun gizli",
     "pinDropHint": "Rapor konumu için haritaya tıkla",
     "routeStartHint": "Başlangıç noktası için haritaya tıkla",
-    "routeDestHint": "Şimdi varış noktanı seç"
+    "routeDestHint": "Şimdi varış noktanı seç",
+    "reportSubmittedToast": "Rapor başarıyla gönderildi!"
   },
   "createReport": {
     "title": "Yeni Rapor",
