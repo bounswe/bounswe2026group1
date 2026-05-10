@@ -17,12 +17,4 @@ public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
     boolean existsByUserIdAndRelatedEntityIdAndReason(Long userId,
                                                      Long relatedEntityId,
                                                      PointReason reason);
-
-    /** Used by GamificationService to pair vote-cast and vote-withdrawn
-     *  events on the same (user, report). The two are tracked
-     *  independently so the user can cycle vote → withdraw → vote again
-     *  without losing points net (each cycle is +5 / -5). */
-    long countByUserIdAndRelatedEntityIdAndReason(Long userId,
-                                                  Long relatedEntityId,
-                                                  PointReason reason);
 }
