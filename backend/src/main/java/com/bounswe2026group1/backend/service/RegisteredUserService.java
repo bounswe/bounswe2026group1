@@ -17,6 +17,8 @@ import com.bounswe2026group1.backend.repository.RouteRepository;
 import com.bounswe2026group1.backend.repository.UserBadgeRepository;
 import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -43,20 +45,26 @@ public class RegisteredUserService {
     private final LeaderboardService leaderboardService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final MessageSource messageSource;
 
     // Password strength regex pattern: Minimum 8 characters, at least one uppercase letter, one lowercase letter, one digit and one special character
     private static final String PASSWORD_PATTERN = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
+
+    /** Resolve an i18n message against the request's locale (see {@link com.bounswe2026group1.backend.config.I18nConfig}). */
+    private String msg(String code, Object... args) {
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
+    }
 
 
     public RegisterResponse registerUser(RegisterRequest request) {
         // 1. Check Uniqueness
         if (registeredUserRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email is already in use.");
+            throw new IllegalArgumentException(msg("error.email.alreadyInUse"));
         }
 
         // 2. Password strength validation
         if (!request.getPassword().matches(PASSWORD_PATTERN)) {
-            throw new IllegalArgumentException("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, a digit, and a special character.");
+            throw new IllegalArgumentException(msg("error.password.weak"));
         }
 
         // 3. User Entity Conversion & Password Hashing
@@ -82,11 +90,11 @@ public class RegisteredUserService {
     public LoginResponse loginUser(LoginRequest request) {
         // 1. Find user by email
         RegisteredUser user = registeredUserRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+                .orElseThrow(() -> new BadCredentialsException(msg("error.auth.invalidCredentials")));
 
         // 2. Check password
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new BadCredentialsException("Invalid email or password");
+            throw new BadCredentialsException(msg("error.auth.invalidCredentials"));
         }
 
         // 3. Generate JWT token
@@ -144,7 +152,7 @@ public class RegisteredUserService {
      *  Email is omitted in the DTO (privacy) — search results are public. */
     public Page<UserProfileDTO> searchUsers(String query, Pageable pageable) {
         if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Search query must not be empty.");
+            throw new IllegalArgumentException(msg("error.search.emptyQuery"));
         }
         String trimmed = query.trim();
         Page<RegisteredUser> page = registeredUserRepository
