@@ -151,9 +151,9 @@ function MapFilters({ excludedTypes, excludedIssues, onChange, onClose, triggerR
               type="button"
               onClick={onClose}
               aria-label="Close filters"
-              className="w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center cursor-pointer"
+              className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors cursor-pointer"
             >
-              <span className="material-symbols-outlined text-on-surface-variant">close</span>
+              <span className="material-symbols-outlined">close</span>
             </button>
           </div>
         </div>
