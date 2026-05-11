@@ -393,6 +393,53 @@ class RoutingPreferencesRouteIntegrationTest {
                 .doesNotContain("Wheelchair Route");
     }
 
+    /**
+     * Edge case: a signed-in wheelchair user with {@code RoutingPreset.NONE}
+     * has opted out of avoidance (so controller passes {@code constraints =
+     * null} → {@code buildAvoidPolygons} returns {@code null}) AND is in
+     * wheelchair mode (so the wheelchair-mode Accessible Route is emitted).
+     * That alternative comes out unfiltered — wheelchair-profile but with no
+     * avoid polygons applied. Defensible (they opted out), pinned by this test.
+     */
+    @Test
+    void authenticated_withNonePresetAndWheelchairMode_emitsUnfilteredWheelchairAccessibleRoute() throws Exception {
+        user.setPreferredPreset(RoutingPreset.NONE);
+        user.setRoutingConstraints(new HashSet<>());
+        user.setPreferredTravelMode(TravelMode.WHEELCHAIR);
+        registeredUserRepository.save(user);
+
+        MvcResult result = mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Controller passes null constraints; ObstacleService short-circuits
+        // and never sees Set.of() for this caller.
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
+
+        // Route set is the wheelchair caller's: Fastest + Accessible (no
+        // separate Wheelchair Route label). The Accessible Route runs the
+        // wheelchair profile — but without avoidance, since the user opted out.
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode accessible = null;
+        for (JsonNode alt : body) {
+            if ("Accessible Route".equals(alt.get("routeLabel").asString())) {
+                accessible = alt;
+                break;
+            }
+        }
+        assertThat(accessible).as("Accessible Route must be present").isNotNull();
+        assertThat(accessible.get("mode").asString())
+                .as("NONE-preset wheelchair caller's Accessible Route still uses the wheelchair profile")
+                .isEqualTo("WHEELCHAIR");
+        assertThat(labels(result))
+                .as("No separate Wheelchair Route card for a wheelchair caller")
+                .doesNotContain("Wheelchair Route");
+    }
+
     private List<String> labels(MvcResult result) throws Exception {
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         List<String> out = new java.util.ArrayList<>();
