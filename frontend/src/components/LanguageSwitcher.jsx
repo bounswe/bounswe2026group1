@@ -19,7 +19,7 @@ function LanguageSwitcher() {
     <div
       role="group"
       aria-label={t('common.language', 'Language')}
-      className="hidden sm:flex items-center rounded-full bg-surface-container-low p-0.5 text-xs font-bold"
+      className="flex items-center rounded-full bg-surface-container-low p-0.5 text-xs font-bold"
     >
       <button
         type="button"
