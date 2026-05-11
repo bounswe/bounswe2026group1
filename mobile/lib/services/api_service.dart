@@ -822,6 +822,17 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  Future<void> deleteComment(int commentId) async {
+    final response = await _client
+        .delete(
+          Uri.parse('$_baseUrl/api/comments/$commentId'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   String _extractMessage(http.Response response) {

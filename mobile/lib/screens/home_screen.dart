@@ -44,24 +44,37 @@ class _HomeScreenState extends State<HomeScreen> {
   // unchanged and reacts instantly as the user toggles chips.
   ReportEnvironment? _envFilter;
   Set<ObjectType> _typeFilter = <ObjectType>{};
+  // Keyed by (ObjectType, IssueType) so the same issue can be selected for
+  // one category without bleeding into another — mirrors the web filter's
+  // `"${objectType}:${issue}"` token model in MapFilters.jsx.
+  Set<(ObjectType, IssueType)> _issueFilter = <(ObjectType, IssueType)>{};
 
-  /// Reports actually shown on the map after applying the env + category
-  /// filters. Unfiltered (`_envFilter == null`, empty type set) returns the
-  /// raw list unchanged.
+  /// Reports actually shown on the map after applying the env + category +
+  /// issue filters. Unfiltered (all three empty/null) returns the raw list
+  /// unchanged.
   List<ReportModel> get _visibleReports {
-    if (_envFilter == null && _typeFilter.isEmpty) return _reports;
+    if (_envFilter == null && _typeFilter.isEmpty && _issueFilter.isEmpty) {
+      return _reports;
+    }
     return _reports.where((r) {
       if (_envFilter != null && r.environment != _envFilter) return false;
       if (_typeFilter.isNotEmpty) {
         final type = r.primaryObject?.objectType;
         if (type == null || !_typeFilter.contains(type)) return false;
       }
+      if (_issueFilter.isNotEmpty) {
+        final obj = r.primaryObject;
+        if (obj == null) return false;
+        if (!obj.issues.any((i) => _issueFilter.contains((obj.objectType, i)))) {
+          return false;
+        }
+      }
       return true;
     }).toList();
   }
 
   int get _activeFilterCount =>
-      (_envFilter != null ? 1 : 0) + _typeFilter.length;
+      (_envFilter != null ? 1 : 0) + _typeFilter.length + _issueFilter.length;
 
   // ── SSE ───────────────────────────────────────────────────────────────────
   StreamSubscription<SseEvent>? _sseSub;
@@ -600,6 +613,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
             ),
+          for (final pair in _issueFilter)
+            _activeFilterChip(
+              icon: pair.$1.icon,
+              label: '${pair.$1.label}: ${pair.$2.label}',
+              onRemove: () {
+                setState(() {
+                  _issueFilter = {..._issueFilter}..remove(pair);
+                  _markers = _buildMarkers(_visibleReports);
+                });
+              },
+            ),
           if (activeCount > 0)
             _hintPill('Showing $visibleCount of $totalCount'),
         ],
@@ -703,6 +727,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // button leaves the map untouched.
     ReportEnvironment? env = _envFilter;
     final types = <ObjectType>{..._typeFilter};
+    final issues = <(ObjectType, IssueType)>{..._issueFilter};
 
     final result = await showModalBottomSheet<_FilterResult>(
       context: context,
@@ -748,16 +773,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Spacer(),
                         TextButton(
-                          onPressed: (env == null && types.isEmpty)
+                          onPressed: (env == null &&
+                                  types.isEmpty &&
+                                  issues.isEmpty)
                               ? null
                               : () => setSheet(() {
                                     env = null;
                                     types.clear();
+                                    issues.clear();
                                   }),
                           child: Text(
                             'Reset',
                             style: TextStyle(
-                              color: (env == null && types.isEmpty)
+                              color: (env == null &&
+                                      types.isEmpty &&
+                                      issues.isEmpty)
                                   ? AppColors.outlineVariant
                                   : AppColors.error,
                               fontWeight: FontWeight.w700,
@@ -802,6 +832,29 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (!types.add(t)) types.remove(t);
                           }),
                         ),
+                        const SizedBox(height: 22),
+                        _sheetSectionLabel('ISSUES',
+                            trailing: issues.isEmpty
+                                ? null
+                                : Text(
+                                    '${issues.length} selected',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                    ),
+                                  )),
+                        const SizedBox(height: 10),
+                        _issuesByCategory(
+                          // When categories are selected, narrow the issue
+                          // list to ones meaningful for at least one of them
+                          // — keeps the picker compact and relevant.
+                          allowedTypes: types,
+                          selected: issues,
+                          onToggle: (pair) => setSheet(() {
+                            if (!issues.add(pair)) issues.remove(pair);
+                          }),
+                        ),
                       ],
                     ),
                   ),
@@ -820,7 +873,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: FilledButton.icon(
                       onPressed: () =>
-                          Navigator.pop(ctx, _FilterResult(env, types)),
+                          Navigator.pop(ctx, _FilterResult(env, types, issues)),
                       icon: const Icon(Icons.check_rounded, size: 18),
                       label: const Text('Apply filters'),
                       style: FilledButton.styleFrom(
@@ -847,6 +900,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _envFilter = result.env;
       _typeFilter = result.types;
+      _issueFilter = result.issues;
       _markers = _buildMarkers(_visibleReports);
     });
   }
@@ -990,6 +1044,128 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _issuesByCategory({
+    required Set<ObjectType> allowedTypes,
+    required Set<(ObjectType, IssueType)> selected,
+    required ValueChanged<(ObjectType, IssueType)> onToggle,
+  }) {
+    // Group issues under their related category. When the category filter is
+    // active, only those categories' groups are shown — keeps the picker
+    // focused on what the user has narrowed to.
+    final visibleTypes =
+        allowedTypes.isEmpty ? ObjectType.values : ObjectType.values
+            .where(allowedTypes.contains)
+            .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < visibleTypes.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          _issueGroup(
+            type: visibleTypes[i],
+            selected: selected,
+            onToggle: onToggle,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _issueGroup({
+    required ObjectType type,
+    required Set<(ObjectType, IssueType)> selected,
+    required ValueChanged<(ObjectType, IssueType)> onToggle,
+  }) {
+    final issues =
+        IssueType.values.where((i) => i.validFor.contains(type)).toList();
+    if (issues.isEmpty) return const SizedBox.shrink();
+    final groupSelected =
+        issues.where((i) => selected.contains((type, i))).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(type.icon, size: 14, color: type.color),
+            const SizedBox(width: 6),
+            Text(
+              type.label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+                color: AppColors.onSurface,
+              ),
+            ),
+            if (groupSelected > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                '· $groupSelected',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: issues.map((issue) {
+            final pair = (type, issue);
+            final isOn = selected.contains(pair);
+            return GestureDetector(
+              onTap: () => onToggle(pair),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isOn
+                      ? AppColors.primary
+                      : AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: isOn
+                        ? AppColors.primary
+                        : AppColors.outlineVariant.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isOn ? Icons.check : Icons.report_problem_outlined,
+                      size: 14,
+                      color: isOn
+                          ? AppColors.onPrimarySolid
+                          : AppColors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      issue.label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isOn
+                            ? AppColors.onPrimarySolid
+                            : AppColors.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -2343,7 +2519,8 @@ class _Place {
 class _FilterResult {
   final ReportEnvironment? env;
   final Set<ObjectType> types;
-  const _FilterResult(this.env, this.types);
+  final Set<(ObjectType, IssueType)> issues;
+  const _FilterResult(this.env, this.types, this.issues);
 }
 
 class _EnvSegmentOpt {
