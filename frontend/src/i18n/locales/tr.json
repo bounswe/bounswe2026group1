@@ -426,7 +426,8 @@
     "dropToPreview": "Önizleme için bırak…",
     "hint": "JPEG veya PNG, en fazla 15 MB. Bu kutuya sürükleyip bırakabilirsin.",
     "removeConfirm": "Profil resminiz kaldırılsın mı?",
-    "removeFailed": "Profil resmi kaldırılamadı."
+    "removeFailed": "Profil resmi kaldırılamadı.",
+    "uploadFailed": "Profil resmi yüklenemedi."
   },
   "routing": {
     "title": "Rota tercihleri",

@@ -77,7 +77,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
       setPendingFile(null)
       setPreviewUrl(null)
     } catch (e) {
-      setError(e.message || 'Failed to upload avatar.')
+      setError(e.message || t('avatar.uploadFailed'))
     }
   }
 

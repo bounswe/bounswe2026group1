@@ -426,7 +426,8 @@
     "dropToPreview": "Drop image to preview…",
     "hint": "JPEG or PNG, max 15 MB. You can also drag-and-drop into this box.",
     "removeConfirm": "Remove your avatar?",
-    "removeFailed": "Failed to remove avatar."
+    "removeFailed": "Failed to remove avatar.",
+    "uploadFailed": "Failed to upload avatar."
   },
   "routing": {
     "title": "Routing preferences",
