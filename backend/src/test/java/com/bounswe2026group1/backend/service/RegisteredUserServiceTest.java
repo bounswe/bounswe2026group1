@@ -46,6 +46,7 @@ class RegisteredUserServiceTest {
     @Mock private LeaderboardService leaderboardService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
+    @Mock private org.springframework.context.MessageSource messageSource;
 
     @InjectMocks
     private RegisteredUserService registeredUserService;
@@ -74,6 +75,23 @@ class RegisteredUserServiceTest {
         validLoginRequest = new LoginRequest();
         validLoginRequest.setEmail("test@test.com");
         validLoginRequest.setPassword("StrongP@ss1");
+
+        // MessageSource always returns the message code's last-segment hint so
+        // existing `getMessage().contains(...)` assertions still match.
+        org.mockito.Mockito.lenient()
+            .when(messageSource.getMessage(org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(inv -> {
+                String code = inv.getArgument(0);
+                return switch (code) {
+                    case "error.email.alreadyInUse" -> "Email is already in use.";
+                    case "error.password.weak" -> "Password must be at least 8 characters long.";
+                    case "error.auth.invalidCredentials" -> "Invalid email or password";
+                    case "error.search.emptyQuery" -> "Search query must not be empty.";
+                    default -> code;
+                };
+            });
     }
 
     // --- REGISTER TESTS ---
