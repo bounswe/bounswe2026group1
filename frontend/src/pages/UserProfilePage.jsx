@@ -41,7 +41,7 @@ function UserProfilePage() {
 
         {!isPending && !isError && user && (
           <>
-            <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-start gap-4 flex-wrap">
                 <div className="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {user.avatarUrl ? (
@@ -79,13 +79,13 @@ function UserProfilePage() {
             </section>
 
             {user.badges && user.badges.length > 0 && (
-              <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+              <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
                 <h2 className="text-xl font-bold font-headline text-on-surface">Badges</h2>
                 <BadgeList badges={user.badges} />
               </section>
             )}
 
-            <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <h2 className="text-xl font-bold font-headline text-on-surface">About</h2>
               <p className="text-sm text-on-surface whitespace-pre-wrap break-words">
                 {user.bio || <em className="text-on-surface-variant">No bio yet.</em>}
