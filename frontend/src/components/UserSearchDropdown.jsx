@@ -40,7 +40,18 @@ function UserSearchDropdown({ onClose, triggerRef }) {
       role="dialog"
       aria-label="Find people"
     >
-      <UserSearchPanel heading="Find people" onResultSelect={onClose} autoFocus={false} />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold font-headline text-on-surface">Find people</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close search"
+          className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-base">close</span>
+        </button>
+      </div>
+      <UserSearchPanel onResultSelect={onClose} autoFocus={false} />
     </div>
   )
 }
