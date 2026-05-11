@@ -467,6 +467,32 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  /// Fills in measurement keys the original author left blank on a specific
+  /// report object. Any signed-in user may call this; the backend rejects
+  /// (`409`) any key already populated by the author. Numeric values should
+  /// be passed as `num` so server-side schema validation can run.
+  Future<ReportModel> contributeMeasurements({
+    required int reportId,
+    required int objectId,
+    required Map<String, Object> values,
+  }) async {
+    final response = await _client
+        .patch(
+          Uri.parse(
+              '$_baseUrl/api/reports/$reportId/objects/$objectId/measurements'),
+          headers: _headers,
+          body: jsonEncode({'values': values}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      return ReportModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   Future<ReportModel> getReport(int id) async {
     final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports/$id'), headers: _headers)

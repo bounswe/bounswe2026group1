@@ -1742,6 +1742,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             const SizedBox(height: 12),
             _buildMeasurementsBlock(obj),
           ],
+          if (_canContributeMeasurements(obj)) ...[
+            const SizedBox(height: 10),
+            _buildContributeMeasurementsButton(obj),
+          ],
           if (obj.warnings.isNotEmpty) ...[
             const SizedBox(height: 10),
             for (final w in obj.warnings)
@@ -1982,6 +1986,114 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Returns the schema specs whose key isn't already populated for [obj].
+  /// "Populated" matches the backend's rule: any non-null, non-blank value
+  /// counts — so zero is locked once the author records it.
+  List<MeasurementSpec> _missingMeasurementSpecs(ReportObject obj) {
+    final specs = measurementSpecsFor(obj.objectType);
+    if (specs.isEmpty) return const [];
+    final raw = obj.measurements;
+    final parsed = (raw == null || raw.isEmpty)
+        ? <String, String>{}
+        : (_tryParseMeasurements(raw) ?? const <String, String>{});
+    return [
+      for (final spec in specs)
+        if ((parsed[spec.key] ?? '').trim().isEmpty) spec,
+    ];
+  }
+
+  /// A signed-in non-author may contribute missing measurements for any
+  /// persisted object that still has at least one empty schema key. Authors
+  /// already have the full edit screen and don't need this shortcut.
+  bool _canContributeMeasurements(ReportObject obj) {
+    if (_isGuest) return false;
+    if (obj.id == null) return false;
+    final auth = context.read<AuthService>();
+    if (auth.userId == report.userId) return false;
+    return _missingMeasurementSpecs(obj).isNotEmpty;
+  }
+
+  Widget _buildContributeMeasurementsButton(ReportObject obj) {
+    final missingCount = _missingMeasurementSpecs(obj).length;
+    return GestureDetector(
+      onTap: () => _openContributeMeasurementsSheet(obj),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.add_circle_outline,
+                size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                missingCount == 1
+                    ? 'Add a missing measurement'
+                    : 'Add $missingCount missing measurements',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                size: 18, color: AppColors.primary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openContributeMeasurementsSheet(ReportObject obj) async {
+    final missing = _missingMeasurementSpecs(obj);
+    if (missing.isEmpty || obj.id == null) return;
+
+    final result = await showModalBottomSheet<Map<String, num>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _MeasurementContributionSheet(
+        objectType: obj.objectType,
+        missing: missing,
+      ),
+    );
+
+    if (result == null || result.isEmpty || !mounted) return;
+
+    try {
+      final updated =
+          await context.read<AuthService>().api.contributeMeasurements(
+                reportId: report.reportId,
+                objectId: obj.id!,
+                values: result,
+              );
+      if (!mounted) return;
+      setState(() => _report = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Thanks — your measurements were added.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      // 409 surfaces as "Measurements already set by the author for: …" via
+      // ApiException.userMessage — pass it through so the user sees which
+      // keys raced.
+      final msg = e is ApiException ? e.userMessage : 'Could not save.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -3057,6 +3169,212 @@ class _FullscreenMapPage extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bottom sheet that collects values for the measurement keys an author left
+/// blank on a single report object. Returns a `{key: numeric_value}` map to
+/// the caller, or `null` when the user dismisses. Empty inputs are dropped
+/// from the result so submitting "nothing" round-trips as no-op.
+class _MeasurementContributionSheet extends StatefulWidget {
+  final ObjectType objectType;
+  final List<MeasurementSpec> missing;
+
+  const _MeasurementContributionSheet({
+    required this.objectType,
+    required this.missing,
+  });
+
+  @override
+  State<_MeasurementContributionSheet> createState() =>
+      _MeasurementContributionSheetState();
+}
+
+class _MeasurementContributionSheetState
+    extends State<_MeasurementContributionSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final Map<String, TextEditingController> _controllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final spec in widget.missing) spec.key: TextEditingController(),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final values = <String, num>{};
+    for (final spec in widget.missing) {
+      final raw = _controllers[spec.key]?.text.trim() ?? '';
+      if (raw.isEmpty) continue;
+      final parsed = num.tryParse(raw);
+      if (parsed != null) values[spec.key] = parsed;
+    }
+    Navigator.of(context).pop(values);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: widget.objectType.color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(widget.objectType.icon,
+                          color: widget.objectType.color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Add missing measurements',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.objectType.label} · only blank fields can be filled',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                for (final spec in widget.missing) _buildField(spec),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _submit,
+                        child: const Text('Submit'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(MeasurementSpec spec) {
+    final hint = spec.unit.isEmpty ? spec.label : '${spec.label} (${spec.unit})';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            spec.label,
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _controllers[spec.key],
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true, signed: false),
+            decoration: InputDecoration(
+              hintText: hint,
+              suffixText: spec.unit.isEmpty ? null : spec.unit,
+              isDense: true,
+              filled: true,
+              fillColor: AppColors.surfaceContainerLowest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.outlineVariant),
+              ),
+            ),
+            validator: (value) {
+              final raw = value?.trim() ?? '';
+              if (raw.isEmpty) return null; // optional — skipped on submit
+              if (num.tryParse(raw) == null) {
+                return 'Enter a number';
+              }
+              return null;
+            },
           ),
         ],
       ),
