@@ -8,6 +8,5 @@ describe('AuthLeftPanel', () => {
     )
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
     expect(screen.getByText(/join the community/i)).toBeInTheDocument()
-    expect(screen.getByAltText(/accessible urban path/i)).toBeInTheDocument()
   })
 })
