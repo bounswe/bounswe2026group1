@@ -21,6 +21,7 @@ import {
   isReportVisible,
   excludedCount,
 } from '../utils/mapFilters.js'
+import { geoJsonPoint, leafletPathFromLineString } from '../utils/geojson.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 // First-visit onboarding flag. Cleared once the user dismisses or completes the
@@ -377,8 +378,8 @@ function Home() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          startLat: origin.lat, startLon: origin.lng,
-          endLat: dest.lat, endLon: dest.lng,
+          start: geoJsonPoint(origin.lat, origin.lng),
+          end: geoJsonPoint(dest.lat, dest.lng),
           mode: null,
         }),
       })
@@ -389,7 +390,11 @@ function Home() {
       // the new server-side count when the user navigates to /profile.
       if (token) queryClient.invalidateQueries({ queryKey: currentUserKey })
       const mapped = data.map(r => ({
-        coords: decodePolyline(r.geometry),
+        // Prefer the GeoJSON LineString over the legacy encoded polyline string.
+        // Older responses without `geoJsonGeometry` still work via the fallback.
+        coords: r.geoJsonGeometry
+          ? leafletPathFromLineString(r.geoJsonGeometry)
+          : decodePolyline(r.geometry),
         hasObstacles: r.hasObstacles,
         label: r.routeLabel,
         distance: r.distanceMeters,
