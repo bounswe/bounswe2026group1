@@ -60,7 +60,7 @@ function PresetCard({
       className={`relative text-left p-4 rounded-2xl border-2 transition-colors flex flex-col gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${
         active
           ? 'border-primary bg-primary/5'
-          : 'border-outline-variant bg-surface-container-lowest hover:border-primary/40'
+          : 'border-outline-variant bg-surface-container hover:border-primary/40'
       } ${disabled ? 'opacity-60 cursor-wait' : ''}`}
     >
       {active && (
@@ -127,7 +127,7 @@ function RoutingPreferencesSection() {
 
   if (isPending) {
     return (
-      <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section className="bg-surface-container-low rounded-2xl shadow-sm p-6">
         <p className="text-sm text-on-surface-variant">Loading routing preferences…</p>
       </section>
     )
@@ -135,7 +135,7 @@ function RoutingPreferencesSection() {
 
   if (isError) {
     return (
-      <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-2">
+      <section className="bg-surface-container-low rounded-2xl shadow-sm p-6 flex flex-col gap-2">
         <p role="alert" className="text-sm text-error">
           Failed to load routing preferences{error?.message ? `: ${error.message}` : '.'}
         </p>
@@ -244,7 +244,7 @@ function RoutingPreferencesSection() {
     createCustom.isPending || updateCustom.isPending || deleteCustom.isPending
 
   return (
-    <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+    <section className="bg-surface-container-low rounded-2xl shadow-sm p-6 flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
         <h2 className="text-xl font-bold font-headline text-on-surface">Routing preferences</h2>
         <span className="text-xs text-on-surface-variant">
