@@ -149,4 +149,233 @@ class OrsRoutingClientTest {
                 }
                 """;
     }
+
+    // ───── Validation branches ──────────────────────────────────────────────
+
+    @Test
+    void fetchDirections_nullStart_throwsRoutingException() {
+        RoutingException ex = assertThrows(RoutingException.class,
+                () -> client.fetchDirections(null, END, TravelMode.WALKING, null));
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("start"));
+    }
+
+    @Test
+    void fetchDirections_nullEnd_throwsRoutingException() {
+        RoutingException ex = assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, null, TravelMode.WALKING, null));
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("end"));
+    }
+
+    @Test
+    void fetchDirections_nanCoordinates_throwsRoutingException() {
+        Location bad = new Location(Double.NaN, 29.0);
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(bad, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void fetchDirections_infiniteCoordinates_throwsRoutingException() {
+        Location bad = new Location(41.0, Double.POSITIVE_INFINITY);
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(bad, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void fetchDirections_longitudeOutOfRange_throwsRoutingException() {
+        Location bad = new Location(41.0, 181.0);
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(bad, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void mapProfile_nullThrowsRoutingException() {
+        assertThrows(RoutingException.class, () -> client.mapProfile(null));
+    }
+
+    @Test
+    void fetchDirections_blankApiKey_emptyString_throwsRoutingException() {
+        OrsRoutingClient noKeyClient = new OrsRoutingClient(objectMapper, orsHttpClient, "");
+        assertThrows(RoutingException.class,
+                () -> noKeyClient.fetchDirections(START, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void fetchDirections_nullApiKey_throwsRoutingException() {
+        OrsRoutingClient noKeyClient = new OrsRoutingClient(objectMapper, orsHttpClient, null);
+        assertThrows(RoutingException.class,
+                () -> noKeyClient.fetchDirections(START, END, TravelMode.WALKING, null));
+    }
+
+    // ───── HTTP failure paths ───────────────────────────────────────────────
+
+    @Test
+    void fetchDirections_wrapsResourceAccessExceptionAsRoutingException() {
+        when(orsHttpClient.postDirections(anyString(), anyString()))
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
+
+        RoutingException ex = assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, END, TravelMode.WALKING, null));
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("timeout") ||
+                ex.getMessage().contains("connection"));
+    }
+
+    @Test
+    void fetchDirections_wrapsGenericRestClientExceptionAsRoutingException() {
+        when(orsHttpClient.postDirections(anyString(), anyString()))
+                .thenThrow(new org.springframework.web.client.RestClientException("HTTP 500"));
+
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, END, TravelMode.WALKING, null));
+    }
+
+    // ───── Response-parsing branches ────────────────────────────────────────
+
+    @Test
+    void fetchDirections_errorPayloadInResponse_throwsRoutingException() {
+        String errorJson = """
+                {"error": {"message": "no route found"}}
+                """;
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn(errorJson);
+
+        RoutingException ex = assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, END, TravelMode.WALKING, null));
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("no route found"));
+    }
+
+    @Test
+    void fetchDirections_emptyRoutesArray_throwsRoutingException() {
+        when(orsHttpClient.postDirections(anyString(), anyString()))
+                .thenReturn("""
+                        {"routes": []}
+                        """);
+
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void fetchDirections_missingRoutesField_throwsRoutingException() {
+        when(orsHttpClient.postDirections(anyString(), anyString()))
+                .thenReturn("{}");
+
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void fetchDirections_malformedJson_throwsRoutingException() {
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn("not json");
+
+        assertThrows(RoutingException.class,
+                () -> client.fetchDirections(START, END, TravelMode.WALKING, null));
+    }
+
+    @Test
+    void fetchDirections_geometryAsGeoJsonObject_isSerializedAsString() {
+        String json = """
+                {
+                  "routes": [{
+                    "summary": { "distance": 50, "duration": 30 },
+                    "geometry": { "type": "LineString", "coordinates": [[29.0, 41.0], [29.1, 41.1]] },
+                    "segments": []
+                  }]
+                }
+                """;
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn(json);
+
+        RoutingDirectionsResult result =
+                client.fetchDirections(START, END, TravelMode.WALKING, null);
+
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getGeometry());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                result.getGeometry().contains("LineString"),
+                "GeoJSON geometry must be serialized as a string body, got: " + result.getGeometry());
+    }
+
+    @Test
+    void fetchDirections_missingGeometry_returnsNullGeometry() {
+        String json = """
+                {
+                  "routes": [{
+                    "summary": { "distance": 1, "duration": 1 },
+                    "segments": []
+                  }]
+                }
+                """;
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn(json);
+
+        RoutingDirectionsResult result =
+                client.fetchDirections(START, END, TravelMode.WALKING, null);
+
+        org.junit.jupiter.api.Assertions.assertNull(result.getGeometry());
+    }
+
+    // ───── extractSteps branches ────────────────────────────────────────────
+
+    @Test
+    void fetchDirections_extractsStepInstructionsAndManeuverTypes() {
+        String json = """
+                {
+                  "routes": [{
+                    "summary": { "distance": 100, "duration": 60 },
+                    "segments": [
+                      {
+                        "steps": [
+                          {"instruction": "Head north", "type": 11},
+                          {"instruction": "Turn left", "type": 0}
+                        ]
+                      }
+                    ]
+                  }]
+                }
+                """;
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn(json);
+
+        RoutingDirectionsResult result =
+                client.fetchDirections(START, END, TravelMode.WALKING, null);
+
+        assertEquals(2, result.getSteps().size());
+        assertEquals("Head north", result.getSteps().get(0).getInstruction());
+        assertEquals("Turn left", result.getSteps().get(1).getInstruction());
+    }
+
+    @Test
+    void fetchDirections_segmentWithoutStepsArray_isSkipped() {
+        String json = """
+                {
+                  "routes": [{
+                    "summary": { "distance": 5, "duration": 5 },
+                    "segments": [
+                      {"steps": "not an array"},
+                      {"steps": [{"instruction": "Go", "type": 0}]}
+                    ]
+                  }]
+                }
+                """;
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn(json);
+
+        RoutingDirectionsResult result =
+                client.fetchDirections(START, END, TravelMode.WALKING, null);
+
+        assertEquals(1, result.getSteps().size());
+        assertEquals("Go", result.getSteps().get(0).getInstruction());
+    }
+
+    @Test
+    void fetchDirections_nonArraySegmentsField_yieldsEmptyStepsList() {
+        String json = """
+                {
+                  "routes": [{
+                    "summary": { "distance": 5, "duration": 5 },
+                    "segments": "oops"
+                  }]
+                }
+                """;
+        when(orsHttpClient.postDirections(anyString(), anyString())).thenReturn(json);
+
+        RoutingDirectionsResult result =
+                client.fetchDirections(START, END, TravelMode.WALKING, null);
+
+        org.junit.jupiter.api.Assertions.assertTrue(result.getSteps().isEmpty());
+    }
 }
