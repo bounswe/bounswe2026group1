@@ -23,6 +23,7 @@ import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/use
 import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import { reportJsonLdString } from '../utils/schemaOrg.js'
+import ContributeMeasurementsPanel from './ContributeMeasurementsPanel.jsx'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 import CreateReportPanel from './CreateReportPanel.jsx'
 import Toast from './Toast.jsx'
@@ -291,6 +292,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [showCreateFix, setShowCreateFix] = useState(false)
 
   const [showEditPanel, setShowEditPanel] = useState(false)
+  const [contributeTarget, setContributeTarget] = useState(null) // { object } for the PATCH flow
   const [toast, setToast] = useState(null)
   const deleteReportMutation = useDeleteMapReport()
 
@@ -505,6 +507,14 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
     onVoteUpdate(updatedReport)
     setShowEditPanel(false)
     showToast({ type: 'success', message: 'Report updated.' })
+  }
+
+  function handleContributed(updatedReport) {
+    queryClient.invalidateQueries({ queryKey: reportKeys.all })
+    queryClient.invalidateQueries({ queryKey: ['userReports'] })
+    onVoteUpdate(updatedReport)
+    setContributeTarget(null)
+    showToast({ type: 'success', message: 'Measurements added.' })
   }
 
   async function handleDelete() {
@@ -759,26 +769,24 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
                   {report.title}
                 </h1>
-                {isAuthenticated && (
+                {canModify && (
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowEditPanel(true)}
                       className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer"
                     >
-                      {canModify ? 'Edit' : 'Edit Measurements'}
+                      Edit
                     </button>
-                    {canModify && (
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={deleteReportMutation.isPending}
-                        aria-label="Delete report"
-                        className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
-                      >
-                        {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleteReportMutation.isPending}
+                      aria-label="Delete report"
+                      className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
+                    >
+                      {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -826,6 +834,10 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Objects</h3>
                 {report.objects.map((obj, i) => {
                   const cfg = OBJECT_TYPE_MAP[obj.objectType]
+                  const blankFields = (cfg?.measurements ?? []).filter(m => {
+                    const v = obj.measurements?.[m.key]
+                    return v === undefined || v === null || v === ''
+                  })
                   return (
                     <div key={i} className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 flex flex-col gap-3">
                       <div className="flex items-center gap-2">
@@ -875,6 +887,20 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             )
                           })}
                         </div>
+                      )}
+
+                      {isAuthenticated && !canModify && blankFields.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setContributeTarget(obj)}
+                          className="flex items-center justify-between gap-2 w-full px-4 py-2.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition-colors"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-base">add_circle</span>
+                            Add a missing measurement
+                          </span>
+                          <span className="material-symbols-outlined text-base opacity-60">chevron_right</span>
+                        </button>
                       )}
                     </div>
                   )
@@ -1113,7 +1139,16 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           onUpdated={handleUpdated}
           onClose={() => setShowEditPanel(false)}
           onError={(msg) => showToast({ type: 'error', message: msg })}
-          measurementsOnly={!canModify}
+          measurementsOnly={false}
+        />
+      )}
+
+      {contributeTarget && (
+        <ContributeMeasurementsPanel
+          report={report}
+          object={contributeTarget}
+          onClose={() => setContributeTarget(null)}
+          onContributed={handleContributed}
         />
       )}
 

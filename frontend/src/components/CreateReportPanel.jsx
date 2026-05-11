@@ -349,16 +349,12 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
           mapped.image = uploadedMedia[0].url
           mapped.media = uploadedMedia
         }
+        // Invalidate leaderboard + profile caches so the new +10 bonus is reflected immediately.
+        queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+        queryClient.invalidateQueries({ queryKey: currentUserKey })
         onCreated(mapped)
         onClose()
       }
-      // A successful submission awards the +10 report-submit bonus. Invalidate
-      // leaderboard + profile caches so the caller's own tab reflects the
-      // new balance immediately; the SSE event covers other tabs/users.
-      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
-      queryClient.invalidateQueries({ queryKey: currentUserKey })
-      onCreated(mapped)
-      onClose()
     } catch (err) {
       const message = err.message || (isEditMode ? 'Failed to save changes. Please try again.' : 'Failed to submit report. Please try again.')
       setError(message)
