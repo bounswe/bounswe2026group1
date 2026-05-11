@@ -77,7 +77,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
       setPendingFile(null)
       setPreviewUrl(null)
     } catch (e) {
-      setError(e.message || 'Failed to upload avatar.')
+      setError(e.message || t('avatar.uploadFailed'))
     }
   }
 
@@ -89,11 +89,11 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
 
   async function handleDelete() {
     if (!currentAvatarUrl) return
-    if (!window.confirm('Remove your avatar?')) return
+    if (!window.confirm(t('avatar.removeConfirm'))) return
     try {
       await onDelete()
     } catch (e) {
-      setError(e.message || 'Failed to remove avatar.')
+      setError(e.message || t('avatar.removeFailed'))
     }
   }
 

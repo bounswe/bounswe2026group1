@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import {
   CONSTRAINT_OBJECT_TYPES,
@@ -64,6 +65,7 @@ function CustomPresetEditorModal({
   busy,
   errorMessage,
 }) {
+  const { t } = useTranslation()
   const isEdit = mode === 'edit'
   const closeButtonRef = useRef(null)
 
@@ -118,7 +120,7 @@ function CustomPresetEditorModal({
   async function handleSave() {
     setLocalError('')
     if (nameInvalid) {
-      setLocalError(`Name must be ${NAME_MIN}–${NAME_MAX} characters.`)
+      setLocalError(t('presetEditor.nameLengthError', { min: NAME_MIN, max: NAME_MAX }))
       return
     }
     try {
@@ -128,7 +130,7 @@ function CustomPresetEditorModal({
         preferredTravelMode: travelMode,
       })
     } catch (e) {
-      setLocalError(e.message || 'Failed to save.')
+      setLocalError(e.message || t('presetEditor.saveFailed'))
     }
   }
 
@@ -138,7 +140,7 @@ function CustomPresetEditorModal({
     try {
       await onDelete()
     } catch (e) {
-      setLocalError(e.message || 'Failed to delete.')
+      setLocalError(e.message || t('presetEditor.deleteFailed'))
     }
   }
 
@@ -172,25 +174,25 @@ function CustomPresetEditorModal({
         <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
           <div className="flex flex-col gap-1">
             <label htmlFor="preset-name" className="text-sm font-bold text-on-surface px-1">
-              Preset name
+              {t('presetEditor.presetName')}
             </label>
             <input
               id="preset-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={NAME_MAX}
-              placeholder="e.g. Work commute"
+              placeholder={t('presetEditor.presetNamePlaceholder')}
               className="w-full px-4 py-2.5 bg-surface-container border-none rounded-xl focus:ring-2 focus:ring-primary/40"
             />
             <p className={`text-xs text-right ${nameInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
               {trimmedName.length === 0
-                ? `Required (${NAME_MIN}–${NAME_MAX} characters)`
+                ? t('presetEditor.presetNameHelper', { min: NAME_MIN, max: NAME_MAX })
                 : `${trimmedName.length}/${NAME_MAX}`}
             </p>
           </div>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-bold text-on-surface px-1 mb-1">Travel mode</legend>
+            <legend className="text-sm font-bold text-on-surface px-1 mb-1">{t('presetEditor.travelMode')}</legend>
             <div className="flex gap-3 flex-wrap">
               {TRAVEL_MODES.map(tm => (
                 <label key={tm.value} className="inline-flex items-center gap-2 cursor-pointer">

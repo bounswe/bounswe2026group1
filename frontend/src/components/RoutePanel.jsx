@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * RoutePanel
@@ -39,6 +40,7 @@ function RoutePanel({
   onSelectRoute,
   onReset,
 }) {
+  const { t } = useTranslation()
   const [originQuery, setOriginQuery] = useState('')
   const [destQuery, setDestQuery] = useState('')
   const [originSuggestions, setOriginSuggestions] = useState([])
@@ -259,7 +261,7 @@ function RoutePanel({
                     type="text"
                     value={originQuery}
                     onChange={handleOriginChange}
-                    placeholder="Search or click map…"
+                    placeholder={t('routePanel.searchOrClickMap')}
                     className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/50 outline-none"
                   />
                 </div>
@@ -297,7 +299,7 @@ function RoutePanel({
                 <span className={`material-symbols-outlined text-sm ${userLocation ? 'text-primary' : 'text-on-surface-variant'}`}>my_location</span>
               </div>
               <span className={`text-sm font-semibold ${userLocation ? 'text-primary' : 'text-on-surface-variant'}`}>
-                {userLocation ? 'Use my current location' : 'Location not available'}
+                {userLocation ? t('routePanel.useMyCurrentLocation') : t('routePanel.locationNotAvailable')}
               </span>
             </button>
           )}
@@ -308,7 +310,7 @@ function RoutePanel({
               <button
                 onClick={onSwap}
                 className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant/30 flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors z-10"
-                aria-label="Swap origin and destination"
+                aria-label={t('routePanel.swapOriginDestination')}
               >
                 <span className="material-symbols-outlined text-sm">swap_vert</span>
               </button>
@@ -346,7 +348,7 @@ function RoutePanel({
                     type="text"
                     value={destQuery}
                     onChange={handleDestChange}
-                    placeholder={routeOrigin ? 'Search or click map…' : 'Set origin first'}
+                    placeholder={routeOrigin ? t('routePanel.searchOrClickMap') : t('routePanel.setOriginFirst')}
                     disabled={!routeOrigin}
                     className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/50 outline-none disabled:cursor-not-allowed"
                   />

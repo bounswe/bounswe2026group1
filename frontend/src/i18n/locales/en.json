@@ -174,7 +174,32 @@
     "createFixRuleCopy": "Other users will vote on your fix. It confirms as Fixed when at least 5 people agree and consensus reaches 60% — then it auto-deletes after 7 days.",
     "createFixCancel": "Cancel",
     "createFixSubmit": "Submit Fix Report",
-    "createFixSubmitting": "Submitting…"
+    "createFixSubmitting": "Submitting…",
+    "loadingComments": "Loading comments...",
+    "loginToComment": "<0>Log in</0> to leave a comment.",
+    "anonymousAuthor": "Anonymous"
+  },
+  "routePanel": {
+    "searchOrClickMap": "Search or click map…",
+    "setOriginFirst": "Set origin first",
+    "useMyCurrentLocation": "Use my current location",
+    "locationNotAvailable": "Location not available",
+    "swapOriginDestination": "Swap origin and destination"
+  },
+  "createFix": {
+    "whatChanged": "What changed?",
+    "optional": "(optional)",
+    "descriptionPlaceholder": "A new ramp was installed last week.",
+    "helperText": "Other users will vote on your fix. It confirms as <1>Fixed</1> when at least 5 people agree <3>and</3> consensus reaches 60% — then it auto-deletes after 7 days."
+  },
+  "presetEditor": {
+    "nameLengthError": "Name must be {{min}}–{{max}} characters.",
+    "saveFailed": "Failed to save.",
+    "deleteFailed": "Failed to delete.",
+    "presetName": "Preset name",
+    "presetNamePlaceholder": "e.g. Work commute",
+    "presetNameHelper": "Required ({{min}}–{{max}} characters)",
+    "travelMode": "Travel mode"
   },
   "feed": {
     "title": "Community feed",
@@ -399,7 +424,10 @@
     "removing": "Removing…",
     "cancel": "Cancel",
     "dropToPreview": "Drop image to preview…",
-    "hint": "JPEG or PNG, max 15 MB. You can also drag-and-drop into this box."
+    "hint": "JPEG or PNG, max 15 MB. You can also drag-and-drop into this box.",
+    "removeConfirm": "Remove your avatar?",
+    "removeFailed": "Failed to remove avatar.",
+    "uploadFailed": "Failed to upload avatar."
   },
   "routing": {
     "title": "Routing preferences",
@@ -408,6 +436,7 @@
     "active": "Active",
     "ruleOne": "{{count}} rule",
     "ruleOther": "{{count}} rules",
+    "loading": "Loading routing preferences…",
     "createCustom": "Create custom preset",
     "atCapTitle": "You can save at most {{max}} custom presets.",
     "saveFailed": "Failed to save preset.",
