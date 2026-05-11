@@ -315,7 +315,7 @@ export default function Feed() {
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className={`${feedFilterChipClass(false)} gap-2`}
+              className={`${feedFilterChipClass(false)} gap-2 dark:text-on-surface`}
             >
               <span className="material-symbols-outlined text-lg" aria-hidden>
                 map
@@ -325,7 +325,7 @@ export default function Feed() {
             <button
               type="button"
               onClick={handleUseCurrentLocation}
-              className={`${feedFilterChipClass(false)} gap-2`}
+              className={`${feedFilterChipClass(false)} gap-2 dark:text-on-surface`}
             >
               <span className="material-symbols-outlined text-lg" aria-hidden>
                 my_location
