@@ -44,6 +44,7 @@ class RegisteredUserServiceTest {
     @Mock private UserBadgeRepository userBadgeRepository;
     @Mock private PointEventRepository pointEventRepository;
     @Mock private LeaderboardService leaderboardService;
+    @Mock private S3MediaService s3MediaService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
 
@@ -626,7 +627,36 @@ class RegisteredUserServiceTest {
         assertEquals("Deleted User", saved.getName());
         assertEquals("deleted_1@deleted.invalid", saved.getEmail());
         assertEquals("$DELETED$", saved.getPassword());
+        assertNull(saved.getBio());
+        assertNull(saved.getAvatarUrl());
         assertEquals(UserStatus.BANNED, saved.getStatus());
+        verify(s3MediaService).deleteFile("https://cdn/old.jpg");
+    }
+
+    @Test
+    void deleteSelf_noAvatar_skipsS3Delete() {
+        mockUser.setAvatarUrl(null);
+        when(registeredUserRepository.findByEmail("test@test.com")).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        registeredUserService.deleteSelf("test@test.com");
+
+        verify(s3MediaService, never()).deleteFile(any());
+    }
+
+    @Test
+    void deleteSelf_s3DeleteFails_stillAnonymizes() {
+        when(registeredUserRepository.findByEmail("test@test.com")).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        doThrow(new RuntimeException("S3 down")).when(s3MediaService).deleteFile(any());
+
+        registeredUserService.deleteSelf("test@test.com");
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals("Deleted User", captor.getValue().getName());
+        assertNull(captor.getValue().getBio());
+        assertNull(captor.getValue().getAvatarUrl());
     }
 
     @Test
