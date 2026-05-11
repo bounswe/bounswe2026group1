@@ -1,9 +1,10 @@
 package com.bounswe2026group1.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -28,6 +29,7 @@ import java.time.Duration;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class NominatimReverseGeocoder {
 
     private static final String BASE = "https://nominatim.openstreetmap.org/reverse";
@@ -37,7 +39,7 @@ public class NominatimReverseGeocoder {
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
             .build();
-    private final ObjectMapper json = new ObjectMapper();
+    private final ObjectMapper json;
 
     /**
      * Reverse-geocode (latitude, longitude) to a short label. Never throws —
