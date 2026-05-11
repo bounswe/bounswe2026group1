@@ -65,6 +65,7 @@ public class OpenApiConfig {
                         new Tag().name("Media").description("Upload report media to S3 and attach it to reports."),
                         new Tag().name("Object Types").description("Static catalogue of report object types and their issue/measurement schemas."),
                         new Tag().name("Routing").description("Accessible route planning that detours around verified obstacles."),
+                        new Tag().name("Routing Preferences").description("Per-user accessibility profile and routing-constraint settings that drive `/api/routes`. Includes built-in presets (Wheelchair, Blind/low-vision, Mobility-limited) and custom saved profiles."),
                         new Tag().name("Notifications").description("Per-user in-app notifications."),
                         new Tag().name("SSE — Public").description("Server-Sent Events stream of report-level changes; no auth required."),
                         new Tag().name("SSE — Notifications").description("Authenticated per-user Server-Sent Events stream for in-app notifications."),
