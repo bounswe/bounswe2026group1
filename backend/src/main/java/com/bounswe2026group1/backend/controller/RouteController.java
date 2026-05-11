@@ -62,18 +62,21 @@ public class RouteController {
         RegisteredUser caller = currentUserOrNull();
 
         // Three-state contract for the constraints argument (issue #544):
-        //   • null     — signed-in user with NONE preset; skip avoidance entirely.
+        //   • null     — signed-in caller has explicitly opted out of avoidance:
+        //                NONE preset, or CUSTOM preset with zero rules selected,
+        //                or any preset whose stored constraint set is empty
+        //                (the last covers data anomalies defensively).
         //   • Set.of() — anonymous baseline; avoid every verified obstacle.
         //   • non-empty — filter avoid set to hazards the user actually cares about.
         Set<RoutingConstraint> constraints;
         if (caller == null) {
             constraints = Set.of();
-        } else if (caller.getPreferredPreset() == RoutingPreset.NONE) {
+        } else if (caller.getPreferredPreset() == RoutingPreset.NONE
+                || caller.getRoutingConstraints() == null
+                || caller.getRoutingConstraints().isEmpty()) {
             constraints = null;
         } else {
-            constraints = caller.getRoutingConstraints() != null
-                    ? caller.getRoutingConstraints()
-                    : Set.of();
+            constraints = caller.getRoutingConstraints();
         }
         TravelMode preferredMode = caller != null ? caller.getPreferredTravelMode() : null;
 

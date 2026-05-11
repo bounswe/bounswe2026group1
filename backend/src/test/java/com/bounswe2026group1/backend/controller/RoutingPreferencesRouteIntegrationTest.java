@@ -263,4 +263,27 @@ class RoutingPreferencesRouteIntegrationTest {
         verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
         verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
     }
+
+    /**
+     * A signed-in user with a {@code CUSTOM} preset and zero rules has, just
+     * like a {@code NONE}-preset user, explicitly opted out of obstacle
+     * avoidance — they built a profile and chose to filter on nothing. The
+     * controller treats them the same: {@code constraints = null} so
+     * {@link ObstacleService} skips avoidance entirely.
+     */
+    @Test
+    void authenticated_withCustomPresetAndEmptyConstraints_passesNullConstraintsToObstacleService() throws Exception {
+        user.setPreferredPreset(RoutingPreset.CUSTOM);
+        user.setRoutingConstraints(new HashSet<>());
+        registeredUserRepository.save(user);
+
+        mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk());
+
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
+    }
 }
