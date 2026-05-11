@@ -26,13 +26,16 @@ function RankCell({ rank }) {
   // Top 3 get a colored chip; the rest stay neutral. Tie-aware values are
   // already produced by the backend (olympic-style rank assignment), so we
   // never need to display "T-1" — the rank itself does the talking.
+  // Top 3 chips use tinted palette colors with `dark:` variants so gold /
+  // silver / bronze stay recognizable in both themes without rendering as
+  // bright pale blocks on a near-black page.
   const tone =
     rank === 1
-      ? 'bg-[#fde68a] text-[#92400e]' // gold
+      ? 'bg-amber-400/20 text-amber-700 dark:bg-amber-300/15 dark:text-amber-300' // gold
       : rank === 2
-        ? 'bg-[#e5e7eb] text-[#374151]' // silver
+        ? 'bg-slate-300/40 text-slate-700 dark:bg-slate-300/15 dark:text-slate-200' // silver
         : rank === 3
-          ? 'bg-[#fed7aa] text-[#9a3412]' // bronze
+          ? 'bg-orange-300/25 text-orange-800 dark:bg-orange-300/15 dark:text-orange-300' // bronze
           : 'bg-surface-container text-on-surface-variant'
   return (
     <div className={`w-12 h-10 rounded-lg flex items-center justify-center font-bold text-sm tabular-nums ${tone}`}>
@@ -43,7 +46,7 @@ function RankCell({ rank }) {
 
 function YourRankBanner({ rank, points }) {
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between gap-4">
+    <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <span className="material-symbols-outlined text-primary" style={{ fontSize: '24px' }}>
           person_pin
@@ -110,7 +113,7 @@ function Leaderboard() {
                 {data.entries.map((entry) => (
                   <li
                     key={entry.userId}
-                    className="bg-surface-container-lowest rounded-2xl shadow-sm p-3 flex items-center gap-3"
+                    className="bg-surface-container-low rounded-2xl shadow-sm p-3 flex items-center gap-3"
                   >
                     <RankCell rank={entry.rank} />
                     <Avatar url={entry.avatarUrl} name={entry.name} />
