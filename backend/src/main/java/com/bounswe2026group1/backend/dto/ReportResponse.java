@@ -117,6 +117,13 @@ public class ReportResponse {
             nullable = true)
     private Badge authorTopBadge;
 
+    @Schema(description = "Human-readable place name reverse-geocoded once at create time " +
+            "(e.g. \"Bebek Yolu Sokağı, Rumelihisarı Mahallesi\"). Null when the geocoder was " +
+            "unreachable at create time or the report predates this column — clients should fall " +
+            "back to displaying `geometry` / scalar coordinates.",
+            example = "Bebek Yolu Sokağı, Rumelihisarı Mahallesi", nullable = true)
+    private String locationLabel;
+
     public static ReportResponse fromEntity(Report report) {
         return fromEntity(report, null, Collections.emptyList(), null);
     }
@@ -167,6 +174,7 @@ public class ReportResponse {
         if (report.getLastEditedBy() != null) {
             r.setLastEditedByUserId(report.getLastEditedBy().getId());
         }
+        r.setLocationLabel(report.getLocationLabel());
         return r;
     }
 }
