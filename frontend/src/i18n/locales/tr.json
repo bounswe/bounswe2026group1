@@ -176,6 +176,11 @@
     "disagree": "Katılmıyorum",
     "filterReportTypeAria": "Rapor türü: {{label}}",
     "filterEnvironmentAria": "Ortam: {{label}}",
+    "pickerAriaLabel": "Topluluk akışı için referans konum seç",
+    "pickerHelp": "Ara, haritaya dokun veya konumunu kullan. Daire arama yarıçapınla eşleşir.",
+    "pickerCancel": "İptal",
+    "pickerDone": "Tamam",
+    "pickerUseMyLocation": "Konumumu kullan",
     "status": {
       "unverified": "Doğrulanmadı",
       "verified": "Doğrulandı",

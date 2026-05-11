@@ -176,6 +176,11 @@
     "disagree": "Disagree",
     "filterReportTypeAria": "Report type: {{label}}",
     "filterEnvironmentAria": "Environment: {{label}}",
+    "pickerAriaLabel": "Choose reference location for community feed",
+    "pickerHelp": "Search, tap the map, or use your location. The circle matches your search radius.",
+    "pickerCancel": "Cancel",
+    "pickerDone": "Done",
+    "pickerUseMyLocation": "Use my location",
     "status": {
       "unverified": "Unverified",
       "verified": "Validated",
