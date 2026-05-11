@@ -181,12 +181,13 @@ function Navbar() {
             )}
           </div>
         )}
-        <button
+        <Link
+          to="/settings"
           className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
           aria-label="Settings"
         >
           <span className="material-symbols-outlined text-on-surface-variant">settings</span>
-        </button>
+        </Link>
 
         {isAuthenticated ? (
           <div className="relative ml-1 sm:ml-2">
