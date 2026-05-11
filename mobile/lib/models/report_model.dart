@@ -700,6 +700,11 @@ class ReportModel {
   /// voting card without an extra fetch.
   final FixRequestModel? activeFixRequest;
 
+  /// Highest-tier badge held by the report author. Surfaced as a chip next
+  /// to the author's name on the detail screen. Null when the author has
+  /// no badges yet.
+  final String? authorTopBadge;
+
   const ReportModel({
     required this.reportId,
     required this.userId,
@@ -723,6 +728,7 @@ class ReportModel {
     this.exitLongitude,
     this.lastEditedByUserId,
     this.activeFixRequest,
+    this.authorTopBadge,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
@@ -760,6 +766,7 @@ class ReportModel {
               Map<String, dynamic>.from(json['activeFixRequest'] as Map),
             )
           : null,
+      authorTopBadge: json['authorTopBadge'] as String?,
     );
   }
 
@@ -798,6 +805,7 @@ class ReportModel {
       activeFixRequest: activeFixRequest == _kSentinel
           ? this.activeFixRequest
           : activeFixRequest as FixRequestModel?,
+      authorTopBadge: authorTopBadge,
     );
   }
 

@@ -806,6 +806,52 @@ class ApiService {
       return response.reasonPhrase ?? 'Unknown error';
     }
   }
+
+  // ─── Gamification ──────────────────────────────────────────────────────────
+
+  /// Public top-N leaderboard. Token forwarded so the backend can populate
+  /// `callerRank` for authenticated viewers; anonymous callers get a null
+  /// callerRank slot. Returned shape:
+  ///   { entries: [{ rank, userId, name, avatarUrl, points }, ...],
+  ///     callerRank: { rank, points } | null }
+  Future<Map<String, dynamic>> getLeaderboard() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/leaderboard'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// Public — returns the list of badge enum names held by a user
+  /// (e.g. ['TRUSTED_REPORTER', 'TOP_10']).
+  Future<List<String>> getUserBadges(int userId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/users/$userId/badges'), headers: _headers)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list.map((e) => e as String).toList();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// Toggle the caller's leaderboard opt-out flag. Returns the updated profile
+  /// DTO so the screen can refresh its rank display from the same payload.
+  Future<Map<String, dynamic>> setLeaderboardVisibility(bool hidden) async {
+    final response = await http
+        .patch(
+          Uri.parse('$_baseUrl/api/users/me/leaderboard-visibility'),
+          headers: _headers,
+          body: jsonEncode({'leaderboardHidden': hidden}),
+        )
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
 }
 
 /// Spring `Page<T>` JSON projection — only the fields the mobile app needs

@@ -7,8 +7,10 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../models/report_model.dart';
+import '../widgets/badge_chip.dart';
 import '../main.dart' show AuthShell;
 import 'avatar_crop_screen.dart';
+import 'leaderboard_screen.dart';
 import 'report_detail_screen.dart';
 import 'routing_preferences_screen.dart';
 
@@ -330,6 +332,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final stats = _userInfo?['contributionStats'] as Map<String, dynamic>?;
     final reportsSubmitted = stats?['reportsSubmitted'] ?? _userReports.length;
     final routesPlanned = stats?['routesPlanned'] ?? 0;
+    final points = (_userInfo?['points'] as num?)?.toInt() ?? 0;
+    final rank = _userInfo?['rank'] as int?;
+    final leaderboardHidden = (_userInfo?['leaderboardHidden'] as bool?) ?? false;
+    final badges = (_userInfo?['badges'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toList() ??
+        const <String>[];
+    final rankLabel = rank != null
+        ? '#$rank'
+        : leaderboardHidden
+            ? 'Hidden'
+            : '—';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -345,7 +359,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 18),
 
-          // Stats cards
+          // Stats cards — REPORTS + ROUTES on the first row, POINTS + RANK on
+          // the second row. Wrap so both rows reflow to a single column on
+          // narrow phones without overflowing.
           Row(
             children: [
               Expanded(
@@ -365,6 +381,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.star_outline,
+                  label: 'POINTS',
+                  value: '$points',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.leaderboard_outlined,
+                  label: 'RANK',
+                  value: rankLabel,
+                ),
+              ),
+            ],
+          ),
+
+          if (badges.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Badges',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            BadgeList(badges: badges),
+          ],
+
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+              );
+            },
+            icon: const Icon(Icons.leaderboard_outlined),
+            label: const Text('View leaderboard'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          _buildLeaderboardVisibilityToggle(leaderboardHidden),
 
           const SizedBox(height: 28),
 
@@ -747,6 +815,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  /// Opt-out toggle for the public leaderboard. Flipping it preserves the
+  /// user's accumulated points on the backend — they re-enter the ranking
+  /// instantly when this flips back.
+  Widget _buildLeaderboardVisibilityToggle(bool hidden) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hide me from the public leaderboard',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Your points stay accurate either way.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: hidden,
+            onChanged: _saving ? null : _toggleLeaderboardVisibility,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleLeaderboardVisibility(bool nextHidden) async {
+    final api = context.read<AuthService>().api;
+    setState(() => _saving = true);
+    try {
+      final updated = await api.setLeaderboardVisibility(nextHidden);
+      if (!mounted) return;
+      setState(() {
+        _userInfo = updated;
+        _saving = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(nextHidden
+              ? 'You are now hidden from the public leaderboard.'
+              : 'You are visible on the public leaderboard.'),
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to update visibility: ${_userMessage(e)}'),
+      ));
+    }
+  }
+
+  String _userMessage(Object e) =>
+      e is ApiException ? e.userMessage : e.toString();
 
   /// Hero card with a soft brand-tinted gradient and the avatar nested
   /// inside. Replaces the previous flat avatar+text stack and gives the
