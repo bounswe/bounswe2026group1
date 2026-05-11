@@ -7,6 +7,7 @@ import Leaderboard from './pages/Leaderboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import UserProfilePage from './pages/UserProfilePage.jsx'
 import UserSearchPage from './pages/UserSearchPage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
 import RequireAdmin from './components/RequireAdmin.jsx'
 import RequireAuth from './components/RequireAuth.jsx'
 import AdminLayout from './components/admin/AdminLayout.jsx'
@@ -33,6 +34,7 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/:userId" element={<UserProfilePage />} />
         <Route path="/search/users" element={<UserSearchPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route element={<RequireAdmin />}>
         <Route element={<AdminLayout />}>
