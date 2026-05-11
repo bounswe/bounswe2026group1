@@ -41,7 +41,7 @@ class ReportControllerTest {
     private ReportController controller;
 
     @Test
-    void feed_passesQueryFieldsPageableAndEmailToService() {
+    void feed_passesQueryPageableAndEmailToService() {
         ReportFeedQuery query = new ReportFeedQuery();
         query.setReportType(ReportType.OBSTACLE);
         query.setEnvironment(ReportEnvironment.INDOOR);
@@ -51,26 +51,12 @@ class ReportControllerTest {
 
         Pageable pageable = PageRequest.of(1, 15);
         Page<ReportResponse> expected = new PageImpl<>(List.of());
-        when(reportService.feed(
-                ReportType.OBSTACLE,
-                ReportEnvironment.INDOOR,
-                41.02,
-                29.01,
-                4.5,
-                pageable,
-                "user@example.com")).thenReturn(expected);
+        when(reportService.feed(query, pageable, "user@example.com")).thenReturn(expected);
 
         Page<ReportResponse> result = controller.feed(query, pageable, "user@example.com");
 
         assertEquals(expected, result);
-        verify(reportService).feed(
-                ReportType.OBSTACLE,
-                ReportEnvironment.INDOOR,
-                41.02,
-                29.01,
-                4.5,
-                pageable,
-                "user@example.com");
+        verify(reportService).feed(query, pageable, "user@example.com");
     }
 
     @Test
@@ -78,19 +64,12 @@ class ReportControllerTest {
         ReportFeedQuery query = new ReportFeedQuery();
         Pageable pageable = PageRequest.of(0, 20);
         Page<ReportResponse> expected = new PageImpl<>(List.of());
-        when(reportService.feed(
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                eq(pageable),
-                isNull())).thenReturn(expected);
+        when(reportService.feed(eq(query), eq(pageable), isNull())).thenReturn(expected);
 
         Page<ReportResponse> result = controller.feed(query, pageable, null);
 
         assertEquals(expected, result);
-        verify(reportService).feed(null, null, null, null, null, pageable, null);
+        verify(reportService).feed(query, pageable, null);
     }
 
     @Test
