@@ -8,7 +8,7 @@ import RoutingPreferencesSection from '../components/RoutingPreferencesSection.j
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
-import { useSetLeaderboardVisibility } from '../hooks/useGamification.js'
+import { useSetLeaderboardVisibility, useSetVoiceCommandsEnabled } from '../hooks/useGamification.js'
 
 const NAME_MIN = 2
 const NAME_MAX = 50
@@ -30,6 +30,11 @@ function ProfilePage() {
   const uploadAvatarMutation = useUploadAvatar()
   const deleteAvatarMutation = useDeleteAvatar()
   const setVisibilityMutation = useSetLeaderboardVisibility()
+  const setVoiceCommandsMutation = useSetVoiceCommandsEnabled()
+  // Feature-detect once. Used by the accessibility section to show an
+  // unsupported-browser notice next to the toggle (1.1.3.8).
+  const speechRecognitionSupported = typeof window !== 'undefined' &&
+    Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
 
   const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState('')
@@ -76,6 +81,19 @@ function ProfilePage() {
   async function handleAvatarDelete() {
     await deleteAvatarMutation.mutateAsync()
     setToast({ message: 'Avatar removed.', type: 'success' })
+  }
+
+  async function handleVoiceCommandsToggle(event) {
+    const enabled = event.target.checked
+    try {
+      await setVoiceCommandsMutation.mutateAsync(enabled)
+      setToast({
+        message: enabled ? 'Voice commands enabled.' : 'Voice commands disabled.',
+        type: 'success',
+      })
+    } catch (e) {
+      setToast({ message: e.message || 'Failed to update voice commands.', type: 'error' })
+    }
   }
 
   async function handleVisibilityToggle(event) {
@@ -166,6 +184,31 @@ function ProfilePage() {
                 Your points are preserved either way — you re-enter the ranking
                 instantly when this flips back.
               </p>
+            </section>
+
+            <section className="bg-surface-container rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+              <h2 className="text-xl font-bold font-headline text-on-surface">Accessibility</h2>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!user.voiceCommandsEnabled}
+                  onChange={handleVoiceCommandsToggle}
+                  disabled={setVoiceCommandsMutation.isPending || !speechRecognitionSupported}
+                  className="w-5 h-5 accent-primary cursor-pointer disabled:opacity-60"
+                />
+                <span className="text-sm text-on-surface">
+                  Voice commands
+                </span>
+              </label>
+              <p className="text-xs text-on-surface-variant">
+                Adds a microphone toggle to the navbar. Say "zoom in", "find pharmacy",
+                "navigate to Taksim", or "report obstacle here" to drive the map with your voice.
+              </p>
+              {!speechRecognitionSupported && (
+                <p role="alert" className="text-xs text-error">
+                  This browser doesn't support the Web Speech API. Try the latest Chrome or Edge.
+                </p>
+              )}
             </section>
 
             <section className="bg-surface-container rounded-2xl shadow-sm p-6 flex flex-col gap-4">
