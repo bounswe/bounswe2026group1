@@ -1,0 +1,644 @@
+{
+  "common": {
+    "language": "Dil",
+    "english": "İngilizce",
+    "turkish": "Türkçe"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "feed": "Akış",
+    "leaderboard": "Sıralama tablosu",
+    "tutorial": "Tanıtım",
+    "replayTutorial": "Tanıtımı tekrar oynat",
+    "admin": "Yönetici",
+    "profile": "Profil",
+    "logout": "Çıkış Yap",
+    "login": "Giriş Yap",
+    "signup": "Kayıt Ol",
+    "mapcessHome": "Mapcess ana sayfa",
+    "mapcessLogo": "Mapcess logosu",
+    "notifications": "Bildirimler",
+    "settings": "Ayarlar",
+    "searchUsers": "Kullanıcı ara",
+    "openProfileMenu": "Profil menüsünü aç",
+    "profileMenu": "Profil menüsü",
+    "userAvatar": "Kullanıcı avatarı",
+    "userAvatarOf": "{{name}} kullanıcısının avatarı"
+  },
+  "home": {
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "myLocation": "Konumum",
+    "filter": "Filtre",
+    "filtersActive": "{{count}} filtre aktif",
+    "filtersTitle": "Filtreler",
+    "filtersHidden": "{{count}} gizli",
+    "filtersShowAll": "Tümünü göster",
+    "mapFiltersAria": "Harita filtreleri",
+    "closeFilters": "Filtreleri kapat",
+    "communityPulse": "Topluluk Nabzı",
+    "activeReports": "{{count}} Aktif Rapor",
+    "withinRange": "Konumunuzun 500 m yakınında",
+    "cityResolutionRate": "Şehir Çözüm Oranı",
+    "getRoutes": "Rota Al",
+    "reportIssue": "Sorun Bildir",
+    "currentLocation": "Mevcut Konum",
+    "searchLocationPlaceholder": "Konum ara...",
+    "searchNoResults": "Sonuç bulunamadı.",
+    "searchFailed": "Arama başarısız. Lütfen tekrar dene.",
+    "showAria": "{{label}} göster",
+    "showIssueAria": "{{label}} {{issue}} göster",
+    "collapseAria": "{{label}} daralt",
+    "expandAria": "{{label}} genişlet",
+    "issuesHiddenOne": "{{count}} sorun gizli",
+    "issuesHiddenOther": "{{count}} sorun gizli",
+    "pinDropHint": "Rapor konumu için haritaya tıkla",
+    "routeStartHint": "Başlangıç noktası için haritaya tıkla",
+    "routeDestHint": "Şimdi varış noktanı seç",
+    "reportSubmittedToast": "Rapor başarıyla gönderildi!"
+  },
+  "createReport": {
+    "title": "Yeni Rapor",
+    "clickToSetLocation": "Konum belirlemek için haritaya tıkla",
+    "visualEvidence": "Görsel Kanıt",
+    "uploadOrDrag": "Fotoğraf veya video yükle ya da buraya sürükle",
+    "uploadHint": "5 dosyaya kadar, her biri 15 MB (JPEG, PNG, MP4, MOV).",
+    "addMore": "Daha ekle",
+    "removeImage": "Görseli kaldır",
+    "video": "Video",
+    "reportType": "Rapor Türü",
+    "obstacle": "Engel",
+    "obstacleDesc": "Bozuk veya eksik bir şey",
+    "feature": "Özellik",
+    "featureDesc": "Var olan yardımcı bir şey",
+    "environment": "Ortam",
+    "outdoor": "Açık alan",
+    "indoor": "Kapalı alan",
+    "objects": "Nesneler",
+    "required": "zorunlu",
+    "objectType": "Nesne Türü",
+    "selectType": "Tür seç…",
+    "removeObject": "Nesneyi kaldır",
+    "issues": "Sorunlar",
+    "showMeasurements": "Ölçüleri göster (isteğe bağlı)",
+    "hideMeasurements": "Ölçüleri gizle",
+    "howToMeasure": "Nasıl ölçülür",
+    "howToMeasureAria": "{{label}} nasıl ölçülür",
+    "howToMeasureFooter": "Bunları katı bir kural değil, yol gösterici olarak kullan. Emin değilsen gözlemini bildir, topluluk doğrulasın.",
+    "howToMeasureEmpty": "Bu nesne türü için ölçü takip edilmiyor.",
+    "thresholdRange": "{{min}}–{{max}} {{unit}} erişilebilir",
+    "thresholdMin": "≥ {{min}} {{unit}} erişilebilir",
+    "thresholdMax": "≤ {{max}} {{unit}} erişilebilir",
+    "addObject": "Nesne Ekle",
+    "details": "Ayrıntılar",
+    "descriptionPlaceholder": "Sorunu kısaca açıkla...",
+    "cancel": "İptal",
+    "submitReport": "Raporu Gönder",
+    "submitting": "Gönderiliyor…",
+    "errorSetLocation": "Konum belirlemek için haritaya tıkla.",
+    "errorAddObject": "Sorunu tanımlamak için en az bir nesne ekle.",
+    "errorSelectType": "Her nesne kartı için bir tür seç.",
+    "errorSelectIssue": "\"{{label}}\" nesnesi için en az bir sorun seç.",
+    "errorProvideDescription": "Lütfen bir açıklama gir.",
+    "errorSubmitFailed": "Rapor gönderilemedi. Lütfen tekrar dene."
+  },
+  "report": {
+    "previousImage": "Önceki görsel",
+    "nextImage": "Sonraki görsel",
+    "resizePanel": "Rapor panelini yeniden boyutlandır",
+    "closePanel": "Paneli kapat",
+    "deleteReport": "Raporu sil",
+    "agree": "Katılıyorum",
+    "disagree": "Katılmıyorum",
+    "deleteComment": "Yorumu sil",
+    "voteFailed": "Oy gönderilemedi. Lütfen tekrar dene.",
+    "fixVoteFailed": "Düzeltme oylanamadı. Lütfen tekrar dene.",
+    "openInViewer": "Görüntüleyicide aç",
+    "photo": "Fotoğraf",
+    "goToMedia": "{{index}}. medyaya git",
+    "backToFeed": "Akışa dön",
+    "objects": "Nesneler",
+    "indoor": "Kapalı alan",
+    "outdoor": "Açık alan",
+    "statusFixed": "Düzeltildi",
+    "statusRejected": "Reddedildi",
+    "statusValidated": "Doğrulandı",
+    "statusUnverified": "Doğrulanmadı",
+    "yesFixed": "Evet, düzeltildi",
+    "noStillThere": "Hayır, hâlâ duruyor",
+    "delete": "Sil",
+    "deleting": "Siliniyor…",
+    "noDescription": "Açıklama girilmemiş.",
+    "save": "Kaydet",
+    "saving": "Kaydediliyor…",
+    "addComment": "Yorum ekle...",
+    "post": "Gönder",
+    "posting": "Gönderiliyor...",
+    "follow": "Takip Et",
+    "unfollow": "Takibi Bırak",
+    "followCopyFollowing": "Bu raporun her durum değişikliğinde bildirim alacaksın.",
+    "followCopyNotFollowing": "Bu raporun durumu değiştiğinde bildirim almak için takip et.",
+    "descriptionEmpty": "Açıklama boş olamaz.",
+    "updateSuccess": "Rapor güncellendi.",
+    "updateFailed": "Değişiklikler kaydedilemedi.",
+    "deleteConfirm": "Bu rapor silinsin mi? Bu işlem geri alınamaz.",
+    "deleteSuccess": "Rapor silindi.",
+    "deleteFailed": "Rapor silinemedi.",
+    "noPermission": "Bunu yapma iznin yok.",
+    "reportGone": "Rapor artık mevcut değil.",
+    "fixedConsensusNote": "5+ onay ve ≥%60 uzlaşıda Düzeltildi olarak işaretlenir.",
+    "fixConsensus": "%{{percent}} uzlaşı",
+    "hasThisBeenFixed": "Bu düzeltildi mi?",
+    "submitFixWithPhoto": "Fotoğrafla bir düzeltme raporu gönder",
+    "issueDetails": "Sorun Ayrıntıları",
+    "communityConsensus": "Topluluk Uzlaşısı",
+    "consensusPercent": "%{{percent}} Uzlaşı",
+    "peopleAgreed": "{{count}} kişi bu sorunun aktif olduğunda hemfikir.",
+    "comments": "Yorumlar",
+    "noCommentsYet": "Henüz yorum yok.",
+    "recentActivity": "Son Etkinlik",
+    "system": "Sistem",
+    "submittedActivity": "Rapor gönderildi, topluluk doğrulaması bekleniyor.",
+    "createFixAria": "Düzeltme raporu gönder",
+    "createFixHeading": "Düzeltildi Olarak Bildir",
+    "createFixFor": "Şunun için: {{title}}",
+    "createFixSubtitle": "Topluluk doğrulayabilsin diye bir fotoğraf paylaş.",
+    "createFixClose": "Kapat",
+    "createFixInheritedBanner": "Konum ve kategori üst rapordan alınır.",
+    "createFixPhotoLabel": "Düzeltilen alanın fotoğrafı",
+    "createFixUploadHint": "Çözülen bölgenin fotoğrafını yükle veya bırak",
+    "createFixUploadFormat": "JPG veya PNG, en fazla 15 MB",
+    "createFixWhatChanged": "Ne değişti?",
+    "createFixOptional": "(isteğe bağlı)",
+    "createFixDescriptionPlaceholder": "Geçen hafta yeni bir rampa yapıldı.",
+    "createFixOnlyJpgPng": "Yalnızca JPG veya PNG dosyaları kabul edilir.",
+    "createFixAttachPhoto": "Lütfen düzeltilen alanın bir fotoğrafını ekle.",
+    "createFixDuplicate": "Birisi bunun için zaten bir düzeltme raporu gönderdi. Onun raporunu oyla.",
+    "createFixInvalidSubmission": "Geçersiz gönderim. Fotoğrafı ve açıklama uzunluğunu kontrol et.",
+    "createFixGenericError": "Düzeltme raporu gönderilemedi. Lütfen tekrar dene.",
+    "createFixRuleCopy": "Diğer kullanıcılar düzeltmeni oylayacak. En az 5 kişi katılır ve uzlaşı %60'a ulaşırsa Düzeltildi olarak doğrulanır — sonra 7 gün içinde otomatik silinir.",
+    "createFixCancel": "İptal",
+    "createFixSubmit": "Düzeltme Raporunu Gönder",
+    "createFixSubmitting": "Gönderiliyor…",
+    "loadingComments": "Yorumlar yükleniyor...",
+    "loginToComment": "Yorum bırakmak için <0>giriş yapın</0>.",
+    "anonymousAuthor": "Anonim"
+  },
+  "routePanel": {
+    "searchOrClickMap": "Arayın veya haritaya tıklayın…",
+    "setOriginFirst": "Önce başlangıcı seçin",
+    "useMyCurrentLocation": "Mevcut konumumu kullan",
+    "locationNotAvailable": "Konum bilgisi yok",
+    "swapOriginDestination": "Başlangıç ve varışı değiştir"
+  },
+  "createFix": {
+    "whatChanged": "Ne değişti?",
+    "optional": "(isteğe bağlı)",
+    "descriptionPlaceholder": "Geçen hafta yeni bir rampa kuruldu.",
+    "helperText": "Diğer kullanıcılar düzeltmenize oy verecek. En az 5 kişi katıldığında <3>ve</3> mutabakat %60'a ulaştığında <1>Düzeltildi</1> olarak onaylanır — ardından 7 gün sonra otomatik silinir."
+  },
+  "presetEditor": {
+    "nameLengthError": "İsim {{min}}–{{max}} karakter olmalı.",
+    "saveFailed": "Kaydedilemedi.",
+    "deleteFailed": "Silinemedi.",
+    "presetName": "Hazır ayar adı",
+    "presetNamePlaceholder": "ör. İş yolu",
+    "presetNameHelper": "Zorunlu ({{min}}–{{max}} karakter)",
+    "travelMode": "Ulaşım modu"
+  },
+  "feed": {
+    "title": "Topluluk akışı",
+    "reportType": "Rapor türü",
+    "environment": "Ortam",
+    "all": "Tümü",
+    "obstacle": "Engel",
+    "feature": "Özellik",
+    "indoor": "Kapalı alan",
+    "outdoor": "Açık alan",
+    "searchRadius": "Arama yarıçapı (km)",
+    "chooseOnMap": "Haritadan seç",
+    "useCurrentLocation": "Mevcut konumu kullan",
+    "referencePoint": "Referans noktası: {{lat}}, {{lng}}",
+    "locationUnavailable": "Konum bu cihazda kullanılamıyor.",
+    "locateFailedSetOnMap": "Konumun alınamadı. Konum erişimine izin ver veya haritaya bir nokta koy.",
+    "locateFailedPickOnMap": "Konumun alınamadı. Konum erişimine izin ver veya haritadan bir nokta seç.",
+    "loadError": "Akış yüklenemedi.",
+    "loading": "Akış yükleniyor…",
+    "loadingMore": "Daha fazla yükleniyor…",
+    "emptyNoFilters": "Henüz rapor yok.",
+    "emptyWithFilters": "Filtrelere uyan rapor yok.",
+    "emptyWithRadius": "Bu arama yarıçapı içinde rapor yok.",
+    "noDescription": "Açıklama yok",
+    "agree": "Katılıyorum",
+    "disagree": "Katılmıyorum",
+    "filterReportTypeAria": "Rapor türü: {{label}}",
+    "filterEnvironmentAria": "Ortam: {{label}}",
+    "pickerAriaLabel": "Topluluk akışı için referans konum seç",
+    "pickerHelp": "Ara, haritaya dokun veya konumunu kullan. Daire arama yarıçapınla eşleşir.",
+    "pickerCancel": "İptal",
+    "pickerDone": "Tamam",
+    "pickerUseMyLocation": "Konumumu kullan",
+    "status": {
+      "unverified": "Doğrulanmadı",
+      "verified": "Doğrulandı",
+      "rejected": "Reddedildi",
+      "fixed": "Düzeltildi"
+    }
+  },
+  "leaderboard": {
+    "title": "Sıralama tablosu",
+    "intro": "En çok katkı sağlayan kullanıcılar puanlarına göre sıralanır. Eşit puanlar aynı sıralamayı paylaşır.",
+    "loading": "Sıralama yükleniyor…",
+    "loadFailed": "Sıralama yüklenemedi. Lütfen daha sonra tekrar dene.",
+    "yourRank": "Sıralaman",
+    "points": "Puan",
+    "loginPrompt": "Kendi sıralamanı bu sayfada görmek için <0>giriş yap</0>.",
+    "empty": "Henüz sıralanan kullanıcı yok. Sıralamaya girmek için bir rapor gönder."
+  },
+  "objectTitle": {
+    "obstacleSuffix": "{{labels}} Sorunu",
+    "featureSuffix": "{{labels}} — Özellik",
+    "obstacleFallback": "Engel Raporu",
+    "featureFallback": "Özellik Raporu"
+  },
+  "object": {
+    "RAMP": {
+      "label": "Rampa",
+      "issue": {
+        "MISSING": "Eksik", "TOO_STEEP": "Çok Dik", "TOO_NARROW": "Çok Dar",
+        "MISSING_HANDRAIL": "Korkuluk Eksik", "NO_LANDING": "Sahanlık Yok",
+        "SLIPPERY_SURFACE": "Kaygan Yüzey", "HANDRAIL_TOO_LOW": "Korkuluk Çok Alçak",
+        "INSUFFICIENT_LANDING_AREA": "Yetersiz Sahanlık"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Eğim", "description": "Rampanın dikliği. Bir tekerlekli sandalye kullanıcısı, yorulmadan yaklaşık %10'a (her 10 cm uzunlukta 1 cm yükselme) kadar çıkabilir." },
+        "width_cm": { "label": "Genişlik", "description": "Net geçiş genişliği. 100 cm bir tekerlekli sandalyenin geçmesine, daha genişi iki kişinin yan yana geçmesine yeter." },
+        "height_cm": { "label": "Yükseklik", "description": "Rampanın kat ettiği toplam dikey yükselme; eğimin bu uzunlukta sürdürülebilir olup olmadığını ölçer." }
+      }
+    },
+    "ELEVATOR": {
+      "label": "Asansör",
+      "issue": {
+        "MISSING": "Eksik", "OUT_OF_SERVICE": "Servis Dışı",
+        "DOOR_TOO_NARROW": "Kapı Çok Dar", "CABIN_TOO_SMALL": "Kabin Çok Küçük",
+        "NO_AUDIO": "Sesli Anons Yok", "NO_GRAB_BAR": "Tutamak Yok",
+        "INSUFFICIENT_LANDING": "Yetersiz Sahanlık", "NO_BRAILLE": "Braille Yok",
+        "BUTTON_HEIGHT_INVALID": "Geçersiz Buton Yüksekliği",
+        "INSUFFICIENT_LIGHTING": "Yetersiz Aydınlatma"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Kapı Genişliği", "description": "Kapılar tamamen açıkken net açıklık. 90 cm standart bir tekerlekli sandalyeyi ve tutamaklarını alır." },
+        "cabin_width_cm": { "label": "Kabin Genişliği", "description": "Kabinin iç genişliği. 120 cm bir tekerlekli sandalye kullanıcısına rahatça yer verir." },
+        "cabin_depth_cm": { "label": "Kabin Derinliği", "description": "Önden arkaya iç derinlik. 140 cm tekerlekli sandalyenin dönmesine veya başka bir yolcunun yanında durmasına izin verir." }
+      }
+    },
+    "SIDEWALK": {
+      "label": "Kaldırım",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "SLIPPERY_SURFACE": "Kaygan Yüzey", "BLOCKED": "Engellenmiş",
+        "NO_TACTILE_PAVING": "Hissedilebilir Yüzey Yok",
+        "INSUFFICIENT_CLEARANCE": "Yetersiz Boşluk",
+        "UNEVEN_SURFACE": "Düzensiz Yüzey",
+        "UNRAMPED_LEVEL_DIFFERENCE": "Rampasız Seviye Farkı"
+      },
+      "measurement": {
+        "height_cm": { "label": "Bordür Yüksekliği", "description": "Kaldırımdan yola olan basamak. Bordür rampası olmadan ~15 cm üstü tekerlekleri ve yürüteçleri durdurur." },
+        "width_cm": { "label": "Genişlik", "description": "Kullanılabilir yaya genişliği (lamba direkleri ve banklar hariç). 150 cm iki tekerlekli sandalyenin geçişine izin verir." }
+      }
+    },
+    "DOOR": {
+      "label": "Kapı",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "HIGH_THRESHOLD": "Yüksek Eşik", "STEP_AT_ENTRANCE": "Girişte Basamak",
+        "NO_LEVER_HANDLE": "Kol Kulp Yok", "HEAVY_DOOR": "Ağır Kapı",
+        "NO_AUTOMATIC_DOOR": "Otomatik Kapı Yok", "NO_GLASS_MARKING": "Cam İşaretlemesi Yok",
+        "HANDLE_HEIGHT_INVALID": "Geçersiz Kol Yüksekliği",
+        "INTERCOM_INACCESSIBLE": "Erişilemez İnterkom"
+      },
+      "measurement": {
+        "width_cm": { "label": "Genişlik", "description": "Kapı tamamen açıkken net açıklık. 90 cm standart bir tekerlekli sandalyeye yeter." },
+        "threshold_height_cm": { "label": "Eşik Yüksekliği", "description": "Kapı altındaki çıkıntı. ~0,6 cm üstü tekerlekli sandalyenin ön tekerleklerine takılır." }
+      }
+    },
+    "STAIR": {
+      "label": "Merdiven",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "MISSING_HANDRAIL": "Korkuluk Eksik", "NO_LANDING": "Sahanlık Yok",
+        "SLIPPERY_SURFACE": "Kaygan Yüzey", "RISER_TOO_HIGH": "Basamak Çok Yüksek",
+        "TREAD_TOO_SHALLOW": "Basamak Çok Sığ", "NO_ANTI_SLIP": "Kaymaz Şerit Yok",
+        "OPEN_RISERS": "Açık Basamaklar", "IRREGULAR_STEPS": "Düzensiz Basamaklar",
+        "MISSING_NOSING_STRIP": "Basamak Burnu Şeridi Yok"
+      },
+      "measurement": {
+        "riser_cm": { "label": "Basamak Yüksekliği", "description": "Her basamağın yüksekliği. 16 cm üstü hareket kısıtlılığı olanlar için yorucu ve risklidir." },
+        "tread_cm": { "label": "Basamak Derinliği", "description": "Her basamağın önden arkaya derinliği. 27 cm altı tüm ayağı güvenle basmak için fazla dardır." }
+      }
+    },
+    "PEDESTRIAN_CROSSING": {
+      "label": "Yaya Geçidi",
+      "issue": {
+        "MISSING": "Eksik", "BLOCKED": "Engellenmiş",
+        "NO_TACTILE_PAVING": "Hissedilebilir Yüzey Yok",
+        "NO_AUDIO_SIGNAL": "Sesli Sinyal Yok", "SIGNAL_TOO_SHORT": "Sinyal Çok Kısa",
+        "NO_DROPPED_CURB": "İndirilmiş Bordür Yok", "FADED_MARKINGS": "Solmuş İşaretler",
+        "NO_PEDESTRIAN_REFUGE": "Yaya Refüjü Yok"
+      },
+      "measurement": {
+        "signal_duration_sec": { "label": "Sinyal Süresi", "description": "Yaya sinyalinin yanık kaldığı süre. 15 sn yavaş yürüyen birinin tipik bir caddeyi geçmesine yeter." },
+        "crossing_width_cm": { "label": "Geçit Genişliği", "description": "Çizgili geçidin genişliği. 300 cm karşılıklı yönde iki tekerlekli sandalyenin geçişine izin verir." },
+        "dropped_curb_height_cm": { "label": "İndirilmiş Bordür Yüksekliği", "description": "Geçitten kaldırıma çıkış basamağı. ~1,3 cm üstü tekerlekleri takar ve bastonlara dolaşır." }
+      }
+    },
+    "CURB_RAMP": {
+      "label": "Bordür Rampası",
+      "issue": {
+        "MISSING": "Eksik", "TOO_STEEP": "Çok Dik",
+        "TOO_NARROW": "Çok Dar", "NO_TACTILE_WARNING": "Hissedilebilir Uyarı Yok",
+        "RAISED_LIP": "Yüksek Kenar"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Eğim", "description": "Bordür rampasının dikliği. %8 kendi sandalyesini iten biri için rahat üst sınırdır." },
+        "width_cm": { "label": "Genişlik", "description": "Rampa yüzeyinin genişliği. 120 cm tekerlekli sandalyeye uygun minimumdur." },
+        "lip_height_cm": { "label": "Kenar Yüksekliği", "description": "Rampanın yola birleştiği çıkıntı. 1,3 cm üstü tekerlekleri sarsar ve bastonlara dolaşır." }
+      }
+    },
+    "WASHROOM": {
+      "label": "Tuvalet",
+      "issue": {
+        "MISSING": "Eksik", "TOO_NARROW": "Çok Dar",
+        "NO_GRAB_BAR": "Tutamak Yok", "HIGH_THRESHOLD": "Yüksek Eşik",
+        "NO_ACCESSIBLE_STALL": "Erişilebilir Kabin Yok",
+        "INSUFFICIENT_TURNING_SPACE": "Yetersiz Manevra Alanı",
+        "SINK_TOO_HIGH": "Lavabo Çok Yüksek", "NO_EMERGENCY_BUTTON": "Acil Durum Butonu Yok"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Kapı Genişliği", "description": "Kapı tamamen açıkken net açıklık. 90 cm standart bir tekerlekli sandalyeye yeter." },
+        "turning_space_cm": { "label": "Manevra Alanı", "description": "Boş zemindeki açık daire. 150 cm bir tekerlekli sandalyenin tam dönmesine izin verir." },
+        "sink_height_cm": { "label": "Lavabo Yüksekliği", "description": "Lavabo kenarının zeminden yüksekliği. 85 cm altı oturarak musluğa uzanmaya izin verir." },
+        "grab_bar_height_cm": { "label": "Tutamak Yüksekliği", "description": "Tutamakların zeminden yüksekliği. 70 cm veya üstü çoğu transfer tutuşuyla hizalanır." }
+      }
+    },
+    "ROOM_SIGN": {
+      "label": "Oda Tabelası",
+      "issue": {
+        "MISSING": "Eksik", "NO_BRAILLE": "Braille Yok",
+        "INSUFFICIENT_LIGHTING": "Yetersiz Aydınlatma",
+        "LOW_CONTRAST": "Düşük Kontrast", "TEXT_TOO_SMALL": "Yazı Çok Küçük",
+        "INVALID_HEIGHT": "Geçersiz Yükseklik"
+      },
+      "measurement": {
+        "mounting_height_cm": { "label": "Montaj Yüksekliği", "description": "Tabelanın merkezinin zeminden yüksekliği. 120-160 cm hem ayakta hem oturan kullanıcılar için göz hizasıyla hizalanır." },
+        "text_height_mm": { "label": "Yazı Yüksekliği", "description": "Harflerin yüksekliği. 15 mm altı kapı mesafesinden okunması zor." }
+      }
+    }
+  },
+  "userSearch": {
+    "title": "Kişi bul",
+    "searchLabel": "Ad veya e-posta ile ara",
+    "searchPlaceholder": "örn. ayşe",
+    "searchAria": "Kullanıcıları ad veya e-posta ile ara",
+    "tooShort": "Aramak için en az {{count}} karakter gir.",
+    "searching": "Aranıyor…",
+    "searchFailed": "Arama başarısız.",
+    "noUsers": "Kullanıcı bulunamadı.",
+    "matchOne": "{{count}} eşleşme.",
+    "matchOther": "{{count}} eşleşme.",
+    "previous": "Önceki",
+    "next": "Sonraki",
+    "pageOf": "Sayfa {{page}}/{{total}}",
+    "loading": "Yükleniyor…"
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "markAllRead": "Tümünü okundu say",
+    "empty": "Henüz bildirim yok",
+    "justNow": "az önce",
+    "minutesAgo": "{{count}} dk önce",
+    "hoursAgo": "{{count}} sa önce",
+    "daysAgo": "{{count}} gün önce"
+  },
+  "badge": {
+    "TRUSTED_REPORTER": {
+      "label": "Güvenilir Raportör",
+      "description": "10 doğrulanmış rapor"
+    },
+    "EXPERT_MAPPER": {
+      "label": "Uzman Haritacı",
+      "description": "50 doğrulanmış rapor"
+    },
+    "TOP_10": {
+      "label": "İlk 10",
+      "description": "Sıralama tablosunda ilk 10'da"
+    }
+  },
+  "avatar": {
+    "upload": "Avatar yükle",
+    "change": "Avatarı değiştir",
+    "save": "Avatarı kaydet",
+    "uploading": "Yükleniyor…",
+    "remove": "Kaldır",
+    "removing": "Kaldırılıyor…",
+    "cancel": "İptal",
+    "dropToPreview": "Önizleme için bırak…",
+    "hint": "JPEG veya PNG, en fazla 15 MB. Bu kutuya sürükleyip bırakabilirsin.",
+    "removeConfirm": "Profil resminiz kaldırılsın mı?",
+    "removeFailed": "Profil resmi kaldırılamadı.",
+    "uploadFailed": "Profil resmi yüklenemedi."
+  },
+  "routing": {
+    "title": "Rota tercihleri",
+    "customCount": "{{count}}/{{max}} özel hazır ayar",
+    "intro": "Her erişilebilir rota isteğini şekillendirmek için bir hazır ayar seç. Yerleşik ayarlar yaygın ihtiyaçları kapsar; ayrıca en fazla 5 kendi ayarını da kaydedebilirsin.",
+    "active": "Aktif",
+    "ruleOne": "{{count}} kural",
+    "ruleOther": "{{count}} kural",
+    "loading": "Rota tercihleri yükleniyor…",
+    "createCustom": "Özel hazır ayar oluştur",
+    "atCapTitle": "En fazla {{max}} özel hazır ayar kaydedebilirsin.",
+    "saveFailed": "Hazır ayar kaydedilemedi.",
+    "deleteFailed": "Hazır ayar silinemedi.",
+    "activateLabel": "{{label}} ayarını etkinleştir",
+    "detailsLabel": "{{label}} ayrıntılarını gör",
+    "presets": {
+      "NONE": "Tercih yok",
+      "WHEELCHAIR_USER": "Tekerlekli sandalye kullanıcısı",
+      "BLIND_OR_LOW_VISION": "Görme engelli veya az gören",
+      "MOBILITY_LIMITED": "Hareket kısıtlı (baston, yürüteç, yaşlı)"
+    },
+    "travelMode": {
+      "WALKING": "Yürüme",
+      "WHEELCHAIR": "Tekerlekli sandalye"
+    }
+  },
+  "myReportModal": {
+    "ariaLabel": "Rapor ayrıntıları",
+    "close": "Kapat",
+    "editOnMap": "Haritada düzenle",
+    "delete": "Sil",
+    "deleting": "Siliniyor…"
+  },
+  "myReports": {
+    "headingOwn": "Raporlarım",
+    "headingOther": "Raporlar",
+    "loading": "Raporların yükleniyor…",
+    "loadFailed": "Raporlar yüklenemedi",
+    "emptyOwnPrefix": "Henüz hiç rapor göndermedin.",
+    "addOneOnMap": "Haritadan bir tane ekle.",
+    "emptyOther": "Henüz rapor gönderilmemiş.",
+    "noDescription": "(açıklama yok)",
+    "status": {
+      "unverified": "Beklemede",
+      "verified": "Doğrulandı",
+      "rejected": "Reddedildi",
+      "fixed": "Düzeltildi"
+    }
+  },
+  "profile": {
+    "loadingYours": "Profilin yükleniyor…",
+    "loadingOther": "Profil yükleniyor…",
+    "loadFailed": "Profil yüklenemedi",
+    "userNotFound": "Kullanıcı bulunamadı.",
+    "goBack": "Geri dön",
+    "reportsSubmitted": "Gönderilen rapor",
+    "routesPlanned": "Planlanan rota",
+    "points": "Puan",
+    "rank": "Sıralama",
+    "rankHidden": "Gizli",
+    "badges": "Rozetler",
+    "leaderboard": "Sıralama tablosu",
+    "hideFromLeaderboard": "Beni herkese açık sıralamada gizle",
+    "leaderboardHideNote": "Puanların iki türlü de korunur — bu seçenek kapandığında sıralamaya anında geri dönersin.",
+    "leaderboardHiddenToast": "Artık sıralama tablosunda gizlisin.",
+    "leaderboardVisibleToast": "Sıralama tablosunda görünürsün.",
+    "visibilityUpdateFailed": "Görünürlük güncellenemedi.",
+    "about": "Hakkında",
+    "edit": "Düzenle",
+    "noBio": "Henüz biyografi yok.",
+    "displayName": "Görünen ad",
+    "bio": "Biyografi",
+    "nameMinError": "Ad en az {{count}} karakter olmalı.",
+    "save": "Kaydet",
+    "saving": "Kaydediliyor…",
+    "cancel": "İptal",
+    "profileUpdated": "Profil güncellendi.",
+    "profileUpdateFailed": "Profil güncellenemedi.",
+    "avatarUpdated": "Avatar güncellendi.",
+    "avatarRemoved": "Avatar kaldırıldı.",
+    "role": {
+      "USER": "KULLANICI",
+      "ADMIN": "YÖNETİCİ"
+    }
+  },
+  "onboarding": {
+    "closeTutorial": "Tanıtımı kapat",
+    "skipTour": "Tanıtımı atla",
+    "back": "Geri",
+    "next": "İleri",
+    "gotIt": "Anladım",
+    "tipDefault": "İpucu",
+    "welcome": {
+      "title": "Mapcess'e hoş geldin",
+      "tipTitle": "Ne öğreneceksin",
+      "tip": "İnsanların en sık bildirdiği dört şeyin — rampalar, kaldırımlar, asansörler ve kapılar — kısa bir turu ve ilk raporunu bir dakikadan kısa sürede nasıl hazırlayacağın."
+    },
+    "ramps": {
+      "title": "Rampalar",
+      "bullet1": "Eğim ≤ %10 — daha dik rampa tekerlekli sandalyeleri engeller",
+      "bullet2": "Net genişlik ≥ 100 cm — yürüteç + yardımcı için yer",
+      "bullet3": "İki yanda 90 cm yükseklikte korkuluk (kısa boylular için ek 70 cm korkuluk)",
+      "bullet4": "Rampanın üst ve alt başlangıcında dokunsal uyarı şeridi",
+      "diagramCaption": "eğim = Y ÷ U · ≤ %10 olduğunda erişilebilir"
+    },
+    "sidewalks": {
+      "title": "Kaldırımlar",
+      "bullet1": "Net genişlik ≥ 150 cm — tekerlekli sandalyelerin geçişi için",
+      "bullet2": "Üst boşluk ≥ 220 cm — alçak dal veya tabela olmamalı",
+      "bullet3": "Bordür kenarında yola karşı görünür olacak kontrast şerit",
+      "diagramCaption": "Kaldırımın üstten görünümü"
+    },
+    "elevators": {
+      "title": "Asansörler",
+      "bullet1": "Tam açıldığında kapı net genişliği ≥ 90 cm",
+      "bullet2": "Her düğmede braille etiket ve sesli duyuru",
+      "bullet3": "Görsel kat göstergesi + yanıp sönen acil durum alarmı",
+      "diagramCaption": "Kabinin üstten görünümü"
+    },
+    "doors": {
+      "title": "Kapılar",
+      "bullet1": "Tam açıldığında net genişlik ≥ 90 cm",
+      "bullet2": "Topuz değil kol kulp — zayıf kavrayışta daha kolay",
+      "bullet3": "Cam panellerde göz hizasında kontrast şeritler"
+    },
+    "howTo": {
+      "title": "Nasıl rapor edilir",
+      "step1": "Haritaya dokun",
+      "step2": "Medya ekle",
+      "step3": "Açıkla",
+      "step4": "Gönder",
+      "tipTitle": "Bir dakikadan kısa",
+      "tip": "Beş komşu onayladığında raporun doğrulanmış olur ve herkes için erişilebilir rotalar şekillenmeye başlar."
+    }
+  },
+  "passwordRules": {
+    "length": {
+      "label": "En az 8 karakter",
+      "message": "Şifre en az 8 karakter olmalı."
+    },
+    "uppercase": {
+      "label": "En az bir büyük harf",
+      "message": "Şifre en az bir büyük harf içermeli."
+    },
+    "lowercase": {
+      "label": "En az bir küçük harf",
+      "message": "Şifre en az bir küçük harf içermeli."
+    },
+    "digit": {
+      "label": "En az bir rakam",
+      "message": "Şifre en az bir rakam içermeli."
+    },
+    "special": {
+      "label": "En az bir özel karakter ({{chars}})",
+      "message": "Şifre en az bir özel karakter ({{chars}}) içermeli."
+    }
+  },
+  "auth": {
+    "login": {
+      "heroHeadline": "Her komşu için hareket özgürlüğü.",
+      "heroDescription": "Raporlarınız, hareket güçlüğü çekenlerin erişilebilir rotaları, rampaları ve engelsiz yolları bulmasına yardımcı oluyor.",
+      "welcomeBack": "Tekrar hoş geldin",
+      "subtitle": "Topluma katkına devam etmek için bilgilerini gir.",
+      "emailLabel": "E-posta Adresi",
+      "emailPlaceholder": "isim@ornek.com",
+      "passwordLabel": "Şifre",
+      "forgotPassword": "Şifremi unuttum",
+      "showPassword": "Şifreyi göster",
+      "hidePassword": "Şifreyi gizle",
+      "signIn": "Giriş Yap",
+      "signingIn": "Giriş yapılıyor…",
+      "noAccount": "Hesabın yok mu?",
+      "createAccount": "Hesap oluştur",
+      "invalidCredentials": "Geçersiz e-posta veya şifre."
+    },
+    "signup": {
+      "heroHeadline": "Şehrini herkes için erişilebilir kıl.",
+      "heroDescription": "Erişilebilirlik özelliklerini ve engelleri haritalayan topluluğa katıl — hareket güçlüğü çekenler mahallelerinde güvenle gezebilsin.",
+      "joinMapcess": "Mapcess'e Katıl",
+      "subtitle": "Profilini oluştur ve topluluğunu iyileştirmeye başla.",
+      "fullNameLabel": "Ad Soyad",
+      "fullNamePlaceholder": "Ayşe Yılmaz",
+      "emailLabel": "E-posta Adresi",
+      "emailPlaceholder": "ayse@ornek.com",
+      "passwordLabel": "Şifre",
+      "createAccount": "Hesap Oluştur",
+      "creatingAccount": "Hesap oluşturuluyor…",
+      "haveAccount": "Zaten hesabın var mı?",
+      "login": "Giriş yap",
+      "termsLabel": "Kullanım Koşulları ve Gizlilik Politikası'nı kabul ediyorum",
+      "duplicateEmail": "Bu e-posta ile zaten bir hesap mevcut.",
+      "genericError": "Bir hata oluştu. Lütfen tekrar deneyin."
+    }
+  }
+}

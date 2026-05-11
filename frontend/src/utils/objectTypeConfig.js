@@ -199,3 +199,30 @@ export const OBJECT_TYPES = [
 ]
 
 export const OBJECT_TYPE_MAP = Object.fromEntries(OBJECT_TYPES.map(t => [t.type, t]))
+
+/**
+ * Return a localized copy of an object-type config. Pass the `t` function from
+ * `useTranslation()`. Keys live under `object.<TYPE>.*` in the locale JSON;
+ * missing keys fall back to the English label/description in this file.
+ *
+ * Strings translated: object label, issue labels, measurement labels,
+ * measurement descriptions (the long-form prose shown in ObjectTutorialModal).
+ */
+export function localizeObjectType(t, cfg) {
+  if (!cfg) return cfg
+  return {
+    ...cfg,
+    label: t(`object.${cfg.type}.label`, { defaultValue: cfg.label }),
+    issues: cfg.issues.map((i) => ({
+      ...i,
+      label: t(`object.${cfg.type}.issue.${i.key}`, { defaultValue: i.label }),
+    })),
+    measurements: cfg.measurements.map((m) => ({
+      ...m,
+      label: t(`object.${cfg.type}.measurement.${m.key}.label`, { defaultValue: m.label }),
+      description: m.description
+        ? t(`object.${cfg.type}.measurement.${m.key}.description`, { defaultValue: m.description })
+        : m.description,
+    })),
+  }
+}

@@ -46,6 +46,7 @@ class RegisteredUserServiceTest {
     @Mock private LeaderboardService leaderboardService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
+    @Mock private org.springframework.context.MessageSource messageSource;
 
     @InjectMocks
     private RegisteredUserService registeredUserService;
@@ -74,6 +75,23 @@ class RegisteredUserServiceTest {
         validLoginRequest = new LoginRequest();
         validLoginRequest.setEmail("test@test.com");
         validLoginRequest.setPassword("StrongP@ss1");
+
+        // MessageSource always returns the message code's last-segment hint so
+        // existing `getMessage().contains(...)` assertions still match.
+        org.mockito.Mockito.lenient()
+            .when(messageSource.getMessage(org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(inv -> {
+                String code = inv.getArgument(0);
+                return switch (code) {
+                    case "error.email.alreadyInUse" -> "Email is already in use.";
+                    case "error.password.weak" -> "Password must be at least 8 characters long.";
+                    case "error.auth.invalidCredentials" -> "Invalid email or password";
+                    case "error.search.emptyQuery" -> "Search query must not be empty.";
+                    default -> code;
+                };
+            });
     }
 
     // --- REGISTER TESTS ---
@@ -609,5 +627,83 @@ class RegisteredUserServiceTest {
 
         assertEquals(0, dtos.getTotalElements());
         verify(reportRepository, never()).countByCreatedByIdIn(anyCollection());
+    }
+
+    // --- UPDATE LANGUAGE TESTS (#505) ---
+
+    @Test
+    void updateLanguage_happyPath_persistsLanguageAndReturnsSelfView() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        com.bounswe2026group1.backend.dto.UpdateLanguageRequest req =
+                new com.bounswe2026group1.backend.dto.UpdateLanguageRequest("TR");
+        UserProfileDTO dto = registeredUserService.updateLanguage(1L, req);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals(com.bounswe2026group1.backend.model.Language.TR,
+                captor.getValue().getPreferredLanguage());
+        // Self-view → preferredLanguage is included in the DTO.
+        assertEquals("TR", dto.getPreferredLanguage());
+        assertEquals("test@test.com", dto.getEmail(), "self-view should also include email");
+    }
+
+    @Test
+    void updateLanguage_lowercaseInput_isCoerced() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        registeredUserService.updateLanguage(1L,
+                new com.bounswe2026group1.backend.dto.UpdateLanguageRequest("tr"));
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertEquals(com.bounswe2026group1.backend.model.Language.TR,
+                captor.getValue().getPreferredLanguage());
+    }
+
+    @Test
+    void updateLanguage_unknownValue_throwsIllegalArgument() {
+        // No findById stub — enum validation runs first and short-circuits
+        // before the repository is touched. Mockito strict mode would flag
+        // any stub here as unused.
+        assertThrows(IllegalArgumentException.class, () ->
+                registeredUserService.updateLanguage(1L,
+                        new com.bounswe2026group1.backend.dto.UpdateLanguageRequest("DE")));
+        verify(registeredUserRepository, never()).save(any(RegisteredUser.class));
+    }
+
+    @Test
+    void updateLanguage_userMissing_throwsNoSuchElement() {
+        when(registeredUserRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () ->
+                registeredUserService.updateLanguage(99L,
+                        new com.bounswe2026group1.backend.dto.UpdateLanguageRequest("EN")));
+        verify(registeredUserRepository, never()).save(any(RegisteredUser.class));
+    }
+
+    @Test
+    void preferredLanguage_omittedOnPublicLookups_includedOnSelfView() {
+        mockUser.setPreferredLanguage(com.bounswe2026group1.backend.model.Language.TR);
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(reportRepository.countByCreatedById(1L)).thenReturn(0L);
+        when(routeRepository.countByCreatedById(1L)).thenReturn(0L);
+
+        // Public lookup: language hidden (privacy parity with email).
+        UserProfileDTO publicDto = registeredUserService.getProfileById(1L);
+        assertNull(publicDto.getPreferredLanguage());
+        assertNull(publicDto.getEmail());
+
+        // Self lookup: both included.
+        when(registeredUserRepository.findByEmail("test@test.com")).thenReturn(Optional.of(mockUser));
+        UserProfileDTO selfDto = registeredUserService.getProfileByEmail("test@test.com");
+        assertEquals("TR", selfDto.getPreferredLanguage());
+        assertEquals("test@test.com", selfDto.getEmail());
     }
 }

@@ -9,7 +9,7 @@ import {
 } from './reportService.js'
 import { apiFetch } from './api.js'
 
-vi.mock('./api.js', () => ({ apiFetch: vi.fn() }))
+vi.mock('./api.js', () => ({ apiFetch: vi.fn(), currentLanguageTag: vi.fn(() => 'en') }))
 
 describe('reportService — fix request helpers', () => {
   beforeEach(() => {

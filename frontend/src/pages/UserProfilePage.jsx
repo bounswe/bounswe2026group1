@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Navbar from '../components/Navbar.jsx'
 import BadgeList from '../components/BadgeList.jsx'
 import MyReportsSection from '../components/MyReportsSection.jsx'
@@ -14,6 +15,7 @@ function StatTile({ label, value }) {
 }
 
 function UserProfilePage() {
+  const { t } = useTranslation()
   const { userId } = useParams()
   const navigate = useNavigate()
   const { data: user, isPending, isError } = useUserProfile(userId ? Number(userId) : undefined)
@@ -23,18 +25,18 @@ function UserProfilePage() {
       <Navbar />
       <main className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6">
         {isPending && (
-          <p className="text-sm text-on-surface-variant">Loading profile…</p>
+          <p className="text-sm text-on-surface-variant">{t('profile.loadingOther')}</p>
         )}
 
         {isError && (
           <div className="flex flex-col gap-3 items-start">
-            <p role="alert" className="text-sm text-error">User not found.</p>
+            <p role="alert" className="text-sm text-error">{t('profile.userNotFound')}</p>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="text-sm text-primary font-semibold hover:underline cursor-pointer"
             >
-              Go back
+              {t('profile.goBack')}
             </button>
           </div>
         )}
@@ -61,34 +63,34 @@ function UserProfilePage() {
                     {user.name}
                   </h1>
                   <span className="inline-block mt-2 text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {user.role}
+                    {t(`profile.role.${user.role}`, { defaultValue: user.role })}
                   </span>
                 </div>
               </div>
             </section>
 
             <section className="flex gap-3 flex-wrap">
-              <StatTile label="Reports submitted" value={user.contributionStats?.reportsSubmitted ?? 0} />
-              <StatTile label="Routes planned" value={user.contributionStats?.routesPlanned ?? 0} />
-              <StatTile label="Points" value={user.points ?? 0} />
+              <StatTile label={t('profile.reportsSubmitted')} value={user.contributionStats?.reportsSubmitted ?? 0} />
+              <StatTile label={t('profile.routesPlanned')} value={user.contributionStats?.routesPlanned ?? 0} />
+              <StatTile label={t('profile.points')} value={user.points ?? 0} />
               {/* Rank is omitted entirely when the user has opted out, instead
                   of showing "Hidden" — that detail is private to the owner. */}
               {!user.leaderboardHidden && user.rank != null && (
-                <StatTile label="Rank" value={`#${user.rank}`} />
+                <StatTile label={t('profile.rank')} value={`#${user.rank}`} />
               )}
             </section>
 
             {user.badges && user.badges.length > 0 && (
               <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-3">
-                <h2 className="text-xl font-bold font-headline text-on-surface">Badges</h2>
+                <h2 className="text-xl font-bold font-headline text-on-surface">{t('profile.badges')}</h2>
                 <BadgeList badges={user.badges} />
               </section>
             )}
 
             <section className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-4">
-              <h2 className="text-xl font-bold font-headline text-on-surface">About</h2>
+              <h2 className="text-xl font-bold font-headline text-on-surface">{t('profile.about')}</h2>
               <p className="text-sm text-on-surface whitespace-pre-wrap break-words">
-                {user.bio || <em className="text-on-surface-variant">No bio yet.</em>}
+                {user.bio || <em className="text-on-surface-variant">{t('profile.noBio')}</em>}
               </p>
             </section>
 

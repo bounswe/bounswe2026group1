@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * First-visit accessibility-standards onboarding for the web app.
@@ -304,11 +305,12 @@ function DoorDiagram() {
 
 function HowToReportDiagram() {
   // Four-step row: tap → describe → add media → submit
+  const { t } = useTranslation()
   const steps = [
-    { icon: 'touch_app',   label: 'Tap the map' },
-    { icon: 'add_a_photo', label: 'Add media' },
-    { icon: 'edit_note',   label: 'Describe' },
-    { icon: 'send',        label: 'Submit' },
+    { icon: 'touch_app',   label: t('onboarding.howTo.step1') },
+    { icon: 'add_a_photo', label: t('onboarding.howTo.step2') },
+    { icon: 'edit_note',   label: t('onboarding.howTo.step3') },
+    { icon: 'send',        label: t('onboarding.howTo.step4') },
   ]
   return (
     <div className="flex items-center justify-center flex-wrap gap-1.5 py-2">
@@ -329,83 +331,87 @@ function HowToReportDiagram() {
 
 /* ─────────────────────────  Slide content  ───────────────────────── */
 
+// Slide metadata. Text fields are i18n KEYS — the component resolves them
+// at render time via t(...). Keep this structure stable across languages;
+// only the values inside the en/tr JSON change.
 const SLIDES = [
   {
     id: 'welcome',
-    title: 'Welcome to Mapcess',
+    titleKey: 'onboarding.welcome.title',
     icon: 'explore',
     badgeColor: 'var(--color-primary)',
     diagram: <WelcomeDiagram />,
-    tipTitle: "What you'll learn",
-    tip: 'A quick tour of the four most common things people report — ramps, sidewalks, elevators, and doors — and how to file your first report in under a minute.',
+    tipTitleKey: 'onboarding.welcome.tipTitle',
+    tipKey: 'onboarding.welcome.tip',
   },
   {
     id: 'ramps',
-    title: 'Ramps',
+    titleKey: 'onboarding.ramps.title',
     icon: 'accessible_forward',
     badgeColor: '#2E7D32',
     bullets: [
-      { jsx: <>Slope <strong>≤ 10%</strong> — steeper blocks wheelchairs</>, aud: ['mob'] },
-      { jsx: <>Clear width <strong>≥ 100 cm</strong> — room for a walker + helper</>, aud: ['mob'] },
-      { jsx: <>Handrails on both sides at <strong>90 cm</strong> (extra rail at 70 cm for shorter users)</>, aud: ['mob', 'eld', 'vis'] },
-      { jsx: <><strong>Tactile warning strip</strong> at the top and bottom of the ramp</>, aud: ['vis'] },
+      { key: 'onboarding.ramps.bullet1', aud: ['mob'] },
+      { key: 'onboarding.ramps.bullet2', aud: ['mob'] },
+      { key: 'onboarding.ramps.bullet3', aud: ['mob', 'eld', 'vis'] },
+      { key: 'onboarding.ramps.bullet4', aud: ['vis'] },
     ],
     diagram: <RampDiagram />,
-    diagramCaption: <>slope = H ÷ L · accessible when <em className="not-italic font-bold text-primary-dim">≤ 10%</em></>,
+    diagramCaptionKey: 'onboarding.ramps.diagramCaption',
   },
   {
     id: 'sidewalks',
-    title: 'Sidewalks',
+    titleKey: 'onboarding.sidewalks.title',
     icon: 'directions_walk',
     badgeColor: '#495F69',
     bullets: [
-      { jsx: <>Clear width <strong>≥ 150 cm</strong> — wheelchairs need to pass each other</>, aud: ['mob'] },
-      { jsx: <>Overhead clearance <strong>≥ 220 cm</strong> — no low branches or signs</>, aud: ['mob', 'vis', 'eld'] },
-      { jsx: <><strong>Contrasting strip</strong> along the curb edge so it's visible against the road</>, aud: ['vis'] },
+      { key: 'onboarding.sidewalks.bullet1', aud: ['mob'] },
+      { key: 'onboarding.sidewalks.bullet2', aud: ['mob', 'vis', 'eld'] },
+      { key: 'onboarding.sidewalks.bullet3', aud: ['vis'] },
     ],
     diagram: <SidewalkDiagram />,
-    diagramCaption: 'Top-down view of the sidewalk',
+    diagramCaptionKey: 'onboarding.sidewalks.diagramCaption',
   },
   {
     id: 'elevators',
-    title: 'Elevators',
+    titleKey: 'onboarding.elevators.title',
     icon: 'elevator',
     badgeColor: '#B02500',
     bullets: [
-      { jsx: <>Door clear width <strong>≥ 90 cm</strong> when fully open</>, aud: ['mob'] },
-      { jsx: <><strong>Braille labels</strong> on every button and voice announcement</>, aud: ['vis'] },
-      { jsx: <><strong>Visual floor display</strong> + flashing emergency alarm</>, aud: ['hear'] },
+      { key: 'onboarding.elevators.bullet1', aud: ['mob'] },
+      { key: 'onboarding.elevators.bullet2', aud: ['vis'] },
+      { key: 'onboarding.elevators.bullet3', aud: ['hear'] },
     ],
     diagram: <ElevatorDiagram />,
-    diagramCaption: 'Top-down view of the cabin',
+    diagramCaptionKey: 'onboarding.elevators.diagramCaption',
   },
   {
     id: 'doors',
-    title: 'Doors',
+    titleKey: 'onboarding.doors.title',
     icon: 'door_front',
     badgeColor: '#8B6A00',
     bullets: [
-      { jsx: <>Clear width <strong>≥ 90 cm</strong> when fully open</>, aud: ['mob'] },
-      { jsx: <><strong>Lever handle</strong> (not a knob) — easier with weak grip</>, aud: ['mob', 'eld'] },
-      { jsx: <>Glass panels marked with <strong>contrasting bands</strong> at eye level</>, aud: ['vis'] },
+      { key: 'onboarding.doors.bullet1', aud: ['mob'] },
+      { key: 'onboarding.doors.bullet2', aud: ['mob', 'eld'] },
+      { key: 'onboarding.doors.bullet3', aud: ['vis'] },
     ],
     diagram: <DoorDiagram />,
-    diagramCaption: 'Front view — entrance door',
+    diagramCaptionKey: 'onboarding.doors.diagramCaption',
   },
   {
     id: 'how-to',
-    title: 'How to file a report',
+    titleKey: 'onboarding.howTo.title',
     icon: 'add_location_alt',
     badgeColor: 'var(--color-primary)',
     diagram: <HowToReportDiagram />,
-    tipTitle: 'Done in under a minute',
-    tip: 'Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone.',
+    tipTitleKey: 'onboarding.howTo.tipTitle',
+    tipKey: 'onboarding.howTo.tip',
   },
 ]
 
 /* ─────────────────────────  Component  ───────────────────────── */
 
 export default function OnboardingTutorial({ onClose }) {
+  const { t } = useTranslation()
   const [index, setIndex] = useState(0)
   const closeButtonRef = useRef(null)
   const total = SLIDES.length
@@ -465,7 +471,7 @@ export default function OnboardingTutorial({ onClose }) {
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            aria-label="Close tutorial"
+            aria-label={t('onboarding.closeTutorial')}
             className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-xl">close</span>
@@ -491,7 +497,7 @@ export default function OnboardingTutorial({ onClose }) {
               </span>
             </div>
             <h2 id="onboarding-title" className="text-2xl font-bold font-headline text-on-surface mb-2">
-              {slide.title}
+              {t(slide.titleKey)}
             </h2>
           </div>
 
@@ -506,7 +512,7 @@ export default function OnboardingTutorial({ onClose }) {
                   >
                     check_circle
                   </span>
-                  <span className="flex-1 onboarding-bullet">{bullet.jsx}</span>
+                  <span className="flex-1 onboarding-bullet">{t(bullet.key)}</span>
                   <span className="inline-flex gap-1 flex-shrink-0">
                     {bullet.aud.map((group) => (
                       <AudienceChip key={group} group={group} />
@@ -520,20 +526,20 @@ export default function OnboardingTutorial({ onClose }) {
           {slide.diagram && (
             <div className="w-full max-w-[440px] bg-surface-container-low border border-surface-container-high rounded-xl px-3 pt-2.5 pb-1.5 mb-3">
               {slide.diagram}
-              {slide.diagramCaption && (
+              {slide.diagramCaptionKey && (
                 <div className="text-center text-[12.5px] font-medium text-on-surface-variant mt-0.5">
-                  {slide.diagramCaption}
+                  {t(slide.diagramCaptionKey)}
                 </div>
               )}
             </div>
           )}
 
-          {slide.tip && (
+          {slide.tipKey && (
             <div className="self-stretch bg-surface-container-low border-l-[3px] border-primary text-[13.5px] leading-relaxed py-2.5 px-3.5 rounded text-on-surface text-left max-w-[440px] mx-auto">
               <div className="text-[11px] font-bold uppercase tracking-wider text-primary-dim mb-0.5">
-                {slide.tipTitle ?? 'Tip'}
+                {t(slide.tipTitleKey ?? 'onboarding.tipDefault')}
               </div>
-              {slide.tip}
+              {t(slide.tipKey)}
             </div>
           )}
         </div>
@@ -545,7 +551,7 @@ export default function OnboardingTutorial({ onClose }) {
             onClick={onClose}
             className={`px-3 py-2 rounded-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low cursor-pointer ${isLast ? 'invisible' : ''}`}
           >
-            Skip tour
+            {t('onboarding.skipTour')}
           </button>
           <div className="flex items-center gap-2">
             <button
@@ -554,14 +560,14 @@ export default function OnboardingTutorial({ onClose }) {
               disabled={index === 0}
               className="px-5 py-2 rounded-full text-sm font-semibold bg-surface-container hover:bg-surface-container-high text-on-surface disabled:opacity-0 disabled:pointer-events-none cursor-pointer"
             >
-              Back
+              {t('onboarding.back')}
             </button>
             <button
               type="button"
               onClick={handlePrimary}
               className="px-5 py-2 rounded-full text-sm font-semibold bg-primary hover:bg-primary-dim text-on-primary inline-flex items-center gap-1 cursor-pointer"
             >
-              <span>{isLast ? 'Got it' : 'Next'}</span>
+              <span>{isLast ? t('onboarding.gotIt') : t('onboarding.next')}</span>
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
                 {isLast ? 'check' : 'arrow_forward'}
               </span>

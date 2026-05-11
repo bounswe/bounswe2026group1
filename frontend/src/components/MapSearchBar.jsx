@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Parse "lat, lng" or two decimal numbers (same helpers as feed map modal).
@@ -45,6 +46,7 @@ export default function MapSearchBar({
   inputId = 'map-search-location',
   filterSlot = null,
 }) {
+  const { t } = useTranslation()
   const [searchValue, setSearchValue] = useState(initialValue)
   const [searchError, setSearchError] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState([])
@@ -116,7 +118,7 @@ export default function MapSearchBar({
       )
       const results = await res.json()
       if (!results.length) {
-        setSearchError('No results found.')
+        setSearchError(t('home.searchNoResults'))
         return
       }
       onLocationPicked({
@@ -124,7 +126,7 @@ export default function MapSearchBar({
         lon: parseFloat(results[0].lon),
       })
     } catch {
-      setSearchError('Search failed. Please try again.')
+      setSearchError(t('home.searchFailed'))
     }
   }
 
@@ -133,7 +135,7 @@ export default function MapSearchBar({
       <div className="flex items-center bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 pointer-events-auto">
         <span className="material-symbols-outlined text-primary text-xl sm:text-2xl">location_on</span>
         <div className="flex-1 min-w-0">
-          <p className="hidden sm:block text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>
+          <p className="hidden sm:block text-[10px] uppercase tracking-wider font-bold text-secondary">{t('home.currentLocation')}</p>
           <input
             id={inputId}
             type="text"
@@ -142,7 +144,7 @@ export default function MapSearchBar({
             onKeyDown={handleSearchKeyDown}
             onFocus={() => setSearchValue('')}
             onBlur={() => setTimeout(() => setSearchSuggestions([]), 150)}
-            placeholder="Search location..."
+            placeholder={t('home.searchLocationPlaceholder')}
             className="bg-transparent border-none p-0 w-full text-on-surface font-headline font-semibold focus:ring-0 text-sm outline-none"
           />
         </div>

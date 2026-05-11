@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/jpg']
 const MAX_BYTES = 15 * 1024 * 1024
@@ -14,6 +15,7 @@ function validateFile(file) {
 }
 
 function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, onDelete }) {
+  const { t } = useTranslation()
   const [pendingFile, setPendingFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [error, setError] = useState('')
@@ -75,7 +77,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
       setPendingFile(null)
       setPreviewUrl(null)
     } catch (e) {
-      setError(e.message || 'Failed to upload avatar.')
+      setError(e.message || t('avatar.uploadFailed'))
     }
   }
 
@@ -87,11 +89,11 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
 
   async function handleDelete() {
     if (!currentAvatarUrl) return
-    if (!window.confirm('Remove your avatar?')) return
+    if (!window.confirm(t('avatar.removeConfirm'))) return
     try {
       await onDelete()
     } catch (e) {
-      setError(e.message || 'Failed to remove avatar.')
+      setError(e.message || t('avatar.removeFailed'))
     }
   }
 
@@ -140,7 +142,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
                 disabled={isUploading}
                 className="px-4 py-2 rounded-lg primary-gradient text-on-primary font-semibold disabled:opacity-60 cursor-pointer"
               >
-                {isUploading ? 'Uploading…' : 'Save avatar'}
+                {isUploading ? t('avatar.uploading') : t('avatar.save')}
               </button>
               <button
                 type="button"
@@ -148,7 +150,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
                 disabled={isUploading}
                 className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold cursor-pointer"
               >
-                Cancel
+                {t('avatar.cancel')}
               </button>
             </div>
           ) : (
@@ -158,7 +160,7 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
                 onClick={() => fileInputRef.current?.click()}
                 className="px-4 py-2 rounded-lg primary-gradient text-on-primary font-semibold cursor-pointer"
               >
-                {currentAvatarUrl ? 'Change avatar' : 'Upload avatar'}
+                {currentAvatarUrl ? t('avatar.change') : t('avatar.upload')}
               </button>
               {currentAvatarUrl && (
                 <button
@@ -167,13 +169,13 @@ function AvatarUploader({ currentAvatarUrl, isUploading, isDeleting, onUpload, o
                   disabled={isDeleting}
                   className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold disabled:opacity-60 cursor-pointer"
                 >
-                  {isDeleting ? 'Removing…' : 'Remove'}
+                  {isDeleting ? t('avatar.removing') : t('avatar.remove')}
                 </button>
               )}
             </div>
           )}
           <p className="text-xs text-on-surface-variant">
-            {isDragging ? 'Drop image to preview…' : 'JPEG or PNG, max 15 MB. You can also drag-and-drop into this box.'}
+            {isDragging ? t('avatar.dropToPreview') : t('avatar.hint')}
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { SseProvider } from './context/SseContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import './index.css'
 import 'leaflet/dist/leaflet.css'
+import './i18n/index.js'
 import App from './App.jsx'
 
 const queryClient = new QueryClient({

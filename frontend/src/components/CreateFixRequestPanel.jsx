@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext.jsx'
 import { submitFixRequest } from '../services/reportService.js'
 
@@ -14,6 +15,7 @@ import { submitFixRequest } from '../services/reportService.js'
  * picked them when the report was created, so we don't ask again.
  */
 function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) {
+  const { t } = useTranslation()
   const { token, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [imageFile, setImageFile] = useState(null)
@@ -41,7 +43,7 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
     const file = e.dataTransfer.files?.[0]
     if (!file) return
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      setError('Only JPG or PNG files are accepted.')
+      setError(t('report.createFixOnlyJpgPng'))
       return
     }
     setImage(file)
@@ -49,7 +51,7 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
 
   async function handleSubmit() {
     if (!isAuthenticated) { onClose(); navigate('/login'); return }
-    if (!imageFile) return setError('Please attach a photo of the fixed area.')
+    if (!imageFile) return setError(t('report.createFixAttachPhoto'))
 
     setSubmitting(true)
     setError('')
@@ -62,11 +64,11 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
       // a friendlier message — server returns the raw status reason which is
       // OK but not great copy.
       if (err.status === 409) {
-        setError('Someone else already submitted a fix report for this. Vote on theirs instead.')
+        setError(t('report.createFixDuplicate'))
       } else if (err.status === 400) {
-        setError(err.message || 'Invalid submission. Check your photo and description length.')
+        setError(err.message || t('report.createFixInvalidSubmission'))
       } else {
-        setError(err.message || 'Failed to submit fix report. Please try again.')
+        setError(err.message || t('report.createFixGenericError'))
       }
     } finally {
       setSubmitting(false)
@@ -82,7 +84,7 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
       />
       <aside
         role="dialog"
-        aria-label="Submit fix report"
+        aria-label={t('report.createFixAria')}
         className="fixed top-0 right-0 h-full z-[1400] w-full lg:w-[500px] bg-surface-container-low overflow-y-auto border-l border-outline-variant/10 flex flex-col"
       >
         {/* Header */}
@@ -93,17 +95,17 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
             </div>
             <div>
               <h2 className="text-2xl font-extrabold font-headline text-on-surface leading-tight">
-                Report as Fixed
+                {t('report.createFixHeading')}
               </h2>
               <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">
-                {reportTitle ? `For: ${reportTitle}` : 'Share a photo so the community can verify.'}
+                {reportTitle ? t('report.createFixFor', { title: reportTitle }) : t('report.createFixSubtitle')}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors flex-shrink-0"
-            aria-label="Close"
+            aria-label={t('report.createFixClose')}
           >
             <span className="material-symbols-outlined text-base">close</span>
           </button>
@@ -113,13 +115,13 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
           {/* Inherited-context banner */}
           <div className="bg-surface-container px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-on-surface-variant">
             <span className="material-symbols-outlined text-base">link</span>
-            <span>Location and category are inherited from the parent report.</span>
+            <span>{t('report.createFixInheritedBanner')}</span>
           </div>
 
           {/* Photo (required) */}
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-              Photo of the fixed area <span className="text-error">*</span>
+              {t('report.createFixPhotoLabel')} <span className="text-error">*</span>
             </p>
             <div
               onClick={() => fileInputRef.current?.click()}
@@ -132,8 +134,8 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
               ) : (
                 <>
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                  <p className="text-sm font-medium text-on-surface-variant">Upload or drop a photo of the resolved spot</p>
-                  <p className="text-xs text-outline">JPG or PNG, max 15 MB</p>
+                  <p className="text-sm font-medium text-on-surface-variant">{t('report.createFixUploadHint')}</p>
+                  <p className="text-xs text-outline">{t('report.createFixUploadFormat')}</p>
                 </>
               )}
             </div>
@@ -149,14 +151,14 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
           {/* Description (optional) */}
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-              What changed? <span className="text-on-surface-variant/70 normal-case tracking-normal font-medium">(optional)</span>
+              {t('report.createFixWhatChanged')} <span className="text-on-surface-variant/70 normal-case tracking-normal font-medium">{t('report.createFixOptional')}</span>
             </p>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value.slice(0, 1000))}
               rows={3}
               maxLength={1000}
-              placeholder="A new ramp was installed last week."
+              placeholder={t('report.createFixDescriptionPlaceholder')}
               className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
@@ -173,8 +175,7 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
 
           {/* Helper copy explaining the rule */}
           <p className="text-xs text-on-surface-variant text-center">
-            Other users will vote on your fix. It confirms as <strong>Fixed</strong> when at least
-            5 people agree <strong>and</strong> consensus reaches 60% — then it auto-deletes after 7 days.
+            {t('report.createFixRuleCopy')}
           </p>
 
           {/* Actions */}
@@ -183,14 +184,14 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
               onClick={onClose}
               className="py-4 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container transition-colors"
             >
-              Cancel
+              {t('report.createFixCancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
               className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
             >
-              {submitting ? 'Submitting…' : 'Submit Fix Report'}
+              {submitting ? t('report.createFixSubmitting') : t('report.createFixSubmit')}
             </button>
           </div>
         </div>

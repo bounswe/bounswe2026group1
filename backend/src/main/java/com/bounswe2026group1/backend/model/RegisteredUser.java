@@ -121,6 +121,16 @@ public class RegisteredUser {
             columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean leaderboardHidden = false;
 
+    /**
+     * UI language preference. Web and mobile read this on login so the
+     * choice survives a fresh session on another device. Declared last to
+     * keep the Lombok all-args constructor backwards-compatible.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_language", nullable = false, length = 8,
+            columnDefinition = "VARCHAR(8) DEFAULT 'EN'")
+    private Language preferredLanguage = Language.EN;
+
     @PrePersist
     protected void onCreate() {
         if (this.registeredAt == null) {
@@ -134,6 +144,9 @@ public class RegisteredUser {
         }
         if (this.routingConstraints == null) {
             this.routingConstraints = new HashSet<>();
+        }
+        if (this.preferredLanguage == null) {
+            this.preferredLanguage = Language.EN;
         }
     }
 }

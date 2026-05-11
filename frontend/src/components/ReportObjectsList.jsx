@@ -1,4 +1,5 @@
-import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { useTranslation } from 'react-i18next'
+import { OBJECT_TYPE_MAP, localizeObjectType } from '../utils/objectTypeConfig.js'
 
 /**
  * Renders the multi-object section of a mapped report (icon + label per object,
@@ -7,13 +8,14 @@ import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
  * object (not a JSON string) and objects[].issues is an array of keys.
  */
 function ReportObjectsList({ objects }) {
+  const { t } = useTranslation()
   if (!objects?.length) return null
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Objects</h3>
+      <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{t('report.objects')}</h3>
       {objects.map((obj, i) => {
-        const cfg = OBJECT_TYPE_MAP[obj.objectType]
+        const cfg = localizeObjectType(t, OBJECT_TYPE_MAP[obj.objectType])
         return (
           <div key={i} className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2">

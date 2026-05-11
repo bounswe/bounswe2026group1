@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useActivateCustomProfile,
   useCreateCustomProfile,
@@ -12,9 +13,10 @@ import PresetDetailsModal from './PresetDetailsModal.jsx'
 
 const MAX_CUSTOM_PROFILES = 5
 
-const TRAVEL_MODE_LABELS = {
-  WALKING:    { label: 'Walking',    icon: 'directions_walk' },
-  WHEELCHAIR: { label: 'Wheelchair', icon: 'accessible' },
+// Travel-mode icons stay here; labels come from i18n at render time.
+const TRAVEL_MODE_ICONS = {
+  WALKING:    'directions_walk',
+  WHEELCHAIR: 'accessible',
 }
 
 const PRESET_ICONS = {
@@ -37,7 +39,10 @@ function PresetCard({
   infoAriaLabel,
   disabled,
 }) {
-  const tm = travelMode ? TRAVEL_MODE_LABELS[travelMode] : null
+  const { t } = useTranslation()
+  const tm = travelMode
+    ? { label: t(`routing.travelMode.${travelMode}`), icon: TRAVEL_MODE_ICONS[travelMode] }
+    : null
 
   function handleKeyDown(e) {
     if (disabled) return
@@ -66,7 +71,7 @@ function PresetCard({
       {active && (
         <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-bold">
           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
-          Active
+          {t('routing.active')}
         </span>
       )}
       <div className="flex items-center gap-2">
@@ -77,7 +82,7 @@ function PresetCard({
         <span className="text-xs text-on-surface-variant">{subtitle}</span>
       )}
       <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1">
-        <span>{constraintCount} {constraintCount === 1 ? 'rule' : 'rules'}</span>
+        <span>{t(constraintCount === 1 ? 'routing.ruleOne' : 'routing.ruleOther', { count: constraintCount })}</span>
         {tm && (
           <span className="inline-flex items-center gap-1">
             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{tm.icon}</span>
@@ -100,6 +105,7 @@ function PresetCard({
 }
 
 function RoutingPreferencesSection() {
+  const { t } = useTranslation()
   const { data, isPending, isError, error, refetch } = useRoutingPreferences()
   const updatePrefs = useUpdateRoutingPreferences()
   const createCustom = useCreateCustomProfile()
@@ -128,7 +134,7 @@ function RoutingPreferencesSection() {
   if (isPending) {
     return (
       <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
-        <p className="text-sm text-on-surface-variant">Loading routing preferences…</p>
+        <p className="text-sm text-on-surface-variant">{t('routing.loading')}</p>
       </section>
     )
   }
@@ -209,7 +215,7 @@ function RoutingPreferencesSection() {
       }
       closeEditor()
     } catch (e) {
-      setEditorError(e.message || 'Failed to save preset.')
+      setEditorError(e.message || t('routing.saveFailed'))
       throw e
     }
   }
@@ -221,7 +227,7 @@ function RoutingPreferencesSection() {
       await deleteCustom.mutateAsync(editingProfile.id)
       closeEditor()
     } catch (e) {
-      setEditorError(e.message || 'Failed to delete preset.')
+      setEditorError(e.message || t('routing.deleteFailed'))
       throw e
     }
   }
@@ -246,32 +252,34 @@ function RoutingPreferencesSection() {
   return (
     <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
-        <h2 className="text-xl font-bold font-headline text-on-surface">Routing preferences</h2>
+        <h2 className="text-xl font-bold font-headline text-on-surface">{t('routing.title')}</h2>
         <span className="text-xs text-on-surface-variant">
-          {customProfiles.length}/{MAX_CUSTOM_PROFILES} custom presets
+          {t('routing.customCount', { count: customProfiles.length, max: MAX_CUSTOM_PROFILES })}
         </span>
       </div>
       <p className="text-sm text-on-surface-variant -mt-2">
-        Pick a preset to shape every accessible-route request you make. Built-in presets cover
-        common needs; you can also save up to {MAX_CUSTOM_PROFILES} of your own.
+        {t('routing.intro')}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {visiblePresets.map(preset => {
           const isActive = !activeCustomProfileId && preferredPreset === preset.name
+          // Built-in preset labels come from the backend in English; override
+          // with the i18n key when present, fall back to the API label.
+          const label = t(`routing.presets.${preset.name}`, { defaultValue: preset.label })
           return (
             <PresetCard
               key={preset.name}
               active={isActive}
-              title={preset.label}
-              ariaLabel={`Activate ${preset.label}`}
+              title={label}
+              ariaLabel={t('routing.activateLabel', { label })}
               travelMode={preset.defaultTravelMode}
               constraintCount={preset.constraints?.length ?? 0}
               iconName={PRESET_ICONS[preset.name] ?? 'tune'}
               disabled={updatePrefs.isPending || activateCustom.isPending}
               onClick={() => selectBuiltIn(preset.name)}
               onInfoClick={() => openBuiltinDetails(preset)}
-              infoAriaLabel={`View ${preset.label} details`}
+              infoAriaLabel={t('routing.detailsLabel', { label })}
             />
           )
         })}
@@ -283,7 +291,7 @@ function RoutingPreferencesSection() {
               key={`custom-${profile.id}`}
               active={isActive}
               title={profile.name}
-              ariaLabel={`Activate ${profile.name}`}
+              ariaLabel={t('routing.activateLabel', { label: profile.name })}
               subtitle="Custom"
               travelMode={profile.preferredTravelMode}
               constraintCount={profile.constraints?.length ?? 0}
@@ -291,7 +299,7 @@ function RoutingPreferencesSection() {
               disabled={updatePrefs.isPending || activateCustom.isPending}
               onClick={() => activateCustomById(profile.id)}
               onInfoClick={() => openCustomDetails(profile)}
-              infoAriaLabel={`View ${profile.name} details`}
+              infoAriaLabel={t('routing.detailsLabel', { label: profile.name })}
             />
           )
         })}
@@ -300,11 +308,11 @@ function RoutingPreferencesSection() {
           type="button"
           onClick={openCreate}
           disabled={atCap}
-          title={atCap ? `You can save at most ${MAX_CUSTOM_PROFILES} custom presets.` : ''}
+          title={atCap ? t('routing.atCapTitle', { max: MAX_CUSTOM_PROFILES }) : ''}
           className="p-4 rounded-2xl border-2 border-dashed border-outline-variant text-on-surface-variant flex flex-col items-center justify-center gap-1 hover:border-primary/40 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer min-h-[100px]"
         >
           <span className="material-symbols-outlined">add</span>
-          <span className="text-sm font-semibold">Create custom preset</span>
+          <span className="text-sm font-semibold">{t('routing.createCustom')}</span>
           {atCap && <span className="text-xs">Limit reached</span>}
         </button>
       </div>

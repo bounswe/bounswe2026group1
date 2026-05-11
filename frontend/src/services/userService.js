@@ -1,4 +1,4 @@
-import { apiFetch } from './api.js'
+import { apiFetch, currentLanguageTag } from './api.js'
 
 function authHeaders(token) {
   return { Authorization: `Bearer ${token}` }
@@ -25,13 +25,23 @@ export async function updateProfile(id, body, token) {
   })
 }
 
+// Set the caller's UI language preference (#505). Backend persists it on
+// RegisteredUser so the choice survives a fresh login on another device.
+export async function updateLanguage(id, language, token) {
+  return apiFetch(`/api/users/${id}/profile/language`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({ language }),
+  })
+}
+
 export async function uploadAvatar(id, file, token) {
   const formData = new FormData()
   formData.append('file', file)
 
   const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/profile/avatar`, {
     method: 'POST',
-    headers: authHeaders(token),
+    headers: { ...authHeaders(token), 'Accept-Language': currentLanguageTag() },
     body: formData,
   })
 

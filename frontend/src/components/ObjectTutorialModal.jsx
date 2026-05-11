@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { useTranslation } from 'react-i18next'
+import { OBJECT_TYPE_MAP, localizeObjectType } from '../utils/objectTypeConfig.js'
 
 /**
  * ObjectTutorialModal
@@ -14,7 +15,8 @@ import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
  *  - onClose:    () => void
  */
 function ObjectTutorialModal({ objectType, onClose }) {
-  const cfg = OBJECT_TYPE_MAP[objectType]
+  const { t } = useTranslation()
+  const cfg = localizeObjectType(t, OBJECT_TYPE_MAP[objectType])
   const closeButtonRef = useRef(null)
 
   useEffect(() => {
@@ -33,10 +35,10 @@ function ObjectTutorialModal({ objectType, onClose }) {
 
   function thresholdText(m) {
     if (m.accessible_min !== undefined && m.accessible_max !== undefined) {
-      return `${m.accessible_min}–${m.accessible_max} ${m.unit} is accessible`
+      return t('createReport.thresholdRange', { min: m.accessible_min, max: m.accessible_max, unit: m.unit })
     }
-    if (m.accessible_min !== undefined) return `≥ ${m.accessible_min} ${m.unit} is accessible`
-    if (m.accessible_max !== undefined) return `≤ ${m.accessible_max} ${m.unit} is accessible`
+    if (m.accessible_min !== undefined) return t('createReport.thresholdMin', { min: m.accessible_min, unit: m.unit })
+    if (m.accessible_max !== undefined) return t('createReport.thresholdMax', { max: m.accessible_max, unit: m.unit })
     return null
   }
 
@@ -48,7 +50,7 @@ function ObjectTutorialModal({ objectType, onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`How to measure ${cfg.label}`}
+      aria-label={t('createReport.howToMeasureAria', { label: cfg.label })}
       onClick={handleBackdrop}
       className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
     >
@@ -57,14 +59,14 @@ function ObjectTutorialModal({ objectType, onClose }) {
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined" style={{ color: cfg.markerColor }}>{cfg.icon}</span>
             <h3 className="text-base font-bold font-headline text-on-surface">
-              How to measure: {cfg.label}
+              {t('createReport.howToMeasure')}: {cfg.label}
             </h3>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            aria-label="Close tutorial"
+            aria-label={t('onboarding.closeTutorial')}
             className="w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center cursor-pointer"
           >
             <span className="material-symbols-outlined text-on-surface-variant">close</span>
@@ -74,7 +76,7 @@ function ObjectTutorialModal({ objectType, onClose }) {
         <div className="p-5 flex flex-col gap-4">
           {cfg.measurements.length === 0 ? (
             <p className="text-sm text-on-surface-variant">
-              No measurements are tracked for this object type.
+              {t('createReport.howToMeasureEmpty')}
             </p>
           ) : (
             <ul className="flex flex-col gap-4">
@@ -101,7 +103,7 @@ function ObjectTutorialModal({ objectType, onClose }) {
           )}
 
           <p className="text-[11px] text-on-surface-variant pt-2 border-t border-outline-variant/15">
-            Use these as a guide, not a strict rule. When in doubt, report what you observe and let the community verify.
+            {t('createReport.howToMeasureFooter')}
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { getCurrentUser, getUserById, searchUsers } from './userService.js'
 import { apiFetch } from './api.js'
 
-vi.mock('./api.js', () => ({ apiFetch: vi.fn() }))
+vi.mock('./api.js', () => ({ apiFetch: vi.fn(), currentLanguageTag: vi.fn(() => 'en') }))
 
 describe('userService', () => {
   beforeEach(() => vi.clearAllMocks())
