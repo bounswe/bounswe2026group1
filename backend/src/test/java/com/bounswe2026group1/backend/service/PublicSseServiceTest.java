@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,6 +45,36 @@ class PublicSseServiceTest {
     }
 
     @Test
+    void broadcastPointsChanged_pushesOneEventPerSubscriber() {
+        PublicSseService service = new PublicSseService();
+        ReflectionTestUtils.setField(service, "maxConnections", 10);
+        ReflectionTestUtils.setField(service, "maxConnectionsPerSource", 10);
+        ReflectionTestUtils.invokeMethod(service, "initPermitPool");
+
+        AtomicInteger sendCount = new AtomicInteger(0);
+        service.addEmitterForTest(new CountingEmitter(sendCount));
+
+        service.broadcastPointsChanged(42L, 55);
+
+        assertEquals(1, sendCount.get());
+    }
+
+    @Test
+    void broadcastPointsChanged_nullUserId_isNoOp() {
+        PublicSseService service = new PublicSseService();
+        ReflectionTestUtils.setField(service, "maxConnections", 10);
+        ReflectionTestUtils.setField(service, "maxConnectionsPerSource", 10);
+        ReflectionTestUtils.invokeMethod(service, "initPermitPool");
+
+        AtomicInteger sendCount = new AtomicInteger(0);
+        service.addEmitterForTest(new CountingEmitter(sendCount));
+
+        service.broadcastPointsChanged(null, 5);
+
+        assertEquals(0, sendCount.get());
+    }
+
+    @Test
     void subscribe_sameSourceExceedingLimit_throwsTooManyRequests() {
         PublicSseService service = new PublicSseService();
         ReflectionTestUtils.setField(service, "maxConnections", 10);
@@ -61,6 +92,19 @@ class PublicSseServiceTest {
         @Override
         public synchronized void send(SseEventBuilder builder) throws IOException {
             throw new IOException("forced failure");
+        }
+    }
+
+    private static class CountingEmitter extends SseEmitter {
+        private final AtomicInteger counter;
+
+        CountingEmitter(AtomicInteger counter) {
+            this.counter = counter;
+        }
+
+        @Override
+        public synchronized void send(SseEventBuilder builder) {
+            counter.incrementAndGet();
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.PointsChangedSseEvent;
 import com.bounswe2026group1.backend.dto.PublicSseEvent;
 import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.Report;
@@ -193,6 +194,18 @@ public class PublicSseService {
         sendToAll("report-updated", event);
     }
 
+    /**
+     * Fired whenever a user's points balance moves (cast/withdraw vote, report
+     * verified bonus, etc.). Broadcast on the public channel because the
+     * leaderboard endpoint itself is public — anonymous tabs need to refresh
+     * top-N rankings, and authenticated tabs additionally refresh the caller's
+     * own profile when {@link PointsChangedSseEvent#userId()} matches.
+     */
+    public void broadcastPointsChanged(Long userId, Integer newPoints) {
+        if (userId == null) return;
+        sendToAll("points-changed", PointsChangedSseEvent.now(userId, newPoints));
+    }
+
     public void broadcastMediaAdded(Report report, Media media) {
         PublicSseEvent event = new PublicSseEvent(
                 "MEDIA_ADDED",
@@ -233,7 +246,7 @@ public class PublicSseService {
         });
     }
 
-    private void sendToAll(String eventName, PublicSseEvent event) {
+    private void sendToAll(String eventName, Object event) {
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event().name(eventName).data(event));

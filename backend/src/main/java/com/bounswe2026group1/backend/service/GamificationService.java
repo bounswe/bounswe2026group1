@@ -47,6 +47,7 @@ public class GamificationService {
     private final UserBadgeRepository userBadgeRepository;
     private final LeaderboardService leaderboardService;
     private final NotificationService notificationService;
+    private final PublicSseService publicSseService;
 
     @Value("${app.gamification.points.report-submit:10}")
     private int reportSubmitDelta;
@@ -319,6 +320,11 @@ public class GamificationService {
         // out of the top cutoff with this delta, and we want the badge to
         // track rank changes in real time rather than via a cron lag.
         leaderboardService.onPointsChanged(user.getId());
+
+        // Broadcast so connected clients can invalidate their leaderboard
+        // cache (and the affected user's own profile cache) without waiting
+        // for staleTime to expire or a manual refresh.
+        publicSseService.broadcastPointsChanged(user.getId(), after);
     }
 
     private boolean awardBadgeIfMissing(RegisteredUser user, Badge badge) {
