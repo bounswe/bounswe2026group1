@@ -158,8 +158,22 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportType is required");
         }
 
-        Location reportedPoint = new Location(request.getLatitude(), request.getLongitude());
-        Point reportLocation = GeoUtils.point4326(request.getLatitude(), request.getLongitude());
+        if (request.getGeometry() != null) {
+            try {
+                request.getGeometry().validate();
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
+        }
+        double lat = request.effectiveLatitude();
+        double lon = request.effectiveLongitude();
+        if (!Double.isFinite(lat) || !Double.isFinite(lon)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Report location is required — supply `geometry` (GeoJSON Point) or `latitude`/`longitude`");
+        }
+
+        Location reportedPoint = new Location(lat, lon);
+        Point reportLocation = GeoUtils.point4326(lat, lon);
         Report report = new Report(user, reportLocation, request.getDescription(),
                 request.getReportType(), request.getEnvironment());
 
@@ -233,13 +247,22 @@ public class ReportService {
             report.setEnvironment(request.getEnvironment());
         }
 
-        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getY()) > 1e-9) {
-            diff.put("latitude", new Object[]{report.getLocation().getY(), request.getLatitude()});
-            report.setLocation(GeoUtils.point4326(request.getLatitude(), report.getLocation().getX()));
+        if (request.getGeometry() != null) {
+            try {
+                request.getGeometry().validate();
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
         }
-        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getX()) > 1e-9) {
-            diff.put("longitude", new Object[]{report.getLocation().getX(), request.getLongitude()});
-            report.setLocation(GeoUtils.point4326(report.getLocation().getY(), request.getLongitude()));
+        Double newLat = request.effectiveLatitude();
+        Double newLon = request.effectiveLongitude();
+        if (newLat != null && Math.abs(newLat - report.getLocation().getY()) > 1e-9) {
+            diff.put("latitude", new Object[]{report.getLocation().getY(), newLat});
+            report.setLocation(GeoUtils.point4326(newLat, report.getLocation().getX()));
+        }
+        if (newLon != null && Math.abs(newLon - report.getLocation().getX()) > 1e-9) {
+            diff.put("longitude", new Object[]{report.getLocation().getX(), newLon});
+            report.setLocation(GeoUtils.point4326(report.getLocation().getY(), newLon));
         }
 
         if (request.getObjects() != null) {
