@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.geo.GeoJsonLineString;
 import com.bounswe2026group1.backend.dto.routing.RouteRequest;
 import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.dto.routing.RouteStep;
@@ -83,8 +84,8 @@ public class RouteService {
         boolean isWheelchairCaller = preferredMode == TravelMode.WHEELCHAIR;
         String wheelchairLabel = isWheelchairCaller ? "Accessible Route" : "Wheelchair Route";
 
-        Location start = new Location(request.getStartLat(), request.getStartLon());
-        Location end = new Location(request.getEndLat(), request.getEndLon());
+        Location start = new Location(request.effectiveStartLat(), request.effectiveStartLon());
+        Location end = new Location(request.effectiveEndLat(), request.effectiveEndLon());
 
         // Build avoid polygons once — reused for routes 2 and 3. Three-state
         // contract on `constraints`: null skips avoidance entirely, empty set
@@ -110,6 +111,7 @@ public class RouteService {
                     .durationSeconds(fastestResult.getDurationSeconds())
                     .mode(TravelMode.WALKING)
                     .geometry(fastestResult.getGeometry())
+                    .geoJsonGeometry(GeoJsonLineString.fromLocations(pathPoints))
                     .steps(fastestResult.getSteps())
                     .hasObstacles(hasObstacles)
                     .build());
@@ -129,6 +131,8 @@ public class RouteService {
                         .durationSeconds(accessibleResult.getDurationSeconds())
                         .mode(TravelMode.WALKING)
                         .geometry(accessibleResult.getGeometry())
+                        .geoJsonGeometry(GeoJsonLineString.fromLocations(
+                                PolylineDecoder.decode(accessibleResult.getGeometry())))
                         .steps(accessibleResult.getSteps())
                         .hasObstacles(false)
                         .build());
@@ -153,6 +157,8 @@ public class RouteService {
                         .durationSeconds(wheelchairResult.getDurationSeconds())
                         .mode(TravelMode.WHEELCHAIR)
                         .geometry(wheelchairResult.getGeometry())
+                        .geoJsonGeometry(GeoJsonLineString.fromLocations(
+                                PolylineDecoder.decode(wheelchairResult.getGeometry())))
                         .steps(wheelchairResult.getSteps())
                         .hasObstacles(false)
                         .build();
@@ -195,6 +201,7 @@ public class RouteService {
                                 .durationSeconds(totalDuration)
                                 .mode(TravelMode.WHEELCHAIR)
                                 .geometry(PolylineEncoder.encode(combinedPath))
+                                .geoJsonGeometry(GeoJsonLineString.fromLocations(combinedPath))
                                 .steps(combinedSteps)
                                 .hasObstacles(false)
                                 .build();
