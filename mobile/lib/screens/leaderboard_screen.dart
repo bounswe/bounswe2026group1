@@ -52,16 +52,29 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     if (event.eventType != 'POINTS_CHANGED') return;
     _refetchDebounce?.cancel();
     _refetchDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) _load();
+      if (mounted) _silentRefresh();
     });
   }
 
   Future<void> _load() async {
-    final api = context.read<AuthService>().api;
     setState(() {
       _loading = true;
       _error = null;
     });
+    await _fetchAndApply(showErrorOnFailure: true);
+  }
+
+  /// SSE-triggered refetch. Reconciles new points/ranks into existing state
+  /// without flashing the loading spinner or replacing the error banner —
+  /// the list and YourRank banner just rebuild with the new values, which
+  /// `AnimatedSwitcher` then cross-fades. A failed background refresh is
+  /// silent: the next event (or pull-to-refresh) will retry.
+  Future<void> _silentRefresh() async {
+    await _fetchAndApply(showErrorOnFailure: false);
+  }
+
+  Future<void> _fetchAndApply({required bool showErrorOnFailure}) async {
+    final api = context.read<AuthService>().api;
     try {
       final payload = await api.getLeaderboard();
       if (!mounted) return;
@@ -73,13 +86,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             .toList();
         _callerRank = rawCaller != null ? RankInfo.fromJson(rawCaller) : null;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = e is ApiException ? e.userMessage : e.toString();
-        _loading = false;
-      });
+      if (showErrorOnFailure) {
+        setState(() {
+          _error = e is ApiException ? e.userMessage : e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -151,7 +167,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _buildRow(LeaderboardEntry entry) {
+    // Keyed by userId so an SSE-driven reorder reuses the same Element for
+    // a given user — the row's content cross-fades to the new rank/points
+    // instead of the whole tile remounting.
     return Padding(
+      key: ValueKey('lb-${entry.userId}'),
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () {
@@ -202,8 +222,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       color: AppColors.onSurfaceVariant,
                     ),
                   ),
-                  Text(
-                    '${entry.points}',
+                  _AnimatedPoints(
+                    points: entry.points,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -215,6 +235,34 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A points label that cross-fades when its value changes, so SSE-driven
+/// updates feel like a tally rolling rather than a hard re-render.
+class _AnimatedPoints extends StatelessWidget {
+  final int points;
+  final TextStyle style;
+  final String prefix;
+
+  const _AnimatedPoints({
+    required this.points,
+    required this.style,
+    this.prefix = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: Text(
+        '$prefix$points',
+        key: ValueKey<int>(points),
+        style: style,
       ),
     );
   }
@@ -238,7 +286,8 @@ class _RankCell extends StatelessWidget {
           AppColors.onSurfaceVariant
         ),
     };
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
       width: 44,
       height: 36,
       decoration: BoxDecoration(
@@ -246,12 +295,18 @@ class _RankCell extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,
-      child: Text(
-        '#$rank',
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-          color: fg,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: Text(
+          '#$rank',
+          key: ValueKey<int>(rank),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            color: fg,
+          ),
         ),
       ),
     );
@@ -312,13 +367,16 @@ class _YourRankBanner extends StatelessWidget {
                     color: AppColors.onSurfaceVariant,
                   ),
                 ),
-                Text(
-                  '#${info.rank}',
+                _AnimatedPoints(
+                  points: info.rank,
+                  // Prefix the rank with '#' via a wrapper so AnimatedSwitcher
+                  // still keys on the integer.
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: AppColors.onSurface,
                   ),
+                  prefix: '#',
                 ),
               ],
             ),
@@ -335,8 +393,8 @@ class _YourRankBanner extends StatelessWidget {
                   color: AppColors.onSurfaceVariant,
                 ),
               ),
-              Text(
-                '${info.points}',
+              _AnimatedPoints(
+                points: info.points,
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
