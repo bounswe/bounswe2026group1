@@ -6,6 +6,7 @@ import {
   mapReport,
   mapFixRequest,
   mapReportStatus,
+  contributeMeasurements,
 } from './reportService.js'
 import { apiFetch } from './api.js'
 
@@ -238,6 +239,29 @@ describe('reportService — fix request helpers', () => {
     })
   })
 
+  describe('contributeMeasurements', () => {
+    it('PATCHes /api/reports/{rid}/objects/{oid}/measurements with bearer token and values', async () => {
+      apiFetch.mockResolvedValue({ reportId: 10, objects: [] })
+
+      await contributeMeasurements(10, 5, { width_cm: 120 }, 'jwt')
+
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/10/objects/5/measurements', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer jwt' },
+        body: JSON.stringify({ values: { width_cm: 120 } }),
+      })
+    })
+
+    it('returns the raw API response so the caller can pass it to mapReport', async () => {
+      const raw = { reportId: 10, objects: [], status: 'PENDING' }
+      apiFetch.mockResolvedValue(raw)
+
+      const result = await contributeMeasurements(10, 5, { width_cm: 120 }, 'jwt')
+
+      expect(result).toBe(raw)
+    })
+  })
+
   describe('mapReport', () => {
     const baseReport = {
       reportId: 1,
@@ -307,6 +331,46 @@ describe('reportService — fix request helpers', () => {
       })
       expect(result.mediaIds).toEqual([101, 102])
       expect(result.mediaUrls).toEqual(['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'])
+    })
+
+    it('includes the object id so the PATCH endpoint can be called per-object', () => {
+      const result = mapReport({
+        ...baseReport,
+        objects: [
+          { id: 7, objectType: 'RAMP', issues: ['TOO_STEEP'], measurements: '{"slope_percent":8}' },
+        ],
+      })
+      expect(result.objects[0].id).toBe(7)
+    })
+
+    it('parses measurements JSON string into an object', () => {
+      const result = mapReport({
+        ...baseReport,
+        objects: [
+          { id: 1, objectType: 'RAMP', issues: [], measurements: '{"slope_percent":8,"width_cm":120}' },
+        ],
+      })
+      expect(result.objects[0].measurements).toEqual({ slope_percent: 8, width_cm: 120 })
+    })
+
+    it('returns an empty object for measurements when the field is absent', () => {
+      const result = mapReport({
+        ...baseReport,
+        objects: [
+          { id: 1, objectType: 'RAMP', issues: [], measurements: null },
+        ],
+      })
+      expect(result.objects[0].measurements).toEqual({})
+    })
+
+    it('returns an empty object when measurements JSON is malformed', () => {
+      const result = mapReport({
+        ...baseReport,
+        objects: [
+          { id: 1, objectType: 'RAMP', issues: [], measurements: '{bad json' },
+        ],
+      })
+      expect(result.objects[0].measurements).toEqual({})
     })
   })
 })

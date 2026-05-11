@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
-import { createReport, mapReport } from '../services/reportService.js'
+import { createReport, updateReport, mapReport } from '../services/reportService.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
@@ -829,7 +829,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
+          <p role="alert" className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
         )}
 
         {/* Actions */}
