@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/app_colors.dart';
 
 /// First-visit accessibility-standards tutorial for the mobile app.
@@ -890,63 +891,15 @@ class _HowToHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const steps = <(IconData, String)>[
-      (Icons.add_location_alt, 'Add report'),
-      (Icons.place, 'Pick spot'),
-      (Icons.add_a_photo, 'Add media'),
-      (Icons.edit_note, 'Describe'),
-      (Icons.send, 'Submit'),
-    ];
-
+    // Static SVG keeps the five-step flow looking identical on every device,
+    // regardless of screen width or text-scale settings.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 6,
-        runSpacing: 12,
-        children: [
-          for (var i = 0; i < steps.length; i++) ...[
-            _StepTile(icon: steps[i].$1, label: steps[i].$2),
-            if (i < steps.length - 1)
-              Icon(Icons.chevron_right,
-                  size: 22, color: AppColors.onSurfaceVariant),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _StepTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _StepTile({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 88),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 28, color: AppColors.primary),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.onSurface,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Inter',
-            ),
-          ),
-        ],
+      child: SvgPicture.asset(
+        'assets/images/tutorial/how-to-report.svg',
+        fit: BoxFit.contain,
+        semanticsLabel:
+            'Five-step report flow: Add report, Pick spot, Add media, Describe, Submit',
       ),
     );
   }
