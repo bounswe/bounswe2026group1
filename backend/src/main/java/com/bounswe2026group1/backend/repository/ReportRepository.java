@@ -52,6 +52,13 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             @Param("type") ReportType type,
             @Param("statuses") Collection<ReportStatus> statuses);
 
+    @Query("""
+            SELECT r FROM Report r
+            WHERE r.status IN :statuses
+            AND r.environment = com.bounswe2026group1.backend.model.ReportEnvironment.OUTDOOR
+            """)
+    List<Report> findByStatusIn(@Param("statuses") Collection<ReportStatus> statuses);
+
     /**
      * Routing-only native query.
      *
