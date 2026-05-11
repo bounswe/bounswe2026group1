@@ -20,6 +20,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
+import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import { reportJsonLdString } from '../utils/schemaOrg.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
@@ -399,6 +400,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       const mappedUpdated = mapReport(updated)
       onVoteUpdate(mappedUpdated)
       onVoteChange(mappedUpdated.userVote ?? null)
+      // Vote cast/withdraw moves the caller's points. Invalidate eagerly so
+      // the caller's tab refreshes /leaderboard and the profile/navbar
+      // balance before the SSE event lands.
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      queryClient.invalidateQueries({ queryKey: currentUserKey })
     },
     onError: () => {
       setVoteError('Failed to submit vote. Please try again.')
@@ -420,6 +426,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       onVoteUpdate(patched)
       queryClient.invalidateQueries({ queryKey: reportKeys.detail(report.id) })
       queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      queryClient.invalidateQueries({ queryKey: currentUserKey })
     },
     onError: () => {
       setFixVoteError('Failed to vote on fix. Please try again.')

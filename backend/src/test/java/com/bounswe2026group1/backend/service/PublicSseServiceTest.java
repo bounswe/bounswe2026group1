@@ -6,14 +6,18 @@ import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,6 +48,28 @@ class PublicSseServiceTest {
         service.broadcastReportUpdated(report, "verify");
 
         assertEquals(0, service.activeEmitterCount());
+    }
+
+    @Test
+    void broadcastPointsChanged_pushesOneEventPerSubscriber() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastPointsChanged(42L, 55);
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastPointsChanged_nullUserId_isNoOp() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastPointsChanged(null, 5);
+
+        assertEquals(0, emitter.sendCount);
     }
 
     @Test
@@ -165,6 +191,46 @@ class PublicSseServiceTest {
         assertTrue(a.sendCount == 1 && b.sendCount == 1 && c.sendCount == 1,
                 "every emitter must receive the broadcast");
         assertEquals(3, service.activeEmitterCount());
+    }
+
+    @Test
+    void broadcastAfterCommit_runsImmediately_whenNoActiveTransaction() {
+        AtomicBoolean ran = new AtomicBoolean(false);
+
+        PublicSseService.broadcastAfterCommit(() -> ran.set(true));
+
+        assertTrue(ran.get(),
+                "outside a transaction the action must run synchronously so callers don't drop events");
+    }
+
+    @Test
+    void broadcastAfterCommit_defersUntilCommit_whenTransactionActive() {
+        // Simulate a Spring-managed transaction. The helper checks
+        // isActualTransactionActive(), which only returns true when BOTH
+        // synchronisation is initialised AND the "actual" flag is set —
+        // mirroring what PlatformTransactionManager does on a real tx.
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            AtomicBoolean ran = new AtomicBoolean(false);
+
+            PublicSseService.broadcastAfterCommit(() -> ran.set(true));
+
+            assertFalse(ran.get(),
+                    "while the transaction is in flight the action must NOT have fired — " +
+                            "otherwise a rollback could leave subscribers caching unpersisted state");
+
+            // Drive the registered synchronisation past commit.
+            for (TransactionSynchronization sync :
+                    TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+
+            assertTrue(ran.get(), "afterCommit hook should have fired the deferred action");
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private static class FailingEmitter extends SseEmitter {

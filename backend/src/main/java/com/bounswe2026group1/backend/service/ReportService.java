@@ -20,9 +20,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
+
+import static com.bounswe2026group1.backend.service.PublicSseService.broadcastAfterCommit;
 
 import java.time.Instant;
 import java.util.*;
@@ -797,14 +797,4 @@ public class ReportService {
         return result;
     }
 
-    private void broadcastAfterCommit(Runnable action) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
-            action.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() { action.run(); }
-        });
-    }
 }

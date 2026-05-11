@@ -7,6 +7,9 @@
  *   onConnected()
  *   onReportUpdated(event: PublicSseEvent)
  *   onMediaAdded(event: PublicSseEvent)
+ *   onReportCreated(event: PublicSseEvent)
+ *   onReportDeleted(event: PublicSseEvent)
+ *   onPointsChanged(event: PointsChangedSseEvent)
  *   onStatusChange(status: 'connected' | 'reconnecting' | 'disconnected')
  * }
  *
@@ -25,7 +28,15 @@ function calcDelay(attempt) {
 }
 
 export function connect(url, handlers = {}) {
-  const { onConnected, onReportUpdated, onMediaAdded, onReportCreated, onReportDeleted, onStatusChange } = handlers
+  const {
+    onConnected,
+    onReportUpdated,
+    onMediaAdded,
+    onReportCreated,
+    onReportDeleted,
+    onPointsChanged,
+    onStatusChange,
+  } = handlers
 
   let es = null
   let attempt = 0
@@ -80,6 +91,15 @@ export function connect(url, handlers = {}) {
         onReportDeleted?.(payload)
       } catch {
         console.warn('[SSE] Failed to parse report-deleted event', e.data)
+      }
+    })
+
+    es.addEventListener('points-changed', (e) => {
+      try {
+        const payload = JSON.parse(e.data)
+        onPointsChanged?.(payload)
+      } catch {
+        console.warn('[SSE] Failed to parse points-changed event', e.data)
       }
     })
 
