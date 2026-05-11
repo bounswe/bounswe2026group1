@@ -19,14 +19,13 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
-import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
+import { reportKeys, useDeleteMapReport } from '../hooks/useReports.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import { reportJsonLdString } from '../utils/schemaOrg.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
+import CreateReportPanel from './CreateReportPanel.jsx'
 import Toast from './Toast.jsx'
 import BadgeIcon from './BadgeIcon.jsx'
-
-const MAX_DESCRIPTION = 1000
 
 // S3 returns plain URLs ending in the original filename, so the extension is
 // the cheapest way to know whether a media URL points at a video. Backend's
@@ -290,12 +289,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const [followLoading, setFollowLoading] = useState(false)
   const [showCreateFix, setShowCreateFix] = useState(false)
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [editDescription, setEditDescription] = useState('')
-  const [editEnvironment, setEditEnvironment] = useState('OUTDOOR')
-  const [editError, setEditError] = useState('')
+  const [showEditPanel, setShowEditPanel] = useState(false)
   const [toast, setToast] = useState(null)
-  const updateReportMutation = useUpdateMapReport()
   const deleteReportMutation = useDeleteMapReport()
 
   // Prefer the parent's toast slot when wired (Home does this), so a toast
@@ -496,42 +491,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
     }
   }
 
-  function handleStartEdit() {
-    setEditDescription(report.description ?? '')
-    setEditEnvironment(report.environment ?? 'OUTDOOR')
-    setEditError('')
-    setIsEditing(true)
-  }
-
-  function handleCancelEdit() {
-    setIsEditing(false)
-    setEditError('')
-  }
-
-  async function handleSaveEdit() {
-    const trimmed = editDescription.trim()
-    if (!trimmed) {
-      setEditError('Description cannot be empty.')
-      return
-    }
-    if (trimmed.length > MAX_DESCRIPTION) {
-      setEditError(`Description must be at most ${MAX_DESCRIPTION} characters.`)
-      return
-    }
-    setEditError('')
-    try {
-      await updateReportMutation.mutateAsync({
-        id: report.id,
-        body: { description: trimmed, environment: editEnvironment },
-      })
-      setIsEditing(false)
-      showToast({ type: 'success', message: 'Report updated.' })
-    } catch (e) {
-      // Error stays inline in the form (setEditError) AND surfaces a toast
-      // so users notice it even if they've scrolled past the form fields.
-      setEditError(e.message || 'Failed to save changes.')
-      showToast({ type: 'error', message: messageForApiError(e, 'Failed to save changes.') })
-    }
+  function handleUpdated(updatedReport) {
+    queryClient.invalidateQueries({ queryKey: reportKeys.all })
+    queryClient.invalidateQueries({ queryKey: ['userReports'] })
+    onVoteUpdate(updatedReport)
+    setShowEditPanel(false)
+    showToast({ type: 'success', message: 'Report updated.' })
   }
 
   async function handleDelete() {
@@ -555,10 +520,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
     if (msg.includes('404')) return 'Report no longer exists.'
     return msg || fallback
   }
-
-  const editDescriptionTooLong = editDescription.length > MAX_DESCRIPTION
-  const saveEditDisabled =
-    updateReportMutation.isPending || !editDescription.trim() || editDescriptionTooLong
 
   // Schema.org JSON-LD describing this report as a Place — lets search engines
   // and assistive tools surface its accessibility metadata. The url field
@@ -790,11 +751,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
                   {report.title}
                 </h1>
-                {canModify && !isEditing && (
+                {canModify && (
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       type="button"
-                      onClick={handleStartEdit}
+                      onClick={() => setShowEditPanel(true)}
                       className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer"
                     >
                       Edit
@@ -916,75 +877,9 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
                 Issue Details
               </h3>
-              {!isEditing ? (
-                <p className="text-on-surface leading-relaxed font-body">
-                  {report.description || 'No description provided.'}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="report-edit-description" className="text-sm font-semibold text-on-surface">
-                      Description
-                    </label>
-                    <textarea
-                      id="report-edit-description"
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      rows={5}
-                      className="w-full px-4 py-3 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40"
-                    />
-                    <p className={`text-xs text-right ${editDescriptionTooLong ? 'text-error' : 'text-on-surface-variant'}`}>
-                      {editDescription.length}/{MAX_DESCRIPTION}
-                    </p>
-                  </div>
-
-                  <fieldset className="flex flex-col gap-1">
-                    <legend className="text-sm font-semibold text-on-surface">Environment</legend>
-                    <div className="flex gap-3 mt-1">
-                      {['OUTDOOR', 'INDOOR'].map((opt) => (
-                        <label
-                          key={opt}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer ${editEnvironment === opt ? 'bg-primary/10 ring-2 ring-primary' : 'bg-[#f0f1f1]'}`}
-                        >
-                          <input
-                            type="radio"
-                            name="report-edit-environment"
-                            value={opt}
-                            checked={editEnvironment === opt}
-                            onChange={() => setEditEnvironment(opt)}
-                          />
-                          <span className="text-sm text-on-surface capitalize">{opt.toLowerCase()}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  {editError && (
-                    <p role="alert" className="text-sm text-error">
-                      {editError}
-                    </p>
-                  )}
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveEdit}
-                      disabled={saveEditDisabled}
-                      className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
-                    >
-                      {updateReportMutation.isPending ? 'Saving…' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      disabled={updateReportMutation.isPending}
-                      className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+              <p className="text-on-surface leading-relaxed font-body">
+                {report.description || 'No description provided.'}
+              </p>
             </section>
 
             {/* Location */}
@@ -1199,6 +1094,15 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           reportTitle={report.title}
           onClose={() => setShowCreateFix(false)}
           onSubmitted={handleFixSubmitted}
+        />
+      )}
+
+      {showEditPanel && (
+        <CreateReportPanel
+          editReport={report}
+          onUpdated={handleUpdated}
+          onClose={() => setShowEditPanel(false)}
+          onError={(msg) => showToast({ type: 'error', message: msg })}
         />
       )}
 

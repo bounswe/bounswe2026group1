@@ -219,6 +219,7 @@ export function mapReport(r) {
     objects,
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     mediaUrls: r.mediaUrls ?? [],
+    mediaIds: r.mediaIds ?? [],
     latitude: r.latitude,
     longitude: r.longitude,
     activeFixRequest: mapFixRequest(r.activeFixRequest),
