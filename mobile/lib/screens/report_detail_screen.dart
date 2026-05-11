@@ -2512,6 +2512,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildCommentItem(_CommentData comment) {
+    // Show delete only when the signed-in user authored this comment. Backend
+    // enforces author-only deletion too, but hiding the affordance keeps the
+    // UI honest.
+    final auth = context.watch<AuthService>();
+    final canDelete = auth.isAuthenticated &&
+        comment.authorId != null &&
+        comment.authorId == auth.userId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -2554,6 +2561,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
+                    if (canDelete) ...[
+                      const Spacer(),
+                      InkWell(
+                        onTap: () => _confirmDeleteComment(comment),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: AppColors.outline,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -2571,6 +2593,66 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteComment(_CommentData comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Delete comment?',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: Text(
+          'This will permanently remove your comment.',
+          style: TextStyle(color: AppColors.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    // Optimistically remove so the list updates instantly; restore on failure.
+    final index = _comments.indexWhere((c) => c.id == comment.id);
+    if (index == -1) return;
+    final removed = _comments[index];
+    setState(() => _comments.removeAt(index));
+
+    try {
+      await context.read<AuthService>().api.deleteComment(comment.id);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _comments.insert(index, removed));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t delete comment — ${e.userMessage}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _comments.insert(index, removed));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t delete comment — $e')),
+      );
+    }
   }
 
   // ─── Follow button ──────────────────────────────────────────────────────────
