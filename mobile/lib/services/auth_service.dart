@@ -1,14 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
 const _tokenKey = 'auth_token';
 
 class AuthService extends ChangeNotifier {
+  final http.Client? _httpClient;
+
   String? _token;
   int _userId = 0;
   bool _isGuest = false;
+
+  AuthService({http.Client? httpClient}) : _httpClient = httpClient;
 
   String? get token => _token;
   int get userId => _userId;
@@ -16,7 +21,7 @@ class AuthService extends ChangeNotifier {
   bool get isGuest => _isGuest;
 
   /// Authenticated API client.
-  ApiService get api => ApiService(token: _token);
+  ApiService get api => ApiService(token: _token, httpClient: _httpClient);
 
   /// Load persisted token from shared preferences. Call once at startup.
   Future<void> init() async {
@@ -30,7 +35,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> login(String email, String password) async {
-    _token = await ApiService().login(email, password);
+    _token = await ApiService(httpClient: _httpClient).login(email, password);
     _userId = _extractUserId(_token) ?? 0;
     _isGuest = false;
     final prefs = await SharedPreferences.getInstance();
