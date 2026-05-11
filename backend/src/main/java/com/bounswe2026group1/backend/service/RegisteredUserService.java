@@ -9,6 +9,7 @@ import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.Badge;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.model.UserStatus;
 import com.bounswe2026group1.backend.dto.PointEventResponse;
 import com.bounswe2026group1.backend.repository.PointEventRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
@@ -19,9 +20,12 @@ import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -112,6 +116,36 @@ public class RegisteredUserService {
         if (!registeredUserRepository.existsById(id)) return false;
         registeredUserRepository.deleteById(id);
         return true;
+    }
+
+    /**
+     * Anonymizes a user in place so FK references from their reports/comments/votes
+     * stay valid while PII is erased. Shared by self-delete (1.1.1.2.12) and admin-delete (1.1.1.3.8).
+     */
+    @Transactional
+    public void anonymizeUser(RegisteredUser target) {
+        target.setName("Deleted User");
+        target.setEmail("deleted_" + target.getId() + "@deleted.invalid");
+        target.setPassword("$DELETED$");
+        target.setStatus(UserStatus.BANNED);
+        registeredUserRepository.save(target);
+    }
+
+    /**
+     * Self-delete (1.1.1.2.12). Looks up the caller by email and anonymizes them.
+     * If the caller is the only remaining admin, refuses with 409.
+     */
+    @Transactional
+    public void deleteSelf(String callerEmail) {
+        RegisteredUser target = registeredUserRepository.findByEmail(callerEmail)
+                .orElseThrow(() -> new NoSuchElementException("User not found with email: " + callerEmail));
+
+        if (target.getRole() == UserRole.ADMIN
+                && registeredUserRepository.countByRole(UserRole.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete the last admin");
+        }
+        anonymizeUser(target);
     }
 
     // ───── Profile (issue #302) ─────────────────────────────────────────────
