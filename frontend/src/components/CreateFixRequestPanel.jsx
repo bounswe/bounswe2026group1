@@ -25,11 +25,9 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
-  // Revoke ALL object URLs only when the component unmounts (not on every
-  // imagePreviews change — revoking on every update would immediately
-  // invalidate thumbnails that were just added).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => () => { imagePreviews.forEach(url => URL.revokeObjectURL(url)) }, [])
+  const previewsRef = useRef([])
+  useEffect(() => { previewsRef.current = imagePreviews }, [imagePreviews])
+  useEffect(() => () => previewsRef.current.forEach(URL.revokeObjectURL), [])
 
   function addFiles(files) {
     const newFiles = Array.from(files).filter(f => ['image/jpeg', 'image/png'].includes(f.type))
