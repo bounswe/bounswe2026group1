@@ -180,7 +180,7 @@ function CustomPresetEditorModal({
               onChange={(e) => setName(e.target.value)}
               maxLength={NAME_MAX}
               placeholder="e.g. Work commute"
-              className="w-full px-4 py-2.5 bg-surface-container border-none rounded-xl focus:ring-2 focus:ring-primary/40"
+              className="w-full px-4 py-2.5 bg-surface-container text-on-surface placeholder:text-on-surface-variant border-none rounded-xl focus:ring-2 focus:ring-primary/40 outline-none"
             />
             <p className={`text-xs text-right ${nameInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
               {trimmedName.length === 0
@@ -200,8 +200,9 @@ function CustomPresetEditorModal({
                     value={tm.value}
                     checked={travelMode === tm.value}
                     onChange={() => setTravelMode(tm.value)}
+                    className="w-4 h-4 accent-primary cursor-pointer"
                   />
-                  <span className="text-sm">{tm.label}</span>
+                  <span className="text-sm text-on-surface">{tm.label}</span>
                 </label>
               ))}
             </div>
