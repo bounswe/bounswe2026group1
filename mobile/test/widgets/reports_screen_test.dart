@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:mapcess/screens/reports_screen.dart';
@@ -90,20 +91,27 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 1));
 
     expect(tester.takeException(), isNull);
     expect(find.text('Feed'), findsOneWidget);
     expect(find.text('Item 0'), findsOneWidget);
 
-    final scrollable = find.byType(Scrollable);
-    expect(scrollable, findsWidgets);
+    // Header filter chips use a horizontal SingleChildScrollView — it is also
+    // a [Scrollable]. The feed ListView is the *vertical* scrollable.
+    final verticalScroll = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable &&
+          axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+    );
+    expect(tester.widgetList(verticalScroll), isNotEmpty);
 
-    await tester.drag(scrollable.first, const Offset(0, -700));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    for (var i = 0; i < 8; i++) {
+      await tester.drag(verticalScroll.first, const Offset(0, -600));
+      await tester.pump(const Duration(milliseconds: 60));
+      if (feedGets >= 2) break;
+    }
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(feedGets, greaterThanOrEqualTo(2));
     expect(find.text('Third'), findsOneWidget);

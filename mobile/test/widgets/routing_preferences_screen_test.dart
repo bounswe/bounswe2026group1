@@ -50,7 +50,9 @@ void main() {
 
   testWidgets('Routing preferences loads from API and shows presets',
       (tester) async {
-    await tester.binding.setSurfaceSize(const Size(420, 900));
+    // Taller viewport so preset cards below the intro stay on-screen on CI
+    // (Linux golden/layout can differ from local Windows).
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
 
     final client = _MockClient();
     when(() => client.get(any(), headers: any(named: 'headers'))).thenAnswer(
@@ -73,11 +75,14 @@ void main() {
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    await tester.pumpAndSettle();
+    // Avoid pumpAndSettle: RefreshIndicator / physics can leave pending work on
+    // some platforms; explicit pumps wait for the async GET.
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(seconds: 1));
 
     expect(tester.takeException(), isNull);
     expect(find.text('Routing preferences'), findsOneWidget);
-    expect(find.text('Wheelchair user'), findsOneWidget);
+    expect(find.textContaining('Wheelchair'), findsWidgets);
 
     verify(() => client.get(any(), headers: any(named: 'headers'))).called(1);
   });

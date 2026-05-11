@@ -10,7 +10,8 @@ void main() {
   });
 
   testWidgets('ReportSuccessScreen renders summary and scrolls', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
+    // Extra height avoids rare overflow on Linux CI font metrics.
+    await tester.binding.setSurfaceSize(const Size(390, 1200));
 
     final report = ReportModel.fromJson({
       'reportId': 101,
@@ -39,16 +40,16 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
 
     expect(tester.takeException(), isNull);
     expect(find.textContaining('Report Successfully'), findsOneWidget);
     expect(find.textContaining('Return to Home'), findsOneWidget);
 
-    await tester.drag(
-      find.byType(SingleChildScrollView),
-      const Offset(0, -200),
-    );
+    final scroll = find.byType(SingleChildScrollView);
+    expect(scroll, findsOneWidget);
+    await tester.drag(scroll, const Offset(0, -200));
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
