@@ -76,15 +76,27 @@ function UserSearchPanel({ onResultSelect, autoFocus = true, heading }) {
         <span className="text-xs text-on-surface-variant">
           Search by name or email
         </span>
-        <input
-          type="search"
-          value={query}
-          onChange={onChange}
-          placeholder="e.g. alice"
-          autoFocus={autoFocus}
-          className="bg-surface-container-lowest rounded-2xl shadow-sm px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
-          aria-label="Search users by name or email"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            onChange={onChange}
+            placeholder="e.g. alice"
+            autoFocus={autoFocus}
+            className="w-full bg-surface-container-lowest rounded-2xl shadow-sm pl-4 pr-10 py-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+            aria-label="Search users by name or email"
+          />
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setQuery(''); setPage(0) }}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          )}
+        </div>
       </label>
 
       {tooShort && (
