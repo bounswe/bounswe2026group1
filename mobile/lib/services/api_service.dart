@@ -158,6 +158,33 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  /// Case-insensitive substring search across name OR email. Backend caps
+  /// page size at 50 and rejects an empty query with 400 — callers should
+  /// only invoke this once the user has typed at least a couple of chars.
+  Future<FeedPage<Map<String, dynamic>>> searchUsers(
+    String query, {
+    int page = 0,
+    int size = 20,
+  }) async {
+    final params = <String, String>{
+      'q': query,
+      'page': '$page',
+      'size': '$size',
+    };
+    final uri = Uri.parse('$_baseUrl/api/users/search')
+        .replace(queryParameters: params);
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return FeedPage.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+        (m) => m,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   Future<List<ReportModel>> getReportsByUser(int userId) async {
     final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports/user/$userId'), headers: _headers)

@@ -92,7 +92,7 @@ class FixRequestModel {
   /// Display colour for badges/pills.
   Color get displayColor => switch (state) {
         FixRequestState.open => const Color(0xFF176a21),
-        FixRequestState.resolvedFixed => const Color(0xFF2E7D32),
+        FixRequestState.resolvedFixed => const Color(0xFF1565C0),
         FixRequestState.expired => const Color(0xFF8B6A00),
         FixRequestState.unknown => const Color(0xFF767777),
       };
