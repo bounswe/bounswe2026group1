@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { connect } from '../services/sseClient.js'
 import { reportKeys, applyReportUpdatedToCache } from './useReports.js'
 import { useSseStatusSetter } from '../context/SseContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import { currentUserKey } from './useCurrentUser.js'
 
 const SSE_URL = `${import.meta.env.VITE_API_URL}/api/sse/public/subscribe`
 
@@ -14,6 +16,7 @@ const SSE_URL = `${import.meta.env.VITE_API_URL}/api/sse/public/subscribe`
 export function useSseSync() {
   const queryClient = useQueryClient()
   const setStatus = useSseStatusSetter()
+  const { userId } = useAuth()
 
   useEffect(() => {
     const close = connect(SSE_URL, {
@@ -21,6 +24,21 @@ export function useSseSync() {
 
       onConnected() {
         // Nothing extra needed; status already set to 'connected' by sseClient
+      },
+
+      onPointsChanged(event) {
+        // Any user's points change can shift the public top-N ranking, so
+        // every connected tab invalidates the leaderboard cache regardless
+        // of whose balance moved.
+        queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+
+        // The caller's own points are also surfaced on the profile/navbar,
+        // so refresh that cache when the event names the current user.
+        // String-compare to dodge number/string mismatches between the
+        // JWT-derived id and the JSON-decoded payload.
+        if (userId != null && String(event.userId) === String(userId)) {
+          queryClient.invalidateQueries({ queryKey: currentUserKey })
+        }
       },
 
       onReportUpdated(event) {
@@ -64,5 +82,5 @@ export function useSseSync() {
     })
 
     return close
-  }, [queryClient, setStatus])
+  }, [queryClient, setStatus, userId])
 }
