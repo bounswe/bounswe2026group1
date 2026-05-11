@@ -94,11 +94,11 @@ class RouteServiceTest {
                 routeService.getRouteOptions(
                         new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING)));
 
-        // The Ramp-Assisted Route should still be present (from the direct wheelchair candidate),
+        // The Wheelchair Route should still be present (from the direct wheelchair candidate),
         // proving the multi-leg candidate was dropped silently rather than crashing the request.
         boolean hasRampAssistedRoute = routes.stream()
-                .anyMatch(r -> "Ramp-Assisted Route".equals(r.getRouteLabel()));
+                .anyMatch(r -> "Wheelchair Route".equals(r.getRouteLabel()));
         assertTrue(hasRampAssistedRoute,
-                "Direct wheelchair Ramp-Assisted Route should remain when leg 2 fails. Routes: " + routes);
+                "Direct wheelchair Wheelchair Route should remain when leg 2 fails. Routes: " + routes);
     }
 }

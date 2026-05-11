@@ -53,28 +53,40 @@ public class ObstacleService {
 
     /**
      * Backwards-compatible no-arg overload — same as the empty-constraint case,
-     * which preserves the pre-#365 baseline (every VERIFIED obstacle becomes
-     * a polygon).
+     * which preserves the pre-#365 anonymous baseline (every VERIFIED obstacle
+     * becomes a polygon). Distinct from passing {@code null}, which means
+     * "skip avoidance entirely" (issue #544).
      */
     public ObjectNode buildAvoidPolygons() {
         return buildAvoidPolygons(Set.of());
     }
 
     /**
-     * Build the GeoJSON MultiPolygon avoid set for routing.
+     * Build the GeoJSON MultiPolygon avoid set for routing. Three input states:
      *
-     * <p>When {@code constraints} is empty the baseline is preserved: every
-     * VERIFIED obstacle report becomes an avoid polygon (anonymous and
-     * NONE-preset users get the historical "Accessible Route" behaviour).
+     * <ul>
+     *   <li>{@code null} → caller explicitly opted out of avoidance (signed-in
+     *       user with {@code RoutingPreset.NONE}). Returns {@code null} so no
+     *       polygons are sent to ORS and the Accessible Route alternative is
+     *       skipped (issue #544).</li>
+     *   <li>Empty set → anonymous baseline. Every VERIFIED obstacle report
+     *       becomes an avoid polygon — preserves the pre-#365 contract for
+     *       callers without a profile we can read.</li>
+     *   <li>Non-empty set → only VERIFIED obstacle reports whose objects expose
+     *       at least one {@link IssueHazard} matching a hazard in the expanded
+     *       constraint set become polygons. Constraints can only narrow the
+     *       avoid set, never widen it past the baseline.</li>
+     * </ul>
      *
-     * <p>When {@code constraints} is non-empty, only VERIFIED obstacle reports
-     * whose objects expose at least one {@link IssueHazard} matching a hazard
-     * in the expanded constraint set become polygons. Constraints can only
-     * narrow the avoid set, never widen it past the baseline.
-     *
-     * @return a GeoJSON MultiPolygon node, or null if no reports survive the filter
+     * @return a GeoJSON MultiPolygon node, or null if avoidance is skipped /
+     *         no reports survive the filter
      */
     public ObjectNode buildAvoidPolygons(Set<RoutingConstraint> constraints) {
+        // null = caller explicitly opted out (NONE preset). Skip avoidance.
+        if (constraints == null) {
+            return null;
+        }
+
         // Fetch only VERIFIED obstacle reports for route avoidance.
         List<Report> obstacles = reportRepository.findByTypeAndStatusIn(ReportType.OBSTACLE, ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
@@ -201,17 +213,25 @@ public class ObstacleService {
     /**
      * Return VERIFIED OUTDOOR obstacle reports that lie within
      * {@value PATH_BUFFER_METERS} m of any segment of the given decoded path
-     * AND are relevant to the caller's accessibility constraints.
+     * AND are relevant to the caller's accessibility constraints. Mirrors the
+     * three-state {@code constraints} contract on {@link #buildAvoidPolygons(Set)}:
      *
-     * <p>When {@code constraints} is empty the baseline applies: every nearby
-     * VERIFIED OUTDOOR obstacle is returned (anonymous and NONE-preset users
-     * get the full set). When non-empty, the result is filtered to obstacles
-     * whose objects expose at least one hazard the user actually cares about
-     * — same predicate that {@link #buildAvoidPolygons(Set)} uses, so the
-     * {@code hasObstacles} flag on a route response stays consistent with
-     * which polygons would have been avoided.
+     * <ul>
+     *   <li>{@code null} → caller explicitly opted out — returns an empty list
+     *       so the {@code hasObstacles} flag never lights up for them (issue #544).</li>
+     *   <li>Empty set → anonymous baseline: every nearby VERIFIED OUTDOOR
+     *       obstacle is returned.</li>
+     *   <li>Non-empty set → filtered to obstacles whose objects expose at least
+     *       one hazard the user actually cares about, using the same predicate
+     *       as {@link #buildAvoidPolygons(Set)} so {@code hasObstacles} stays
+     *       consistent with which polygons would have been avoided.</li>
+     * </ul>
      */
     public List<Report> findObstaclesOnPath(List<Location> pathPoints, Set<RoutingConstraint> constraints) {
+        // null = caller explicitly opted out — no obstacle is "on path" for them.
+        if (constraints == null) {
+            return List.of();
+        }
         if (pathPoints.size() < 2) {
             return List.of();
         }

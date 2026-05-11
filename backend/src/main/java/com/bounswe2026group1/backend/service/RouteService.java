@@ -26,34 +26,69 @@ public class RouteService {
     private final ObstacleService obstacleService;
 
     /**
-     * Backwards-compatible signature — anonymous routing path. Equivalent to
-     * {@link #getRouteOptions(RouteRequest, Set, TravelMode)} with no
-     * constraints and no preferred mode (no alternative is flagged
-     * {@code preferred:true}).
+     * Anonymous routing path. Anonymous callers get every alternative
+     * (Fastest + Accessible + Wheelchair) because we don't know what they
+     * need.
      */
     public List<RouteResponse> getRouteOptions(RouteRequest request) {
-        return getRouteOptions(request, Set.of(), null);
+        return getRouteOptions(request, Set.of(), null,
+                /* includeWalkingAccessibleAlternative = */ true,
+                /* includeWheelchairAlternative = */ true);
     }
 
     /**
-     * Build the route alternatives, optionally filtering avoid polygons by
-     * the caller's accessibility constraints (#365) and flagging the
-     * alternative whose mode matches their preferred travel mode.
+     * Authenticated routing path. The alternative set adapts to the caller's
+     * preferred travel mode:
+     * <ul>
+     *   <li>{@link TravelMode#WHEELCHAIR}: Fastest (walking, for context) +
+     *       <em>Accessible Route in wheelchair mode</em> (avoids obstacles,
+     *       routes through mapped ramps when nearby). The walking-mode
+     *       Accessible Route is suppressed; the wheelchair-mode one is its
+     *       accessibility-aware alternative.</li>
+     *   <li>Anything else (including {@code null}): Fastest + Accessible Route
+     *       in walking mode. The wheelchair alternative is suppressed.</li>
+     * </ul>
      *
      * @param request           start/end coordinates from the controller
-     * @param constraints       caller's selected routing constraints; empty for anonymous / NONE preset
+     * @param constraints       caller's selected routing constraints. {@code null}
+     *                          means the signed-in caller picked
+     *                          {@code RoutingPreset.NONE} (or CUSTOM with zero
+     *                          rules) and explicitly opted out of avoidance
+     *                          (issue #544); empty set means the anonymous
+     *                          baseline; non-empty filters by hazard.
      * @param preferredMode     caller's preferred travel mode; null for no preference
      */
     public List<RouteResponse> getRouteOptions(
             RouteRequest request,
             Set<RoutingConstraint> constraints,
             TravelMode preferredMode) {
+        boolean isWheelchairCaller = preferredMode == TravelMode.WHEELCHAIR;
+        return getRouteOptions(request, constraints, preferredMode,
+                /* includeWalkingAccessibleAlternative = */ !isWheelchairCaller,
+                /* includeWheelchairAlternative = */ isWheelchairCaller);
+    }
+
+    private List<RouteResponse> getRouteOptions(
+            RouteRequest request,
+            Set<RoutingConstraint> constraints,
+            TravelMode preferredMode,
+            boolean includeWalkingAccessibleAlternative,
+            boolean includeWheelchairAlternative) {
+
+        // A wheelchair caller's wheelchair-mode route IS their accessible
+        // route — we label it "Accessible Route" rather than "Wheelchair
+        // Route" so the route set reads naturally to them. Anonymous /
+        // walking callers see the separate "Wheelchair Route" label as a
+        // third alternative.
+        boolean isWheelchairCaller = preferredMode == TravelMode.WHEELCHAIR;
+        String wheelchairLabel = isWheelchairCaller ? "Accessible Route" : "Wheelchair Route";
 
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
 
-        // Build avoid polygons once — reused for routes 2 and 3.
-        // Empty constraints preserves the pre-#365 baseline (every VERIFIED obstacle becomes a polygon).
+        // Build avoid polygons once — reused for routes 2 and 3. Three-state
+        // contract on `constraints`: null skips avoidance entirely, empty set
+        // is the anonymous baseline (avoid all), non-empty filters by hazard.
         ObjectNode avoidPolygons = obstacleService.buildAvoidPolygons(constraints);
 
         List<RouteResponse> routes = new ArrayList<>();
@@ -80,8 +115,11 @@ public class RouteService {
                     .build());
         }
 
-        // 2. Accessible walking route — always computed when avoid polygons exist
-        if (avoidPolygons != null) {
+        // 2. Accessible walking route — computed when avoid polygons exist AND
+        // the caller would actually act on a walking-mode alternative.
+        // Wheelchair callers' accessible alternative IS the wheelchair-mode
+        // route below; emitting a walking Accessible Route to them is noise.
+        if (avoidPolygons != null && includeWalkingAccessibleAlternative) {
             RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons);
 
             if (accessibleResult != null) {
@@ -97,71 +135,78 @@ public class RouteService {
             }
         }
 
-        // 3. Ramp-Assisted Route — best of direct wheelchair vs multi-leg through ramp
+        // 3. Wheelchair-mode route — best of direct wheelchair vs multi-leg
+        // through ramp. Gated: only emitted for anonymous callers (separate
+        // "Wheelchair Route" label) or wheelchair callers (their
+        // "Accessible Route"). Walking / no-preference authed users get
+        // nothing here.
         RouteResponse bestWheelchair = null;
 
-        // Candidate A: direct wheelchair route with obstacle avoidance
-        RoutingDirectionsResult wheelchairResult = fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
-        if (wheelchairResult != null) {
-            bestWheelchair = RouteResponse.builder()
-                    .routeLabel("Ramp-Assisted Route")
-                    .distanceMeters(wheelchairResult.getDistanceMeters())
-                    .durationSeconds(wheelchairResult.getDurationSeconds())
-                    .mode(TravelMode.WHEELCHAIR)
-                    .geometry(wheelchairResult.getGeometry())
-                    .steps(wheelchairResult.getSteps())
-                    .hasObstacles(false)
-                    .build();
-        }
-
-        // Candidate B: multi-leg route through nearest ramp entry/exit
-        Report ramp = obstacleService.findClosestRampInBoundingBox(start, end);
-        if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
-            Location rampA = ramp.getEntryPoint();
-            Location rampB = ramp.getExitPoint();
-            double distAToStart = haversineMeters(rampA, start);
-            double distBToStart = haversineMeters(rampB, start);
-            Location rampEntry = distAToStart <= distBToStart ? rampA : rampB;
-            Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
-
-            RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
-            RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
-            RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
-
-            if (leg1 != null && leg2 != null && leg3 != null) {
-                double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
-                double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
-
-                // Pick the ramp-assisted multi-leg if it's shorter than the direct wheelchair route
-                if (bestWheelchair == null || totalDistance < bestWheelchair.getDistanceMeters()) {
-                    List<Location> combinedPath = new ArrayList<>();
-                    combinedPath.addAll(PolylineDecoder.decode(leg1.getGeometry()));
-                    combinedPath.addAll(PolylineDecoder.decode(leg2.getGeometry()));
-                    combinedPath.addAll(PolylineDecoder.decode(leg3.getGeometry()));
-
-                    List<RouteStep> combinedSteps = new ArrayList<>();
-                    if (leg1.getSteps() != null) combinedSteps.addAll(leg1.getSteps());
-                    combinedSteps.addAll(leg2.getSteps());
-                    combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
-                    if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
-
-                    bestWheelchair = RouteResponse.builder()
-                            .routeLabel("Ramp-Assisted Route")
-                            .distanceMeters(totalDistance)
-                            .durationSeconds(totalDuration)
-                            .mode(TravelMode.WHEELCHAIR)
-                            .geometry(PolylineEncoder.encode(combinedPath))
-                            .steps(combinedSteps)
-                            .hasObstacles(false)
-                            .build();
-                }
-            } else {
-                log.warn("Ramp-assisted route via ramp skipped; leg 1, leg 2, or leg 3 returned null.");
+        if (includeWheelchairAlternative) {
+            // Candidate A: direct wheelchair route with obstacle avoidance
+            RoutingDirectionsResult wheelchairResult =
+                    fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
+            if (wheelchairResult != null) {
+                bestWheelchair = RouteResponse.builder()
+                        .routeLabel(wheelchairLabel)
+                        .distanceMeters(wheelchairResult.getDistanceMeters())
+                        .durationSeconds(wheelchairResult.getDurationSeconds())
+                        .mode(TravelMode.WHEELCHAIR)
+                        .geometry(wheelchairResult.getGeometry())
+                        .steps(wheelchairResult.getSteps())
+                        .hasObstacles(false)
+                        .build();
             }
-        }
 
-        if (bestWheelchair != null) {
-            routes.add(bestWheelchair);
+            // Candidate B: multi-leg route through nearest ramp entry/exit
+            Report ramp = obstacleService.findClosestRampInBoundingBox(start, end);
+            if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
+                Location rampA = ramp.getEntryPoint();
+                Location rampB = ramp.getExitPoint();
+                double distAToStart = haversineMeters(rampA, start);
+                double distBToStart = haversineMeters(rampB, start);
+                Location rampEntry = distAToStart <= distBToStart ? rampA : rampB;
+                Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
+
+                RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
+                RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
+                RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
+
+                if (leg1 != null && leg2 != null && leg3 != null) {
+                    double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
+                    double totalDuration = leg1.getDurationSeconds() + leg2.getDurationSeconds() + leg3.getDurationSeconds();
+
+                    // Pick the ramp-assisted multi-leg if it's shorter than the direct wheelchair route
+                    if (bestWheelchair == null || totalDistance < bestWheelchair.getDistanceMeters()) {
+                        List<Location> combinedPath = new ArrayList<>();
+                        combinedPath.addAll(PolylineDecoder.decode(leg1.getGeometry()));
+                        combinedPath.addAll(PolylineDecoder.decode(leg2.getGeometry()));
+                        combinedPath.addAll(PolylineDecoder.decode(leg3.getGeometry()));
+
+                        List<RouteStep> combinedSteps = new ArrayList<>();
+                        if (leg1.getSteps() != null) combinedSteps.addAll(leg1.getSteps());
+                        combinedSteps.addAll(leg2.getSteps());
+                        combinedSteps.add(RouteStep.builder().instruction("Exit the ramp").maneuverType("ramp_exit").build());
+                        if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
+
+                        bestWheelchair = RouteResponse.builder()
+                                .routeLabel(wheelchairLabel)
+                                .distanceMeters(totalDistance)
+                                .durationSeconds(totalDuration)
+                                .mode(TravelMode.WHEELCHAIR)
+                                .geometry(PolylineEncoder.encode(combinedPath))
+                                .steps(combinedSteps)
+                                .hasObstacles(false)
+                                .build();
+                    }
+                } else {
+                    log.warn("Ramp-assisted route via ramp skipped; leg 1, leg 2, or leg 3 returned null.");
+                }
+            }
+
+            if (bestWheelchair != null) {
+                routes.add(bestWheelchair);
+            }
         }
 
         markPreferred(routes, preferredMode);

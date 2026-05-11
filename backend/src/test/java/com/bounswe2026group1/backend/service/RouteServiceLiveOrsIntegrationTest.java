@@ -120,14 +120,15 @@ class RouteServiceLiveOrsIntegrationTest extends AbstractPostgisIntegrationTest 
         reportRepository.save(rampReport);
 
         List<RouteResponse> rampRoutes = routeService.getRouteOptions(request);
-        RouteResponse rampAssisted = byLabel(rampRoutes, "Ramp-Assisted Route");
         RouteResponse wheelchairAfterRamp = byLabel(rampRoutes, "Wheelchair Route");
 
-        assertNotNull(rampAssisted, "Ramp-assisted route should be generated when a ramp report exists");
-        assertNotNull(wheelchairAfterRamp, "Wheelchair route should still be generated");
+        assertNotNull(wheelchairAfterRamp, "Wheelchair Route should be generated when a ramp report exists");
+        // RouteService internally picks the best of a direct wheelchair route
+        // and a multi-leg via the mapped ramp. Adding a usable ramp report
+        // should produce a shorter wheelchair route than the no-reports baseline.
         assertTrue(
-                rampAssisted.getDurationSeconds() < wheelchairAfterRamp.getDurationSeconds(),
-                "Ramp-assisted route duration should be shorter than wheelchair route duration");
+                wheelchairAfterRamp.getDurationSeconds() < baselineWheelchair.getDurationSeconds(),
+                "Adding a ramp report should shorten the Wheelchair Route relative to the baseline");
     }
 
     private static RouteResponse byLabel(List<RouteResponse> routes, String label) {
