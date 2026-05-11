@@ -758,7 +758,7 @@ function Home() {
             queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
             setNewReportPin(null)
             setNewReportPinLabel('')
-            setToast({ message: 'Report submitted successfully!', type: 'success' })
+            setToast({ message: t('home.reportSubmittedToast'), type: 'success' })
           }}
           onError={(message) => setToast({ message, type: 'error' })}
         />
