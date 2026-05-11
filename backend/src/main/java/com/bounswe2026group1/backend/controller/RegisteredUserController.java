@@ -143,6 +143,28 @@ public class RegisteredUserController {
         }
     }
 
+    @DeleteMapping("/me")
+    @Operation(
+            summary = "Delete the authenticated user's own account (1.1.1.2.12)",
+            description = "Anonymizes the caller's name/email/password and bans them, while " +
+                    "preserving their reports/comments/votes so the map history stays intact. " +
+                    "Refuses with 409 when the caller is the last remaining admin."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Deleted (anonymized in place)."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "409", description = "Cannot delete the last admin.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Object> deleteSelf() {
+        String email = currentUserEmailOrNull();
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication required.");
+        }
+        registeredUserService.deleteSelf(email);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{id}/profile")
     @Operation(
             summary = "Update the authenticated user's profile",

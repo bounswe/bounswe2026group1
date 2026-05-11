@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/geojson.dart';
 import 'fix_request_model.dart';
 
 // ─── Report-level enums ──────────────────────────────────────────────────────
@@ -622,12 +623,18 @@ class MeasurementWarning {
 // ─── Report object ───────────────────────────────────────────────────────────
 
 class ReportObject {
+  /// Backend-assigned id. Needed to target a specific object for measurement
+  /// contributions via `PATCH /api/reports/{id}/objects/{objectId}/measurements`.
+  /// Nullable so client-built drafts that haven't been persisted yet still
+  /// fit the shape.
+  final int? id;
   final ObjectType objectType;
   final List<IssueType> issues;
   final String? measurements;
   final List<MeasurementWarning> warnings;
 
   const ReportObject({
+    this.id,
     required this.objectType,
     required this.issues,
     this.measurements,
@@ -642,6 +649,7 @@ class ReportObject {
         .toList();
     final rawWarnings = (json['warnings'] as List<dynamic>?) ?? const [];
     return ReportObject(
+      id: (json['id'] as num?)?.toInt(),
       objectType: ObjectType.fromJson(json['objectType'] as String?),
       issues: issues,
       measurements: json['measurements'] as String?,
@@ -733,12 +741,23 @@ class ReportModel {
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     final rawObjects = (json['objects'] as List<dynamic>?) ?? const [];
+    // Prefer the GeoJSON `geometry` field (RFC 7946); fall back to the legacy
+    // scalar `latitude` / `longitude` for older responses still in flight.
+    final coords = extractLatLon(json);
+    final entry = extractOptionalLatLon(json,
+        geometryKey: 'entryGeometry',
+        latKey: 'entryLatitude',
+        lonKey: 'entryLongitude');
+    final exit = extractOptionalLatLon(json,
+        geometryKey: 'exitGeometry',
+        latKey: 'exitLatitude',
+        lonKey: 'exitLongitude');
     return ReportModel(
       reportId: (json['reportId'] as num).toInt(),
       userId: (json['userId'] as num).toInt(),
       username: json['username'] as String?,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      latitude: coords?.lat ?? double.nan,
+      longitude: coords?.lon ?? double.nan,
       description: json['description'] as String? ?? '',
       reportType: ReportType.fromJson(json['reportType'] as String?),
       environment: ReportEnvironment.fromJson(json['environment'] as String?),
@@ -756,10 +775,10 @@ class ReportModel {
       objects: rawObjects
           .map((e) => ReportObject.fromJson(e as Map<String, dynamic>))
           .toList(),
-      entryLatitude: (json['entryLatitude'] as num?)?.toDouble(),
-      entryLongitude: (json['entryLongitude'] as num?)?.toDouble(),
-      exitLatitude: (json['exitLatitude'] as num?)?.toDouble(),
-      exitLongitude: (json['exitLongitude'] as num?)?.toDouble(),
+      entryLatitude: entry?.lat,
+      entryLongitude: entry?.lon,
+      exitLatitude: exit?.lat,
+      exitLongitude: exit?.lon,
       lastEditedByUserId: (json['lastEditedByUserId'] as num?)?.toInt(),
       activeFixRequest: json['activeFixRequest'] is Map
           ? FixRequestModel.fromJson(

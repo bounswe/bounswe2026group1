@@ -100,6 +100,14 @@ describe('sseClient.connect', () => {
     expect(onReportDeleted).toHaveBeenCalledWith(payload)
   })
 
+  it('calls onPointsChanged with parsed payload', () => {
+    const onPointsChanged = vi.fn()
+    connect('http://localhost/sse', { onPointsChanged })
+    const payload = { eventType: 'POINTS_CHANGED', userId: 42, points: 55 }
+    FakeEventSource.instance.emit('points-changed', payload)
+    expect(onPointsChanged).toHaveBeenCalledWith(payload)
+  })
+
   it('schedules a reconnect after onerror', () => {
     const onStatusChange = vi.fn()
     connect('http://localhost/sse', { onStatusChange })

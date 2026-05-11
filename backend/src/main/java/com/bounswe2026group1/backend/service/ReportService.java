@@ -20,9 +20,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
+
+import static com.bounswe2026group1.backend.service.PublicSseService.broadcastAfterCommit;
 
 import java.time.Instant;
 import java.util.*;
@@ -158,8 +158,22 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportType is required");
         }
 
-        Location reportedPoint = new Location(request.getLatitude(), request.getLongitude());
-        Point reportLocation = GeoUtils.point4326(request.getLatitude(), request.getLongitude());
+        if (request.getGeometry() != null) {
+            try {
+                request.getGeometry().validate();
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
+        }
+        double lat = request.effectiveLatitude();
+        double lon = request.effectiveLongitude();
+        if (!Double.isFinite(lat) || !Double.isFinite(lon)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Report location is required — supply `geometry` (GeoJSON Point) or `latitude`/`longitude`");
+        }
+
+        Location reportedPoint = new Location(lat, lon);
+        Point reportLocation = GeoUtils.point4326(lat, lon);
         Report report = new Report(user, reportLocation, request.getDescription(),
                 request.getReportType(), request.getEnvironment());
 
@@ -233,13 +247,22 @@ public class ReportService {
             report.setEnvironment(request.getEnvironment());
         }
 
-        if (request.getLatitude() != null && Math.abs(request.getLatitude() - report.getLocation().getY()) > 1e-9) {
-            diff.put("latitude", new Object[]{report.getLocation().getY(), request.getLatitude()});
-            report.setLocation(GeoUtils.point4326(request.getLatitude(), report.getLocation().getX()));
+        if (request.getGeometry() != null) {
+            try {
+                request.getGeometry().validate();
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
         }
-        if (request.getLongitude() != null && Math.abs(request.getLongitude() - report.getLocation().getX()) > 1e-9) {
-            diff.put("longitude", new Object[]{report.getLocation().getX(), request.getLongitude()});
-            report.setLocation(GeoUtils.point4326(report.getLocation().getY(), request.getLongitude()));
+        Double newLat = request.effectiveLatitude();
+        Double newLon = request.effectiveLongitude();
+        if (newLat != null && Math.abs(newLat - report.getLocation().getY()) > 1e-9) {
+            diff.put("latitude", new Object[]{report.getLocation().getY(), newLat});
+            report.setLocation(GeoUtils.point4326(newLat, report.getLocation().getX()));
+        }
+        if (newLon != null && Math.abs(newLon - report.getLocation().getX()) > 1e-9) {
+            diff.put("longitude", new Object[]{report.getLocation().getX(), newLon});
+            report.setLocation(GeoUtils.point4326(report.getLocation().getY(), newLon));
         }
 
         if (request.getObjects() != null) {
@@ -277,6 +300,122 @@ public class ReportService {
                 resolveActiveFixRequest(editor.getId(), saved.getReportId()));
         response.setAuthorTopBadge(resolveAuthorTopBadge(saved.getCreatedBy().getId()));
         return response;
+    }
+
+    /**
+     * Community contribution path: any signed-in user (not just the owner) can
+     * fill in measurement keys the original author left blank. Already-populated
+     * keys are protected — overwrite attempts collect into a 409 Conflict so the
+     * client can surface which keys lost the race. The merged JSON is validated
+     * against the object's schema before persisting, so hard-limit violations
+     * (e.g. width > 500cm) still reject the contribution.
+     */
+    @Transactional
+    public ReportResponse contributeMeasurements(Long reportId,
+                                                 Long objectId,
+                                                 MeasurementContributionRequest request,
+                                                 String contributorEmail) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Report not found with id: " + reportId));
+
+        RegisteredUser contributor = registeredUserRepository.findByEmail(contributorEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        ReportObject target = report.getObjects().stream()
+                .filter(o -> objectId.equals(o.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Object " + objectId + " not found on report " + reportId));
+
+        Map<String, Object> incoming = request != null && request.getValues() != null
+                ? request.getValues() : Map.of();
+        if (incoming.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "values must contain at least one measurement to contribute");
+        }
+
+        // Parse the existing measurements blob into a mutable map. Treat a null /
+        // unparseable / non-object blob as "nothing populated yet".
+        Map<String, Object> merged = new LinkedHashMap<>();
+        String existingJson = target.getMeasurements();
+        if (existingJson != null && !existingJson.isBlank()) {
+            try {
+                Map<String, Object> existing = MAPPER.readValue(existingJson,
+                        new com.fasterxml.jackson.core.type.TypeReference<>() {});
+                if (existing != null) merged.putAll(existing);
+            } catch (Exception ignored) {
+                // Bad blob — treat as empty so a stuck record can still be repaired.
+            }
+        }
+
+        // Collect every key whose existing value is already populated, so the
+        // caller sees the full set of conflicts in one round-trip instead of
+        // discovering them one at a time.
+        List<String> conflicts = new ArrayList<>();
+        for (String key : incoming.keySet()) {
+            Object existingValue = merged.get(key);
+            if (isPopulated(existingValue)) {
+                conflicts.add(key);
+            }
+        }
+        if (!conflicts.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Measurements already set by the author for: " + String.join(", ", conflicts));
+        }
+
+        // Skip null/blank values: a contributor leaving an input empty shouldn't
+        // erase or overwrite anything. Other validation (numeric bounds) runs on
+        // the merged blob below via the existing MeasurementValidator.
+        for (Map.Entry<String, Object> entry : incoming.entrySet()) {
+            if (entry.getValue() == null) continue;
+            if (entry.getValue() instanceof String s && s.isBlank()) continue;
+            merged.put(entry.getKey(), entry.getValue());
+        }
+
+        String mergedJson;
+        try {
+            mergedJson = MAPPER.writeValueAsString(merged);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Could not serialize merged measurements: " + e.getMessage());
+        }
+
+        String schemaJson = MeasurementSchemas.getSchemaJson(target.getObjectType());
+        if (schemaJson != null) {
+            // Hard-limit violations throw MeasurementValidationException, which the
+            // global handler maps to 400. Soft warnings ride back on the response.
+            measurementValidator.validate(mergedJson, schemaJson);
+        }
+
+        target.setMeasurements(mergedJson);
+
+        Map<String, Object[]> diff = new LinkedHashMap<>();
+        diff.put("object#" + target.getId() + ".measurements",
+                new Object[]{existingJson, mergedJson});
+        appendEditHistory(report, contributor.getId(), diff);
+        report.setLastEditedBy(contributor);
+
+        Report saved = reportRepository.save(report);
+        broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, "measurements"));
+
+        ReportResponse response = ReportResponse.fromEntity(saved,
+                resolveUserVote(contributor.getId(), saved.getReportId()),
+                buildObjectResponses(saved),
+                resolveActiveFixRequest(contributor.getId(), saved.getReportId()));
+        response.setAuthorTopBadge(resolveAuthorTopBadge(saved.getCreatedBy().getId()));
+        return response;
+    }
+
+    /**
+     * A measurement key is "populated" — and therefore locked against contributor
+     * overwrites — when it has any non-null value other than an empty string.
+     * Zero is intentionally treated as populated: the author chose to record it.
+     */
+    private static boolean isPopulated(Object value) {
+        if (value == null) return false;
+        if (value instanceof String s) return !s.isBlank();
+        return true;
     }
 
     @Transactional
@@ -658,14 +797,4 @@ public class ReportService {
         return result;
     }
 
-    private void broadcastAfterCommit(Runnable action) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
-            action.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() { action.run(); }
-        });
-    }
 }

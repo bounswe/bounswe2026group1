@@ -239,7 +239,7 @@ export default function Feed() {
           </h1>
         </header>
 
-        <section className="rounded-2xl border border-outline-variant/20 bg-white dark:bg-surface-container-lowest shadow-sm p-6 md:p-8 flex flex-col gap-6">
+        <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-low shadow-sm p-6 md:p-8 flex flex-col gap-6">
           {/* Filters + radius: one row, aligned */}
           <div className="flex flex-wrap items-end gap-x-6 gap-y-4 justify-between">
             <div className="flex flex-wrap items-end gap-x-8 gap-y-4 flex-1 min-w-0">
@@ -367,7 +367,7 @@ export default function Feed() {
               <li key={report.id} className="min-w-0">
                 <Link
                   to={`/?report=${report.id}&from=feed`}
-                  className="flex flex-col h-full rounded-xl border border-outline-variant/20 bg-white dark:bg-surface-container-lowest shadow-sm p-3 hover:shadow-md transition-shadow group"
+                  className="flex flex-col h-full rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-sm p-3 hover:shadow-md transition-shadow group"
                 >
                   <div className="relative aspect-[5/3] max-h-[140px] w-full rounded-lg overflow-hidden bg-surface-container-high mb-2">
                     {report.image ? (
@@ -410,7 +410,7 @@ export default function Feed() {
                       </span>
                     )}
                     {env && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container-lowest text-on-surface-variant">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container-high text-on-surface-variant">
                         {env}
                       </span>
                     )}

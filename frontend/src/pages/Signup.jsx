@@ -67,8 +67,8 @@ function Signup() {
     <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar md:h-screen min-h-screen md:overflow-hidden flex flex-col">
       <main className="flex flex-1 md:min-h-0">
         <AuthLeftPanel
-          headline="Make your city accessible for everyone."
-          description="Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence."
+          headline={<>Empowering mobility<br />for every neighbour.</>}
+          description="Your reports help people with mobility challenges find accessible routes, ramps, and barrier‑free paths in their neighbourhood."
         />
 
         {/* Right Side */}
