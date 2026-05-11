@@ -113,7 +113,7 @@ function Leaderboard() {
                 {data.entries.map((entry) => (
                   <li
                     key={entry.userId}
-                    className="bg-surface-container-low rounded-2xl shadow-sm p-3 flex items-center gap-3"
+                    className="bg-surface-container rounded-2xl shadow-sm p-3 flex items-center gap-3"
                   >
                     <RankCell rank={entry.rank} />
                     <Avatar url={entry.avatarUrl} name={entry.name} />

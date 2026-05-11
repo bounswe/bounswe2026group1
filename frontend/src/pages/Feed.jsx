@@ -410,7 +410,7 @@ export default function Feed() {
                       </span>
                     )}
                     {env && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container text-on-surface-variant">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container-high text-on-surface-variant">
                         {env}
                       </span>
                     )}
