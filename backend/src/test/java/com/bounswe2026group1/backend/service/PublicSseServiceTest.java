@@ -10,10 +10,12 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PublicSseServiceTest {
 
@@ -46,32 +48,24 @@ class PublicSseServiceTest {
 
     @Test
     void broadcastPointsChanged_pushesOneEventPerSubscriber() {
-        PublicSseService service = new PublicSseService();
-        ReflectionTestUtils.setField(service, "maxConnections", 10);
-        ReflectionTestUtils.setField(service, "maxConnectionsPerSource", 10);
-        ReflectionTestUtils.invokeMethod(service, "initPermitPool");
-
-        AtomicInteger sendCount = new AtomicInteger(0);
-        service.addEmitterForTest(new CountingEmitter(sendCount));
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
 
         service.broadcastPointsChanged(42L, 55);
 
-        assertEquals(1, sendCount.get());
+        assertEquals(1, emitter.sendCount);
     }
 
     @Test
     void broadcastPointsChanged_nullUserId_isNoOp() {
-        PublicSseService service = new PublicSseService();
-        ReflectionTestUtils.setField(service, "maxConnections", 10);
-        ReflectionTestUtils.setField(service, "maxConnectionsPerSource", 10);
-        ReflectionTestUtils.invokeMethod(service, "initPermitPool");
-
-        AtomicInteger sendCount = new AtomicInteger(0);
-        service.addEmitterForTest(new CountingEmitter(sendCount));
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
 
         service.broadcastPointsChanged(null, 5);
 
-        assertEquals(0, sendCount.get());
+        assertEquals(0, emitter.sendCount);
     }
 
     @Test
@@ -88,6 +82,113 @@ class PublicSseServiceTest {
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, ex.getStatusCode());
     }
 
+    // ───── Broadcast fan-out coverage ──────────────────────────────────────
+    // Each broadcast helper builds a different PublicSseEvent shape, but they
+    // all funnel through sendToAll(). We use a recording emitter to assert
+    // the emitter actually receives one event per broadcast call.
+
+    private static PublicSseService newServiceWithRoomForOne() {
+        PublicSseService service = new PublicSseService();
+        ReflectionTestUtils.setField(service, "maxConnections", 10);
+        ReflectionTestUtils.setField(service, "maxConnectionsPerSource", 10);
+        ReflectionTestUtils.invokeMethod(service, "initPermitPool");
+        return service;
+    }
+
+    private static Report sampleReport() {
+        Report report = new Report(new RegisteredUser(), GeoUtils.point4326(41.0, 29.0),
+                "desc", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
+        report.setReportId(123L);
+        return report;
+    }
+
+    @Test
+    void broadcastReportCreated_sendsOneEventToEveryEmitter() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastReportCreated(sampleReport());
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastReportDeleted_sendsOneEvent_andDoesNotRequireFullReport() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastReportDeleted(999L);
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastFixRequested_sendsOneEvent() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastFixRequested(sampleReport());
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastFixVote_sendsOneEvent() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastFixVote(sampleReport());
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastFixed_sendsOneEvent() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        service.broadcastFixed(sampleReport());
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastMediaAdded_sendsOneEvent_carryingMediaFields() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter emitter = new RecordingEmitter();
+        service.addEmitterForTest(emitter);
+
+        Media media = new Media();
+        ReflectionTestUtils.setField(media, "mediaId", 7L);
+        media.setFilePath("s3://bucket/key.jpg");
+
+        service.broadcastMediaAdded(sampleReport(), media);
+
+        assertEquals(1, emitter.sendCount);
+    }
+
+    @Test
+    void broadcastsReachEveryActiveEmitter() {
+        PublicSseService service = newServiceWithRoomForOne();
+        RecordingEmitter a = new RecordingEmitter();
+        RecordingEmitter b = new RecordingEmitter();
+        RecordingEmitter c = new RecordingEmitter();
+        service.addEmitterForTest(a);
+        service.addEmitterForTest(b);
+        service.addEmitterForTest(c);
+
+        service.broadcastReportCreated(sampleReport());
+
+        assertTrue(a.sendCount == 1 && b.sendCount == 1 && c.sendCount == 1,
+                "every emitter must receive the broadcast");
+        assertEquals(3, service.activeEmitterCount());
+    }
+
     private static class FailingEmitter extends SseEmitter {
         @Override
         public synchronized void send(SseEventBuilder builder) throws IOException {
@@ -95,16 +196,15 @@ class PublicSseServiceTest {
         }
     }
 
-    private static class CountingEmitter extends SseEmitter {
-        private final AtomicInteger counter;
-
-        CountingEmitter(AtomicInteger counter) {
-            this.counter = counter;
-        }
+    /** Counts successful send() calls — used to verify fan-out without spinning up the servlet stack. */
+    private static class RecordingEmitter extends SseEmitter {
+        final List<SseEventBuilder> received = new ArrayList<>();
+        int sendCount;
 
         @Override
         public synchronized void send(SseEventBuilder builder) {
-            counter.incrementAndGet();
+            received.add(builder);
+            sendCount++;
         }
     }
 }
