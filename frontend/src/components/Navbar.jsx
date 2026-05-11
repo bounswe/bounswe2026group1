@@ -124,7 +124,7 @@ function Navbar() {
                 : 'text-on-surface-variant hover:text-primary transition-colors font-medium pb-1'
             }
           >
-            Leaderboard
+            {t('nav.leaderboard')}
           </NavLink>
           <button
             type="button"

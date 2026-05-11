@@ -7,6 +7,7 @@
   "nav": {
     "home": "Home",
     "feed": "Feed",
+    "leaderboard": "Leaderboard",
     "tutorial": "Tutorial",
     "replayTutorial": "Replay tutorial",
     "admin": "Admin",
