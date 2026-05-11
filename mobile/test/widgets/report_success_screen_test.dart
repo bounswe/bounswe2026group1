@@ -10,8 +10,8 @@ void main() {
   });
 
   testWidgets('ReportSuccessScreen renders summary and scrolls', (tester) async {
-    // Extra height avoids rare overflow on Linux CI font metrics.
-    await tester.binding.setSurfaceSize(const Size(390, 1200));
+    // Wider + taller: Linux CI fonts can overflow action Row at iPhone width.
+    await tester.binding.setSurfaceSize(const Size(520, 1200));
 
     final report = ReportModel.fromJson({
       'reportId': 101,

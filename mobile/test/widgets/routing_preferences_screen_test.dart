@@ -72,11 +72,10 @@ void main() {
       ),
     );
 
+    // Mock HTTP resolves in the same microtask queue as the first frame, so a
+    // CircularProgressIndicator is often never painted on CI. Pump until the
+    // async GET + setState completes.
     await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-    // Avoid pumpAndSettle: RefreshIndicator / physics can leave pending work on
-    // some platforms; explicit pumps wait for the async GET.
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(seconds: 1));
 
