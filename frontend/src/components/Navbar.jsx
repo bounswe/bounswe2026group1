@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
 import NotificationDropdown from './NotificationDropdown.jsx'
+import UserSearchDropdown from './UserSearchDropdown.jsx'
 import ThemeToggleButton from './ThemePicker.jsx'
 import logo from '../assets/mapcess-transparent.png'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -16,10 +17,12 @@ function Navbar() {
   const unreadCount = useUnreadCount()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [userSearchOpen, setUserSearchOpen] = useState(false)
   const [failedAvatarUrl, setFailedAvatarUrl] = useState(null)
   const menuRef = useRef(null)
   const buttonRef = useRef(null)
   const notifButtonRef = useRef(null)
+  const userSearchButtonRef = useRef(null)
 
   const avatarUrl = user?.avatarUrl
   const showAvatarImage = !!avatarUrl && failedAvatarUrl !== avatarUrl
@@ -149,13 +152,25 @@ function Navbar() {
         <SseStatusIndicator />
         <ThemeToggleButton />
         {isAuthenticated && (
-          <Link
-            to="/search/users"
-            aria-label="Search users"
-            className="hidden sm:flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">search</span>
-          </Link>
+          <div className="relative hidden sm:block">
+            <button
+              ref={userSearchButtonRef}
+              type="button"
+              onClick={() => { setUserSearchOpen((v) => !v); setNotifOpen(false); setMenuOpen(false) }}
+              aria-label="Search users"
+              aria-haspopup="dialog"
+              aria-expanded={userSearchOpen}
+              className="flex shrink-0 w-10 h-10 rounded-full items-center justify-center hover:bg-surface-container transition-colors"
+            >
+              <span className="material-symbols-outlined text-on-surface-variant">search</span>
+            </button>
+            {userSearchOpen && (
+              <UserSearchDropdown
+                onClose={() => setUserSearchOpen(false)}
+                triggerRef={userSearchButtonRef}
+              />
+            )}
+          </div>
         )}
         {isAuthenticated && (
           <div className="relative hidden sm:block">
