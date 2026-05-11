@@ -403,7 +403,10 @@ function Home() {
       const hasRamp = mapped.some(r => r.label?.includes('Ramp'))
       const missing = []
       if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
-      if (!hasWheelchair && !hasRamp) missing.push('wheelchair')
+      // Authenticated users may have wheelchair alternatives suppressed by design
+      // (based on stored routing preferences). Don't warn about missing wheelchair
+      // routes unless the caller is anonymous.
+      if (!token && !hasWheelchair && !hasRamp) missing.push('wheelchair')
       if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
     } catch (err) {
       const msg = err?.message || ''
