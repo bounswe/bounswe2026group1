@@ -40,7 +40,7 @@ function UserSearchDropdown({ onClose, triggerRef }) {
       role="dialog"
       aria-label="Find people"
     >
-      <UserSearchPanel heading="Find people" onResultSelect={onClose} />
+      <UserSearchPanel heading="Find people" onResultSelect={onClose} autoFocus={false} />
     </div>
   )
 }
