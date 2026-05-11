@@ -83,7 +83,7 @@ function UserSearchPanel({ onResultSelect, autoFocus = true, heading }) {
             onChange={onChange}
             placeholder="e.g. alice"
             autoFocus={autoFocus}
-            className="w-full bg-surface-container-high rounded-2xl shadow-sm pl-4 pr-10 py-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+            className="w-full bg-surface-container-high rounded-2xl shadow-sm pl-4 pr-10 py-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Search users by name or email"
           />
           {query.length > 0 && (
