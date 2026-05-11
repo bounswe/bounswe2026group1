@@ -103,8 +103,22 @@ function makeMarkerIcon(status, objectType, reportType, selected = false) {
   })
 }
 
-function ZoomControls() {
+function ZoomControls({ userLocation, onLocationError }) {
   const map = useMap()
+  const handleLocate = () => {
+    if (userLocation) {
+      // Re-clicks after the initial auto-locate would otherwise hit the cached
+      // position and produce no visible pan. flyTo guarantees the animation.
+      map.flyTo([userLocation.lat, userLocation.lng], 16)
+      return
+    }
+    const onError = () => {
+      map.off('locationerror', onError)
+      onLocationError?.()
+    }
+    map.once('locationerror', onError)
+    map.locate({ setView: true, maxZoom: 16 })
+  }
   return (
     <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
@@ -122,7 +136,7 @@ function ZoomControls() {
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
-        onClick={() => map.locate({ setView: true, maxZoom: 16 })}
+        onClick={handleLocate}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
@@ -579,7 +593,10 @@ function Home() {
                 />
               )
             })}
-            <ZoomControls />
+            <ZoomControls
+              userLocation={userLocation}
+              onLocationError={() => setToast({ message: 'Unable to access your location.', type: 'error' })}
+            />
           </MapContainer>
 
           {/* Loading / error overlay */}
