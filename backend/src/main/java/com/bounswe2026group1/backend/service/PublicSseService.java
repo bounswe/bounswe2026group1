@@ -8,6 +8,8 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -219,6 +221,28 @@ public class PublicSseService {
                 Instant.now()
         );
         sendToAll("media-added", event);
+    }
+
+    /**
+     * Defers {@code action} until the current Spring-managed transaction
+     * commits. Outside an active transaction the action runs immediately so
+     * the helper is safe to call from any context (background jobs, tests).
+     *
+     * <p>Centralised here because every caller of {@code broadcast*} on this
+     * service needs the same deferral: if a broadcast fires before commit
+     * and the transaction later rolls back, subscribers cache state that
+     * was never persisted. Worse, a subscriber refetching on the event can
+     * race the still-uncommitted write and read the pre-update row.
+     */
+    public static void broadcastAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() { action.run(); }
+        });
     }
 
     int activeEmitterCount() {

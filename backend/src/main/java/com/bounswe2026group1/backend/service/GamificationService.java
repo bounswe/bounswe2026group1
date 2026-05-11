@@ -323,8 +323,14 @@ public class GamificationService {
 
         // Broadcast so connected clients can invalidate their leaderboard
         // cache (and the affected user's own profile cache) without waiting
-        // for staleTime to expire or a manual refresh.
-        publicSseService.broadcastPointsChanged(user.getId(), after);
+        // for staleTime to expire or a manual refresh. Deferred until
+        // afterCommit so a rollback can't leave subscribers caching state
+        // that was never persisted, and so a subscriber refetching on the
+        // event doesn't race the still-uncommitted balance write.
+        Long userId = user.getId();
+        int newPoints = after;
+        PublicSseService.broadcastAfterCommit(
+                () -> publicSseService.broadcastPointsChanged(userId, newPoints));
     }
 
     private boolean awardBadgeIfMissing(RegisteredUser user, Badge badge) {

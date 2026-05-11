@@ -6,14 +6,18 @@ import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -187,6 +191,41 @@ class PublicSseServiceTest {
         assertTrue(a.sendCount == 1 && b.sendCount == 1 && c.sendCount == 1,
                 "every emitter must receive the broadcast");
         assertEquals(3, service.activeEmitterCount());
+    }
+
+    @Test
+    void broadcastAfterCommit_runsImmediately_whenNoActiveTransaction() {
+        AtomicBoolean ran = new AtomicBoolean(false);
+
+        PublicSseService.broadcastAfterCommit(() -> ran.set(true));
+
+        assertTrue(ran.get(),
+                "outside a transaction the action must run synchronously so callers don't drop events");
+    }
+
+    @Test
+    void broadcastAfterCommit_defersUntilCommit_whenTransactionActive() {
+        // Simulate a Spring-managed transaction by initialising synchronisation.
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            AtomicBoolean ran = new AtomicBoolean(false);
+
+            PublicSseService.broadcastAfterCommit(() -> ran.set(true));
+
+            assertFalse(ran.get(),
+                    "while the transaction is in flight the action must NOT have fired — " +
+                            "otherwise a rollback could leave subscribers caching unpersisted state");
+
+            // Drive the registered synchronisation past commit.
+            for (TransactionSynchronization sync :
+                    TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+
+            assertTrue(ran.get(), "afterCommit hook should have fired the deferred action");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private static class FailingEmitter extends SseEmitter {
