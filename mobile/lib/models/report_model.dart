@@ -678,6 +678,11 @@ class ReportModel {
   final int agrees;
   final int disagrees;
   final String publishDate;
+
+  /// Parallel arrays — `mediaIds[i]` is the DB id of the media whose public
+  /// URL is `mediaUrls[i]`. The edit screen needs the ids to detach existing
+  /// media via PUT /api/reports/{id} `mediaIdsToRemove`.
+  final List<int> mediaIds;
   final List<String> mediaUrls;
 
   /// 'AGREE', 'DISAGREE', or null — the authenticated user's current vote.
@@ -708,6 +713,7 @@ class ReportModel {
     required this.agrees,
     required this.disagrees,
     required this.publishDate,
+    this.mediaIds = const [],
     required this.mediaUrls,
     this.userVote,
     this.objects = const [],
@@ -734,6 +740,10 @@ class ReportModel {
       agrees: (json['agrees'] as num?)?.toInt() ?? 0,
       disagrees: (json['disagrees'] as num?)?.toInt() ?? 0,
       publishDate: json['publishDate'] as String? ?? '',
+      mediaIds: (json['mediaIds'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
       mediaUrls:
           (json['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
       userVote: json['userVote'] as String?,
@@ -757,6 +767,7 @@ class ReportModel {
     int? agrees,
     int? disagrees,
     ReportStatus? status,
+    List<int>? mediaIds,
     List<String>? mediaUrls,
     Object? activeFixRequest = _kSentinel,
   }) {
@@ -773,6 +784,7 @@ class ReportModel {
       agrees: agrees ?? this.agrees,
       disagrees: disagrees ?? this.disagrees,
       publishDate: publishDate,
+      mediaIds: mediaIds ?? this.mediaIds,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       userVote: userVote,
       objects: objects,

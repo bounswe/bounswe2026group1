@@ -47,6 +47,21 @@ class _EnvOption {
   });
 }
 
+/// In-memory record of a media file the user has queued for upload. `file`
+/// is mutable because video pickers swap the original capture for the
+/// compressed file after VideoCompress finishes — we don't want the slot
+/// to move in the gallery, just the underlying path.
+class _PendingMedia {
+  File file;
+  final bool isVideo;
+  bool converting;
+  _PendingMedia({
+    required this.file,
+    required this.isVideo,
+    this.converting = false,
+  });
+}
+
 
 class MakeReportScreen extends StatefulWidget {
   const MakeReportScreen({super.key});
@@ -62,8 +77,10 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   ReportEnvironment _environment = ReportEnvironment.outdoor;
   final List<ObjectDraft> _objects = [];
 
-  File? _selectedMedia;
-  bool _isVideo = false;
+  // Backend caps each report at 5 media items — mirror the limit on the
+  // client so the upload step can't trip a 400 right at the end of submit.
+  static const int _maxMediaItems = 5;
+  final List<_PendingMedia> _selectedMedia = [];
   bool _converting = false;
   bool _submitting = false;
 
@@ -265,7 +282,23 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     return false;
   }
 
+  bool get _canAddMoreMedia => _selectedMedia.length < _maxMediaItems;
+
+  void _toastMediaLimitReached() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('You can attach up to $_maxMediaItems files per report.'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
+    if (!_canAddMoreMedia) {
+      _toastMediaLimitReached();
+      return;
+    }
     if (source == ImageSource.camera) {
       final granted = await _ensurePermission(Permission.camera);
       if (!granted) return;
@@ -278,14 +311,19 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       );
       if (picked != null) {
         setState(() {
-          _selectedMedia = File(picked.path);
-          _isVideo = false;
+          _selectedMedia.add(
+            _PendingMedia(file: File(picked.path), isVideo: false),
+          );
         });
       }
     } catch (_) {}
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (!_canAddMoreMedia) {
+      _toastMediaLimitReached();
+      return;
+    }
     if (source == ImageSource.camera) {
       final camGranted = await _ensurePermission(Permission.camera);
       if (!camGranted) return;
@@ -296,11 +334,18 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       final picked = await _picker.pickVideo(source: source);
       if (picked == null) return;
 
-      // Show placeholder immediately so the user sees feedback
+      // Track an in-progress slot so the user sees the convert spinner
+      // immediately. We replace `file` once VideoCompress finishes — keeping
+      // the slot in the list means the gallery doesn't shift around when
+      // multiple uploads are queued.
+      final pending = _PendingMedia(
+        file: File(picked.path),
+        isVideo: true,
+        converting: true,
+      );
       setState(() {
-        _isVideo = true;
+        _selectedMedia.add(pending);
         _converting = true;
-        _selectedMedia = null;
       });
 
       try {
@@ -310,19 +355,27 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           deleteOrigin: false,
           includeAudio: true,
         );
-        if (info?.file != null && mounted) {
-          setState(() => _selectedMedia = info!.file!);
-        } else if (mounted) {
-          // Fallback: use original file as-is
-          setState(() => _selectedMedia = File(picked.path));
-        }
+        if (!mounted) return;
+        setState(() {
+          if (info?.file != null) pending.file = info!.file!;
+          pending.converting = false;
+        });
       } catch (_) {
-        if (mounted) setState(() => _selectedMedia = File(picked.path));
+        if (mounted) {
+          setState(() {
+            // Fall back to the raw file — the backend will accept either.
+            pending.converting = false;
+          });
+        }
       } finally {
-        if (mounted) setState(() => _converting = false);
+        if (mounted) {
+          setState(() {
+            _converting = _selectedMedia.any((m) => m.converting);
+          });
+        }
       }
     } catch (_) {
-      if (mounted) setState(() { _isVideo = false; _converting = false; });
+      if (mounted) setState(() => _converting = false);
     }
   }
 
@@ -381,16 +434,13 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 _pickVideo(ImageSource.gallery);
               },
             ),
-            if (_selectedMedia != null)
+            if (_selectedMedia.isNotEmpty)
               _sheetOption(
                 icon: Icons.delete_outline,
-                label: 'Remove Media',
+                label: 'Remove All Media',
                 color: AppColors.errorStrong,
                 onTap: () {
-                  setState(() {
-                    _selectedMedia = null;
-                    _isVideo = false;
-                  });
+                  setState(() => _selectedMedia.clear());
                   Navigator.pop(context);
                 },
               ),
@@ -470,12 +520,18 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         objects: reportObjects,
       );
 
-      // Upload media if selected
-      if (_selectedMedia != null) {
+      // Upload all attached media in a single multipart request. If the
+      // backend rejects part of the batch (e.g. one oversized file), the
+      // report itself is already persisted — surface a warning and keep
+      // going to the success screen so the user doesn't lose their work.
+      final readyFiles = [
+        for (final m in _selectedMedia)
+          if (!m.converting) m.file,
+      ];
+      if (readyFiles.isNotEmpty) {
         try {
-          await auth.api.uploadMedia(report.reportId, _selectedMedia!);
+          await auth.api.uploadMediaFiles(report.reportId, readyFiles);
         } catch (e) {
-          // Media upload failed — report was created; show warning but continue
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -666,173 +722,206 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Media section ─────────────────────────────────────────────────────────
 
   Widget _buildImageSection() {
+    if (_selectedMedia.isEmpty) return _buildMediaEmptyState();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 132,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _selectedMedia.length + (_canAddMoreMedia ? 1 : 0),
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              if (i == _selectedMedia.length) return _buildAddMoreTile();
+              return _buildMediaTile(_selectedMedia[i], i);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            '${_selectedMedia.length}/$_maxMediaItems attached',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMediaEmptyState() {
     return GestureDetector(
       onTap: _converting ? null : _showMediaOptions,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: _selectedMedia != null
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Preview: video thumbnail placeholder or image
-                    if (_isVideo)
-                      Container(
-                        color: Colors.black87,
-                        child: Center(
-                          child: _converting
-                              ? const Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2.5,
-                                    ),
-                                    SizedBox(height: 12),
-                                    Text(
-                                      'Converting video...',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const Icon(
-                                  Icons.play_circle_fill,
-                                  color: Colors.white,
-                                  size: 56,
-                                ),
-                        ),
-                      )
-                    else
-                      Image.file(_selectedMedia!, fit: BoxFit.cover),
-                    // Bottom overlay
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.45),
-                            ],
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _isVideo
-                                        ? Icons.videocam_outlined
-                                        : Icons.photo_outlined,
-                                    size: 12,
-                                    color: AppColors.onSurface,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _converting ? 'Converting...' : (_isVideo ? 'Video added' : 'Tap to change'),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: _converting ? null : () => setState(() {
-                                _selectedMedia = null;
-                                _isVideo = false;
-                              }),
-                              child: Container(
-                                width: 34,
-                                height: 34,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.delete_outline,
-                                  color: AppColors.errorStrong,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Container(
-                  color: AppColors.surfaceContainer,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppColors.cardSurface,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.shadow,
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.perm_media_outlined,
-                          color: AppColors.primary,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Add Photo or Video',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Photo, MP4 or MOV',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.onSurfaceVariant,
-                        ),
+          child: Container(
+            color: AppColors.surfaceContainer,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadow,
+                        blurRadius: 12,
                       ),
                     ],
                   ),
+                  child: Icon(
+                    Icons.perm_media_outlined,
+                    color: AppColors.primary,
+                    size: 26,
+                  ),
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  'Add Photos or Videos',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Up to $_maxMediaItems · Photo, MP4 or MOV',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaTile(_PendingMedia media, int index) {
+    return SizedBox(
+      width: 132,
+      height: 132,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (media.isVideo)
+              Container(
+                color: Colors.black87,
+                child: Center(
+                  child: media.converting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 36,
+                        ),
+                ),
+              )
+            else
+              Image.file(media.file, fit: BoxFit.cover),
+            // Type chip
+            Positioned(
+              left: 8,
+              top: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Icon(
+                  media.isVideo
+                      ? Icons.videocam_outlined
+                      : Icons.photo_outlined,
+                  size: 12,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+            // Delete button
+            Positioned(
+              right: 6,
+              top: 6,
+              child: GestureDetector(
+                onTap: media.converting
+                    ? null
+                    : () => setState(() {
+                          _selectedMedia.removeAt(index);
+                        }),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    color: AppColors.errorStrong,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddMoreTile() {
+    return GestureDetector(
+      onTap: _converting ? null : _showMediaOptions,
+      child: Container(
+        width: 132,
+        height: 132,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.outlineVariant,
+            style: BorderStyle.solid,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo_outlined,
+                color: AppColors.primary, size: 26),
+            const SizedBox(height: 6),
+            Text(
+              'Add more',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+            ),
+          ],
         ),
       ),
     );
