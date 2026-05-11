@@ -298,5 +298,15 @@ describe('reportService — fix request helpers', () => {
         'Location unavailable'
       )
     })
+
+    it('carries mediaIds from the API response so edit mode can pair them with URLs', () => {
+      const result = mapReport({
+        ...baseReport,
+        mediaIds: [101, 102],
+        mediaUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+      })
+      expect(result.mediaIds).toEqual([101, 102])
+      expect(result.mediaUrls).toEqual(['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'])
+    })
   })
 })

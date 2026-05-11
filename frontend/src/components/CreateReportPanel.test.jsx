@@ -271,4 +271,113 @@ describe('CreateReportPanel', () => {
       })
     })
   })
+
+  // ─── measurementsOnly mode ────────────────────────────────────────────────────
+
+  describe('measurementsOnly mode', () => {
+    const EDIT_REPORT = {
+      id: 42,
+      description: 'Original description',
+      environment: 'OUTDOOR',
+      reportType: 'OBSTACLE',
+      location: '41.08, 29.04',
+      mediaUrls: [],
+      mediaIds: [],
+      objects: [
+        {
+          objectType: 'RAMP',
+          issues: ['TOO_STEEP'],
+          measurements: { slope_percent: '8', width_cm: '90' },
+        },
+      ],
+    }
+
+    function renderEditPanel({ measurementsOnly = false, ...props } = {}) {
+      localStorage.setItem('token', FAKE_TOKEN)
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      return render(
+        <MemoryRouter>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <CreateReportPanel
+                editReport={EDIT_REPORT}
+                onUpdated={vi.fn()}
+                onClose={vi.fn()}
+                onError={vi.fn()}
+                measurementsOnly={measurementsOnly}
+                {...props}
+              />
+            </AuthProvider>
+          </QueryClientProvider>
+        </MemoryRouter>,
+      )
+    }
+
+    it('shows "Edit Measurements" heading, not "Edit Report"', () => {
+      renderEditPanel({ measurementsOnly: true })
+      expect(screen.getByRole('heading', { name: /edit measurements/i })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: /edit report/i })).not.toBeInTheDocument()
+    })
+
+    it('hides description textarea, media upload zone, and environment buttons', () => {
+      renderEditPanel({ measurementsOnly: true })
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(screen.queryByText(/upload.*photos/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^outdoor$/i })).not.toBeInTheDocument()
+    })
+
+    it('hides the object type picker and Add Object button', () => {
+      renderEditPanel({ measurementsOnly: true })
+      expect(screen.queryByRole('button', { name: /^elevator$/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /add object/i })).not.toBeInTheDocument()
+    })
+
+    it('shows "Save Measurements" on the submit button', () => {
+      renderEditPanel({ measurementsOnly: true })
+      expect(screen.getByRole('button', { name: /save measurements/i })).toBeInTheDocument()
+    })
+
+    it('auto-expands the object so measurement inputs are visible without clicks', () => {
+      renderEditPanel({ measurementsOnly: true })
+      // RAMP measurement labels rendered immediately — no expand click needed.
+      expect(screen.getByText('Slope')).toBeInTheDocument()
+      expect(screen.getByText('Width')).toBeInTheDocument()
+    })
+
+    it('renders issue checkboxes as disabled so they cannot be toggled', () => {
+      renderEditPanel({ measurementsOnly: true })
+      const checkboxes = screen.getAllByRole('checkbox')
+      expect(checkboxes.length).toBeGreaterThan(0)
+      checkboxes.forEach((cb) => expect(cb).toBeDisabled())
+    })
+
+    it('sends original description and environment in the PUT body', async () => {
+      api.apiFetch.mockResolvedValue({
+        reportId: 42,
+        userId: 1,
+        description: 'Original description',
+        environment: 'OUTDOOR',
+        reportType: 'OBSTACLE',
+        status: 'PENDING',
+        agrees: 0,
+        disagrees: 0,
+        objects: [],
+        mediaUrls: [],
+      })
+      const user = userEvent.setup()
+      renderEditPanel({ measurementsOnly: true })
+
+      await user.click(screen.getByRole('button', { name: /save measurements/i }))
+
+      await waitFor(() => {
+        expect(api.apiFetch).toHaveBeenCalledWith(
+          '/api/reports/42',
+          expect.objectContaining({
+            method: 'PUT',
+            body: expect.stringContaining('"description":"Original description"'),
+          }),
+        )
+      })
+    })
+  })
 })

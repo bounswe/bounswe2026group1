@@ -20,6 +20,18 @@ vi.mock('../hooks/useUserProfile.js', () => ({
   useUserProfile: vi.fn(),
 }))
 
+// CreateReportPanel is a heavyweight component; stub it so ReportPanel tests
+// can assert on which props it receives without rendering its full tree.
+vi.mock('./CreateReportPanel.jsx', () => ({
+  default: ({ editReport, measurementsOnly, onClose }) => (
+    <div data-testid="create-report-panel">
+      <span data-testid="cp-report-id">{editReport?.id}</span>
+      <span data-testid="cp-measurements-only">{String(!!measurementsOnly)}</span>
+      <button onClick={onClose}>Cancel</button>
+    </div>
+  ),
+}))
+
 vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
@@ -40,7 +52,6 @@ vi.mock('../services/reportService.js', () => ({
 import {
   agreeReport,
   disagreeReport,
-  updateReport,
   deleteReport,
   agreeFixRequest,
   getCommentsByReport,
@@ -147,57 +158,49 @@ describe('ReportPanel', () => {
     })
   })
 
-  describe('owner edit', () => {
-    const ownedReport = {
-      ...report,
-      ownerId: 'user123',
-      environment: 'OUTDOOR',
-    }
+  describe('edit button visibility', () => {
+    const ownedReport = { ...report, ownerId: 'user123', environment: 'OUTDOOR' }
+    const othersReport = { ...report, ownerId: 'someone-else', environment: 'OUTDOOR' }
 
-    test('does not show Edit button for non-owners', () => {
-      renderPanel({ report: { ...ownedReport, ownerId: 'someone-else' } })
+    test('owner sees "Edit" button (full edit access)', () => {
+      renderPanel({ report: ownedReport })
+      expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /edit measurements/i })).not.toBeInTheDocument()
+    })
+
+    test('authenticated non-owner sees "Edit Measurements" button, not "Edit"', () => {
+      renderPanel({ report: othersReport })
+      expect(screen.getByRole('button', { name: /edit measurements/i })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
     })
 
-    test('shows Edit button for the report owner', () => {
-      renderPanel({ report: ownedReport })
-      expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
+    test('unauthenticated user sees no edit button at all', () => {
+      mockAuth.isAuthenticated = false
+      mockAuth.token = null
+      renderPanel({ report: othersReport })
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
     })
 
-    test('clicking Edit reveals description textarea and environment radios', async () => {
+    test('clicking Edit opens CreateReportPanel with measurementsOnly=false for owner', async () => {
       renderPanel({ report: ownedReport })
       await user.click(screen.getByRole('button', { name: /^edit$/i }))
-      expect(screen.getByLabelText(/^description$/i)).toHaveValue(ownedReport.description)
-      expect(screen.getByRole('radio', { name: /outdoor/i })).toBeChecked()
-      expect(screen.getByRole('radio', { name: /indoor/i })).not.toBeChecked()
+      expect(screen.getByTestId('create-report-panel')).toBeInTheDocument()
+      expect(screen.getByTestId('cp-measurements-only')).toHaveTextContent('false')
     })
 
-    test('save calls updateReport with description and environment', async () => {
-      updateReport.mockResolvedValueOnce({ ...ownedReport, description: 'New' })
-      renderPanel({ report: ownedReport })
-      await user.click(screen.getByRole('button', { name: /^edit$/i }))
-
-      const textarea = screen.getByLabelText(/^description$/i)
-      await user.clear(textarea)
-      await user.type(textarea, 'New')
-      await user.click(screen.getByRole('radio', { name: /indoor/i }))
-      await user.click(screen.getByRole('button', { name: /^save$/i }))
-
-      await waitFor(() => {
-        expect(updateReport).toHaveBeenCalledWith(
-          'r1',
-          { description: 'New', environment: 'INDOOR' },
-          'mock-token',
-        )
-      })
+    test('clicking Edit Measurements opens CreateReportPanel with measurementsOnly=true for non-owner', async () => {
+      renderPanel({ report: othersReport })
+      await user.click(screen.getByRole('button', { name: /edit measurements/i }))
+      expect(screen.getByTestId('create-report-panel')).toBeInTheDocument()
+      expect(screen.getByTestId('cp-measurements-only')).toHaveTextContent('true')
     })
 
-    test('Cancel exits edit mode without saving', async () => {
+    test('closing the edit panel hides CreateReportPanel', async () => {
       renderPanel({ report: ownedReport })
       await user.click(screen.getByRole('button', { name: /^edit$/i }))
+      expect(screen.getByTestId('create-report-panel')).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: /^cancel$/i }))
-      expect(screen.queryByLabelText(/^description$/i)).not.toBeInTheDocument()
-      expect(updateReport).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('create-report-panel')).not.toBeInTheDocument()
     })
   })
 
