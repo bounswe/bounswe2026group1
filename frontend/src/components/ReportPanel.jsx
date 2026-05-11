@@ -500,7 +500,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 </div>
                 <div className="bg-white p-5 flex flex-col gap-4">
                   {activeFix.mediaUrls && activeFix.mediaUrls.length > 0 && (
-                    isVideoUrl(activeFix.mediaUrls[0]) ? (
+                    activeFix.mediaUrls.length === 1 && isVideoUrl(activeFix.mediaUrls[0]) ? (
                       <video
                         src={activeFix.mediaUrls[0]}
                         controls
@@ -508,11 +508,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                         className="w-full max-h-56 object-cover rounded-lg bg-black"
                       />
                     ) : (
-                      <img
-                        src={activeFix.mediaUrls[0]}
-                        alt="Proposed fix"
-                        className="w-full max-h-56 object-cover rounded-lg"
-                      />
+                      <ImageCarousel allImages={activeFix.mediaUrls.filter(u => !isVideoUrl(u))} title="Fix request evidence" />
                     )
                   )}
                   <div className="flex items-center gap-2 text-xs">

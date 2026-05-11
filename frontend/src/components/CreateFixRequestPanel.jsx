@@ -16,45 +16,55 @@ import { submitFixRequest } from '../services/reportService.js'
 function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) {
   const { token, isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(null)
+  const [imageFiles, setImageFiles] = useState([])
+  const [imagePreviews, setImagePreviews] = useState([])
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
-  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview) }, [imagePreview])
+  useEffect(() => () => { imagePreviews.forEach(url => URL.revokeObjectURL(url)) }, [imagePreviews])
 
-  function setImage(file) {
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+  function addFiles(files) {
+    const newFiles = Array.from(files).filter(f => ['image/jpeg', 'image/png'].includes(f.type))
+    if (newFiles.length === 0) {
+      setError('Only JPG or PNG files are accepted.')
+      return
+    }
+    setImageFiles(prev => [...prev, ...newFiles])
+    setImagePreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))])
+    setError('')
+  }
+
+  function removeFile(index) {
+    URL.revokeObjectURL(imagePreviews[index])
+    setImageFiles(prev => prev.filter((_, i) => i !== index))
+    setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }
 
   function handleImageChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImage(file)
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    addFiles(files)
+    // Reset input so the same file can be selected again if removed
+    e.target.value = ''
   }
 
   function handleDrop(e) {
     e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (!file) return
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      setError('Only JPG or PNG files are accepted.')
-      return
-    }
-    setImage(file)
+    const files = e.dataTransfer.files
+    if (!files || files.length === 0) return
+    addFiles(files)
   }
 
   async function handleSubmit() {
     if (!isAuthenticated) { onClose(); navigate('/login'); return }
-    if (!imageFile) return setError('Please attach a photo of the fixed area.')
+    if (imageFiles.length === 0) return setError('Please attach at least one photo of the fixed area.')
 
     setSubmitting(true)
     setError('')
     try {
-      const created = await submitFixRequest(reportId, imageFile, description, token)
+      const created = await submitFixRequest(reportId, imageFiles, description, token)
       onSubmitted?.(created)
       onClose()
     } catch (err) {
@@ -116,31 +126,50 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
             <span>Location and category are inherited from the parent report.</span>
           </div>
 
-          {/* Photo (required) */}
+          {/* Photos (at least one required) */}
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-              Photo of the fixed area <span className="text-error">*</span>
+              Photos of the fixed area <span className="text-error">*</span>
             </p>
+
+            {/* Thumbnails of selected files */}
+            {imagePreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {imagePreviews.map((src, i) => (
+                  <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-outline-variant/30">
+                    <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-error text-on-error flex items-center justify-center text-xs hover:opacity-90"
+                      aria-label={`Remove photo ${i + 1}`}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={e => e.preventDefault()}
-              className="w-full h-44 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden"
+              className="w-full h-32 rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
             >
-              {imagePreview ? (
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                  <p className="text-sm font-medium text-on-surface-variant">Upload or drop a photo of the resolved spot</p>
-                  <p className="text-xs text-outline">JPG or PNG, max 15 MB</p>
-                </>
-              )}
+              <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
+              <p className="text-sm font-medium text-on-surface-variant">
+                {imagePreviews.length === 0
+                  ? 'Upload or drop photos of the resolved spot'
+                  : 'Add more photos'}
+              </p>
+              <p className="text-xs text-outline">JPG or PNG, max 15 MB each</p>
             </div>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png"
+              multiple
               className="hidden"
               onChange={handleImageChange}
             />
