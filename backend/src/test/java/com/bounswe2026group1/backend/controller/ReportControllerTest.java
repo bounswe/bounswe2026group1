@@ -1,7 +1,9 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportFeedQuery;
 import com.bounswe2026group1.backend.dto.ReportResponse;
+import com.bounswe2026group1.backend.dto.UpdateReportRequest;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.service.ReportService;
@@ -14,10 +16,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
@@ -84,5 +91,116 @@ class ReportControllerTest {
 
         assertEquals(expected, result);
         verify(reportService).feed(null, null, null, null, null, pageable, null);
+    }
+
+    @Test
+    void getAll_passesPrincipalEmailToService() {
+        ReportResponse one = new ReportResponse();
+        List<ReportResponse> expected = List.of(one);
+        when(reportService.getAll("caller@example.com")).thenReturn(expected);
+
+        List<ReportResponse> result = controller.getAll("caller@example.com");
+
+        assertSame(expected, result);
+        verify(reportService).getAll("caller@example.com");
+    }
+
+    @Test
+    void getAll_passesNullForAnonymousCaller() {
+        when(reportService.getAll(null)).thenReturn(List.of());
+
+        List<ReportResponse> result = controller.getAll(null);
+
+        assertEquals(List.of(), result);
+        verify(reportService).getAll(null);
+    }
+
+    @Test
+    void getById_returns200WhenServiceFindsReport() {
+        ReportResponse found = new ReportResponse();
+        when(reportService.getById(99L, "u@example.com")).thenReturn(Optional.of(found));
+
+        ResponseEntity<ReportResponse> result = controller.getById(99L, "u@example.com");
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(found, result.getBody());
+    }
+
+    @Test
+    void getById_returns404WhenServiceReturnsEmpty() {
+        when(reportService.getById(404L, null)).thenReturn(Optional.empty());
+
+        ResponseEntity<ReportResponse> result = controller.getById(404L, null);
+
+        assertEquals(HttpStatus.NOT_FOUND, result.getStatusCode());
+        assertNull(result.getBody());
+    }
+
+    @Test
+    void getByUserId_passesIdToService() {
+        ReportResponse one = new ReportResponse();
+        when(reportService.getByUserId(42L)).thenReturn(List.of(one));
+
+        List<ReportResponse> result = controller.getByUserId(42L);
+
+        assertEquals(List.of(one), result);
+        verify(reportService).getByUserId(42L);
+    }
+
+    @Test
+    void create_returns201AndDelegatesToService() {
+        CreateReportRequest request = new CreateReportRequest();
+        ReportResponse created = new ReportResponse();
+        when(reportService.create(request)).thenReturn(created);
+
+        ResponseEntity<ReportResponse> result = controller.create(request);
+
+        assertEquals(HttpStatus.CREATED, result.getStatusCode());
+        assertSame(created, result.getBody());
+        verify(reportService).create(request);
+    }
+
+    @Test
+    void update_returns200WithUpdatedReport() {
+        UpdateReportRequest request = new UpdateReportRequest();
+        ReportResponse updated = new ReportResponse();
+        when(reportService.update(7L, request, "owner@example.com")).thenReturn(updated);
+
+        ResponseEntity<ReportResponse> result = controller.update(7L, request, "owner@example.com");
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(updated, result.getBody());
+        verify(reportService).update(7L, request, "owner@example.com");
+    }
+
+    @Test
+    void delete_delegatesToService_returnsVoid() {
+        controller.delete(13L, "owner@example.com");
+
+        verify(reportService).delete(13L, "owner@example.com");
+    }
+
+    @Test
+    void verifyReport_returnsServiceResultWith200() {
+        ReportResponse afterVote = new ReportResponse();
+        when(reportService.verifyReport(5L, "voter@example.com")).thenReturn(afterVote);
+
+        ResponseEntity<ReportResponse> result = controller.verifyReport(5L, "voter@example.com");
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(afterVote, result.getBody());
+        verify(reportService).verifyReport(5L, "voter@example.com");
+    }
+
+    @Test
+    void unverifyReport_returnsServiceResultWith200() {
+        ReportResponse afterVote = new ReportResponse();
+        when(reportService.unverifyReport(5L, "voter@example.com")).thenReturn(afterVote);
+
+        ResponseEntity<ReportResponse> result = controller.unverifyReport(5L, "voter@example.com");
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertSame(afterVote, result.getBody());
+        verify(reportService).unverifyReport(5L, "voter@example.com");
     }
 }
