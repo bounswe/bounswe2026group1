@@ -751,24 +751,26 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
                   {report.title}
                 </h1>
-                {canModify && (
+                {isAuthenticated && (
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowEditPanel(true)}
                       className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer"
                     >
-                      Edit
+                      {canModify ? 'Edit' : 'Edit Measurements'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      disabled={deleteReportMutation.isPending}
-                      aria-label="Delete report"
-                      className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
-                    >
-                      {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
-                    </button>
+                    {canModify && (
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleteReportMutation.isPending}
+                        aria-label="Delete report"
+                        className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
+                      >
+                        {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1103,6 +1105,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           onUpdated={handleUpdated}
           onClose={() => setShowEditPanel(false)}
           onError={(msg) => showToast({ type: 'error', message: msg })}
+          measurementsOnly={!canModify}
         />
       )}
 

@@ -19,7 +19,8 @@ function isVideoUrl(url) {
 
 // editReport: mapped report object — when provided, the panel operates in edit mode.
 // onUpdated: called with the mapped updated report after a successful edit.
-function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError, editReport, onUpdated }) {
+// measurementsOnly: when true, only measurement fields are editable (used when a non-owner edits another user's report).
+function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError, editReport, onUpdated, measurementsOnly }) {
   const isEditMode = !!editReport
   const { token, userId } = useAuth()
   const navigate = useNavigate()
@@ -33,8 +34,8 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
           objectType: obj.objectType,
           issues: obj.issues || [],
           measurements: obj.measurements || {},
-          expanded: false,
-          showMeasurements: Object.keys(obj.measurements || {}).length > 0,
+          expanded: !!measurementsOnly,
+          showMeasurements: !!measurementsOnly || Object.keys(obj.measurements || {}).length > 0,
         }))
       : []
   )
@@ -252,17 +253,18 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
     if (!token) { onClose(); navigate('/login'); return }
 
     if (!isEditMode && !position) return setError('Click on the map to set a location.')
-    if (objects.length === 0) return setError('Add at least one object to describe the issue.')
 
-    for (const obj of objects) {
-      if (!obj.objectType) return setError('Select a type for every object card.')
-      if (reportType === 'OBSTACLE' && obj.issues.length === 0) {
-        const label = OBJECT_TYPES.find(t => t.type === obj.objectType)?.label ?? obj.objectType
-        return setError(`Select at least one issue for the "${label}" object.`)
+    if (!measurementsOnly) {
+      if (objects.length === 0) return setError('Add at least one object to describe the issue.')
+      for (const obj of objects) {
+        if (!obj.objectType) return setError('Select a type for every object card.')
+        if (reportType === 'OBSTACLE' && obj.issues.length === 0) {
+          const label = OBJECT_TYPES.find(t => t.type === obj.objectType)?.label ?? obj.objectType
+          return setError(`Select at least one issue for the "${label}" object.`)
+        }
       }
+      if (!description.trim()) return setError('Please provide a description.')
     }
-
-    if (!description.trim()) return setError('Please provide a description.')
 
     setSubmitting(true)
     setError('')
@@ -277,20 +279,29 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
       if (isEditMode) {
         // ── edit flow ──────────────────────────────────────────────────────
-        const mediaIdsToRemove = existingMedia
-          .filter(m => m.toRemove && m.id != null)
-          .map(m => m.id)
-
-        const body = {
-          description: description.trim(),
-          environment,
-          objects: mappedObjects,
-          ...(mediaIdsToRemove.length > 0 && { mediaIdsToRemove }),
+        let body
+        if (measurementsOnly) {
+          // Non-owners can only update measurements; preserve all other fields.
+          body = {
+            description: editReport.description,
+            environment: editReport.environment,
+            objects: mappedObjects,
+          }
+        } else {
+          const mediaIdsToRemove = existingMedia
+            .filter(m => m.toRemove && m.id != null)
+            .map(m => m.id)
+          body = {
+            description: description.trim(),
+            environment,
+            objects: mappedObjects,
+            ...(mediaIdsToRemove.length > 0 && { mediaIdsToRemove }),
+          }
         }
 
         const updated = await updateReport(editReport.id, body, token)
 
-        if (imageFiles.length > 0) {
+        if (!measurementsOnly && imageFiles.length > 0) {
           const formData = new FormData()
           imageFiles.forEach(file => formData.append('file', file))
           await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${editReport.id}/media`, {
@@ -394,7 +405,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
       <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
         <div className="min-w-0">
           <h2 className="text-2xl font-extrabold font-headline text-on-surface">
-            {isEditMode ? 'Edit Report' : 'New Report'}
+            {measurementsOnly ? 'Edit Measurements' : isEditMode ? 'Edit Report' : 'New Report'}
           </h2>
           {isEditMode ? (
             editReport.location && (
@@ -429,7 +440,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
       <div className="px-8 pb-10 flex flex-col gap-6">
 
         {/* Visual Evidence */}
-        <div>
+        {!measurementsOnly && <div>
           {!isEditMode && <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>}
 
           {/* Existing media — edit mode only */}
@@ -529,10 +540,10 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
               {mediaError}
             </p>
           )}
-        </div>
+        </div>}
 
         {/* Report Type */}
-        <div>
+        {!measurementsOnly && <div>
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Report Type</p>
           {isEditMode ? (
             // Read-only in edit mode — backend doesn't support changing reportType
@@ -566,10 +577,10 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Environment */}
-        <div>
+        {!measurementsOnly && <div>
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Environment</p>
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -590,7 +601,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
               </button>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Objects */}
         <div>
@@ -621,19 +632,22 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                     <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform" style={{ transform: obj.expanded ? 'rotate(180deg)' : '' }}>
                       expand_more
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); removeObject(obj.id) }}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors"
-                      aria-label="Remove object"
-                    >
-                      <span className="material-symbols-outlined text-base">delete</span>
-                    </button>
+                    {!measurementsOnly && (
+                      <button
+                        onClick={e => { e.stopPropagation(); removeObject(obj.id) }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors"
+                        aria-label="Remove object"
+                      >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    )}
                   </div>
 
                   {obj.expanded && (
                     <div className="px-4 pb-4 flex flex-col gap-4 border-t border-outline-variant/20 pt-3">
 
                       {/* Object type picker */}
+                      {!measurementsOnly && (
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Object Type</p>
                         <div className="grid grid-cols-5 gap-1.5">
@@ -659,6 +673,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                           })}
                         </div>
                       </div>
+                      )}
 
                       {/* Issues — only for OBSTACLE and when type is selected */}
                       {cfg && reportType === 'OBSTACLE' && (
@@ -670,12 +685,13 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                             {cfg.issues.map(issue => (
                               <label
                                 key={issue.key}
-                                className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors"
+                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors ${measurementsOnly ? 'cursor-default opacity-60' : 'cursor-pointer hover:bg-primary/5'}`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={obj.issues.includes(issue.key)}
-                                  onChange={() => toggleIssue(obj.id, issue.key)}
+                                  onChange={() => !measurementsOnly && toggleIssue(obj.id, issue.key)}
+                                  disabled={measurementsOnly}
                                   className="w-3.5 h-3.5 accent-primary"
                                 />
                                 <span className="text-xs font-medium text-on-surface">{issue.label}</span>
@@ -751,30 +767,34 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             })}
           </div>
 
-          <button
-            onClick={addObject}
-            className="w-full py-3 rounded-xl border-2 border-dashed border-primary/35 text-primary text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/5 hover:border-primary/50 transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">add_circle</span>
-            Add Object
-          </button>
+          {!measurementsOnly && (
+            <button
+              onClick={addObject}
+              className="w-full py-3 rounded-xl border-2 border-dashed border-primary/35 text-primary text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/5 hover:border-primary/50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg">add_circle</span>
+              Add Object
+            </button>
+          )}
         </div>
 
         {/* Description */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value.slice(0, 1000))}
-            rows={4}
-            maxLength={1000}
-            placeholder="Provide a brief description of the issue..."
-            className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
-            {description.length}/1000
-          </p>
-        </div>
+        {!measurementsOnly && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Details</p>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value.slice(0, 1000))}
+              rows={4}
+              maxLength={1000}
+              placeholder="Provide a brief description of the issue..."
+              className="w-full rounded-xl border border-outline-variant/30 bg-surface-container p-4 text-sm text-on-surface placeholder-on-surface-variant/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <p className={`text-xs text-right mt-1 ${description.length >= 900 ? 'text-error' : 'text-outline'}`}>
+              {description.length}/1000
+            </p>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -796,7 +816,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
           >
             {submitting
               ? (isEditMode ? 'Saving…' : 'Submitting…')
-              : (isEditMode ? 'Save Changes' : 'Submit Report')}
+              : measurementsOnly ? 'Save Measurements' : isEditMode ? 'Save Changes' : 'Submit Report'}
           </button>
         </div>
 
