@@ -444,10 +444,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                 key={t.value}
                 aria-label={t.label}
                 onClick={() => handleReportTypeChange(t.value)}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold"
-                style={reportType === t.value
-                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
-                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '', color: '#5a5c5c' }}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${
+                  reportType === t.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40'
+                }`}
               >
                 <span className="material-symbols-outlined text-xl">{t.icon}</span>
                 <span className="font-bold text-xs">{t.label}</span>
@@ -469,10 +470,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                 key={e.value}
                 aria-label={e.label}
                 onClick={() => handleEnvironmentChange(e.value)}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all"
-                style={environment === e.value
-                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
-                  : { borderColor: 'rgba(172,173,173,.25)', color: '#5a5c5c' }}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${
+                  environment === e.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40'
+                }`}
               >
                 <span className="material-symbols-outlined text-base">{e.icon}</span>
                 {e.label}
@@ -536,10 +538,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                                 disabled={isDisabled}
                                 onClick={() => selectObjectType(obj.id, t.type)}
                                 title={isDisabled ? `${t.label} already added` : t.label}
-                                className="flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed"
-                                style={isSelected
-                                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.08)', color: '#176a21' }
-                                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '#f0f1f1', color: '#5a5c5c' }}
+                                className={`flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed ${
+                                  isSelected
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : 'border-outline-variant/30 bg-surface-container-high text-on-surface-variant hover:border-primary/40'
+                                }`}
                               >
                                 <span className="material-symbols-outlined text-xl">{t.icon}</span>
                                 {t.label}
