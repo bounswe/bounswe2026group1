@@ -17,10 +17,20 @@ describe('OnboardingTutorial', () => {
     const user = userEvent.setup()
     render(<OnboardingTutorial onClose={vi.fn()} />)
 
-    const titles = ['Ramps', 'Sidewalks', 'Elevators', 'Doors', 'How to file a report']
+    const titles = [
+      /^ramps$/i,
+      /ramps — landings & stairs/i,
+      /curb cuts/i,
+      /sidewalks/i,
+      /elevators — cabin/i,
+      /elevators — entrance & panel/i,
+      /doors — glass & contrast/i,
+      /doors — handles/i,
+      /how to file a report/i,
+    ]
     for (const title of titles) {
       await user.click(screen.getByRole('button', { name: /next/i }))
-      expect(screen.getByRole('heading', { name: new RegExp(title, 'i') })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
     }
   })
 
@@ -38,8 +48,8 @@ describe('OnboardingTutorial', () => {
     const user = userEvent.setup()
     render(<OnboardingTutorial onClose={onClose} />)
 
-    // Five "Next" clicks gets us from slide 1 (Welcome) to slide 6 (How to file…)
-    for (let i = 0; i < 5; i++) {
+    // Nine "Next" clicks gets us from slide 1 (Welcome) to slide 10 (How to file…)
+    for (let i = 0; i < 9; i++) {
       await user.click(screen.getByRole('button', { name: /next/i }))
     }
 
@@ -76,9 +86,19 @@ describe('OnboardingTutorial', () => {
     render(<OnboardingTutorial onClose={vi.fn()} />)
 
     await user.keyboard('{ArrowRight}')
-    expect(screen.getByRole('heading', { name: /ramps/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^ramps$/i })).toBeInTheDocument()
 
     await user.keyboard('{ArrowLeft}')
     expect(screen.getByRole('heading', { name: /welcome to mapcess/i })).toBeInTheDocument()
+  })
+
+  it('cites the Belir guide as the diagram source', () => {
+    render(<OnboardingTutorial onClose={vi.fn()} />)
+    // Two mentions on the welcome slide: the introductory tip and the
+    // persistent attribution above the footer.
+    expect(screen.getAllByText(/özlem belir/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/mimari erişilebilirlik kılavuzu/i).length,
+    ).toBeGreaterThan(0)
   })
 })
