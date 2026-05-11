@@ -78,6 +78,11 @@
     "hideMeasurements": "Ölçüleri gizle",
     "howToMeasure": "Nasıl ölçülür",
     "howToMeasureAria": "{{label}} nasıl ölçülür",
+    "howToMeasureFooter": "Bunları katı bir kural değil, yol gösterici olarak kullan. Emin değilsen gözlemini bildir, topluluk doğrulasın.",
+    "howToMeasureEmpty": "Bu nesne türü için ölçü takip edilmiyor.",
+    "thresholdRange": "{{min}}–{{max}} {{unit}} erişilebilir",
+    "thresholdMin": "≥ {{min}} {{unit}} erişilebilir",
+    "thresholdMax": "≤ {{max}} {{unit}} erişilebilir",
     "addObject": "Nesne Ekle",
     "details": "Ayrıntılar",
     "descriptionPlaceholder": "Sorunu kısaca açıkla...",
@@ -147,7 +152,28 @@
     "noCommentsYet": "Henüz yorum yok.",
     "recentActivity": "Son Etkinlik",
     "system": "Sistem",
-    "submittedActivity": "Rapor gönderildi, topluluk doğrulaması bekleniyor."
+    "submittedActivity": "Rapor gönderildi, topluluk doğrulaması bekleniyor.",
+    "createFixAria": "Düzeltme raporu gönder",
+    "createFixHeading": "Düzeltildi Olarak Bildir",
+    "createFixFor": "Şunun için: {{title}}",
+    "createFixSubtitle": "Topluluk doğrulayabilsin diye bir fotoğraf paylaş.",
+    "createFixClose": "Kapat",
+    "createFixInheritedBanner": "Konum ve kategori üst rapordan alınır.",
+    "createFixPhotoLabel": "Düzeltilen alanın fotoğrafı",
+    "createFixUploadHint": "Çözülen bölgenin fotoğrafını yükle veya bırak",
+    "createFixUploadFormat": "JPG veya PNG, en fazla 15 MB",
+    "createFixWhatChanged": "Ne değişti?",
+    "createFixOptional": "(isteğe bağlı)",
+    "createFixDescriptionPlaceholder": "Geçen hafta yeni bir rampa yapıldı.",
+    "createFixOnlyJpgPng": "Yalnızca JPG veya PNG dosyaları kabul edilir.",
+    "createFixAttachPhoto": "Lütfen düzeltilen alanın bir fotoğrafını ekle.",
+    "createFixDuplicate": "Birisi bunun için zaten bir düzeltme raporu gönderdi. Onun raporunu oyla.",
+    "createFixInvalidSubmission": "Geçersiz gönderim. Fotoğrafı ve açıklama uzunluğunu kontrol et.",
+    "createFixGenericError": "Düzeltme raporu gönderilemedi. Lütfen tekrar dene.",
+    "createFixRuleCopy": "Diğer kullanıcılar düzeltmeni oylayacak. En az 5 kişi katılır ve uzlaşı %60'a ulaşırsa Düzeltildi olarak doğrulanır — sonra 7 gün içinde otomatik silinir.",
+    "createFixCancel": "İptal",
+    "createFixSubmit": "Düzeltme Raporunu Gönder",
+    "createFixSubmitting": "Gönderiliyor…"
   },
   "feed": {
     "title": "Topluluk akışı",
@@ -176,6 +202,11 @@
     "disagree": "Katılmıyorum",
     "filterReportTypeAria": "Rapor türü: {{label}}",
     "filterEnvironmentAria": "Ortam: {{label}}",
+    "pickerAriaLabel": "Topluluk akışı için referans konum seç",
+    "pickerHelp": "Ara, haritaya dokun veya konumunu kullan. Daire arama yarıçapınla eşleşir.",
+    "pickerCancel": "İptal",
+    "pickerDone": "Tamam",
+    "pickerUseMyLocation": "Konumumu kullan",
     "status": {
       "unverified": "Doğrulanmadı",
       "verified": "Doğrulandı",
@@ -209,9 +240,9 @@
         "INSUFFICIENT_LANDING_AREA": "Yetersiz Sahanlık"
       },
       "measurement": {
-        "slope_percent": { "label": "Eğim" },
-        "width_cm": { "label": "Genişlik" },
-        "height_cm": { "label": "Yükseklik" }
+        "slope_percent": { "label": "Eğim", "description": "Rampanın dikliği. Bir tekerlekli sandalye kullanıcısı, yorulmadan yaklaşık %10'a (her 10 cm uzunlukta 1 cm yükselme) kadar çıkabilir." },
+        "width_cm": { "label": "Genişlik", "description": "Net geçiş genişliği. 100 cm bir tekerlekli sandalyenin geçmesine, daha genişi iki kişinin yan yana geçmesine yeter." },
+        "height_cm": { "label": "Yükseklik", "description": "Rampanın kat ettiği toplam dikey yükselme; eğimin bu uzunlukta sürdürülebilir olup olmadığını ölçer." }
       }
     },
     "ELEVATOR": {
@@ -225,9 +256,9 @@
         "INSUFFICIENT_LIGHTING": "Yetersiz Aydınlatma"
       },
       "measurement": {
-        "door_width_cm": { "label": "Kapı Genişliği" },
-        "cabin_width_cm": { "label": "Kabin Genişliği" },
-        "cabin_depth_cm": { "label": "Kabin Derinliği" }
+        "door_width_cm": { "label": "Kapı Genişliği", "description": "Kapılar tamamen açıkken net açıklık. 90 cm standart bir tekerlekli sandalyeyi ve tutamaklarını alır." },
+        "cabin_width_cm": { "label": "Kabin Genişliği", "description": "Kabinin iç genişliği. 120 cm bir tekerlekli sandalye kullanıcısına rahatça yer verir." },
+        "cabin_depth_cm": { "label": "Kabin Derinliği", "description": "Önden arkaya iç derinlik. 140 cm tekerlekli sandalyenin dönmesine veya başka bir yolcunun yanında durmasına izin verir." }
       }
     },
     "SIDEWALK": {
@@ -241,8 +272,8 @@
         "UNRAMPED_LEVEL_DIFFERENCE": "Rampasız Seviye Farkı"
       },
       "measurement": {
-        "height_cm": { "label": "Bordür Yüksekliği" },
-        "width_cm": { "label": "Genişlik" }
+        "height_cm": { "label": "Bordür Yüksekliği", "description": "Kaldırımdan yola olan basamak. Bordür rampası olmadan ~15 cm üstü tekerlekleri ve yürüteçleri durdurur." },
+        "width_cm": { "label": "Genişlik", "description": "Kullanılabilir yaya genişliği (lamba direkleri ve banklar hariç). 150 cm iki tekerlekli sandalyenin geçişine izin verir." }
       }
     },
     "DOOR": {
@@ -256,8 +287,8 @@
         "INTERCOM_INACCESSIBLE": "Erişilemez İnterkom"
       },
       "measurement": {
-        "width_cm": { "label": "Genişlik" },
-        "threshold_height_cm": { "label": "Eşik Yüksekliği" }
+        "width_cm": { "label": "Genişlik", "description": "Kapı tamamen açıkken net açıklık. 90 cm standart bir tekerlekli sandalyeye yeter." },
+        "threshold_height_cm": { "label": "Eşik Yüksekliği", "description": "Kapı altındaki çıkıntı. ~0,6 cm üstü tekerlekli sandalyenin ön tekerleklerine takılır." }
       }
     },
     "STAIR": {
@@ -271,8 +302,8 @@
         "MISSING_NOSING_STRIP": "Basamak Burnu Şeridi Yok"
       },
       "measurement": {
-        "riser_cm": { "label": "Basamak Yüksekliği" },
-        "tread_cm": { "label": "Basamak Derinliği" }
+        "riser_cm": { "label": "Basamak Yüksekliği", "description": "Her basamağın yüksekliği. 16 cm üstü hareket kısıtlılığı olanlar için yorucu ve risklidir." },
+        "tread_cm": { "label": "Basamak Derinliği", "description": "Her basamağın önden arkaya derinliği. 27 cm altı tüm ayağı güvenle basmak için fazla dardır." }
       }
     },
     "PEDESTRIAN_CROSSING": {
@@ -285,9 +316,9 @@
         "NO_PEDESTRIAN_REFUGE": "Yaya Refüjü Yok"
       },
       "measurement": {
-        "signal_duration_sec": { "label": "Sinyal Süresi" },
-        "crossing_width_cm": { "label": "Geçit Genişliği" },
-        "dropped_curb_height_cm": { "label": "İndirilmiş Bordür Yüksekliği" }
+        "signal_duration_sec": { "label": "Sinyal Süresi", "description": "Yaya sinyalinin yanık kaldığı süre. 15 sn yavaş yürüyen birinin tipik bir caddeyi geçmesine yeter." },
+        "crossing_width_cm": { "label": "Geçit Genişliği", "description": "Çizgili geçidin genişliği. 300 cm karşılıklı yönde iki tekerlekli sandalyenin geçişine izin verir." },
+        "dropped_curb_height_cm": { "label": "İndirilmiş Bordür Yüksekliği", "description": "Geçitten kaldırıma çıkış basamağı. ~1,3 cm üstü tekerlekleri takar ve bastonlara dolaşır." }
       }
     },
     "CURB_RAMP": {
@@ -298,9 +329,9 @@
         "RAISED_LIP": "Yüksek Kenar"
       },
       "measurement": {
-        "slope_percent": { "label": "Eğim" },
-        "width_cm": { "label": "Genişlik" },
-        "lip_height_cm": { "label": "Kenar Yüksekliği" }
+        "slope_percent": { "label": "Eğim", "description": "Bordür rampasının dikliği. %8 kendi sandalyesini iten biri için rahat üst sınırdır." },
+        "width_cm": { "label": "Genişlik", "description": "Rampa yüzeyinin genişliği. 120 cm tekerlekli sandalyeye uygun minimumdur." },
+        "lip_height_cm": { "label": "Kenar Yüksekliği", "description": "Rampanın yola birleştiği çıkıntı. 1,3 cm üstü tekerlekleri sarsar ve bastonlara dolaşır." }
       }
     },
     "WASHROOM": {
@@ -313,10 +344,10 @@
         "SINK_TOO_HIGH": "Lavabo Çok Yüksek", "NO_EMERGENCY_BUTTON": "Acil Durum Butonu Yok"
       },
       "measurement": {
-        "door_width_cm": { "label": "Kapı Genişliği" },
-        "turning_space_cm": { "label": "Manevra Alanı" },
-        "sink_height_cm": { "label": "Lavabo Yüksekliği" },
-        "grab_bar_height_cm": { "label": "Tutamak Yüksekliği" }
+        "door_width_cm": { "label": "Kapı Genişliği", "description": "Kapı tamamen açıkken net açıklık. 90 cm standart bir tekerlekli sandalyeye yeter." },
+        "turning_space_cm": { "label": "Manevra Alanı", "description": "Boş zemindeki açık daire. 150 cm bir tekerlekli sandalyenin tam dönmesine izin verir." },
+        "sink_height_cm": { "label": "Lavabo Yüksekliği", "description": "Lavabo kenarının zeminden yüksekliği. 85 cm altı oturarak musluğa uzanmaya izin verir." },
+        "grab_bar_height_cm": { "label": "Tutamak Yüksekliği", "description": "Tutamakların zeminden yüksekliği. 70 cm veya üstü çoğu transfer tutuşuyla hizalanır." }
       }
     },
     "ROOM_SIGN": {
@@ -328,8 +359,8 @@
         "INVALID_HEIGHT": "Geçersiz Yükseklik"
       },
       "measurement": {
-        "mounting_height_cm": { "label": "Montaj Yüksekliği" },
-        "text_height_mm": { "label": "Yazı Yüksekliği" }
+        "mounting_height_cm": { "label": "Montaj Yüksekliği", "description": "Tabelanın merkezinin zeminden yüksekliği. 120-160 cm hem ayakta hem oturan kullanıcılar için göz hizasıyla hizalanır." },
+        "text_height_mm": { "label": "Yazı Yüksekliği", "description": "Harflerin yüksekliği. 15 mm altı kapı mesafesinden okunması zor." }
       }
     }
   },
@@ -497,6 +528,28 @@
       "step4": "Gönder",
       "tipTitle": "Bir dakikadan kısa",
       "tip": "Beş komşu onayladığında raporun doğrulanmış olur ve herkes için erişilebilir rotalar şekillenmeye başlar."
+    }
+  },
+  "passwordRules": {
+    "length": {
+      "label": "En az 8 karakter",
+      "message": "Şifre en az 8 karakter olmalı."
+    },
+    "uppercase": {
+      "label": "En az bir büyük harf",
+      "message": "Şifre en az bir büyük harf içermeli."
+    },
+    "lowercase": {
+      "label": "En az bir küçük harf",
+      "message": "Şifre en az bir küçük harf içermeli."
+    },
+    "digit": {
+      "label": "En az bir rakam",
+      "message": "Şifre en az bir rakam içermeli."
+    },
+    "special": {
+      "label": "En az bir özel karakter ({{chars}})",
+      "message": "Şifre en az bir özel karakter ({{chars}}) içermeli."
     }
   },
   "auth": {

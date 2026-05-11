@@ -78,6 +78,11 @@
     "hideMeasurements": "Hide measurements",
     "howToMeasure": "How to measure",
     "howToMeasureAria": "How to measure {{label}}",
+    "howToMeasureFooter": "Use these as a guide, not a strict rule. When in doubt, report what you observe and let the community verify.",
+    "howToMeasureEmpty": "No measurements are tracked for this object type.",
+    "thresholdRange": "{{min}}–{{max}} {{unit}} is accessible",
+    "thresholdMin": "≥ {{min}} {{unit}} is accessible",
+    "thresholdMax": "≤ {{max}} {{unit}} is accessible",
     "addObject": "Add Object",
     "details": "Details",
     "descriptionPlaceholder": "Provide a brief description of the issue...",
@@ -147,7 +152,28 @@
     "noCommentsYet": "No comments yet.",
     "recentActivity": "Recent Activity",
     "system": "System",
-    "submittedActivity": "Report submitted and pending community verification."
+    "submittedActivity": "Report submitted and pending community verification.",
+    "createFixAria": "Submit fix report",
+    "createFixHeading": "Report as Fixed",
+    "createFixFor": "For: {{title}}",
+    "createFixSubtitle": "Share a photo so the community can verify.",
+    "createFixClose": "Close",
+    "createFixInheritedBanner": "Location and category are inherited from the parent report.",
+    "createFixPhotoLabel": "Photo of the fixed area",
+    "createFixUploadHint": "Upload or drop a photo of the resolved spot",
+    "createFixUploadFormat": "JPG or PNG, max 15 MB",
+    "createFixWhatChanged": "What changed?",
+    "createFixOptional": "(optional)",
+    "createFixDescriptionPlaceholder": "A new ramp was installed last week.",
+    "createFixOnlyJpgPng": "Only JPG or PNG files are accepted.",
+    "createFixAttachPhoto": "Please attach a photo of the fixed area.",
+    "createFixDuplicate": "Someone else already submitted a fix report for this. Vote on theirs instead.",
+    "createFixInvalidSubmission": "Invalid submission. Check your photo and description length.",
+    "createFixGenericError": "Failed to submit fix report. Please try again.",
+    "createFixRuleCopy": "Other users will vote on your fix. It confirms as Fixed when at least 5 people agree and consensus reaches 60% — then it auto-deletes after 7 days.",
+    "createFixCancel": "Cancel",
+    "createFixSubmit": "Submit Fix Report",
+    "createFixSubmitting": "Submitting…"
   },
   "feed": {
     "title": "Community feed",
@@ -176,6 +202,11 @@
     "disagree": "Disagree",
     "filterReportTypeAria": "Report type: {{label}}",
     "filterEnvironmentAria": "Environment: {{label}}",
+    "pickerAriaLabel": "Choose reference location for community feed",
+    "pickerHelp": "Search, tap the map, or use your location. The circle matches your search radius.",
+    "pickerCancel": "Cancel",
+    "pickerDone": "Done",
+    "pickerUseMyLocation": "Use my location",
     "status": {
       "unverified": "Unverified",
       "verified": "Validated",
@@ -209,9 +240,9 @@
         "INSUFFICIENT_LANDING_AREA": "Insufficient Landing Area"
       },
       "measurement": {
-        "slope_percent": { "label": "Slope" },
-        "width_cm": { "label": "Width" },
-        "height_cm": { "label": "Height" }
+        "slope_percent": { "label": "Slope", "description": "Steepness of the ramp. A wheelchair user can manage up to about 10% (a 1 cm rise per 10 cm of length) without exhausting effort." },
+        "width_cm": { "label": "Width", "description": "Clear travel width. 100 cm lets a single wheelchair pass; wider lets two people pass each other." },
+        "height_cm": { "label": "Height", "description": "Total vertical rise the ramp covers, used to gauge whether the slope is sustainable over its length." }
       }
     },
     "ELEVATOR": {
@@ -225,9 +256,9 @@
         "INSUFFICIENT_LIGHTING": "Insufficient Lighting"
       },
       "measurement": {
-        "door_width_cm": { "label": "Door Width" },
-        "cabin_width_cm": { "label": "Cabin Width" },
-        "cabin_depth_cm": { "label": "Cabin Depth" }
+        "door_width_cm": { "label": "Door Width", "description": "Clear opening when the doors are fully open. 90 cm fits a standard wheelchair plus its handgrips." },
+        "cabin_width_cm": { "label": "Cabin Width", "description": "Inside width of the cabin. 120 cm gives a wheelchair user enough room to fit comfortably." },
+        "cabin_depth_cm": { "label": "Cabin Depth", "description": "Inside depth front-to-back. 140 cm lets a wheelchair turn or fit beside another passenger." }
       }
     },
     "SIDEWALK": {
@@ -241,8 +272,8 @@
         "UNRAMPED_LEVEL_DIFFERENCE": "Unramped Level Difference"
       },
       "measurement": {
-        "height_cm": { "label": "Curb Height" },
-        "width_cm": { "label": "Width" }
+        "height_cm": { "label": "Curb Height", "description": "Step from sidewalk to road. Above ~15 cm without a curb ramp blocks wheels and walkers." },
+        "width_cm": { "label": "Width", "description": "Usable walking width (ignore lamp posts and benches). 150 cm lets two wheelchairs pass each other." }
       }
     },
     "DOOR": {
@@ -256,8 +287,8 @@
         "INTERCOM_INACCESSIBLE": "Intercom Inaccessible"
       },
       "measurement": {
-        "width_cm": { "label": "Width" },
-        "threshold_height_cm": { "label": "Threshold Height" }
+        "width_cm": { "label": "Width", "description": "Clear opening when the door is fully open. 90 cm fits a standard wheelchair." },
+        "threshold_height_cm": { "label": "Threshold Height", "description": "The lip at the bottom of the doorway. Above ~0.6 cm catches small front wheels on a wheelchair." }
       }
     },
     "STAIR": {
@@ -271,8 +302,8 @@
         "MISSING_NOSING_STRIP": "Missing Nosing Strip"
       },
       "measurement": {
-        "riser_cm": { "label": "Riser Height" },
-        "tread_cm": { "label": "Tread Depth" }
+        "riser_cm": { "label": "Riser Height", "description": "Height of each step. Above 16 cm gets exhausting and risky for people with mobility limits." },
+        "tread_cm": { "label": "Tread Depth", "description": "Front-to-back depth of each step. Below 27 cm is too narrow to land a whole foot safely." }
       }
     },
     "PEDESTRIAN_CROSSING": {
@@ -285,9 +316,9 @@
         "NO_PEDESTRIAN_REFUGE": "No Pedestrian Refuge"
       },
       "measurement": {
-        "signal_duration_sec": { "label": "Signal Duration" },
-        "crossing_width_cm": { "label": "Crossing Width" },
-        "dropped_curb_height_cm": { "label": "Dropped Curb Height" }
+        "signal_duration_sec": { "label": "Signal Duration", "description": "How long the walk signal stays on. 15 s is enough for a slow walker to cross a typical street." },
+        "crossing_width_cm": { "label": "Crossing Width", "description": "Width of the marked crossing. 300 cm fits two wheelchairs passing in opposite directions." },
+        "dropped_curb_height_cm": { "label": "Dropped Curb Height", "description": "Step from the crossing onto the sidewalk. Above ~1.3 cm catches wheels and trips canes." }
       }
     },
     "CURB_RAMP": {
@@ -298,9 +329,9 @@
         "RAISED_LIP": "Raised Lip"
       },
       "measurement": {
-        "slope_percent": { "label": "Slope" },
-        "width_cm": { "label": "Width" },
-        "lip_height_cm": { "label": "Lip Height" }
+        "slope_percent": { "label": "Slope", "description": "Steepness of the curb ramp. 8% is the comfortable maximum for a person pushing themself in a wheelchair." },
+        "width_cm": { "label": "Width", "description": "Width of the ramp surface. 120 cm matches the wheelchair-friendly minimum." },
+        "lip_height_cm": { "label": "Lip Height", "description": "Bump where the ramp meets the road. Above 1.3 cm jolts wheels and trips canes." }
       }
     },
     "WASHROOM": {
@@ -313,10 +344,10 @@
         "SINK_TOO_HIGH": "Sink Too High", "NO_EMERGENCY_BUTTON": "No Emergency Button"
       },
       "measurement": {
-        "door_width_cm": { "label": "Door Width" },
-        "turning_space_cm": { "label": "Turning Space" },
-        "sink_height_cm": { "label": "Sink Height" },
-        "grab_bar_height_cm": { "label": "Grab Bar Height" }
+        "door_width_cm": { "label": "Door Width", "description": "Clear opening when the door is fully open. 90 cm fits a standard wheelchair." },
+        "turning_space_cm": { "label": "Turning Space", "description": "Open circle of clear floor space. 150 cm lets a wheelchair turn fully around." },
+        "sink_height_cm": { "label": "Sink Height", "description": "Top of the sink rim from the floor. Below 85 cm lets a seated user reach the tap." },
+        "grab_bar_height_cm": { "label": "Grab Bar Height", "description": "Height of the grab bars from the floor. 70 cm or higher lines up with most transfer holds." }
       }
     },
     "ROOM_SIGN": {
@@ -328,8 +359,8 @@
         "INVALID_HEIGHT": "Invalid Height"
       },
       "measurement": {
-        "mounting_height_cm": { "label": "Mounting Height" },
-        "text_height_mm": { "label": "Text Height" }
+        "mounting_height_cm": { "label": "Mounting Height", "description": "Center of the sign from the floor. 120-160 cm aligns with eye level for both standing and seated users." },
+        "text_height_mm": { "label": "Text Height", "description": "Height of the letterforms. Below 15 mm is hard to read from door distance." }
       }
     }
   },
@@ -498,6 +529,28 @@
       "step4": "Submit",
       "tipTitle": "Done in under a minute",
       "tip": "Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone."
+    }
+  },
+  "passwordRules": {
+    "length": {
+      "label": "At least 8 characters",
+      "message": "Password must be at least 8 characters long."
+    },
+    "uppercase": {
+      "label": "At least one uppercase letter",
+      "message": "Password must contain at least one uppercase letter."
+    },
+    "lowercase": {
+      "label": "At least one lowercase letter",
+      "message": "Password must contain at least one lowercase letter."
+    },
+    "digit": {
+      "label": "At least one number",
+      "message": "Password must contain at least one number."
+    },
+    "special": {
+      "label": "At least one special character ({{chars}})",
+      "message": "Password must contain at least one special character ({{chars}})."
     }
   },
   "auth": {
