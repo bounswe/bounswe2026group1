@@ -6,7 +6,7 @@ import AuthFooter from '../components/AuthFooter.jsx'
 import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
 import { registerUser, loginUser } from '../services/authService.js'
 import { useAuth } from '../context/AuthContext.jsx'
-import { validatePassword } from '../utils/passwordValidation.js'
+import { SPECIAL_CHARS, validatePassword } from '../utils/passwordValidation.js'
 
 function Signup() {
   const { t } = useTranslation()
@@ -187,15 +187,19 @@ function Signup() {
                       // submit (passwordTouched). While they're still working
                       // on the form, unmet rules stay grey — passed rules
                       // turn green in real time.
-                      // Note: rule labels/messages remain in English (see
-                      // passwordValidation.js) — pulling them through i18n is
-                      // a follow-up so the util stays free of React context.
+                      // Labels and long-form messages come from i18n
+                      // (`passwordRules.<id>.label/.message`) so the checklist
+                      // follows the active language.
                       const showFailure = passwordTouched && !rule.passed
                       const colorClass = rule.passed
                         ? 'text-[#176a21]'
                         : showFailure
                           ? 'text-red-600'
                           : 'text-[#767777]'
+                      const ruleText = t(
+                        `passwordRules.${rule.id}.${showFailure ? 'message' : 'label'}`,
+                        { chars: SPECIAL_CHARS },
+                      )
                       return (
                         <li
                           key={rule.id}
@@ -204,7 +208,7 @@ function Signup() {
                           className={`flex items-center gap-2 ${colorClass}`}
                         >
                           <span aria-hidden="true">{rule.passed ? '✓' : '•'}</span>
-                          <span>{showFailure ? rule.message : rule.label}</span>
+                          <span>{ruleText}</span>
                         </li>
                       )
                     })}

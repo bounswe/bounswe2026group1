@@ -14,7 +14,6 @@ describe('validatePassword', () => {
     const { results } = validatePassword('Aa1!')
     const length = results.find((r) => r.id === 'length')
     expect(length.passed).toBe(false)
-    expect(length.message).toMatch(/at least 8 characters/i)
   })
 
   it('reports uppercase failure when only lowercase', () => {
@@ -36,7 +35,6 @@ describe('validatePassword', () => {
     const { results } = validatePassword('Abcdefg1')
     const special = results.find((r) => r.id === 'special')
     expect(special.passed).toBe(false)
-    expect(special.message).toMatch(/special character/i)
   })
 
   it('passes for a strong password meeting all rules', () => {

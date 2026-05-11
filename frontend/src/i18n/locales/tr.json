@@ -499,6 +499,28 @@
       "tip": "Beş komşu onayladığında raporun doğrulanmış olur ve herkes için erişilebilir rotalar şekillenmeye başlar."
     }
   },
+  "passwordRules": {
+    "length": {
+      "label": "En az 8 karakter",
+      "message": "Şifre en az 8 karakter olmalı."
+    },
+    "uppercase": {
+      "label": "En az bir büyük harf",
+      "message": "Şifre en az bir büyük harf içermeli."
+    },
+    "lowercase": {
+      "label": "En az bir küçük harf",
+      "message": "Şifre en az bir küçük harf içermeli."
+    },
+    "digit": {
+      "label": "En az bir rakam",
+      "message": "Şifre en az bir rakam içermeli."
+    },
+    "special": {
+      "label": "En az bir özel karakter ({{chars}})",
+      "message": "Şifre en az bir özel karakter ({{chars}}) içermeli."
+    }
+  },
   "auth": {
     "login": {
       "heroHeadline": "Her komşu için hareket özgürlüğü.",

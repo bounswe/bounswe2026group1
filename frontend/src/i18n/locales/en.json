@@ -500,6 +500,28 @@
       "tip": "Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone."
     }
   },
+  "passwordRules": {
+    "length": {
+      "label": "At least 8 characters",
+      "message": "Password must be at least 8 characters long."
+    },
+    "uppercase": {
+      "label": "At least one uppercase letter",
+      "message": "Password must contain at least one uppercase letter."
+    },
+    "lowercase": {
+      "label": "At least one lowercase letter",
+      "message": "Password must contain at least one lowercase letter."
+    },
+    "digit": {
+      "label": "At least one number",
+      "message": "Password must contain at least one number."
+    },
+    "special": {
+      "label": "At least one special character ({{chars}})",
+      "message": "Password must contain at least one special character ({{chars}})."
+    }
+  },
   "auth": {
     "login": {
       "heroHeadline": "Empowering mobility for every neighbour.",
