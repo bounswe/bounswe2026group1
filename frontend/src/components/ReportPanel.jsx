@@ -463,7 +463,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               )}
               <button
                 onClick={onClose}
-                className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow border border-outline-variant/20 shrink-0"
+                className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors shrink-0"
                 aria-label="Close panel"
               >
                 <span className="material-symbols-outlined text-base">close</span>
