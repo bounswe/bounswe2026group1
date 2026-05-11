@@ -12,6 +12,7 @@ import '../main.dart' show AuthShell;
 import 'avatar_crop_screen.dart';
 import 'leaderboard_screen.dart';
 import 'report_detail_screen.dart';
+import 'onboarding_tutorial_screen.dart';
 import 'routing_preferences_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -1005,7 +1006,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _heroPillButton(
+              icon: Icons.school_outlined,
+              label: 'Replay tutorial',
+              onTap: _replayTutorial,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _replayTutorial() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const OnboardingTutorialScreen(),
+        fullscreenDialog: true,
       ),
     );
   }

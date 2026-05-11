@@ -6,14 +6,21 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
+import 'onboarding_tutorial_screen.dart';
 import 'report_detail_screen.dart';
 import 'make_report_screen.dart';
 import '../main.dart' show AuthShell;
 import '../models/sse_event.dart';
 import '../services/sse_service.dart';
+
+/// Local-storage key for the first-visit onboarding flag. Mirrors the web
+/// app's `mapcess_onboarding_v1` key so a user who has seen one tour
+/// hasn't necessarily seen the other (separate devices, by design).
+const _onboardingFlag = 'mapcess_onboarding_v1';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -99,6 +106,26 @@ class _HomeScreenState extends State<HomeScreen> {
     _initLocation();
     _loadReports();
     _initSse();
+    _maybeShowOnboarding();
+  }
+
+  /// First-visit accessibility tutorial. Pushed once per install; the
+  /// `mapcess_onboarding_v1` flag is set the first time the route pops,
+  /// regardless of whether the user finished or skipped.
+  Future<void> _maybeShowOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_onboardingFlag) == 'done') return;
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const OnboardingTutorialScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+      await prefs.setString(_onboardingFlag, 'done');
+    });
   }
 
   void _initSse() {
@@ -476,9 +503,13 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
 
+      // Honor the backend's `preferred` flag (set when an alternative
+      // matches the signed-in caller's preferred travel mode). Falls back
+      // to the first option for anonymous callers and no-preference users.
+      final preferredIdx = decoded.indexWhere((r) => r.preferred);
       setState(() {
         _routes = decoded;
-        _selectedRouteIdx = 0;
+        _selectedRouteIdx = preferredIdx >= 0 ? preferredIdx : 0;
         _routeLoading = false;
         _routePanelExpanded = false;
       });
@@ -1977,16 +2008,34 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                r.label,
-                                style: TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: selected
-                                      ? r.color
-                                      : AppColors.onSurfaceVariant,
-                                ),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      r.label,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Plus Jakarta Sans',
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: selected
+                                            ? r.color
+                                            : AppColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                  if (r.preferred) ...[
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 14,
+                                      color: selected
+                                          ? r.color
+                                          : AppColors.onSurfaceVariant
+                                              .withOpacity(0.6),
+                                    ),
+                                  ],
+                                ],
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -2173,6 +2222,8 @@ class _RouteData {
   final double distanceMeters;
   final double durationSeconds;
   final bool hasObstacles;
+  final String mode;
+  final bool preferred;
   final List<LatLng> points;
 
   const _RouteData({
@@ -2180,6 +2231,8 @@ class _RouteData {
     required this.distanceMeters,
     required this.durationSeconds,
     required this.hasObstacles,
+    required this.mode,
+    required this.preferred,
     required this.points,
   });
 
@@ -2189,15 +2242,19 @@ class _RouteData {
       distanceMeters: (json['distanceMeters'] as num?)?.toDouble() ?? 0,
       durationSeconds: (json['durationSeconds'] as num?)?.toDouble() ?? 0,
       hasObstacles: json['hasObstacles'] as bool? ?? false,
+      mode: json['mode'] as String? ?? 'WALKING',
+      preferred: json['preferred'] as bool? ?? false,
       points: points,
     );
   }
 
-  /// Vivid, distinct polyline color per route type.
+  /// Vivid, distinct polyline color per route type. The wheelchair-mode
+  /// "Accessible Route" the backend now emits for wheelchair-preset users
+  /// is colored as a wheelchair route (purple), not as a walking-mode
+  /// accessible route, so the polyline matches the chosen travel mode.
   Color get color {
-    if (label.contains('Accessible')) return AppColors.accentBlue; // deep blue
-    if (label.contains('Wheelchair')) return AppColors.accentPurple; // deep purple
-    if (label.contains('Ramp'))       return AppColors.accentTeal; // deep teal
+    if (mode == 'WHEELCHAIR') return AppColors.accentPurple;
+    if (label.contains('Accessible')) return AppColors.accentBlue;
     // Fastest route: amber-orange if has obstacles, vivid green if clear
     return hasObstacles ? AppColors.warning : AppColors.success;
   }

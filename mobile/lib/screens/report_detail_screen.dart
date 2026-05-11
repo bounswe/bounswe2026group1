@@ -768,6 +768,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
+  void _openFullscreenMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _FullscreenMapPage(
+          latitude: report.latitude,
+          longitude: report.longitude,
+          markerColor: AppColors.primary,
+          title: report.headline,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeroSection() {
     final urls = report.mediaUrls;
     return Stack(
@@ -1546,45 +1559,50 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             child: Column(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    height: 90,
-                    width: double.infinity,
-                    child: FlutterMap(
-                      options: MapOptions(
-                        initialCenter: LatLng(
-                          report.latitude,
-                          report.longitude,
-                        ),
-                        initialZoom: 15,
-                        interactionOptions: const InteractionOptions(
-                          flags: InteractiveFlag.none,
-                        ),
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName:
-                              'com.bounswe2026group1.mapcess',
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: LatLng(
-                                report.latitude,
-                                report.longitude,
-                              ),
-                              child: Icon(
-                                Icons.location_on,
-                                color: AppColors.primary,
-                                size: 32,
-                              ),
+                GestureDetector(
+                  onTap: _openFullscreenMap,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      height: 90,
+                      width: double.infinity,
+                      child: AbsorbPointer(
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: LatLng(
+                              report.latitude,
+                              report.longitude,
+                            ),
+                            initialZoom: 15,
+                            interactionOptions: const InteractionOptions(
+                              flags: InteractiveFlag.none,
+                            ),
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName:
+                                  'com.bounswe2026group1.mapcess',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: LatLng(
+                                    report.latitude,
+                                    report.longitude,
+                                  ),
+                                  child: Icon(
+                                    Icons.location_on,
+                                    color: AppColors.primary,
+                                    size: 32,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -2891,6 +2909,156 @@ class _AvatarCircle extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: inner,
+      ),
+    );
+  }
+}
+
+/// Fullscreen, interactive map centered on the report's location.
+class _FullscreenMapPage extends StatelessWidget {
+  final double latitude;
+  final double longitude;
+  final Color markerColor;
+  final String title;
+
+  const _FullscreenMapPage({
+    required this.latitude,
+    required this.longitude,
+    required this.markerColor,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final center = LatLng(latitude, longitude);
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceTint,
+        foregroundColor: AppColors.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: markerColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.place, color: markerColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Report location',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: AppColors.onSurface,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      color: AppColors.onSurfaceVariant,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.outlineVariant),
+        ),
+      ),
+      body: Stack(
+        children: [
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: 16,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.bounswe2026group1.mapcess',
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: center,
+                    width: 48,
+                    height: 48,
+                    child: Icon(
+                      Icons.location_on,
+                      color: markerColor,
+                      size: 48,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.outlineVariant),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.place, color: markerColor, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onSurface,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

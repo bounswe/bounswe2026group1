@@ -125,8 +125,8 @@ public class RouteController {
         try {
             RouteResponse first = options.get(0);
             Route record = Route.builder()
-                    .startLocation(new Location(request.getStartLat(), request.getStartLon()))
-                    .endLocation(new Location(request.getEndLat(), request.getEndLon()))
+                    .startLocation(new Location(request.effectiveStartLat(), request.effectiveStartLon()))
+                    .endLocation(new Location(request.effectiveEndLat(), request.effectiveEndLon()))
                     .distance((int) Math.round(first.getDistanceMeters()))
                     .duration((int) Math.round(first.getDurationSeconds()))
                     .travelMode(first.getMode())

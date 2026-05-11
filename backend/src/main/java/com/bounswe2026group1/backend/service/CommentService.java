@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.CommentAnnotationResponse;
 import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
@@ -37,6 +38,16 @@ public class CommentService {
 
     public List<CommentResponse> getByReport(Long reportId) {
         return commentRepository.findByReportReportId(reportId).stream().map(CommentResponse::fromEntity).toList();
+    }
+
+    public Optional<CommentAnnotationResponse> getByIdAsAnnotation(Long id, String apiBase) {
+        return commentRepository.findById(id).map(c -> CommentAnnotationResponse.fromEntity(c, apiBase));
+    }
+
+    public List<CommentAnnotationResponse> getByReportAsAnnotation(Long reportId, String apiBase) {
+        return commentRepository.findByReportReportId(reportId).stream()
+                .map(c -> CommentAnnotationResponse.fromEntity(c, apiBase))
+                .toList();
     }
 
     @Transactional
