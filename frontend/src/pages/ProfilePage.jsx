@@ -86,12 +86,12 @@ function ProfilePage() {
       await setVisibilityMutation.mutateAsync(hidden)
       setToast({
         message: hidden
-          ? 'You are now hidden from the public leaderboard.'
-          : 'You are visible on the public leaderboard.',
+          ? t('profile.leaderboardHiddenToast')
+          : t('profile.leaderboardVisibleToast'),
         type: 'success',
       })
     } catch (e) {
-      setToast({ message: e.message || 'Failed to update visibility.', type: 'error' })
+      setToast({ message: e.message || t('profile.visibilityUpdateFailed'), type: 'error' })
     }
   }
 
