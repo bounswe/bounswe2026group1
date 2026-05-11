@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/objects_section.dart';
+import 'report_location_picker_screen.dart';
 
 /// Result returned from [EditReportScreen]. The detail screen below uses
 /// it to either swap in the new model (save) or pop itself out of the way
@@ -381,6 +382,22 @@ class _EditReportScreenState extends State<EditReportScreen> {
       }
     } catch (_) {
       if (mounted) setState(() => _converting = false);
+    }
+  }
+
+  /// Pushes the same full-screen picker the create flow uses (search +
+  /// tap-to-drop), so the user has a single mental model for choosing a
+  /// report's pin no matter whether they're creating or editing.
+  Future<void> _openFullScreenPicker() async {
+    final result = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ReportLocationPickerScreen(initial: _pin),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _pin = result);
+      _mapController.move(result, 16);
     }
   }
 
@@ -800,27 +817,60 @@ class _EditReportScreenState extends State<EditReportScreen> {
           SizedBox(
             height: 200,
             width: double.infinity,
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _pin,
-                initialZoom: 16,
-                onTap: (_, latLng) => setState(() => _pin = latLng),
-              ),
+            child: Stack(
               children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.bounswe2026group1.mapcess',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _pin,
-                      child: Icon(Icons.location_on,
-                          color: AppColors.primary, size: 36),
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _pin,
+                    initialZoom: 16,
+                    onTap: (_, latLng) => setState(() => _pin = latLng),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.bounswe2026group1.mapcess',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _pin,
+                          child: Icon(Icons.location_on,
+                              color: AppColors.primary, size: 36),
+                        ),
+                      ],
                     ),
                   ],
+                ),
+                // Zoom/expand button — opens the shared fullscreen picker so
+                // the user can fine-tune the pin on a bigger canvas (and
+                // search by address) without leaving the edit flow.
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: GestureDetector(
+                    onTap: _openFullScreenPicker,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardSurface,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.shadow,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.fullscreen,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
