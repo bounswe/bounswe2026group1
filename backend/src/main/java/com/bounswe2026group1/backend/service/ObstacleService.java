@@ -198,6 +198,53 @@ public class ObstacleService {
     }
 
     // -------------------------------------------------------------------------
+    // Ramp routing: found all ramps
+    // -------------------------------------------------------------------------
+
+    /**
+     * Identifies if any verified ramp reports lie directly on or very close to the 
+     * given path. This is used to detect when a standard "fastest" route actually 
+     * utilizes a ramp, which helps in labeling and calculating accessibility metrics.
+     *
+     * @return The first verified ramp report found on the path, or null if none exist
+     */
+    public Report findRampOnPath(List<Location> pathPoints) {
+        if (pathPoints == null || pathPoints.size() < 2) {
+            return null;
+        }
+
+        // 1. Define a search area (bounding box) around the entire path padded by PATH_BUFFER_METERS to catch nearby features.
+        double bufferDeg = PATH_BUFFER_METERS / METERS_PER_DEGREE;
+        double minLat = pathPoints.stream().mapToDouble(Location::getLatitude).min().orElseThrow() - bufferDeg;
+        double maxLat = pathPoints.stream().mapToDouble(Location::getLatitude).max().orElseThrow() + bufferDeg;
+        double minLon = pathPoints.stream().mapToDouble(Location::getLongitude).min().orElseThrow() - bufferDeg;
+        double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
+
+        // 2. Fetch all verified FEATURE reports within this bounding box from the database.
+        List<Report> candidates = reportRepository.findByTypeInBoundingBoxWithStatuses(
+                ReportType.FEATURE.name(), minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
+
+        // 3. Filter candidates to find those that are explicitly RAMPs and touch the path.
+        for (Report ramp : candidates) {
+            Location entryPoint = ramp.getEntryPoint();
+            Location exitPoint = ramp.getExitPoint();
+            if (entryPoint == null || exitPoint == null) continue;
+
+            // Verify the report actually contains a RAMP object (vs other features).
+            boolean hasRamp = ramp.getObjects().stream()
+                    .anyMatch(o -> o.getObjectType() == com.bounswe2026group1.backend.model.ObjectType.RAMP);
+            if (!hasRamp) continue;
+
+            
+            if (isWithinPathBuffer(entryPoint, pathPoints) || isWithinPathBuffer(exitPoint, pathPoints)) {
+                return ramp;
+            }
+        }
+
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
     // Fastest route check: finds negative reports intersecting a decoded path
     // -------------------------------------------------------------------------
 

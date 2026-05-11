@@ -47,6 +47,7 @@ class ReportServiceTest {
     @Mock private S3MediaService s3MediaService;
     @Mock private MeasurementValidator measurementValidator;
     @Mock private OverpassService overpassService;
+    @Mock private NominatimReverseGeocoder reverseGeocoder;
     @Mock private NotificationService notificationService;
     @Mock private GamificationService gamificationService;
     @Mock private UserBadgeRepository userBadgeRepository;

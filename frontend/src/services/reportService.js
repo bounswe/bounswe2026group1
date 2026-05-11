@@ -207,7 +207,9 @@ export function mapReport(r) {
         })
       : 'Unknown date',
     fixedAt: r.fixedAt || null,
-    location: formatReportLocation(r.latitude, r.longitude),
+    // Prefer the backend-provided label (reverse-geocoded once at create time);
+    // fall back to rounded coordinates for older rows where the column is null.
+    location: r.locationLabel || formatReportLocation(r.latitude, r.longitude),
     reportedBy: `User #${r.userId}`,
     ownerId: r.userId,
     agrees: r.agrees,

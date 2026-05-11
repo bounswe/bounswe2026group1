@@ -78,6 +78,12 @@ public class Report {
     @Column(name = "edit_history", columnDefinition = "TEXT")
     private String editHistory;
 
+    // Human-readable place name reverse-geocoded once at create time.
+    // Nullable: an outage during create leaves this blank and the frontend
+    // falls back to the rounded coordinates.
+    @Column(name = "location_label", length = 200)
+    private String locationLabel;
+
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
 
