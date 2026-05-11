@@ -6,14 +6,21 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import '../models/report_model.dart';
 import '../services/auth_service.dart';
+import 'onboarding_tutorial_screen.dart';
 import 'report_detail_screen.dart';
 import 'make_report_screen.dart';
 import '../main.dart' show AuthShell;
 import '../models/sse_event.dart';
 import '../services/sse_service.dart';
+
+/// Local-storage key for the first-visit onboarding flag. Mirrors the web
+/// app's `mapcess_onboarding_v1` key so a user who has seen one tour
+/// hasn't necessarily seen the other (separate devices, by design).
+const _onboardingFlag = 'mapcess_onboarding_v1';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int)? onTabSwitch;
@@ -99,6 +106,26 @@ class _HomeScreenState extends State<HomeScreen> {
     _initLocation();
     _loadReports();
     _initSse();
+    _maybeShowOnboarding();
+  }
+
+  /// First-visit accessibility tutorial. Pushed once per install; the
+  /// `mapcess_onboarding_v1` flag is set the first time the route pops,
+  /// regardless of whether the user finished or skipped.
+  Future<void> _maybeShowOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_onboardingFlag) == 'done') return;
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const OnboardingTutorialScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+      await prefs.setString(_onboardingFlag, 'done');
+    });
   }
 
   void _initSse() {
