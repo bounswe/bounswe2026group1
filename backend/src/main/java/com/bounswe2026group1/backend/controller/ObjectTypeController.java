@@ -3,6 +3,7 @@ package com.bounswe2026group1.backend.controller;
 import com.bounswe2026group1.backend.dto.ObjectTypeInfoResponse;
 import com.bounswe2026group1.backend.service.ObjectTypeService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,7 +34,7 @@ public class ObjectTypeController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Catalogue of object types with their valid issue types and measurement schemas.",
-                    content = @Content(schema = @Schema(implementation = ObjectTypeInfoResponse.class)))
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectTypeInfoResponse.class))))
     })
     public List<ObjectTypeInfoResponse> getAll() {
         return objectTypeService.getAll();

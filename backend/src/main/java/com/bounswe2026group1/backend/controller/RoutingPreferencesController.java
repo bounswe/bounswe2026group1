@@ -27,9 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/users/me/routing-preferences")
 @RequiredArgsConstructor
 @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
-@Tag(name = "Routing Preferences",
-        description = "Per-user accessibility profile and routing-constraint settings that drive `/api/routes`. " +
-                "Includes built-in presets (Wheelchair, Blind/low-vision, Mobility-limited) and custom saved profiles.")
+@Tag(name = "Routing Preferences")
 public class RoutingPreferencesController {
 
     private final RoutingPreferencesService routingPreferencesService;

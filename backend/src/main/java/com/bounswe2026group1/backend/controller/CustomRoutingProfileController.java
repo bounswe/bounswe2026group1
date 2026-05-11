@@ -7,6 +7,7 @@ import com.bounswe2026group1.backend.dto.routing.RoutingPreferencesResponse;
 import com.bounswe2026group1.backend.dto.routing.UpdateCustomRoutingProfileRequest;
 import com.bounswe2026group1.backend.service.CustomRoutingProfileService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -35,9 +36,7 @@ import java.util.List;
 @RequestMapping("/api/users/me/routing-profiles")
 @RequiredArgsConstructor
 @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
-@Tag(name = "Routing Preferences",
-        description = "Per-user accessibility profile and routing-constraint settings that drive `/api/routes`. " +
-                "Includes built-in presets (Wheelchair, Blind/low-vision, Mobility-limited) and custom saved profiles.")
+@Tag(name = "Routing Preferences")
 public class CustomRoutingProfileController {
 
     private final CustomRoutingProfileService customRoutingProfileService;
@@ -51,7 +50,7 @@ public class CustomRoutingProfileController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "List of saved custom routing profiles.",
-                    content = @Content(schema = @Schema(implementation = CustomRoutingProfileResponse.class))),
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = CustomRoutingProfileResponse.class)))),
             @ApiResponse(responseCode = "401", description = "Authentication required.",
                     content = @Content(schema = @Schema(type = "string",
                             example = "Authentication required.")))
