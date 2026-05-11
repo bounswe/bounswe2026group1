@@ -426,7 +426,7 @@ export default function OnboardingTutorial({ onClose }) {
 
           <div className="w-[320px] flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
             {slide.bullets && (
-              <ul className="list-none p-0 m-0 text-left text-[13.5px] leading-snug text-on-surface flex flex-col gap-1.5">
+              <ul className="bg-surface-container-low border border-surface-container-high rounded-xl px-4 py-3 list-none m-0 text-left text-[13.5px] leading-snug text-on-surface flex flex-col gap-1.5">
                 {slide.bullets.map((bullet, i) => (
                   <li key={i} className="flex items-start gap-2.5 py-1">
                     <span
