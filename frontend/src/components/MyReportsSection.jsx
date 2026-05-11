@@ -29,7 +29,7 @@ function MyReportsSection({ userId, isOwnProfile = true }) {
   const selected = reports?.find((r) => r.id === selectedId) ?? null
 
   return (
-    <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+    <section className="bg-surface-container rounded-2xl shadow-sm p-6">
       <h2 className="text-xl font-bold font-headline text-on-surface mb-4">
         {isOwnProfile ? 'My Reports' : 'Reports'}{reports ? ` (${reports.length})` : ''}
       </h2>
