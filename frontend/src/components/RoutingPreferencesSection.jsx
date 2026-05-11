@@ -134,7 +134,7 @@ function RoutingPreferencesSection() {
   if (isPending) {
     return (
       <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
-        <p className="text-sm text-on-surface-variant">Loading routing preferences…</p>
+        <p className="text-sm text-on-surface-variant">{t('routing.loading')}</p>
       </section>
     )
   }
