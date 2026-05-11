@@ -9,7 +9,7 @@ function UserCard({ user }) {
   return (
     <Link
       to={`/profile/${user.id}`}
-      className="flex items-center gap-3 bg-surface-container-lowest rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow"
+      className="flex items-center gap-3 bg-surface-container-low rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow"
     >
       <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 overflow-hidden">
         {user.avatarUrl ? (
