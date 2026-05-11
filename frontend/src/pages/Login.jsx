@@ -9,9 +9,18 @@ import { useAuth } from '../context/AuthContext.jsx'
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  function validateEmail(value) {
+    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailError('Please enter a valid email address.')
+    } else {
+      setEmailError('')
+    }
+  }
 
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -20,6 +29,10 @@ function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Please enter a valid email address.')
+      return
+    }
     setIsLoading(true)
     try {
       const { token } = await loginUser({ email, password })
@@ -88,9 +101,13 @@ function Login() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); if (emailError) validateEmail(e.target.value) }}
+                  onBlur={(e) => validateEmail(e.target.value)}
                   required
                 />
+                {emailError && (
+                  <p className="text-xs text-red-600 px-1 mt-1">{emailError}</p>
+                )}
               </div>
 
               {/* Password */}

@@ -13,8 +13,10 @@ const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-loc
 
 class ApiService {
   final String? token;
+  final http.Client _client;
 
-  const ApiService({this.token});
+  ApiService({this.token, http.Client? httpClient})
+      : _client = httpClient ?? http.Client();
 
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
@@ -26,7 +28,7 @@ class ApiService {
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
   Future<void> register(String name, String email, String password) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/auth/register'),
           headers: _headers,
@@ -39,7 +41,7 @@ class ApiService {
   }
 
   Future<String> login(String email, String password) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/auth/login'),
           headers: _headers,
@@ -57,7 +59,7 @@ class ApiService {
   // ─── Users ─────────────────────────────────────────────────────────────────
 
   Future<String?> getUserName(int userId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/users/$userId'), headers: _headers)
         .timeout(const Duration(seconds: 6));
     if (response.statusCode == 200) {
@@ -68,7 +70,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getUserById(int userId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/users/$userId'), headers: _headers)
         .timeout(const Duration(seconds: 6));
     if (response.statusCode == 200) {
@@ -81,7 +83,7 @@ class ApiService {
   /// which `/api/users/{id}` redacts. Use this on the self profile screen;
   /// other-user profiles should keep using [getUserById].
   Future<Map<String, dynamic>?> getMyProfile() async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/users/me'), headers: _headers)
         .timeout(const Duration(seconds: 6));
     if (response.statusCode == 200) {
@@ -100,7 +102,7 @@ class ApiService {
       if (name != null) 'name': name,
       if (bio != null) 'bio': bio,
     };
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/users/$userId/profile'),
           headers: _headers,
@@ -134,7 +136,8 @@ class ApiService {
       contentType: MediaType.parse(mimeType),
     ));
 
-    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 60));
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -145,7 +148,7 @@ class ApiService {
   }
 
   Future<void> deleteAvatar(int userId) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/users/$userId/profile/avatar'),
           headers: _headers,
@@ -156,7 +159,7 @@ class ApiService {
   }
 
   Future<List<ReportModel>> getReportsByUser(int userId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports/user/$userId'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
@@ -171,7 +174,7 @@ class ApiService {
   // ─── Routing preferences ───────────────────────────────────────────────────
 
   Future<RoutingPreferences> getRoutingPreferences() async {
-    final response = await http
+    final response = await _client
         .get(
           Uri.parse('$_baseUrl/api/users/me/routing-preferences'),
           headers: _headers,
@@ -200,7 +203,7 @@ class ApiService {
       if (constraints != null) 'constraints': constraints.toList(),
       if (travelMode != null) 'preferredTravelMode': travelMode,
     };
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/users/me/routing-preferences'),
           headers: _headers,
@@ -218,7 +221,7 @@ class ApiService {
   // ─── Custom routing profiles ───────────────────────────────────────────────
 
   Future<List<CustomRoutingProfile>> listCustomRoutingProfiles() async {
-    final response = await http
+    final response = await _client
         .get(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles'),
           headers: _headers,
@@ -244,7 +247,7 @@ class ApiService {
       if (constraints != null) 'constraints': constraints.toList(),
       if (travelMode != null) 'preferredTravelMode': travelMode,
     };
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles'),
           headers: _headers,
@@ -270,7 +273,7 @@ class ApiService {
       if (constraints != null) 'constraints': constraints.toList(),
       if (travelMode != null) 'preferredTravelMode': travelMode,
     };
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id'),
           headers: _headers,
@@ -286,7 +289,7 @@ class ApiService {
   }
 
   Future<void> deleteCustomRoutingProfile(int id) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id'),
           headers: _headers,
@@ -299,7 +302,7 @@ class ApiService {
   /// Activates a custom profile and returns the updated routing-preferences
   /// snapshot — same shape as `getRoutingPreferences()`.
   Future<RoutingPreferences> activateCustomRoutingProfile(int id) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id/activate'),
           headers: _headers,
@@ -316,7 +319,7 @@ class ApiService {
   // ─── Reports ───────────────────────────────────────────────────────────────
 
   Future<List<ReportModel>> getReports() async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports'), headers: _headers)
         .timeout(const Duration(seconds: 8));
 
@@ -356,7 +359,7 @@ class ApiService {
     }
     final uri = Uri.parse('$_baseUrl/api/reports/feed')
         .replace(queryParameters: params);
-    final response = await http
+    final response = await _client
         .get(uri, headers: _headers)
         .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
@@ -387,7 +390,7 @@ class ApiService {
       'objects': objects.map((o) => o.toJson()).toList(),
     };
 
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/reports'),
           headers: _headers,
@@ -421,7 +424,7 @@ class ApiService {
       if (mediaIdsToRemove != null) 'mediaIdsToRemove': mediaIdsToRemove,
     };
 
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/reports/$reportId'),
           headers: _headers,
@@ -438,7 +441,7 @@ class ApiService {
   }
 
   Future<ReportModel> getReport(int id) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports/$id'), headers: _headers)
         .timeout(const Duration(seconds: 8));
 
@@ -451,7 +454,7 @@ class ApiService {
   }
 
   Future<void> deleteReport(int id) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/reports/$id'),
           headers: _headers,
@@ -462,7 +465,7 @@ class ApiService {
   }
 
   Future<void> verifyReport(int id) async {
-    final response = await http
+    final response = await _client
         .post(Uri.parse('$_baseUrl/api/reports/$id/verify'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200 || response.statusCode == 204) return;
@@ -470,7 +473,7 @@ class ApiService {
   }
 
   Future<void> unverifyReport(int id) async {
-    final response = await http
+    final response = await _client
         .post(Uri.parse('$_baseUrl/api/reports/$id/unverify'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200 || response.statusCode == 204) return;
@@ -489,7 +492,7 @@ class ApiService {
     // Pass an explicit `'WALKING'` / `'WHEELCHAIR'` only to override.
     String? mode,
   }) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/routes'),
           headers: _headers,
@@ -550,7 +553,8 @@ class ApiService {
     }
 
     // Allow more headroom — videos at 5×15 MB take a while on flaky cell.
-    final streamed = await request.send().timeout(const Duration(seconds: 120));
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 120));
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -594,7 +598,8 @@ class ApiService {
       request.fields['description'] = trimmed;
     }
 
-    final streamed = await request.send().timeout(const Duration(seconds: 30));
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 30));
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FixRequestModel.fromJson(
@@ -621,7 +626,7 @@ class ApiService {
     required int fixId,
     required String action,
   }) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse(
               '$_baseUrl/api/reports/$reportId/fix-requests/$fixId/$action'),
@@ -639,7 +644,7 @@ class ApiService {
   // ─── Notifications ─────────────────────────────────────────────────────────
 
   Future<List<NotificationModel>> getNotifications() async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/notifications'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
@@ -652,7 +657,7 @@ class ApiService {
   }
 
   Future<NotificationModel> markNotificationRead(int id) async {
-    final response = await http
+    final response = await _client
         .patch(
           Uri.parse('$_baseUrl/api/notifications/$id/read'),
           headers: _headers,
@@ -669,7 +674,7 @@ class ApiService {
   // ─── Follow ────────────────────────────────────────────────────────────────
 
   Future<bool> followReport(int reportId) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/reports/$reportId/follow'),
           headers: _headers,
@@ -682,7 +687,7 @@ class ApiService {
   }
 
   Future<bool> unfollowReport(int reportId) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/reports/$reportId/follow'),
           headers: _headers,
@@ -695,7 +700,7 @@ class ApiService {
   }
 
   Future<bool> isFollowingReport(int reportId) async {
-    final response = await http
+    final response = await _client
         .get(
           Uri.parse('$_baseUrl/api/reports/$reportId/follow/me'),
           headers: _headers,
@@ -723,7 +728,7 @@ class ApiService {
   // ─── Comments ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getComments(int reportId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/comments/report/$reportId'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
@@ -742,7 +747,7 @@ class ApiService {
     required int userId,
     required String content,
   }) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/comments'),
           headers: _headers,

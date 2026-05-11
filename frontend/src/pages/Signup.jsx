@@ -10,11 +10,21 @@ import { validatePassword } from '../utils/passwordValidation.js'
 function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [passwordTouched, setPasswordTouched] = useState(false)
   const [terms, setTerms] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  function validateEmail(value) {
+    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailError('Please enter a valid email address.')
+    } else {
+      setEmailError('')
+    }
+  }
 
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -24,6 +34,10 @@ function Signup() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Please enter a valid email address.')
+      return
+    }
     if (!passwordValidation.isValid) {
       setPasswordTouched(true)
       return
@@ -121,9 +135,13 @@ function Signup() {
                     type="email"
                     autoComplete="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); if (emailError) validateEmail(e.target.value) }}
+                    onBlur={(e) => validateEmail(e.target.value)}
                     required
                   />
+                  {emailError && (
+                    <p className="text-xs text-red-600 px-1 mt-1">{emailError}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -133,18 +151,30 @@ function Signup() {
                   >
                     Password
                   </label>
-                  <input
-                    className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none"
-                    id="password"
-                    placeholder="••••••••"
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    aria-invalid={passwordTouched && !passwordValidation.isValid}
-                    aria-describedby="password-requirements"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none pr-12"
+                      id="password"
+                      placeholder="••••••••"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      aria-invalid={passwordTouched && !passwordValidation.isValid}
+                      aria-describedby="password-requirements"
+                      required
+                    />
+                    <button
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#acadad] hover:text-[#2d2f2f] transition-colors"
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined text-xl select-none">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                   <ul
                     id="password-requirements"
                     className="mt-2 space-y-1 text-sm"
