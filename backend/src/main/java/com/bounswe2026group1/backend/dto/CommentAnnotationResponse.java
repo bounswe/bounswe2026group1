@@ -10,8 +10,10 @@ import java.time.Instant;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "A comment serialized as a W3C Web Annotation Data Model Annotation "
-        + "(https://www.w3.org/TR/annotation-model/). Returned when the client requests "
-        + "media type application/ld+json on the standard comment endpoints.")
+        + "(https://www.w3.org/TR/annotation-model/). Returned by the dedicated "
+        + "/annotation(s) endpoints (GET /api/comments/{id}/annotation, "
+        + "GET /api/comments/report/{reportId}/annotations) as application/ld+json. "
+        + "The standard comment endpoints remain unaffected.")
 public record CommentAnnotationResponse(
 
         @JsonProperty("@context")
