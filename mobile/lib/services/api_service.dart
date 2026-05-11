@@ -630,9 +630,12 @@ class ApiService {
 
   Future<FixRequestModel> submitFixRequest({
     required int reportId,
-    required File file,
+    required List<File> files,
     String? description,
   }) async {
+    if (files.isEmpty) {
+      throw ApiException(400, 'At least one photo is required.');
+    }
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/api/reports/$reportId/fix-requests'),
@@ -642,24 +645,28 @@ class ApiService {
     final headers = Map<String, String>.from(_headers)..remove('Content-Type');
     request.headers.addAll(headers);
 
-    final ext = file.path.split('.').last.toLowerCase();
-    final mimeType = switch (ext) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png'           => 'image/png',
-      _               => 'application/octet-stream',
-    };
-    request.files.add(await http.MultipartFile.fromPath(
-      'files',
-      file.path,
-      contentType: MediaType.parse(mimeType),
-    ));
+    for (final file in files) {
+      final ext = file.path.split('.').last.toLowerCase();
+      final mimeType = switch (ext) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png'           => 'image/png',
+        _               => 'application/octet-stream',
+      };
+      request.files.add(await http.MultipartFile.fromPath(
+        'files',
+        file.path,
+        contentType: MediaType.parse(mimeType),
+      ));
+    }
     final trimmed = description?.trim();
     if (trimmed != null && trimmed.isNotEmpty) {
       request.fields['description'] = trimmed;
     }
 
+    // Bumped to 120 s to match uploadMediaFiles — multi-photo uploads on flaky
+    // cellular take longer than the original 30 s allowed.
     final streamed =
-        await _client.send(request).timeout(const Duration(seconds: 30));
+        await _client.send(request).timeout(const Duration(seconds: 120));
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FixRequestModel.fromJson(
