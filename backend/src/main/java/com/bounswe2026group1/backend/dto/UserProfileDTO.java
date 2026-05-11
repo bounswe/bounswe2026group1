@@ -62,6 +62,11 @@ public class UserProfileDTO {
             example = "false")
     private boolean leaderboardHidden;
 
+    @Schema(description = "True when the user has enabled voice-command accessibility mode (1.1.3.8). " +
+            "The web app reads this on login and shows the mic toggle when enabled.",
+            example = "false")
+    private boolean voiceCommandsEnabled;
+
     @Data
     @Builder
     @NoArgsConstructor
