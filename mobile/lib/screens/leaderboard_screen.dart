@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/leaderboard_entry.dart';
+import '../models/sse_event.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/sse_service.dart';
 import '../theme/app_colors.dart';
 import 'user_profile_screen.dart';
 
@@ -24,10 +28,32 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   bool _loading = true;
   String? _error;
 
+  StreamSubscription<SseEvent>? _sseSub;
+  // A single report transition can pay out points to many users in quick
+  // succession (author bonus + voter alignment). Coalesce those bursts into
+  // one refetch so we don't hammer /api/leaderboard.
+  Timer? _refetchDebounce;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _sseSub = context.read<SseService>().events.listen(_onSseEvent);
+  }
+
+  @override
+  void dispose() {
+    _sseSub?.cancel();
+    _refetchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSseEvent(SseEvent event) {
+    if (event.eventType != 'POINTS_CHANGED') return;
+    _refetchDebounce?.cancel();
+    _refetchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) _load();
+    });
   }
 
   Future<void> _load() async {

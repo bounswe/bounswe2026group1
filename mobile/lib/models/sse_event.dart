@@ -1,7 +1,9 @@
 import 'dart:convert';
 
-/// Typed representation of the backend PublicSseEvent.
-/// eventType is one of: 'REPORT_CREATED', 'REPORT_UPDATED', 'REPORT_DELETED', 'MEDIA_ADDED'.
+/// Typed representation of the backend public SSE payloads.
+/// eventType is one of: 'REPORT_CREATED', 'REPORT_UPDATED', 'REPORT_DELETED',
+/// 'MEDIA_ADDED', 'POINTS_CHANGED'. POINTS_CHANGED carries [userId] and
+/// [points] instead of a reportId; reportId stays 0 for those events.
 class SseEvent {
   final String eventType;
   final int reportId;
@@ -12,6 +14,9 @@ class SseEvent {
   final String? mediaId;
   final String? mediaUrl;
   final String? timestamp;
+  // Populated only for POINTS_CHANGED.
+  final int? userId;
+  final int? points;
 
   const SseEvent({
     required this.eventType,
@@ -23,6 +28,8 @@ class SseEvent {
     this.mediaId,
     this.mediaUrl,
     this.timestamp,
+    this.userId,
+    this.points,
   });
 
   factory SseEvent.fromJson(Map<String, dynamic> json) {
@@ -36,6 +43,8 @@ class SseEvent {
       mediaId: json['mediaId']?.toString(),
       mediaUrl: json['mediaUrl'] as String?,
       timestamp: json['timestamp'] as String?,
+      userId: (json['userId'] as num?)?.toInt(),
+      points: (json['points'] as num?)?.toInt(),
     );
   }
 
@@ -51,6 +60,10 @@ class SseEvent {
   }
 
   @override
-  String toString() =>
-      'SseEvent(type: $eventType, reportId: $reportId, agrees: $agrees, disagrees: $disagrees)';
+  String toString() {
+    if (eventType == 'POINTS_CHANGED') {
+      return 'SseEvent(type: $eventType, userId: $userId, points: $points)';
+    }
+    return 'SseEvent(type: $eventType, reportId: $reportId, agrees: $agrees, disagrees: $disagrees)';
+  }
 }

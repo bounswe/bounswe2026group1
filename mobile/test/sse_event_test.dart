@@ -70,6 +70,28 @@ void main() {
       expect(event.mediaUrl, isNull);
     });
 
+    test('parses POINTS_CHANGED event with userId and points', () {
+      const json = '''
+{
+  "eventType": "POINTS_CHANGED",
+  "userId": 42,
+  "points": 55,
+  "timestamp": "2026-05-11T13:22:11Z"
+}''';
+
+      final event = SseEvent.tryParse(json);
+
+      expect(event, isNotNull);
+      expect(event!.eventType, 'POINTS_CHANGED');
+      expect(event.userId, 42);
+      expect(event.points, 55);
+      // POINTS_CHANGED carries no reportId — falls back to the default 0.
+      expect(event.reportId, 0);
+      expect(event.agrees, isNull);
+      expect(event.toString(), contains('userId: 42'));
+      expect(event.toString(), contains('points: 55'));
+    });
+
     test('parses REPORT_DELETED event', () {
       const json = '''
 {
