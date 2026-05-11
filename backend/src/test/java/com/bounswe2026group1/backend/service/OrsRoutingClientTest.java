@@ -98,6 +98,25 @@ class OrsRoutingClientTest {
         assertEquals("foot-walking", client.mapProfile(TravelMode.WALKING));
     }
 
+    /**
+     * Pins {@code preference: shortest}. ORS's pedestrian {@code recommended}
+     * preference biases toward side streets in OSM-sparse areas (e.g. Istanbul),
+     * producing absurd detours when a direct arterial sidewalk isn't separately
+     * mapped. {@code shortest} routes via the actually-shortest pedestrian path.
+     */
+    @Test
+    void fetchDirections_usesShortestPreference() throws Exception {
+        when(orsHttpClient.postDirections(anyString(), anyString()))
+                .thenReturn(minimalOrsSuccessJson());
+
+        client.fetchDirections(START, END, TravelMode.WALKING, null);
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(orsHttpClient).postDirections(anyString(), bodyCaptor.capture());
+        JsonNode body = objectMapper.readTree(bodyCaptor.getValue());
+        assertEquals("shortest", body.path("preference").stringValue());
+    }
+
     @Test
     void fetchDirections_parsesSummaryAndGeometry() {
         String json = """
