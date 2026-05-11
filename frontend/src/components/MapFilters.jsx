@@ -126,16 +126,16 @@ function MapFilters({ excludedTypes, excludedIssues, onChange, onClose, triggerR
         style={panelStyle}
         className="bg-surface-container-lowest flex flex-col overflow-hidden"
         role="dialog"
-        aria-label="Map filters"
+        aria-label={tr('home.mapFiltersAria')}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0 border-b border-outline-variant/15">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-on-surface-variant">tune</span>
-            <h3 className="font-headline font-bold text-on-surface">Filters</h3>
+            <h3 className="font-headline font-bold text-on-surface">{tr('home.filtersTitle')}</h3>
             {total > 0 && (
               <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                {total} hidden
+                {tr('home.filtersHidden', { count: total })}
               </span>
             )}
           </div>
@@ -146,13 +146,13 @@ function MapFilters({ excludedTypes, excludedIssues, onChange, onClose, triggerR
                 onClick={reset}
                 className="text-xs font-semibold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg cursor-pointer"
               >
-                Show all
+                {tr('home.filtersShowAll')}
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close filters"
+              aria-label={tr('home.closeFilters')}
               className="w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center cursor-pointer"
             >
               <span className="material-symbols-outlined text-on-surface-variant">close</span>
