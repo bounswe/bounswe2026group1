@@ -891,7 +891,8 @@ class _HowToHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const steps = <(IconData, String)>[
-      (Icons.touch_app, 'Tap the map'),
+      (Icons.add_location_alt, 'Add report'),
+      (Icons.place, 'Pick spot'),
       (Icons.add_a_photo, 'Add media'),
       (Icons.edit_note, 'Describe'),
       (Icons.send, 'Submit'),
