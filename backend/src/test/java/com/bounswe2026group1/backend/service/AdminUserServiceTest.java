@@ -33,6 +33,9 @@ class AdminUserServiceTest {
     private RegisteredUserRepository userRepository;
 
     @Mock
+    private RegisteredUserService registeredUserService;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @InjectMocks
@@ -224,16 +227,12 @@ class AdminUserServiceTest {
     // --- deleteUser ---
 
     @Test
-    void deleteUser_Success_AnonymizesPii() {
+    void deleteUser_Success_DelegatesAnonymization() {
         when(userRepository.findById(2L)).thenReturn(Optional.of(regularUser));
-        when(userRepository.save(regularUser)).thenReturn(regularUser);
 
         adminUserService.deleteUser(2L, "admin@test.com");
 
-        assertEquals("Deleted User", regularUser.getName());
-        assertTrue(regularUser.getEmail().startsWith("deleted_"));
-        assertEquals(UserStatus.BANNED, regularUser.getStatus());
-        verify(userRepository).save(regularUser);
+        verify(registeredUserService).anonymizeUser(regularUser);
     }
 
     @Test
