@@ -183,6 +183,16 @@
       "fixed": "Fixed"
     }
   },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "intro": "Top contributors ranked by points. Tied scores share a rank.",
+    "loading": "Loading leaderboard…",
+    "loadFailed": "Failed to load the leaderboard. Please try again later.",
+    "yourRank": "Your rank",
+    "points": "Points",
+    "loginPrompt": "<0>Log in</0> to see your own rank on this page.",
+    "empty": "No ranked users yet. Submit a report to get on the board."
+  },
   "objectTitle": {
     "obstacleSuffix": "{{labels}} Issue",
     "featureSuffix": "{{labels}} — Feature",

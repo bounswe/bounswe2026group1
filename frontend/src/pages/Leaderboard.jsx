@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import Navbar from '../components/Navbar.jsx'
 import { useLeaderboard } from '../hooks/useLeaderboard.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -42,6 +43,7 @@ function RankCell({ rank }) {
 }
 
 function YourRankBanner({ rank, points }) {
+  const { t } = useTranslation()
   return (
     <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -49,12 +51,12 @@ function YourRankBanner({ rank, points }) {
           person_pin
         </span>
         <div className="flex flex-col">
-          <span className="text-xs uppercase tracking-wide text-on-surface-variant">Your rank</span>
+          <span className="text-xs uppercase tracking-wide text-on-surface-variant">{t('leaderboard.yourRank')}</span>
           <span className="text-2xl font-bold text-on-surface tabular-nums">#{rank}</span>
         </div>
       </div>
       <div className="flex flex-col items-end">
-        <span className="text-xs uppercase tracking-wide text-on-surface-variant">Points</span>
+        <span className="text-xs uppercase tracking-wide text-on-surface-variant">{t('leaderboard.points')}</span>
         <span className="text-2xl font-bold text-on-surface tabular-nums">{points}</span>
       </div>
     </div>
@@ -62,6 +64,7 @@ function YourRankBanner({ rank, points }) {
 }
 
 function Leaderboard() {
+  const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
   const { data, isPending, isError } = useLeaderboard()
 
@@ -70,19 +73,19 @@ function Leaderboard() {
       <Navbar />
       <main className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold font-headline text-on-surface">Leaderboard</h1>
+          <h1 className="text-3xl font-bold font-headline text-on-surface">{t('leaderboard.title')}</h1>
           <p className="text-sm text-on-surface-variant">
-            Top contributors ranked by points. Tied scores share a rank.
+            {t('leaderboard.intro')}
           </p>
         </div>
 
         {isPending && (
-          <p className="text-sm text-on-surface-variant">Loading leaderboard…</p>
+          <p className="text-sm text-on-surface-variant">{t('leaderboard.loading')}</p>
         )}
 
         {isError && (
           <p role="alert" className="text-sm text-error">
-            Failed to load the leaderboard. Please try again later.
+            {t('leaderboard.loadFailed')}
           </p>
         )}
 
@@ -94,16 +97,16 @@ function Leaderboard() {
 
             {!isAuthenticated && (
               <p className="text-xs text-on-surface-variant">
-                <Link to="/login" className="text-primary font-semibold hover:underline">
-                  Log in
-                </Link>{' '}
-                to see your own rank on this page.
+                <Trans
+                  i18nKey="leaderboard.loginPrompt"
+                  components={[<Link key="login-link" to="/login" className="text-primary font-semibold hover:underline" />]}
+                />
               </p>
             )}
 
             {data.entries.length === 0 ? (
               <p className="text-sm text-on-surface-variant">
-                No ranked users yet. Submit a report to get on the board.
+                {t('leaderboard.empty')}
               </p>
             ) : (
               <ol className="flex flex-col gap-2">
@@ -121,7 +124,7 @@ function Leaderboard() {
                       {entry.name}
                     </Link>
                     <div className="flex flex-col items-end flex-shrink-0">
-                      <span className="text-xs uppercase tracking-wide text-on-surface-variant">Points</span>
+                      <span className="text-xs uppercase tracking-wide text-on-surface-variant">{t('leaderboard.points')}</span>
                       <span className="font-bold text-on-surface tabular-nums">{entry.points}</span>
                     </div>
                   </li>

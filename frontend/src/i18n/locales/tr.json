@@ -183,6 +183,16 @@
       "fixed": "Düzeltildi"
     }
   },
+  "leaderboard": {
+    "title": "Sıralama tablosu",
+    "intro": "En çok katkı sağlayan kullanıcılar puanlarına göre sıralanır. Eşit puanlar aynı sıralamayı paylaşır.",
+    "loading": "Sıralama yükleniyor…",
+    "loadFailed": "Sıralama yüklenemedi. Lütfen daha sonra tekrar dene.",
+    "yourRank": "Sıralaman",
+    "points": "Puan",
+    "loginPrompt": "Kendi sıralamanı bu sayfada görmek için <0>giriş yap</0>.",
+    "empty": "Henüz sıralanan kullanıcı yok. Sıralamaya girmek için bir rapor gönder."
+  },
   "objectTitle": {
     "obstacleSuffix": "{{labels}} Sorunu",
     "featureSuffix": "{{labels}} — Özellik",
