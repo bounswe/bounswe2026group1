@@ -72,8 +72,8 @@ function UserSearchPanel({ onResultSelect, autoFocus = true, heading }) {
         <h1 className="text-2xl font-bold font-headline text-on-surface">{heading}</h1>
       )}
 
-      <label className="flex flex-col gap-1">
-        <span className="text-xs uppercase tracking-wide text-on-surface-variant">
+      <label className="flex flex-col gap-2 -mt-2">
+        <span className="text-xs text-on-surface-variant">
           Search by name or email
         </span>
         <input
