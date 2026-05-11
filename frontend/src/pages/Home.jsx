@@ -105,6 +105,15 @@ function makeMarkerIcon(status, objectType, reportType, selected = false) {
 
 function ZoomControls() {
   const map = useMap()
+
+  function handleLocate() {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { map.flyTo([pos.coords.latitude, pos.coords.longitude], 16) },
+      () => {},
+    )
+  }
+
   return (
     <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
@@ -122,7 +131,7 @@ function ZoomControls() {
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
-        onClick={() => map.locate({ setView: true, maxZoom: 16 })}
+        onClick={handleLocate}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
