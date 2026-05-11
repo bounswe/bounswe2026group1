@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { useQueryClient } from '@tanstack/react-query'
@@ -105,26 +106,27 @@ function makeMarkerIcon(status, objectType, reportType, selected = false) {
 
 function ZoomControls() {
   const map = useMap()
+  const { t } = useTranslation()
   return (
     <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
-        aria-label="Zoom in"
+        aria-label={t('home.zoomIn')}
       >
         <span className="material-symbols-outlined">add</span>
       </button>
       <button
         onClick={() => map.zoomOut()}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
-        aria-label="Zoom out"
+        aria-label={t('home.zoomOut')}
       >
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
         onClick={() => map.locate({ setView: true, maxZoom: 16 })}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
-        aria-label="My location"
+        aria-label={t('home.myLocation')}
       >
         <span className="material-symbols-outlined">my_location</span>
       </button>
@@ -232,6 +234,7 @@ const TILE_ATTR_DARK = MAPTILER_KEY
   : '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
 function Home() {
+  const { t } = useTranslation()
   const { resolved: themeResolved } = useTheme()
   const isDark = themeResolved === 'dark'
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT
@@ -603,7 +606,7 @@ function Home() {
             <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
               <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">location_on</span>
-                Click on the map to set report location
+                {t('home.pinDropHint')}
               </div>
             </div>
           )}
@@ -613,7 +616,7 @@ function Home() {
             <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
               <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">route</span>
-                Click on the map to set your starting point
+                {t('home.routeStartHint')}
               </div>
             </div>
           )}
@@ -621,7 +624,7 @@ function Home() {
             <div className="absolute bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-2rem)]">
               <div className="bg-primary text-on-primary px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-lg font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-base">route</span>
-                Now click your destination
+                {t('home.routeDestHint')}
               </div>
             </div>
           )}
@@ -647,14 +650,14 @@ function Home() {
                   type="button"
                   onClick={() => setShowFilters((v) => !v)}
                   className="p-2 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
-                  aria-label="Filter"
+                  aria-label={t('home.filter')}
                   aria-expanded={showFilters}
                 >
                   <span className="material-symbols-outlined text-secondary">tune</span>
                   {excludedCount(excludedTypes, excludedIssues) > 0 && (
                     <span
                       className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center"
-                      aria-label={`${excludedCount(excludedTypes, excludedIssues)} filters active`}
+                      aria-label={t('home.filtersActive', { count: excludedCount(excludedTypes, excludedIssues) })}
                     >
                       {excludedCount(excludedTypes, excludedIssues)}
                     </span>
@@ -677,7 +680,7 @@ function Home() {
           <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
             <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
+                <h3 className="font-headline font-bold text-on-surface">{t('home.communityPulse')}</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
               </div>
               <div className="space-y-4">
@@ -686,13 +689,13 @@ function Home() {
                     <span className="material-symbols-outlined text-primary">trending_up</span>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-on-surface">{reports.length} Active Reports</p>
-                    <p className="text-[10px] text-on-surface-variant">Within 500m of your location</p>
+                    <p className="text-xs font-bold text-on-surface">{t('home.activeReports', { count: reports.length })}</p>
+                    <p className="text-[10px] text-on-surface-variant">{t('home.withinRange')}</p>
                   </div>
                 </div>
                 <div className="bg-primary/5 rounded-2xl p-4">
                   <div className="flex justify-between text-[10px] font-bold mb-2">
-                    <span className="text-on-surface">City Resolution Rate</span>
+                    <span className="text-on-surface">{t('home.cityResolutionRate')}</span>
                     <span className="text-primary">84%</span>
                   </div>
                   <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
@@ -704,21 +707,21 @@ function Home() {
 
             <button
               onClick={() => { setRouteMode(true); setRouteOrigin(null); setRouteDest(null); setRoutes(null); setRouteError('') }}
-              aria-label="Get Routes"
+              aria-label={t('home.getRoutes')}
               className={`h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide ${
                 routeMode ? 'bg-secondary text-on-secondary' : 'bg-surface-container-lowest/90 text-on-surface border border-outline-variant/20'
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
-              <span className="hidden sm:inline">Get Routes</span>
+              <span className="hidden sm:inline">{t('home.getRoutes')}</span>
             </button>
             <button
               onClick={() => isAuthenticated ? setShowCreatePanel(true) : navigate('/login')}
-              aria-label="Report an Issue"
+              aria-label={t('home.reportIssue')}
               className="bg-primary text-on-primary h-12 sm:h-14 px-4 sm:px-7 rounded-full shadow-lg flex items-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all font-headline font-bold tracking-wide"
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
-              <span className="hidden sm:inline">Report an Issue</span>
+              <span className="hidden sm:inline">{t('home.reportIssue')}</span>
             </button>
           </div>
 

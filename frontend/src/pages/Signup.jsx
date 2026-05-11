@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import AuthLeftPanel from '../components/AuthLeftPanel.jsx'
 import AuthFooter from '../components/AuthFooter.jsx'
 import SocialAuthButtons from '../components/SocialAuthButtons.jsx'
@@ -8,6 +9,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { validatePassword } from '../utils/passwordValidation.js'
 
 function Signup() {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
@@ -54,9 +56,9 @@ function Signup() {
       // The backend sends a plain-text body for errors, so we inspect the
       // message string to distinguish a 409 duplicate-email from other failures.
       if (err.message.toLowerCase().includes('already')) {
-        setError('An account with this email already exists.')
+        setError(t('auth.signup.duplicateEmail'))
       } else {
-        setError(err.message || 'Something went wrong. Please try again.')
+        setError(err.message || t('auth.signup.genericError'))
       }
     } finally {
       setIsLoading(false)
@@ -67,8 +69,8 @@ function Signup() {
     <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar md:h-screen min-h-screen md:overflow-hidden flex flex-col">
       <main className="flex flex-1 md:min-h-0">
         <AuthLeftPanel
-          headline="Make your city accessible for everyone."
-          description="Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence."
+          headline={t('auth.signup.heroHeadline')}
+          description={t('auth.signup.heroDescription')}
         />
 
         {/* Right Side */}
@@ -85,10 +87,10 @@ function Signup() {
             {/* Heading */}
             <header className="space-y-3">
               <h1 className="text-4xl font-headline font-extrabold text-[#2d2f2f] tracking-tight">
-                Join Mapcess
+                {t('auth.signup.joinMapcess')}
               </h1>
               <p className="text-[#495f69] font-medium">
-                Create your profile and start improving your community.
+                {t('auth.signup.subtitle')}
               </p>
             </header>
 
@@ -107,12 +109,12 @@ function Signup() {
                     className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
                     htmlFor="full_name"
                   >
-                    Full Name
+                    {t('auth.signup.fullNameLabel')}
                   </label>
                   <input
                     className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none"
                     id="full_name"
-                    placeholder="Alex Rivera"
+                    placeholder={t('auth.signup.fullNamePlaceholder')}
                     type="text"
                     autoComplete="name"
                     value={name}
@@ -126,12 +128,12 @@ function Signup() {
                     className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
                     htmlFor="email"
                   >
-                    Email Address
+                    {t('auth.signup.emailLabel')}
                   </label>
                   <input
                     className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777] transition-all outline-none"
                     id="email"
-                    placeholder="alex@example.com"
+                    placeholder={t('auth.signup.emailPlaceholder')}
                     type="email"
                     autoComplete="email"
                     value={email}
@@ -149,7 +151,7 @@ function Signup() {
                     className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
                     htmlFor="password"
                   >
-                    Password
+                    {t('auth.signup.passwordLabel')}
                   </label>
                   <div className="relative">
                     <input
@@ -185,6 +187,9 @@ function Signup() {
                       // submit (passwordTouched). While they're still working
                       // on the form, unmet rules stay grey — passed rules
                       // turn green in real time.
+                      // Note: rule labels/messages remain in English (see
+                      // passwordValidation.js) — pulling them through i18n is
+                      // a follow-up so the util stays free of React context.
                       const showFailure = passwordTouched && !rule.passed
                       const colorClass = rule.passed
                         ? 'text-[#176a21]'
@@ -215,17 +220,10 @@ function Signup() {
                   type="checkbox"
                   checked={terms}
                   onChange={(e) => setTerms(e.target.checked)}
+                  aria-label={t('auth.signup.termsLabel')}
                 />
                 <label className="text-sm text-[#5a5c5c] leading-tight cursor-pointer" htmlFor="terms">
-                  I agree to the{' '}
-                  <a className="text-[#176a21] font-semibold hover:underline" href="#">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a className="text-[#176a21] font-semibold hover:underline" href="#">
-                    Privacy Policy
-                  </a>
-                  .
+                  {t('auth.signup.termsLabel')}
                 </label>
               </div>
 
@@ -235,25 +233,16 @@ function Signup() {
                 type="submit"
                 disabled={!terms || isLoading}
               >
-                {isLoading ? 'Creating account…' : 'Create Account'}
+                {isLoading ? t('auth.signup.creatingAccount') : t('auth.signup.createAccount')}
               </button>
             </form>
-
-            {/* OR Divider — hidden until social auth is enabled */}
-            {/* <div className="relative flex items-center">
-              <div className="flex-grow border-t border-[#acadad]/30" />
-              <span className="flex-shrink mx-4 text-xs font-bold tracking-widest text-[#767777] uppercase">
-                or continue with
-              </span>
-              <div className="flex-grow border-t border-[#acadad]/30" />
-            </div> */}
 
             <SocialAuthButtons />
 
             <p className="text-center text-[#5a5c5c] text-sm">
-              Already have an account?{' '}
+              {t('auth.signup.haveAccount')}{' '}
               <a className="text-[#176a21] font-bold hover:underline underline-offset-4 ml-1" href="/login">
-                Log in
+                {t('auth.signup.login')}
               </a>
             </p>
             </div>

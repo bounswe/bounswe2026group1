@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useUserReports } from '../hooks/useUserReports.js'
 import MyReportDetailModal from './MyReportDetailModal.jsx'
 
@@ -10,12 +11,8 @@ const STATUS_STYLES = {
   fixed:      'bg-blue-100 text-blue-900',
 }
 
-const STATUS_LABELS = {
-  unverified: 'Pending',
-  verified:   'Verified',
-  rejected:   'Rejected',
-  fixed:      'Fixed',
-}
+// Status labels live under myReports.status.* in the locale JSON; we look them
+// up at render time so the active language flips with i18n.
 
 function truncate(text, max = 120) {
   if (!text) return ''
@@ -23,6 +20,7 @@ function truncate(text, max = 120) {
 }
 
 function MyReportsSection({ userId, isOwnProfile = true }) {
+  const { t } = useTranslation()
   const { data: reports, isPending, isError, error } = useUserReports(userId)
   const [selectedId, setSelectedId] = useState(null)
 
@@ -31,16 +29,16 @@ function MyReportsSection({ userId, isOwnProfile = true }) {
   return (
     <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
       <h2 className="text-xl font-bold font-headline text-on-surface mb-4">
-        {isOwnProfile ? 'My Reports' : 'Reports'}{reports ? ` (${reports.length})` : ''}
+        {isOwnProfile ? t('myReports.headingOwn') : t('myReports.headingOther')}{reports ? ` (${reports.length})` : ''}
       </h2>
 
       {isPending && (
-        <p className="text-sm text-on-surface-variant">Loading your reports…</p>
+        <p className="text-sm text-on-surface-variant">{t('myReports.loading')}</p>
       )}
 
       {isError && (
         <p role="alert" className="text-sm text-error">
-          Failed to load reports{error?.message ? `: ${error.message}` : '.'}
+          {t('myReports.loadFailed')}{error?.message ? `: ${error.message}` : '.'}
         </p>
       )}
 
@@ -48,13 +46,13 @@ function MyReportsSection({ userId, isOwnProfile = true }) {
         <div className="text-sm text-on-surface-variant">
           {isOwnProfile ? (
             <>
-              You haven't submitted any reports yet.{' '}
+              {t('myReports.emptyOwnPrefix')}{' '}
               <Link to="/" className="text-primary font-semibold hover:underline">
-                Add one on the map.
+                {t('myReports.addOneOnMap')}
               </Link>
             </>
           ) : (
-            'No reports submitted yet.'
+            t('myReports.emptyOther')
           )}
         </div>
       )}
@@ -88,11 +86,11 @@ function MyReportsSection({ userId, isOwnProfile = true }) {
                     <span
                       className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-surface-container text-on-surface'}`}
                     >
-                      {STATUS_LABELS[report.status] ?? report.status}
+                      {t(`myReports.status.${report.status}`, { defaultValue: report.status })}
                     </span>
                   </div>
                   <p className="text-sm text-on-surface-variant break-words">
-                    {truncate(report.description) || <em>(no description)</em>}
+                    {truncate(report.description) || <em>{t('myReports.noDescription')}</em>}
                   </p>
                   <p className="text-xs text-on-surface-variant mt-1">
                     {report.date}

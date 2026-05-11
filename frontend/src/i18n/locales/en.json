@@ -1,0 +1,540 @@
+{
+  "common": {
+    "language": "Language",
+    "english": "English",
+    "turkish": "Turkish"
+  },
+  "nav": {
+    "home": "Home",
+    "feed": "Feed",
+    "leaderboard": "Leaderboard",
+    "tutorial": "Tutorial",
+    "replayTutorial": "Replay tutorial",
+    "admin": "Admin",
+    "profile": "Profile",
+    "logout": "Log Out",
+    "login": "Log In",
+    "signup": "Sign Up",
+    "mapcessHome": "Mapcess home",
+    "mapcessLogo": "Mapcess logo",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "searchUsers": "Search users",
+    "openProfileMenu": "Open profile menu",
+    "profileMenu": "Profile menu",
+    "userAvatar": "User avatar",
+    "userAvatarOf": "{{name}}'s avatar"
+  },
+  "home": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "myLocation": "My location",
+    "filter": "Filter",
+    "filtersActive": "{{count}} filters active",
+    "communityPulse": "Community Pulse",
+    "activeReports": "{{count}} Active Reports",
+    "withinRange": "Within 500m of your location",
+    "cityResolutionRate": "City Resolution Rate",
+    "getRoutes": "Get Routes",
+    "reportIssue": "Report an Issue",
+    "currentLocation": "Current Location",
+    "searchLocationPlaceholder": "Search location...",
+    "searchNoResults": "No results found.",
+    "searchFailed": "Search failed. Please try again.",
+    "showAria": "Show {{label}}",
+    "showIssueAria": "Show {{label}} {{issue}}",
+    "collapseAria": "Collapse {{label}}",
+    "expandAria": "Expand {{label}}",
+    "issuesHiddenOne": "{{count}} issue hidden",
+    "issuesHiddenOther": "{{count}} issues hidden",
+    "pinDropHint": "Click on the map to set report location",
+    "routeStartHint": "Click on the map to set your starting point",
+    "routeDestHint": "Now click your destination"
+  },
+  "createReport": {
+    "title": "New Report",
+    "clickToSetLocation": "Click on the map to set location",
+    "visualEvidence": "Visual Evidence",
+    "uploadOrDrag": "Upload or drag photos / videos here",
+    "uploadHint": "Up to 5 files, 15 MB each (JPEG, PNG, MP4, MOV).",
+    "addMore": "Add more",
+    "removeImage": "Remove image",
+    "video": "Video",
+    "reportType": "Report Type",
+    "obstacle": "Obstacle",
+    "obstacleDesc": "Something broken or missing",
+    "feature": "Feature",
+    "featureDesc": "Something helpful that exists",
+    "environment": "Environment",
+    "outdoor": "Outdoor",
+    "indoor": "Indoor",
+    "objects": "Objects",
+    "required": "required",
+    "objectType": "Object Type",
+    "selectType": "Select a type…",
+    "removeObject": "Remove object",
+    "issues": "Issues",
+    "showMeasurements": "Show measurements (optional)",
+    "hideMeasurements": "Hide measurements",
+    "howToMeasure": "How to measure",
+    "howToMeasureAria": "How to measure {{label}}",
+    "addObject": "Add Object",
+    "details": "Details",
+    "descriptionPlaceholder": "Provide a brief description of the issue...",
+    "cancel": "Cancel",
+    "submitReport": "Submit Report",
+    "submitting": "Submitting…",
+    "errorSetLocation": "Click on the map to set a location.",
+    "errorAddObject": "Add at least one object to describe the issue.",
+    "errorSelectType": "Select a type for every object card.",
+    "errorSelectIssue": "Select at least one issue for the \"{{label}}\" object.",
+    "errorProvideDescription": "Please provide a description.",
+    "errorSubmitFailed": "Failed to submit report. Please try again."
+  },
+  "report": {
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "resizePanel": "Resize report panel",
+    "closePanel": "Close panel",
+    "deleteReport": "Delete report",
+    "agree": "Agree",
+    "disagree": "Disagree",
+    "deleteComment": "Delete comment",
+    "voteFailed": "Failed to submit vote. Please try again.",
+    "fixVoteFailed": "Failed to vote on fix. Please try again.",
+    "openInViewer": "Open in viewer",
+    "photo": "Photo",
+    "goToMedia": "Go to media {{index}}",
+    "backToFeed": "Back to feed",
+    "objects": "Objects",
+    "indoor": "Indoor",
+    "outdoor": "Outdoor",
+    "statusFixed": "Fixed",
+    "statusRejected": "Rejected",
+    "statusValidated": "Validated",
+    "statusUnverified": "Unverified",
+    "yesFixed": "Yes, fixed",
+    "noStillThere": "No, still there",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "noDescription": "No description provided.",
+    "save": "Save",
+    "saving": "Saving…",
+    "addComment": "Add a comment...",
+    "post": "Post",
+    "posting": "Posting...",
+    "follow": "Follow Updates",
+    "unfollow": "Unfollow",
+    "followCopyFollowing": "You will be notified of every status change on this report.",
+    "followCopyNotFollowing": "Follow to receive notifications when this report status changes.",
+    "descriptionEmpty": "Description cannot be empty.",
+    "updateSuccess": "Report updated.",
+    "updateFailed": "Failed to save changes.",
+    "deleteConfirm": "Delete this report? This cannot be undone.",
+    "deleteSuccess": "Report deleted.",
+    "deleteFailed": "Failed to delete report.",
+    "noPermission": "You don't have permission to do that.",
+    "reportGone": "Report no longer exists.",
+    "fixedConsensusNote": "Confirms as Fixed when 5+ agrees AND consensus ≥60%.",
+    "fixConsensus": "{{percent}}% consensus",
+    "hasThisBeenFixed": "Has this been fixed?",
+    "submitFixWithPhoto": "Submit a fix report with a photo",
+    "issueDetails": "Issue Details",
+    "communityConsensus": "Community Consensus",
+    "consensusPercent": "{{percent}}% Consensus",
+    "peopleAgreed": "{{count}} people have agreed that this issue is active.",
+    "comments": "Comments",
+    "noCommentsYet": "No comments yet.",
+    "recentActivity": "Recent Activity",
+    "system": "System",
+    "submittedActivity": "Report submitted and pending community verification."
+  },
+  "feed": {
+    "title": "Community feed",
+    "reportType": "Report type",
+    "environment": "Environment",
+    "all": "All",
+    "obstacle": "Obstacle",
+    "feature": "Feature",
+    "indoor": "Indoor",
+    "outdoor": "Outdoor",
+    "searchRadius": "Search radius (km)",
+    "chooseOnMap": "Choose on map",
+    "useCurrentLocation": "Use current location",
+    "referencePoint": "Reference point: {{lat}}, {{lng}}",
+    "locationUnavailable": "Location is not available on this device.",
+    "locateFailedSetOnMap": "Could not get your position. Allow location access or set a point on the map.",
+    "locateFailedPickOnMap": "Could not get your position. Allow location access or pick a point on the map.",
+    "loadError": "Could not load the feed.",
+    "loading": "Loading feed…",
+    "loadingMore": "Loading more…",
+    "emptyNoFilters": "No reports yet.",
+    "emptyWithFilters": "No reports match your filters.",
+    "emptyWithRadius": "No reports within this search radius.",
+    "noDescription": "No description",
+    "agree": "Agree",
+    "disagree": "Disagree",
+    "filterReportTypeAria": "Report type: {{label}}",
+    "filterEnvironmentAria": "Environment: {{label}}",
+    "status": {
+      "unverified": "Unverified",
+      "verified": "Validated",
+      "rejected": "Rejected",
+      "fixed": "Fixed"
+    }
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "intro": "Top contributors ranked by points. Tied scores share a rank.",
+    "loading": "Loading leaderboard…",
+    "loadFailed": "Failed to load the leaderboard. Please try again later.",
+    "yourRank": "Your rank",
+    "points": "Points",
+    "loginPrompt": "<0>Log in</0> to see your own rank on this page.",
+    "empty": "No ranked users yet. Submit a report to get on the board."
+  },
+  "objectTitle": {
+    "obstacleSuffix": "{{labels}} Issue",
+    "featureSuffix": "{{labels}} — Feature",
+    "obstacleFallback": "Obstacle Report",
+    "featureFallback": "Feature Report"
+  },
+  "object": {
+    "RAMP": {
+      "label": "Ramp",
+      "issue": {
+        "MISSING": "Missing", "TOO_STEEP": "Too Steep", "TOO_NARROW": "Too Narrow",
+        "MISSING_HANDRAIL": "Missing Handrail", "NO_LANDING": "No Landing",
+        "SLIPPERY_SURFACE": "Slippery Surface", "HANDRAIL_TOO_LOW": "Handrail Too Low",
+        "INSUFFICIENT_LANDING_AREA": "Insufficient Landing Area"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Slope" },
+        "width_cm": { "label": "Width" },
+        "height_cm": { "label": "Height" }
+      }
+    },
+    "ELEVATOR": {
+      "label": "Elevator",
+      "issue": {
+        "MISSING": "Missing", "OUT_OF_SERVICE": "Out of Service",
+        "DOOR_TOO_NARROW": "Door Too Narrow", "CABIN_TOO_SMALL": "Cabin Too Small",
+        "NO_AUDIO": "No Audio", "NO_GRAB_BAR": "No Grab Bar",
+        "INSUFFICIENT_LANDING": "Insufficient Landing", "NO_BRAILLE": "No Braille",
+        "BUTTON_HEIGHT_INVALID": "Button Height Invalid",
+        "INSUFFICIENT_LIGHTING": "Insufficient Lighting"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Door Width" },
+        "cabin_width_cm": { "label": "Cabin Width" },
+        "cabin_depth_cm": { "label": "Cabin Depth" }
+      }
+    },
+    "SIDEWALK": {
+      "label": "Sidewalk",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "SLIPPERY_SURFACE": "Slippery Surface", "BLOCKED": "Blocked",
+        "NO_TACTILE_PAVING": "No Tactile Paving",
+        "INSUFFICIENT_CLEARANCE": "Insufficient Clearance",
+        "UNEVEN_SURFACE": "Uneven Surface",
+        "UNRAMPED_LEVEL_DIFFERENCE": "Unramped Level Difference"
+      },
+      "measurement": {
+        "height_cm": { "label": "Curb Height" },
+        "width_cm": { "label": "Width" }
+      }
+    },
+    "DOOR": {
+      "label": "Door",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "HIGH_THRESHOLD": "High Threshold", "STEP_AT_ENTRANCE": "Step at Entrance",
+        "NO_LEVER_HANDLE": "No Lever Handle", "HEAVY_DOOR": "Heavy Door",
+        "NO_AUTOMATIC_DOOR": "No Automatic Door", "NO_GLASS_MARKING": "No Glass Marking",
+        "HANDLE_HEIGHT_INVALID": "Handle Height Invalid",
+        "INTERCOM_INACCESSIBLE": "Intercom Inaccessible"
+      },
+      "measurement": {
+        "width_cm": { "label": "Width" },
+        "threshold_height_cm": { "label": "Threshold Height" }
+      }
+    },
+    "STAIR": {
+      "label": "Stair",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "MISSING_HANDRAIL": "Missing Handrail", "NO_LANDING": "No Landing",
+        "SLIPPERY_SURFACE": "Slippery Surface", "RISER_TOO_HIGH": "Riser Too High",
+        "TREAD_TOO_SHALLOW": "Tread Too Shallow", "NO_ANTI_SLIP": "No Anti-Slip",
+        "OPEN_RISERS": "Open Risers", "IRREGULAR_STEPS": "Irregular Steps",
+        "MISSING_NOSING_STRIP": "Missing Nosing Strip"
+      },
+      "measurement": {
+        "riser_cm": { "label": "Riser Height" },
+        "tread_cm": { "label": "Tread Depth" }
+      }
+    },
+    "PEDESTRIAN_CROSSING": {
+      "label": "Pedestrian Crossing",
+      "issue": {
+        "MISSING": "Missing", "BLOCKED": "Blocked",
+        "NO_TACTILE_PAVING": "No Tactile Paving",
+        "NO_AUDIO_SIGNAL": "No Audio Signal", "SIGNAL_TOO_SHORT": "Signal Too Short",
+        "NO_DROPPED_CURB": "No Dropped Curb", "FADED_MARKINGS": "Faded Markings",
+        "NO_PEDESTRIAN_REFUGE": "No Pedestrian Refuge"
+      },
+      "measurement": {
+        "signal_duration_sec": { "label": "Signal Duration" },
+        "crossing_width_cm": { "label": "Crossing Width" },
+        "dropped_curb_height_cm": { "label": "Dropped Curb Height" }
+      }
+    },
+    "CURB_RAMP": {
+      "label": "Curb Ramp",
+      "issue": {
+        "MISSING": "Missing", "TOO_STEEP": "Too Steep",
+        "TOO_NARROW": "Too Narrow", "NO_TACTILE_WARNING": "No Tactile Warning",
+        "RAISED_LIP": "Raised Lip"
+      },
+      "measurement": {
+        "slope_percent": { "label": "Slope" },
+        "width_cm": { "label": "Width" },
+        "lip_height_cm": { "label": "Lip Height" }
+      }
+    },
+    "WASHROOM": {
+      "label": "Washroom",
+      "issue": {
+        "MISSING": "Missing", "TOO_NARROW": "Too Narrow",
+        "NO_GRAB_BAR": "No Grab Bar", "HIGH_THRESHOLD": "High Threshold",
+        "NO_ACCESSIBLE_STALL": "No Accessible Stall",
+        "INSUFFICIENT_TURNING_SPACE": "Insufficient Turning Space",
+        "SINK_TOO_HIGH": "Sink Too High", "NO_EMERGENCY_BUTTON": "No Emergency Button"
+      },
+      "measurement": {
+        "door_width_cm": { "label": "Door Width" },
+        "turning_space_cm": { "label": "Turning Space" },
+        "sink_height_cm": { "label": "Sink Height" },
+        "grab_bar_height_cm": { "label": "Grab Bar Height" }
+      }
+    },
+    "ROOM_SIGN": {
+      "label": "Room Sign",
+      "issue": {
+        "MISSING": "Missing", "NO_BRAILLE": "No Braille",
+        "INSUFFICIENT_LIGHTING": "Insufficient Lighting",
+        "LOW_CONTRAST": "Low Contrast", "TEXT_TOO_SMALL": "Text Too Small",
+        "INVALID_HEIGHT": "Invalid Height"
+      },
+      "measurement": {
+        "mounting_height_cm": { "label": "Mounting Height" },
+        "text_height_mm": { "label": "Text Height" }
+      }
+    }
+  },
+  "userSearch": {
+    "title": "Find people",
+    "searchLabel": "Search by name or email",
+    "searchPlaceholder": "e.g. alice",
+    "searchAria": "Search users by name or email",
+    "tooShort": "Type at least {{count}} characters to search.",
+    "searching": "Searching…",
+    "searchFailed": "Search failed.",
+    "noUsers": "No users found.",
+    "matchOne": "{{count}} match.",
+    "matchOther": "{{count}} matches.",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{total}}",
+    "loading": "Loading…"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications yet",
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "avatar": {
+    "upload": "Upload avatar",
+    "change": "Change avatar",
+    "save": "Save avatar",
+    "uploading": "Uploading…",
+    "remove": "Remove",
+    "removing": "Removing…",
+    "cancel": "Cancel",
+    "dropToPreview": "Drop image to preview…",
+    "hint": "JPEG or PNG, max 15 MB. You can also drag-and-drop into this box."
+  },
+  "routing": {
+    "title": "Routing preferences",
+    "customCount": "{{count}}/{{max}} custom presets",
+    "intro": "Pick a preset to shape every accessible-route request you make. Built-in presets cover common needs; you can also save up to 5 of your own.",
+    "active": "Active",
+    "ruleOne": "{{count}} rule",
+    "ruleOther": "{{count}} rules",
+    "createCustom": "Create custom preset",
+    "atCapTitle": "You can save at most {{max}} custom presets.",
+    "saveFailed": "Failed to save preset.",
+    "deleteFailed": "Failed to delete preset.",
+    "activateLabel": "Activate {{label}}",
+    "detailsLabel": "View {{label}} details",
+    "presets": {
+      "NONE": "No preferences",
+      "WHEELCHAIR_USER": "Wheelchair user",
+      "BLIND_OR_LOW_VISION": "Blind or low vision",
+      "MOBILITY_LIMITED": "Mobility limited (cane, walker, elderly)"
+    },
+    "travelMode": {
+      "WALKING": "Walking",
+      "WHEELCHAIR": "Wheelchair"
+    }
+  },
+  "myReportModal": {
+    "ariaLabel": "Report details",
+    "close": "Close",
+    "editOnMap": "Edit on map",
+    "delete": "Delete",
+    "deleting": "Deleting…"
+  },
+  "myReports": {
+    "headingOwn": "My Reports",
+    "headingOther": "Reports",
+    "loading": "Loading your reports…",
+    "loadFailed": "Failed to load reports",
+    "emptyOwnPrefix": "You haven't submitted any reports yet.",
+    "addOneOnMap": "Add one on the map.",
+    "emptyOther": "No reports submitted yet.",
+    "noDescription": "(no description)",
+    "status": {
+      "unverified": "Pending",
+      "verified": "Verified",
+      "rejected": "Rejected",
+      "fixed": "Fixed"
+    }
+  },
+  "profile": {
+    "loadingYours": "Loading your profile…",
+    "loadingOther": "Loading profile…",
+    "loadFailed": "Failed to load profile",
+    "userNotFound": "User not found.",
+    "goBack": "Go back",
+    "reportsSubmitted": "Reports submitted",
+    "routesPlanned": "Routes planned",
+    "points": "Points",
+    "rank": "Rank",
+    "rankHidden": "Hidden",
+    "badges": "Badges",
+    "leaderboard": "Leaderboard",
+    "hideFromLeaderboard": "Hide me from the public leaderboard",
+    "leaderboardHideNote": "Your points are preserved either way — you re-enter the ranking instantly when this flips back.",
+    "about": "About",
+    "edit": "Edit",
+    "noBio": "No bio yet.",
+    "displayName": "Display name",
+    "bio": "Bio",
+    "nameMinError": "Name must be at least {{count}} characters.",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "profileUpdated": "Profile updated.",
+    "profileUpdateFailed": "Failed to update profile.",
+    "avatarUpdated": "Avatar updated.",
+    "avatarRemoved": "Avatar removed.",
+    "role": {
+      "USER": "USER",
+      "ADMIN": "ADMIN"
+    }
+  },
+  "onboarding": {
+    "closeTutorial": "Close tutorial",
+    "skipTour": "Skip tour",
+    "back": "Back",
+    "next": "Next",
+    "gotIt": "Got it",
+    "tipDefault": "Tip",
+    "welcome": {
+      "title": "Welcome to Mapcess",
+      "tipTitle": "What you'll learn",
+      "tip": "A quick tour of the four most common things people report — ramps, sidewalks, elevators, and doors — and how to file your first report in under a minute."
+    },
+    "ramps": {
+      "title": "Ramps",
+      "bullet1": "Slope ≤ 10% — steeper blocks wheelchairs",
+      "bullet2": "Clear width ≥ 100 cm — room for a walker + helper",
+      "bullet3": "Handrails on both sides at 90 cm (extra rail at 70 cm for shorter users)",
+      "bullet4": "Tactile warning strip at the top and bottom of the ramp",
+      "diagramCaption": "slope = H ÷ L · accessible when ≤ 10%"
+    },
+    "sidewalks": {
+      "title": "Sidewalks",
+      "bullet1": "Clear width ≥ 150 cm — wheelchairs need to pass each other",
+      "bullet2": "Overhead clearance ≥ 220 cm — no low branches or signs",
+      "bullet3": "Contrasting strip along the curb edge so it's visible against the road",
+      "diagramCaption": "Top-down view of the sidewalk"
+    },
+    "elevators": {
+      "title": "Elevators",
+      "bullet1": "Door clear width ≥ 90 cm when fully open",
+      "bullet2": "Braille labels on every button and voice announcement",
+      "bullet3": "Visual floor display + flashing emergency alarm",
+      "diagramCaption": "Top-down view of the cabin"
+    },
+    "doors": {
+      "title": "Doors",
+      "bullet1": "Clear width ≥ 90 cm when fully open",
+      "bullet2": "Lever handle (not a knob) — easier with weak grip",
+      "bullet3": "Glass panels marked with contrasting bands at eye level",
+      "diagramCaption": "Front view — entrance door"
+    },
+    "howTo": {
+      "title": "How to file a report",
+      "step1": "Tap the map",
+      "step2": "Add media",
+      "step3": "Describe",
+      "step4": "Submit",
+      "tipTitle": "Done in under a minute",
+      "tip": "Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone."
+    }
+  },
+  "auth": {
+    "login": {
+      "heroHeadline": "Empowering mobility for every neighbour.",
+      "heroDescription": "Your reports help people with mobility challenges find accessible routes, ramps, and barrier-free paths in their neighbourhood.",
+      "welcomeBack": "Welcome back",
+      "subtitle": "Enter your credentials to continue your civic contribution.",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "name@example.com",
+      "passwordLabel": "Password",
+      "forgotPassword": "Forgot password?",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "signIn": "Sign In",
+      "signingIn": "Signing in…",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create an account",
+      "invalidCredentials": "Invalid email or password."
+    },
+    "signup": {
+      "heroHeadline": "Make your city accessible for everyone.",
+      "heroDescription": "Join a community of contributors mapping accessibility features and barriers — so people with mobility challenges can navigate their neighbourhoods with confidence.",
+      "joinMapcess": "Join Mapcess",
+      "subtitle": "Create your profile and start improving your community.",
+      "fullNameLabel": "Full Name",
+      "fullNamePlaceholder": "Alex Rivera",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "alex@example.com",
+      "passwordLabel": "Password",
+      "createAccount": "Create Account",
+      "creatingAccount": "Creating account…",
+      "haveAccount": "Already have an account?",
+      "login": "Log in",
+      "termsLabel": "I agree to the Terms of Service and Privacy Policy",
+      "duplicateEmail": "An account with this email already exists.",
+      "genericError": "Something went wrong. Please try again."
+    }
+  }
+}

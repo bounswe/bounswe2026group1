@@ -486,8 +486,8 @@ describe('ReportPanel', () => {
           ],
         },
       })
-      expect(screen.getByLabelText('Previous')).toBeInTheDocument()
-      expect(screen.getByLabelText('Next')).toBeInTheDocument()
+      expect(screen.getByLabelText('Previous image')).toBeInTheDocument()
+      expect(screen.getByLabelText('Next image')).toBeInTheDocument()
       expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
       expect(screen.getByLabelText('Go to media 3')).toBeInTheDocument()
     })
@@ -502,8 +502,8 @@ describe('ReportPanel', () => {
           ],
         },
       })
-      expect(screen.getByLabelText('Previous')).toBeInTheDocument()
-      expect(screen.getByLabelText('Next')).toBeInTheDocument()
+      expect(screen.getByLabelText('Previous image')).toBeInTheDocument()
+      expect(screen.getByLabelText('Next image')).toBeInTheDocument()
       expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
       expect(screen.getByLabelText('Go to media 2')).toBeInTheDocument()
     })

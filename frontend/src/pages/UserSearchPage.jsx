@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Navbar from '../components/Navbar.jsx'
 import { USER_SEARCH_MIN_LENGTH, useUserSearch } from '../hooks/useUserSearch.js'
 
@@ -34,6 +35,7 @@ function UserCard({ user }) {
 }
 
 function UserSearchPage() {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
   const trimmed = query.trim()
@@ -56,36 +58,36 @@ function UserSearchPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
       <main className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8 flex flex-col gap-4">
-        <h1 className="text-2xl font-bold font-headline text-on-surface">Find people</h1>
+        <h1 className="text-2xl font-bold font-headline text-on-surface">{t('userSearch.title')}</h1>
 
         <label className="flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide text-on-surface-variant">
-            Search by name or email
+            {t('userSearch.searchLabel')}
           </span>
           <input
             type="search"
             value={query}
             onChange={onChange}
-            placeholder="e.g. alice"
+            placeholder={t('userSearch.searchPlaceholder')}
             autoFocus
             className="bg-surface-container-lowest rounded-2xl shadow-sm px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
-            aria-label="Search users by name or email"
+            aria-label={t('userSearch.searchAria')}
           />
         </label>
 
         {tooShort && (
           <p className="text-sm text-on-surface-variant">
-            Type at least {USER_SEARCH_MIN_LENGTH} characters to search.
+            {t('userSearch.tooShort', { count: USER_SEARCH_MIN_LENGTH })}
           </p>
         )}
 
         {trimmed.length >= USER_SEARCH_MIN_LENGTH && isPending && (
-          <p className="text-sm text-on-surface-variant">Searching…</p>
+          <p className="text-sm text-on-surface-variant">{t('userSearch.searching')}</p>
         )}
 
         {isError && (
           <p role="alert" className="text-sm text-error">
-            {error?.message || 'Search failed.'}
+            {error?.message || t('userSearch.searchFailed')}
           </p>
         )}
 
@@ -93,8 +95,8 @@ function UserSearchPage() {
           <>
             <p className="text-xs text-on-surface-variant" aria-live="polite">
               {totalElements === 0
-                ? 'No users found.'
-                : `${totalElements} match${totalElements === 1 ? '' : 'es'}.`}
+                ? t('userSearch.noUsers')
+                : t(totalElements === 1 ? 'userSearch.matchOne' : 'userSearch.matchOther', { count: totalElements })}
             </p>
 
             <ul className="flex flex-col gap-2">
@@ -113,10 +115,10 @@ function UserSearchPage() {
                   disabled={isFirstPage || isFetching}
                   className="px-3 py-1.5 rounded-full bg-surface-container-low text-on-surface text-sm font-semibold disabled:opacity-50 cursor-pointer"
                 >
-                  Previous
+                  {t('userSearch.previous')}
                 </button>
                 <span className="text-xs text-on-surface-variant">
-                  Page {page + 1} of {totalPages}
+                  {t('userSearch.pageOf', { page: page + 1, total: totalPages })}
                 </span>
                 <button
                   type="button"
@@ -124,7 +126,7 @@ function UserSearchPage() {
                   disabled={isLastPage || isFetching}
                   className="px-3 py-1.5 rounded-full bg-primary text-on-primary text-sm font-semibold disabled:opacity-50 cursor-pointer"
                 >
-                  Next
+                  {t('userSearch.next')}
                 </button>
               </div>
             )}

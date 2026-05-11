@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import {
   agreeReport,
@@ -20,7 +21,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
-import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { OBJECT_TYPE_MAP, localizeObjectType } from '../utils/objectTypeConfig.js'
 import { reportJsonLdString } from '../utils/schemaOrg.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 import Toast from './Toast.jsx'
@@ -43,6 +44,7 @@ function isVideoUrl(url) {
 // when there is more than one item. Portaled to <body> so the panel's
 // pointer-events-none wrapper doesn't swallow clicks.
 function MediaLightbox({ items, startIndex = 0, title, onClose }) {
+  const { t } = useTranslation()
   const [index, setIndex] = useState(startIndex)
 
   useEffect(() => {
@@ -101,7 +103,7 @@ function MediaLightbox({ items, startIndex = 0, title, onClose }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setIndex((i) => (i === 0 ? items.length - 1 : i - 1)) }}
-            aria-label="Previous"
+            aria-label={t('report.previousImage')}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
           >
             <span className="material-symbols-outlined text-2xl">chevron_left</span>
@@ -109,7 +111,7 @@ function MediaLightbox({ items, startIndex = 0, title, onClose }) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setIndex((i) => (i === items.length - 1 ? 0 : i + 1)) }}
-            aria-label="Next"
+            aria-label={t('report.nextImage')}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
           >
             <span className="material-symbols-outlined text-2xl">chevron_right</span>
@@ -149,6 +151,7 @@ function MediaLightbox({ items, startIndex = 0, title, onClose }) {
 // <video> and dropped the carousel entirely when slot 0 was a video).
 // Click an image (or the expand button on a video) to open MediaLightbox.
 function MediaCarousel({ items, title, heightClass = 'h-64' }) {
+  const { t } = useTranslation()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
 
@@ -194,7 +197,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
-              aria-label="Open in viewer"
+              aria-label={t('report.openInViewer')}
               className="absolute top-2 right-2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm cursor-pointer z-10"
             >
               <span className="material-symbols-outlined text-lg">open_in_full</span>
@@ -204,12 +207,12 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
           <button
             type="button"
             onClick={() => setLightboxOpen(true)}
-            aria-label={`Open ${title ? title + ' ' : ''}photo ${safeIndex + 1} in viewer`}
+            aria-label={t('report.openInViewer')}
             className="block w-full h-full cursor-zoom-in"
           >
             <img
               src={current}
-              alt={`${title} - Photo ${safeIndex + 1}`}
+              alt={`${title} - ${t('report.photo')} ${safeIndex + 1}`}
               className="w-full h-full object-cover transition-opacity duration-300"
             />
           </button>
@@ -222,7 +225,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
             <button
               onClick={handlePrev}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-sm transition-colors z-10 shadow-md"
-              aria-label="Previous"
+              aria-label={t('report.previousImage')}
             >
               <span className="material-symbols-outlined text-xl">chevron_left</span>
             </button>
@@ -230,7 +233,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
             <button
               onClick={handleNext}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-sm transition-colors z-10 shadow-md"
-              aria-label="Next"
+              aria-label={t('report.nextImage')}
             >
               <span className="material-symbols-outlined text-xl">chevron_right</span>
             </button>
@@ -241,7 +244,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
                   key={i}
                   onClick={(e) => { e.stopPropagation(); setCurrentIndex(i) }}
                   className={`w-1.5 h-1.5 rounded-full transition-all ${safeIndex === i ? 'bg-white w-3' : 'bg-white/50 hover:bg-white/80'}`}
-                  aria-label={`Go to media ${i + 1}`}
+                  aria-label={t('report.goToMedia', { index: i + 1 })}
                 />
               ))}
             </div>
@@ -274,7 +277,7 @@ function MediaCarousel({ items, title, heightClass = 'h-64' }) {
  *  - onVoteUpdate: (updatedReport) => void
  */
 function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, onFollowChange, onShowToast }) {
-
+  const { t } = useTranslation()
   const { token, isAuthenticated, userId, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -401,7 +404,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       onVoteChange(mappedUpdated.userVote ?? null)
     },
     onError: () => {
-      setVoteError('Failed to submit vote. Please try again.')
+      setVoteError(t('report.voteFailed'))
     },
   })
 
@@ -422,7 +425,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
     },
     onError: () => {
-      setFixVoteError('Failed to vote on fix. Please try again.')
+      setFixVoteError(t('report.fixVoteFailed'))
     },
   })
 
@@ -445,6 +448,28 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   }
 
   if (!report) return null
+
+  // Rebuild the report title at render time so the object labels follow the
+  // active language. mapReport() pre-builds an English title; we override it
+  // here using translated labels from OBJECT_TYPE_MAP.
+  const displayTitle = (() => {
+    if (!report.objects?.length) {
+      // Tests and legacy fixtures pass a pre-built `title`; honour it when
+      // there's no object list to derive from.
+      if (report.title) return report.title
+      return report.reportType === 'FEATURE'
+        ? t('objectTitle.featureFallback')
+        : t('objectTitle.obstacleFallback')
+    }
+    const labels = [...new Set(report.objects.map((o) =>
+      t(`object.${o.objectType}.label`, {
+        defaultValue: OBJECT_TYPE_MAP[o.objectType]?.label || o.objectType,
+      })
+    ))]
+    return report.reportType === 'FEATURE'
+      ? t('objectTitle.featureSuffix', { labels: labels.join(' & ') })
+      : t('objectTitle.obstacleSuffix', { labels: labels.join(' & ') })
+  })()
 
   const isValidated = report.status === 'verified'
   const isFixed = report.status === 'fixed'
@@ -511,7 +536,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   async function handleSaveEdit() {
     const trimmed = editDescription.trim()
     if (!trimmed) {
-      setEditError('Description cannot be empty.')
+      setEditError(t('report.descriptionEmpty'))
       return
     }
     if (trimmed.length > MAX_DESCRIPTION) {
@@ -525,34 +550,34 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
         body: { description: trimmed, environment: editEnvironment },
       })
       setIsEditing(false)
-      showToast({ type: 'success', message: 'Report updated.' })
+      showToast({ type: 'success', message: t('report.updateSuccess') })
     } catch (e) {
       // Error stays inline in the form (setEditError) AND surfaces a toast
       // so users notice it even if they've scrolled past the form fields.
-      setEditError(e.message || 'Failed to save changes.')
-      showToast({ type: 'error', message: messageForApiError(e, 'Failed to save changes.') })
+      setEditError(e.message || t('report.updateFailed'))
+      showToast({ type: 'error', message: messageForApiError(e, t('report.updateFailed')) })
     }
   }
 
   async function handleDelete() {
-    if (!window.confirm('Delete this report? This cannot be undone.')) return
+    if (!window.confirm(t('report.deleteConfirm'))) return
     try {
       await deleteReportMutation.mutateAsync(report.id)
-      showToast({ type: 'success', message: 'Report deleted.' })
+      showToast({ type: 'success', message: t('report.deleteSuccess') })
       // Close panel after the toast is visible — the parent removes the
       // selection state and the SSE event fans the deletion to other
       // clients via useSseSync (REPORT_DELETED).
       onClose()
     } catch (e) {
-      showToast({ type: 'error', message: messageForApiError(e, 'Failed to delete report.') })
+      showToast({ type: 'error', message: messageForApiError(e, t('report.deleteFailed')) })
     }
   }
 
   // Map common HTTP statuses surfaced by apiFetch into user-friendly text.
   function messageForApiError(err, fallback) {
     const msg = err?.message ?? ''
-    if (msg.includes('403')) return 'You don’t have permission to do that.'
-    if (msg.includes('404')) return 'Report no longer exists.'
+    if (msg.includes('403')) return t('report.noPermission')
+    if (msg.includes('404')) return t('report.reportGone')
     return msg || fallback
   }
 
@@ -605,7 +630,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           {/* Mobile drag handle — pill is decorative, the wider hit-area carries the pointer events. */}
           <div
             role="slider"
-            aria-label="Resize report panel"
+            aria-label={t('report.resizePanel')}
             aria-valuemin={SHEET_SNAP_POINTS[0]}
             aria-valuemax={SHEET_SNAP_POINTS[SHEET_SNAP_POINTS.length - 1]}
             aria-valuenow={Math.round(sheetHeightDvh)}
@@ -631,13 +656,13 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                   className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/30 hover:bg-primary/15 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                  Back to feed
+                  {t('report.backToFeed')}
                 </button>
               )}
               <button
                 onClick={onClose}
                 className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors shrink-0"
-                aria-label="Close panel"
+                aria-label={t('report.closePanel')}
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
@@ -651,7 +676,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     ? 'bg-primary-container text-on-primary-container'
                     : 'bg-amber-100 text-amber-800'
                 }`}>
-                {isFixed ? 'Fixed' : isRejected ? 'Rejected' : isValidated ? 'Validated' : 'Unverified'}
+                {isFixed ? t('report.statusFixed') : isRejected ? t('report.statusRejected') : isValidated ? t('report.statusValidated') : t('report.statusUnverified')}
               </span>
               {activeFix && (
                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
@@ -697,7 +722,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                         Does this look fixed to you?
                       </p>
-                      <span className="text-[11px] font-bold text-emerald-700">{fixPct}% consensus</span>
+                      <span className="text-[11px] font-bold text-emerald-700">{t('report.fixConsensus', { percent: fixPct })}</span>
                     </div>
                     <div className="bg-surface-container-high h-1.5 w-full rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-emerald-600" style={{ width: `${fixPct}%` }} />
@@ -722,7 +747,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             : 'bg-surface-container-highest text-on-surface hover:bg-emerald-100 hover:text-emerald-800'
                             }`}
                         >
-                          {fixVoting ? '…' : 'Yes, fixed'}
+                          {fixVoting ? '…' : t('report.yesFixed')}
                         </button>
                         <button
                           onClick={() => handleFixVote('disagree')}
@@ -732,7 +757,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             : 'bg-surface-container-highest text-on-surface hover:bg-red-100 hover:text-red-800'
                             }`}
                         >
-                          {fixVoting ? '…' : 'No, still there'}
+                          {fixVoting ? '…' : t('report.noStillThere')}
                         </button>
                       </div>
                     )}
@@ -742,7 +767,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       </p>
                     )}
                     <p className="text-[11px] text-on-surface-variant text-center mt-3">
-                      Confirms as <strong>Fixed</strong> when 5+ agrees AND consensus ≥60%.
+                      {t('report.fixedConsensusNote')}
                     </p>
                   </div>
                 </div>
@@ -755,7 +780,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               const allMedia = report.media?.length > 0
                 ? report.media.map(m => m.url || m)
                 : (report.mediaUrls?.length > 0 ? report.mediaUrls : (report.image ? [report.image] : []))
-              return <MediaCarousel items={allMedia} title={report.title} />
+              return <MediaCarousel items={allMedia} title={displayTitle} />
             })()}
           </div>
 
@@ -773,8 +798,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     <span className="material-symbols-outlined text-emerald-700" style={{ fontSize: '20px' }}>build</span>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-on-surface">Has this been fixed?</p>
-                    <p className="text-xs text-on-surface-variant">Submit a fix report with a photo</p>
+                    <p className="text-sm font-bold text-on-surface">{t('report.hasThisBeenFixed')}</p>
+                    <p className="text-xs text-on-surface-variant">{t('report.submitFixWithPhoto')}</p>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition" style={{ fontSize: '20px' }}>chevron_right</span>
@@ -788,7 +813,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <div className="flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3">
                 <h1 className="text-3xl font-extrabold font-headline tracking-tight text-on-surface leading-tight">
-                  {report.title}
+                  {displayTitle}
                 </h1>
                 {canModify && !isEditing && (
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -803,10 +828,10 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       type="button"
                       onClick={handleDelete}
                       disabled={deleteReportMutation.isPending}
-                      aria-label="Delete report"
+                      aria-label={t('report.deleteReport')}
                       className="px-3 py-1.5 rounded-lg bg-error/10 text-error font-semibold text-sm cursor-pointer disabled:opacity-60"
                     >
-                      {deleteReportMutation.isPending ? 'Deleting…' : 'Delete'}
+                      {deleteReportMutation.isPending ? t('report.deleting') : t('report.delete')}
                     </button>
                   </div>
                 )}
@@ -843,7 +868,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
                       {report.environment === 'INDOOR' ? 'home' : 'wb_sunny'}
                     </span>
-                    {report.environment === 'INDOOR' ? 'Indoor' : 'Outdoor'}
+                    {report.environment === 'INDOOR' ? t('report.indoor') : t('report.outdoor')}
                   </span>
                 )}
               </div>
@@ -852,9 +877,9 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Objects */}
             {report.objects?.length > 0 && (
               <section className="flex flex-col gap-3">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Objects</h3>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{t('report.objects')}</h3>
                 {report.objects.map((obj, i) => {
-                  const cfg = OBJECT_TYPE_MAP[obj.objectType]
+                  const cfg = localizeObjectType(t, OBJECT_TYPE_MAP[obj.objectType])
                   return (
                     <div key={i} className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 flex flex-col gap-3">
                       <div className="flex items-center gap-2">
@@ -914,11 +939,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Description */}
             <section className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-                Issue Details
+                {t('report.issueDetails')}
               </h3>
               {!isEditing ? (
                 <p className="text-on-surface leading-relaxed font-body">
-                  {report.description || 'No description provided.'}
+                  {report.description || t('report.noDescription')}
                 </p>
               ) : (
                 <div className="flex flex-col gap-4">
@@ -972,7 +997,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       disabled={saveEditDisabled}
                       className="px-4 py-2 rounded-lg bg-gradient-to-b from-[#176a21] to-[#025d16] text-[#d1ffc8] font-semibold disabled:opacity-60 cursor-pointer"
                     >
-                      {updateReportMutation.isPending ? 'Saving…' : 'Save'}
+                      {updateReportMutation.isPending ? t('report.saving') : t('report.save')}
                     </button>
                     <button
                       type="button"
@@ -1001,9 +1026,9 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <section className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Community Consensus
+                  {t('report.communityConsensus')}
                 </h3>
-                <span className="text-xs font-bold text-primary">{consensusPct}% Consensus</span>
+                <span className="text-xs font-bold text-primary">{t('report.consensusPercent', { percent: consensusPct })}</span>
               </div>
               <div className="bg-surface-container-high h-2.5 w-full rounded-full overflow-hidden">
                 <div
@@ -1012,7 +1037,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 />
               </div>
               <div className="flex items-center justify-between text-sm text-on-surface-variant italic">
-                <span>{report.agrees || 0} people have agreed that this issue is active.</span>
+                <span>{t('report.peopleAgreed', { count: report.agrees || 0 })}</span>
                 <span className="flex gap-3 not-italic font-semibold">
                   <span className="flex items-center gap-1 text-primary">
                     <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
@@ -1036,26 +1061,26 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 <button
                   onClick={() => handleVote('agree')}
                   disabled={voting}
-                  aria-label="Agree"
+                  aria-label={t('report.agree')}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${userVote === 'agree'
                     ? 'bg-primary text-on-primary'
                     : 'bg-surface-container-highest text-on-surface hover:bg-primary/10 hover:text-primary'
                     }`}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'agree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_up</span>
-                  {voting ? '...' : 'Agree'}
+                  {voting ? '...' : t('report.agree')}
                 </button>
                 <button
                   onClick={() => handleVote('disagree')}
                   disabled={voting}
-                  aria-label="Disagree"
+                  aria-label={t('report.disagree')}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold active:scale-95 transition-all shadow-sm disabled:opacity-60 ${userVote === 'disagree'
                     ? 'bg-error text-white'
                     : 'bg-surface-container-highest text-on-surface hover:bg-error/10 hover:text-error'
                     }`}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: userVote === 'disagree' ? "'FILL' 1" : "'FILL' 0" }}>thumb_down</span>
-                  {voting ? '...' : 'Disagree'}
+                  {voting ? '...' : t('report.disagree')}
                 </button>
               </div>
             </section>
@@ -1064,7 +1089,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Comments Section */}
             <section className="flex flex-col gap-4">
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Comments {!commentsLoading && `(${comments.length})`}
+                {t('report.comments')} {!commentsLoading && `(${comments.length})`}
               </h3>
 
               {isAuthenticated ? (
@@ -1072,7 +1097,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                   <textarea
                     className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                     rows={3}
-                    placeholder="Add a comment..."
+                    placeholder={t('report.addComment')}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                   />
@@ -1081,7 +1106,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     disabled={submittingComment || !newComment.trim()}
                     className="self-end px-6 py-2 bg-primary text-on-primary rounded-full text-sm font-bold active:scale-95 transition-all disabled:opacity-50"
                   >
-                    {submittingComment ? 'Posting...' : 'Post'}
+                    {submittingComment ? t('report.posting') : t('report.post')}
                   </button>
                 </div>
               ) : (
@@ -1093,7 +1118,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               {commentsLoading ? (
                 <p className="text-sm text-on-surface-variant italic">Loading comments...</p>
               ) : comments.length === 0 ? (
-                <p className="text-sm text-on-surface-variant italic">No comments yet.</p>
+                <p className="text-sm text-on-surface-variant italic">{t('report.noCommentsYet')}</p>
               ) : (
                 <div className="flex flex-col gap-4">
                   {comments.map(comment => (
@@ -1111,7 +1136,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                             <button
                               onClick={() => handleDeleteComment(comment.id)}
                               className="text-outline hover:text-error transition-colors"
-                              aria-label="Delete comment"
+                              aria-label={t('report.deleteComment')}
                             >
                               <span className="material-symbols-outlined text-sm">delete</span>
                             </button>
@@ -1129,16 +1154,16 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             {/* Activity Timeline */}
             <section className="flex flex-col gap-6">
               <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Recent Activity
+                {t('report.recentActivity')}
               </h3>
               <div className="relative pl-6 flex flex-col gap-8">
                 <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-surface-container-highest" />
                 <div className="relative">
                   <div className="absolute -left-[23px] top-1 w-4 h-4 rounded-full bg-primary ring-4 ring-surface-container-low" />
                   <div className="flex flex-col gap-1">
-                    <p className="text-sm font-bold text-on-surface">System</p>
+                    <p className="text-sm font-bold text-on-surface">{t('report.system')}</p>
                     <p className="text-sm text-on-surface-variant">
-                      Report submitted and pending community verification.
+                      {t('report.submittedActivity')}
                     </p>
                     <p className="text-xs text-outline mt-1 uppercase font-bold">{report.date}</p>
                   </div>
@@ -1180,12 +1205,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                     {following ? 'notifications_off' : 'notifications_active'}
                   </span>
                 }
-                {following ? 'Unfollow' : 'Follow Updates'}
+                {following ? t('report.unfollow') : t('report.follow')}
               </button>
               <p className="text-center text-xs text-on-surface-variant mt-4 px-6">
                 {following
-                  ? 'You will be notified of every status change on this report.'
-                  : 'Follow to receive notifications when this report status changes.'}
+                  ? t('report.followCopyFollowing')
+                  : t('report.followCopyNotFollowing')}
               </p>
             </div>
 
