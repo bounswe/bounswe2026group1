@@ -61,27 +61,30 @@ public class RouteController {
         // and the user object again for recording the planned route. Anonymous → null.
         RegisteredUser caller = currentUserOrNull();
 
-        // Three-state contract for the constraints argument (issue #544):
-        //   • null     — signed-in caller has explicitly opted out of avoidance:
-        //                NONE preset, or CUSTOM preset with zero rules selected,
-        //                or any preset whose stored constraint set is empty
-        //                (the last covers data anomalies defensively).
-        //   • Set.of() — anonymous baseline; avoid every verified obstacle.
-        //   • non-empty — filter avoid set to hazards the user actually cares about.
-        Set<RoutingConstraint> constraints;
+        // Anonymous callers go through the 1-arg overload (always emits every
+        // alternative — Fastest + Accessible + Ramp-Assisted — since we don't
+        // know what they need). Authed callers go through the 3-arg overload
+        // which adapts the alternative set to their preferred mode.
+        List<RouteResponse> options;
         if (caller == null) {
-            constraints = Set.of();
-        } else if (caller.getPreferredPreset() == RoutingPreset.NONE
-                || caller.getRoutingConstraints() == null
-                || caller.getRoutingConstraints().isEmpty()) {
-            constraints = null;
+            options = routeService.getRouteOptions(request);
         } else {
-            constraints = caller.getRoutingConstraints();
-        }
-        TravelMode preferredMode = caller != null ? caller.getPreferredTravelMode() : null;
-
-        List<RouteResponse> options = routeService.getRouteOptions(request, constraints, preferredMode);
-        if (caller != null) {
+            // Three-state contract for the constraints argument (issue #544):
+            //   • null     — caller has explicitly opted out of avoidance:
+            //                NONE preset, or CUSTOM preset with zero rules,
+            //                or any preset whose stored constraint set is
+            //                empty (the last covers data anomalies).
+            //   • non-empty — filter avoid set to hazards the user actually
+            //                 cares about.
+            Set<RoutingConstraint> constraints;
+            if (caller.getPreferredPreset() == RoutingPreset.NONE
+                    || caller.getRoutingConstraints() == null
+                    || caller.getRoutingConstraints().isEmpty()) {
+                constraints = null;
+            } else {
+                constraints = caller.getRoutingConstraints();
+            }
+            options = routeService.getRouteOptions(request, constraints, caller.getPreferredTravelMode());
             recordPlannedRouteForUser(caller, request, options);
         }
         return ResponseEntity.ok(options);

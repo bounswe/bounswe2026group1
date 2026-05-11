@@ -26,32 +26,62 @@ public class RouteService {
     private final ObstacleService obstacleService;
 
     /**
-     * Backwards-compatible signature — anonymous routing path. Equivalent to
-     * {@link #getRouteOptions(RouteRequest, Set, TravelMode)} with no
-     * constraints and no preferred mode (no alternative is flagged
-     * {@code preferred:true}).
+     * Anonymous routing path. Anonymous callers get every alternative
+     * (Fastest + Accessible + Wheelchair) because we don't know what they
+     * need.
      */
     public List<RouteResponse> getRouteOptions(RouteRequest request) {
-        return getRouteOptions(request, Set.of(), null);
+        return getRouteOptions(request, Set.of(), null,
+                /* includeWalkingAccessibleAlternative = */ true,
+                /* includeWheelchairAlternative = */ true);
     }
 
     /**
-     * Build the route alternatives, optionally filtering avoid polygons by
-     * the caller's accessibility constraints (#365) and flagging the
-     * alternative whose mode matches their preferred travel mode.
+     * Authenticated routing path. The alternative set adapts to the caller's
+     * preferred travel mode:
+     * <ul>
+     *   <li>{@link TravelMode#WHEELCHAIR}: Fastest (walking, for context) +
+     *       <em>Accessible Route in wheelchair mode</em> (avoids obstacles,
+     *       routes through mapped ramps when nearby). The walking-mode
+     *       Accessible Route is suppressed; the wheelchair-mode one is its
+     *       accessibility-aware alternative.</li>
+     *   <li>Anything else (including {@code null}): Fastest + Accessible Route
+     *       in walking mode. The wheelchair alternative is suppressed.</li>
+     * </ul>
      *
      * @param request           start/end coordinates from the controller
      * @param constraints       caller's selected routing constraints. {@code null}
      *                          means the signed-in caller picked
-     *                          {@code RoutingPreset.NONE} and explicitly opted out
-     *                          of avoidance (issue #544); empty set means the
-     *                          anonymous baseline; non-empty filters by hazard.
+     *                          {@code RoutingPreset.NONE} (or CUSTOM with zero
+     *                          rules) and explicitly opted out of avoidance
+     *                          (issue #544); empty set means the anonymous
+     *                          baseline; non-empty filters by hazard.
      * @param preferredMode     caller's preferred travel mode; null for no preference
      */
     public List<RouteResponse> getRouteOptions(
             RouteRequest request,
             Set<RoutingConstraint> constraints,
             TravelMode preferredMode) {
+        boolean isWheelchairCaller = preferredMode == TravelMode.WHEELCHAIR;
+        return getRouteOptions(request, constraints, preferredMode,
+                /* includeWalkingAccessibleAlternative = */ !isWheelchairCaller,
+                /* includeWheelchairAlternative = */ isWheelchairCaller);
+    }
+
+    private List<RouteResponse> getRouteOptions(
+            RouteRequest request,
+            Set<RoutingConstraint> constraints,
+            TravelMode preferredMode,
+            boolean includeWalkingAccessibleAlternative,
+            boolean includeWheelchairAlternative) {
+
+        // A wheelchair caller's wheelchair-mode route IS their accessible
+        // route — we label it "Accessible Route" rather than "Ramp-Assisted
+        // Route" so the route set reads naturally to them. Anonymous /
+        // walking callers see the separate "Ramp-Assisted Route" label as a
+        // third alternative.
+        boolean isWheelchairCaller = preferredMode == TravelMode.WHEELCHAIR;
+        String wheelchairLabel = isWheelchairCaller ? "Accessible Route" : "Ramp-Assisted Route";
 
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
@@ -85,8 +115,11 @@ public class RouteService {
                     .build());
         }
 
-        // 2. Accessible walking route — always computed when avoid polygons exist
-        if (avoidPolygons != null) {
+        // 2. Accessible walking route — computed when avoid polygons exist AND
+        // the caller would actually act on a walking-mode alternative.
+        // Wheelchair callers' accessible alternative IS the wheelchair-mode
+        // route below; emitting a walking Accessible Route to them is noise.
+        if (avoidPolygons != null && includeWalkingAccessibleAlternative) {
             RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons);
 
             if (accessibleResult != null) {
@@ -102,14 +135,20 @@ public class RouteService {
             }
         }
 
-        // 3. Ramp-Assisted Route — best of direct wheelchair vs multi-leg through ramp
+        // 3. Wheelchair-mode route — best of direct wheelchair vs multi-leg
+        // through ramp. Gated: only emitted for anonymous callers (separate
+        // "Ramp-Assisted Route" label) or wheelchair callers (their
+        // "Accessible Route"). Walking / no-preference authed users get
+        // nothing here.
         RouteResponse bestWheelchair = null;
+
+        if (includeWheelchairAlternative) {
 
         // Candidate A: direct wheelchair route with obstacle avoidance
         RoutingDirectionsResult wheelchairResult = fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
         if (wheelchairResult != null) {
             bestWheelchair = RouteResponse.builder()
-                    .routeLabel("Ramp-Assisted Route")
+                    .routeLabel(wheelchairLabel)
                     .distanceMeters(wheelchairResult.getDistanceMeters())
                     .durationSeconds(wheelchairResult.getDurationSeconds())
                     .mode(TravelMode.WHEELCHAIR)
@@ -151,7 +190,7 @@ public class RouteService {
                     if (leg3.getSteps() != null) combinedSteps.addAll(leg3.getSteps());
 
                     bestWheelchair = RouteResponse.builder()
-                            .routeLabel("Ramp-Assisted Route")
+                            .routeLabel(wheelchairLabel)
                             .distanceMeters(totalDistance)
                             .durationSeconds(totalDuration)
                             .mode(TravelMode.WHEELCHAIR)
@@ -168,6 +207,8 @@ public class RouteService {
         if (bestWheelchair != null) {
             routes.add(bestWheelchair);
         }
+
+        } // end if (includeWheelchairAlternative)
 
         markPreferred(routes, preferredMode);
         return routes;
