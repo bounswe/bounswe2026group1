@@ -109,7 +109,7 @@ function ProfilePage() {
 
         {!isPending && !isError && user && (
           <>
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container-low rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-start gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-2xl font-bold font-headline text-on-surface break-words">
@@ -142,13 +142,13 @@ function ProfilePage() {
             </section>
 
             {user.badges && user.badges.length > 0 && (
-              <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+              <section className="bg-surface-container-low rounded-2xl shadow-sm p-6 flex flex-col gap-3">
                 <h2 className="text-xl font-bold font-headline text-on-surface">Badges</h2>
                 <BadgeList badges={user.badges} />
               </section>
             )}
 
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+            <section className="bg-surface-container-low rounded-2xl shadow-sm p-6 flex flex-col gap-3">
               <h2 className="text-xl font-bold font-headline text-on-surface">Leaderboard</h2>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -168,7 +168,7 @@ function ProfilePage() {
               </p>
             </section>
 
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container-low rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold font-headline text-on-surface">About</h2>
                 {!isEditing && (
