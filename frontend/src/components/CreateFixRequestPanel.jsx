@@ -13,6 +13,8 @@ import { submitFixRequest } from '../services/reportService.js'
  * Location and tag are inherited from the parent report — the user already
  * picked them when the report was created, so we don't ask again.
  */
+const MAX_FILES = 5
+
 function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) {
   const { token, isAuthenticated } = useAuth()
   const navigate = useNavigate()
@@ -23,7 +25,11 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
-  useEffect(() => () => { imagePreviews.forEach(url => URL.revokeObjectURL(url)) }, [imagePreviews])
+  // Revoke ALL object URLs only when the component unmounts (not on every
+  // imagePreviews change — revoking on every update would immediately
+  // invalidate thumbnails that were just added).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { imagePreviews.forEach(url => URL.revokeObjectURL(url)) }, [])
 
   function addFiles(files) {
     const newFiles = Array.from(files).filter(f => ['image/jpeg', 'image/png'].includes(f.type))
@@ -31,9 +37,19 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
       setError('Only JPG or PNG files are accepted.')
       return
     }
-    setImageFiles(prev => [...prev, ...newFiles])
-    setImagePreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))])
-    setError('')
+    const remaining = MAX_FILES - imageFiles.length
+    if (remaining <= 0) {
+      setError(`You can attach up to ${MAX_FILES} photos.`)
+      return
+    }
+    const toAdd = newFiles.slice(0, remaining)
+    if (toAdd.length < newFiles.length) {
+      setError(`You can attach up to ${MAX_FILES} photos. Only the first ${toAdd.length} were added.`)
+    } else {
+      setError('')
+    }
+    setImageFiles(prev => [...prev, ...toAdd])
+    setImagePreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))])
   }
 
   function removeFile(index) {
@@ -159,9 +175,11 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
             >
               <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
               <p className="text-sm font-medium text-on-surface-variant">
-                {imagePreviews.length === 0
-                  ? 'Upload or drop photos of the resolved spot'
-                  : 'Add more photos'}
+                {imageFiles.length >= MAX_FILES
+                  ? `${MAX_FILES}/${MAX_FILES} photos — limit reached`
+                  : imagePreviews.length === 0
+                    ? 'Upload or drop photos of the resolved spot'
+                    : `Add more photos (${imageFiles.length}/${MAX_FILES})`}
               </p>
               <p className="text-xs text-outline">JPG or PNG, max 15 MB each</p>
             </div>
@@ -170,6 +188,7 @@ function CreateFixRequestPanel({ reportId, reportTitle, onClose, onSubmitted }) 
               type="file"
               accept="image/jpeg,image/png"
               multiple
+              disabled={imageFiles.length >= MAX_FILES}
               className="hidden"
               onChange={handleImageChange}
             />

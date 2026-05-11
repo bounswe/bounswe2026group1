@@ -59,6 +59,9 @@ export async function submitFixRequest(reportId, files, description, token) {
   const formData = new FormData()
   // Accept both a single File and an array for backward compatibility.
   const fileList = Array.isArray(files) ? files : [files]
+  if (fileList.length > 5) {
+    throw Object.assign(new Error('You can attach up to 5 photos per fix request.'), { status: 400 })
+  }
   for (const file of fileList) {
     formData.append('files', file)
   }

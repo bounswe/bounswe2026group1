@@ -36,12 +36,12 @@ function isVideoUrl(url) {
   return VIDEO_EXTENSIONS.some((ext) => path.endsWith(ext))
 }
 
-function ImageCarousel({ allImages, title }) {
+function ImageCarousel({ allImages, title, className = 'h-64' }) {
   const [currentIndex, setCurrentIndex] = useState(0)
 
   if (!allImages || allImages.length === 0) {
     return (
-      <div className="w-full h-64 bg-surface-container rounded-xl shadow-sm flex items-center justify-center border border-outline-variant/10">
+      <div className={`w-full ${className} bg-surface-container rounded-xl shadow-sm flex items-center justify-center border border-outline-variant/10`}>
         <span className="material-symbols-outlined text-6xl text-outline-variant">image</span>
       </div>
     )
@@ -58,7 +58,7 @@ function ImageCarousel({ allImages, title }) {
   }
 
   return (
-    <div className="relative w-full h-64 rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden group bg-black/5">
+    <div className={`relative w-full ${className} rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden group bg-black/5`}>
       <img
         src={allImages[currentIndex]}
         alt={`${title} - Photo ${currentIndex + 1}`}
@@ -508,7 +508,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                         className="w-full max-h-56 object-cover rounded-lg bg-black"
                       />
                     ) : (
-                      <ImageCarousel allImages={activeFix.mediaUrls.filter(u => !isVideoUrl(u))} title="Fix request evidence" />
+                      <ImageCarousel allImages={activeFix.mediaUrls.filter(u => !isVideoUrl(u))} title="Fix request evidence" className="max-h-56" />
                     )
                   )}
                   <div className="flex items-center gap-2 text-xs">
