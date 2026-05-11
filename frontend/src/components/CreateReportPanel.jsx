@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
+import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
@@ -13,6 +15,7 @@ const MAX_MEDIA_BYTES = 15 * 1024 * 1024
 function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [reportType, setReportType] = useState('OBSTACLE')
   const [environment, setEnvironment] = useState('OUTDOOR')
@@ -269,6 +272,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         mapped.image = uploadedMedia[0].url // Use the first photo URL for the map preview
         mapped.media = uploadedMedia
       }
+      // A successful submission awards the +10 report-submit bonus. Invalidate
+      // leaderboard + profile caches so the caller's own tab reflects the
+      // new balance immediately; the SSE event covers other tabs/users.
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      queryClient.invalidateQueries({ queryKey: currentUserKey })
       onCreated(mapped)
       onClose()
     } catch (err) {

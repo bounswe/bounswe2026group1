@@ -135,6 +135,36 @@ describe('ReportPanel', () => {
     await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith(null))
   })
 
+  test('voting invalidates leaderboard and currentUser caches', async () => {
+    // A successful vote earns +5 / removes -5 points. The caller's tab must
+    // pick that up on the next leaderboard/profile visit without waiting
+    // for the public SSE event to arrive.
+    agreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0, userVote: 'agree' })
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ReportPanel
+            report={report}
+            onClose={onCloseMock}
+            onVoteChange={onVoteChangeMock}
+            onVoteUpdate={onVoteUpdateMock}
+            onFollowChange={onFollowChangeMock}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await act(async () => { await user.click(screen.getByLabelText('Agree')) })
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['leaderboard'] })
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['currentUser'] })
+    })
+  })
+
   test('toggles follow state', async () => {
     renderPanel()
 
