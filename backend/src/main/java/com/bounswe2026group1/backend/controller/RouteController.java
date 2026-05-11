@@ -62,7 +62,7 @@ public class RouteController {
         RegisteredUser caller = currentUserOrNull();
 
         // Anonymous callers go through the 1-arg overload (always emits every
-        // alternative — Fastest + Accessible + Ramp-Assisted — since we don't
+        // alternative — Fastest + Accessible + Wheelchair — since we don't
         // know what they need). Authed callers go through the 3-arg overload
         // which adapts the alternative set to their preferred mode.
         List<RouteResponse> options;

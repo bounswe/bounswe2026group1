@@ -290,14 +290,14 @@ class RoutingPreferencesRouteIntegrationTest {
     // ── Preset-aware route set ──────────────────────────────────────────────
     //
     // Contract:
-    //   • Anonymous: Fastest + walking Accessible + Ramp-Assisted (3).
+    //   • Anonymous: Fastest + walking Accessible + Wheelchair (3).
     //   • Authed non-wheelchair: Fastest + walking Accessible (2).
     //   • Authed wheelchair: Fastest + Accessible Route in WHEELCHAIR mode (2);
-    //     no separate "Ramp-Assisted Route" label since the
+    //     no separate "Wheelchair Route" label since the
     //     accessibility-aware alternative is already wheelchair-routed.
 
     @Test
-    void anonymous_includesBothWalkingAccessibleAndRampAssistedRoutes() throws Exception {
+    void anonymous_includesBothWalkingAccessibleAndWheelchairRoutes() throws Exception {
         // Accessible Route is emitted only when avoid polygons exist — stub a
         // non-null payload so the test exercises the three-alternative path.
         when(obstacleService.buildAvoidPolygons(any())).thenReturn(objectMapper.createObjectNode());
@@ -310,13 +310,13 @@ class RoutingPreferencesRouteIntegrationTest {
 
         assertThat(labels(result))
                 .as("Anonymous callers don't have a declared mode, so all alternatives are returned")
-                .contains("Fastest Route", "Accessible Route", "Ramp-Assisted Route");
+                .contains("Fastest Route", "Accessible Route", "Wheelchair Route");
     }
 
     @Test
     void authenticated_withWheelchairPreference_emitsAccessibleRouteInWheelchairMode() throws Exception {
         // A wheelchair caller's accessibility-aware alternative IS the
-        // wheelchair route. We label it "Accessible Route" (not "Ramp-Assisted
+        // wheelchair route. We label it "Accessible Route" (not "Wheelchair
         // Route") and its mode is WHEELCHAIR — so it goes through
         // avoid_polygons + mapped ramps.
         when(obstacleService.buildAvoidPolygons(any())).thenReturn(objectMapper.createObjectNode());
@@ -336,7 +336,7 @@ class RoutingPreferencesRouteIntegrationTest {
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         assertThat(labels(result))
-                .as("Wheelchair caller's route set: Fastest + Accessible (wheelchair mode); no separate Ramp-Assisted label")
+                .as("Wheelchair caller's route set: Fastest + Accessible (wheelchair mode); no separate Wheelchair label")
                 .containsExactlyInAnyOrder("Fastest Route", "Accessible Route");
 
         // The Accessible Route's mode is WHEELCHAIR for a wheelchair caller.
@@ -354,7 +354,7 @@ class RoutingPreferencesRouteIntegrationTest {
     }
 
     @Test
-    void authenticated_withWalkingPreference_dropsRampAssistedRoute() throws Exception {
+    void authenticated_withWalkingPreference_dropsWheelchairRoute() throws Exception {
         user.setPreferredTravelMode(TravelMode.WALKING);
         user.setPreferredPreset(RoutingPreset.BLIND_OR_LOW_VISION);
         user.setRoutingConstraints(new HashSet<>(RoutingPreset.BLIND_OR_LOW_VISION.getConstraints()));
@@ -368,12 +368,12 @@ class RoutingPreferencesRouteIntegrationTest {
                 .andReturn();
 
         assertThat(labels(result))
-                .as("Walking-mode users don't get a separate Ramp-Assisted Route card")
-                .doesNotContain("Ramp-Assisted Route");
+                .as("Walking-mode users don't get a separate Wheelchair Route card")
+                .doesNotContain("Wheelchair Route");
     }
 
     @Test
-    void authenticated_withoutPreferredTravelMode_dropsRampAssistedRoute() throws Exception {
+    void authenticated_withoutPreferredTravelMode_dropsWheelchairRoute() throws Exception {
         user.setPreferredTravelMode(null);
         // Non-empty constraints so the user reaches the route-emission path
         // rather than the null-constraints (opt-out) path.
@@ -390,7 +390,7 @@ class RoutingPreferencesRouteIntegrationTest {
 
         assertThat(labels(result))
                 .as("Authed users who haven't declared a mode are treated as non-wheelchair")
-                .doesNotContain("Ramp-Assisted Route");
+                .doesNotContain("Wheelchair Route");
     }
 
     private List<String> labels(MvcResult result) throws Exception {

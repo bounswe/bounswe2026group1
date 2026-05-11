@@ -76,12 +76,12 @@ public class RouteService {
             boolean includeWheelchairAlternative) {
 
         // A wheelchair caller's wheelchair-mode route IS their accessible
-        // route — we label it "Accessible Route" rather than "Ramp-Assisted
+        // route — we label it "Accessible Route" rather than "Wheelchair
         // Route" so the route set reads naturally to them. Anonymous /
-        // walking callers see the separate "Ramp-Assisted Route" label as a
+        // walking callers see the separate "Wheelchair Route" label as a
         // third alternative.
         boolean isWheelchairCaller = preferredMode == TravelMode.WHEELCHAIR;
-        String wheelchairLabel = isWheelchairCaller ? "Accessible Route" : "Ramp-Assisted Route";
+        String wheelchairLabel = isWheelchairCaller ? "Accessible Route" : "Wheelchair Route";
 
         Location start = new Location(request.getStartLat(), request.getStartLon());
         Location end = new Location(request.getEndLat(), request.getEndLon());
@@ -137,7 +137,7 @@ public class RouteService {
 
         // 3. Wheelchair-mode route — best of direct wheelchair vs multi-leg
         // through ramp. Gated: only emitted for anonymous callers (separate
-        // "Ramp-Assisted Route" label) or wheelchair callers (their
+        // "Wheelchair Route" label) or wheelchair callers (their
         // "Accessible Route"). Walking / no-preference authed users get
         // nothing here.
         RouteResponse bestWheelchair = null;
