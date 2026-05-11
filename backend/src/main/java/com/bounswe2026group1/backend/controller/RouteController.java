@@ -80,7 +80,10 @@ public class RouteController {
                     && (stored == null || stored.isEmpty());
 
             if (hasNoPreferences) {
-                options = routeService.getRouteOptions(request);
+                // Same route set as anonymous, but honor stored travel-mode for
+                // preferred:true (the 1-arg overload passes preferredMode=null).
+                options = routeService.getRouteOptionsWithAnonymousAlternatives(
+                        request, caller.getPreferredTravelMode());
             } else {
                 // Three-state contract for the constraints argument (issue #544):
                 //   • null     — caller explicitly opted out of avoidance:
