@@ -121,6 +121,19 @@ public class RegisteredUser {
             columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean leaderboardHidden = false;
 
+    /**
+     * Voice-command accessibility mode (1.1.3.8). When true the web app
+     * activates the SpeechRecognition mic toggle and maps spoken commands
+     * to in-app actions. Persisted per user so the choice survives login
+     * across devices.
+     *
+     * Declared last for the same reason as leaderboardHidden — preserves
+     * existing Lombok all-args constructor call-sites.
+     */
+    @Column(name = "voice_commands_enabled", nullable = false,
+            columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean voiceCommandsEnabled = false;
+
     @PrePersist
     protected void onCreate() {
         if (this.registeredAt == null) {
