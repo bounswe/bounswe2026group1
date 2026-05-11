@@ -225,6 +225,25 @@ public class RegisteredUserService {
         return toProfileDTO(saved, true);
     }
 
+    /**
+     * Owner-only language preference update (#505). Rejects unknown enum
+     * values with {@link IllegalArgumentException} so the controller can
+     * return 400.
+     */
+    public UserProfileDTO updateLanguage(Long id, com.bounswe2026group1.backend.dto.UpdateLanguageRequest request) {
+        com.bounswe2026group1.backend.model.Language lang;
+        try {
+            lang = com.bounswe2026group1.backend.model.Language.valueOf(request.getLanguage().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("Unknown language: " + request.getLanguage());
+        }
+        RegisteredUser user = registeredUserRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + id));
+        user.setPreferredLanguage(lang);
+        RegisteredUser saved = registeredUserRepository.save(user);
+        return toProfileDTO(saved, true);
+    }
+
     /** All badges currently held by a user — exposed as its own endpoint so
      *  the public profile page can fetch badges without going through the
      *  full profile DTO. */
@@ -284,6 +303,11 @@ public class RegisteredUserService {
                 .badges(badges)
                 .topBadge(Badge.pickHighestTier(badges))
                 .leaderboardHidden(user.isLeaderboardHidden())
+                // Same privacy gate as email: only surface the language preference
+                // on self-views so it doesn't leak through public lookups.
+                .preferredLanguage(includeEmail && user.getPreferredLanguage() != null
+                        ? user.getPreferredLanguage().name()
+                        : null)
                 .build();
     }
 }

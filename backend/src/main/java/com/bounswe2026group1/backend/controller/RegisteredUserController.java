@@ -168,6 +168,33 @@ public class RegisteredUserController {
         }
     }
 
+    @PutMapping("/{id}/profile/language")
+    @Operation(
+            summary = "Update the authenticated user's UI language preference",
+            description = "Sets the caller's preferred language (EN or TR). The path id must match the caller's id."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Updated profile (self-view, includes preferredLanguage)."),
+            @ApiResponse(responseCode = "400", description = "Unknown or blank language value."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "403", description = "Path id does not match the caller."),
+            @ApiResponse(responseCode = "404", description = "No user with that id.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Object> updateLanguage(@PathVariable Long id,
+                                                 @RequestBody @Valid com.bounswe2026group1.backend.dto.UpdateLanguageRequest request) {
+        try {
+            requireOwner(id);
+            return ResponseEntity.ok(registeredUserService.updateLanguage(id, request));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
     @PostMapping(value = "/{id}/profile/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Upload a new avatar for the authenticated user",

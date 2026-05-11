@@ -62,6 +62,10 @@ public class UserProfileDTO {
             example = "false")
     private boolean leaderboardHidden;
 
+    @Schema(description = "Preferred UI language. Null on public profile lookups; populated on self-views.",
+            example = "EN", allowableValues = {"EN", "TR"}, nullable = true)
+    private String preferredLanguage;
+
     @Data
     @Builder
     @NoArgsConstructor
