@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
 import {
   agreeReport,
@@ -709,7 +709,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '14px' }}>person</span>
                     </div>
                     <p>
-                      <span className="font-bold text-on-surface">{activeFix.submittedByName || 'Anonymous'}</span>
+                      <span className="font-bold text-on-surface">{activeFix.submittedByName || t('report.anonymousAuthor')}</span>
                       <span className="text-on-surface-variant"> says this is fixed</span>
                     </p>
                   </div>
@@ -1111,12 +1111,15 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 </div>
               ) : (
                 <p className="text-sm text-on-surface-variant bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/10">
-                  <a href="/login" className="font-bold text-primary hover:underline">Log in</a> to leave a comment.
+                  <Trans
+                    i18nKey="report.loginToComment"
+                    components={[<a key="login-link" href="/login" className="font-bold text-primary hover:underline" />]}
+                  />
                 </p>
               )}
 
               {commentsLoading ? (
-                <p className="text-sm text-on-surface-variant italic">Loading comments...</p>
+                <p className="text-sm text-on-surface-variant italic">{t('report.loadingComments')}</p>
               ) : comments.length === 0 ? (
                 <p className="text-sm text-on-surface-variant italic">{t('report.noCommentsYet')}</p>
               ) : (
@@ -1129,7 +1132,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                       <div className="flex flex-col gap-1 flex-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-on-surface">{comment.author?.name || 'Anonymous'}</p>
+                            <p className="text-sm font-bold text-on-surface">{comment.author?.name || t('report.anonymousAuthor')}</p>
                             <p className="text-xs text-outline">{formatDate(comment.createdAt)}</p>
                           </div>
                           {userId && comment.author?.id == userId && (
