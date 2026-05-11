@@ -152,7 +152,7 @@ function CustomPresetEditorModal({
       onClick={handleBackdropClick}
       className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-outline-variant">
           <h2 className="text-xl font-bold font-headline text-on-surface">
             {isEdit ? 'Edit custom preset' : 'New custom preset'}
