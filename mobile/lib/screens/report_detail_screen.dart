@@ -47,13 +47,26 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   VideoPlayerController? _videoController;
   bool _videoReady = false;
 
+  /// True when the *first* media item is a video — that one gets inline
+  /// playback through [_videoController]. Subsequent videos in the gallery
+  /// fall back to a thumbnail that opens fullscreen on tap (we don't keep
+  /// N controllers warm).
   bool get _hasVideo {
     if (report.mediaUrls.isEmpty) return false;
-    // Strip query params (e.g. S3 pre-signed URLs) before checking extension
-    final path = (Uri.tryParse(report.mediaUrls.first)?.path ?? report.mediaUrls.first).toLowerCase();
-    return path.endsWith('.mp4') || path.endsWith('.mov') ||
-           path.endsWith('.avi') || path.endsWith('.mkv') || path.endsWith('.webm');
+    return _isVideoUrl(report.mediaUrls.first);
   }
+
+  static bool _isVideoUrl(String url) {
+    // Strip query params (e.g. S3 pre-signed URLs) before checking extension.
+    final path = (Uri.tryParse(url)?.path ?? url).toLowerCase();
+    return path.endsWith('.mp4') || path.endsWith('.mov') ||
+           path.endsWith('.avi') || path.endsWith('.mkv') ||
+           path.endsWith('.webm');
+  }
+
+  // ── Media gallery ──────────────────────────────────────────────────────────
+  final PageController _mediaPageController = PageController();
+  int _currentMediaIndex = 0;
 
   // ── Vote state ─────────────────────────────────────────────────────────────
   late int _agrees;
@@ -385,6 +398,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   void dispose() {
     _sseSub?.cancel();
     _videoController?.dispose();
+    _mediaPageController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -754,27 +768,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildHeroSection() {
+    final urls = report.mediaUrls;
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: report.mediaUrls.isNotEmpty
-                ? _hasVideo
-                    ? _buildVideoPlayer()
-                    : GestureDetector(
-                        onTap: _openFullscreen,
-                        child: Image.network(
-                          report.mediaUrls.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) =>
-                              _heroPlaceholder(),
-                        ),
-                      )
-                : _heroPlaceholder(),
+            child: urls.isEmpty
+                ? _heroPlaceholder()
+                : urls.length == 1
+                    ? _buildMediaItem(urls.first, 0)
+                    : PageView.builder(
+                        controller: _mediaPageController,
+                        itemCount: urls.length,
+                        onPageChanged: (i) =>
+                            setState(() => _currentMediaIndex = i),
+                        itemBuilder: (_, i) => _buildMediaItem(urls[i], i),
+                      ),
           ),
         ),
+        // Status pill — top-right.
         Positioned(
           top: 14,
           right: 14,
@@ -810,7 +824,94 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ),
         ),
+        // Position counter (e.g. "2/4") — top-left, only when multi-item.
+        if (urls.length > 1)
+          Positioned(
+            top: 14,
+            left: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${_currentMediaIndex + 1}/${urls.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        // Page indicator dots — bottom-centre, only when multi-item.
+        if (urls.length > 1)
+          Positioned(
+            bottom: 10,
+            left: 0,
+            right: 0,
+            child: Center(child: _buildMediaDots(urls.length)),
+          ),
       ],
+    );
+  }
+
+  /// Builds the right viewer for a single carousel page. The inline video
+  /// player is reserved for index 0 — that's where [_videoController] was
+  /// pre-warmed in initState; other videos open fullscreen on tap because
+  /// keeping a fresh controller per page would balloon memory.
+  Widget _buildMediaItem(String url, int index) {
+    if (_isVideoUrl(url)) {
+      if (index == 0 && _hasVideo) return _buildVideoPlayer();
+      return GestureDetector(
+        onTap: () => _openFullscreenVideo(url),
+        child: Container(
+          color: Colors.black87,
+          alignment: Alignment.center,
+          child: const Icon(Icons.play_circle_fill,
+              color: Colors.white, size: 64),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => _openFullscreenImage(url),
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _heroPlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildMediaDots(int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: i == _currentMediaIndex ? 18 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: i == _currentMediaIndex
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openFullscreenVideo(String url) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (ctx, _, __) => _FullscreenMediaPage(videoUrl: url),
+      ),
     );
   }
 
@@ -2604,25 +2705,85 @@ class _ImagePlaceholderPainter extends CustomPainter {
 
 // ─── Fullscreen media page ────────────────────────────────────────────────────
 
-class _FullscreenMediaPage extends StatelessWidget {
+class _FullscreenMediaPage extends StatefulWidget {
+  /// Image source to display. Mutually exclusive with [videoController]
+  /// and [videoUrl].
   final String? imageUrl;
+
+  /// Pre-initialised controller — passed when the hero already had an
+  /// inline video player primed. Reused as-is so the user picks up where
+  /// they left off.
   final VideoPlayerController? videoController;
 
-  const _FullscreenMediaPage({this.imageUrl, this.videoController});
+  /// Network video URL — used for additional gallery items that don't have
+  /// a pre-built controller. The page owns the controller it creates and
+  /// disposes it on close.
+  final String? videoUrl;
+
+  const _FullscreenMediaPage({
+    this.imageUrl,
+    this.videoController,
+    this.videoUrl,
+  });
+
+  @override
+  State<_FullscreenMediaPage> createState() => _FullscreenMediaPageState();
+}
+
+class _FullscreenMediaPageState extends State<_FullscreenMediaPage> {
+  VideoPlayerController? _ownedController;
+  bool _ownedReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final url = widget.videoUrl;
+    if (url != null && widget.videoController == null) {
+      _initVideo(url);
+    }
+  }
+
+  Future<void> _initVideo(String url) async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      setState(() {
+        _ownedController = controller;
+        _ownedReady = true;
+      });
+      controller.play();
+    } catch (_) {
+      controller.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ownedController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final activeController = widget.videoController ?? _ownedController;
+    final hasInlineVideo = widget.videoController != null;
+    final hasOwnedVideo =
+        _ownedController != null && _ownedReady;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           Center(
-            child: imageUrl != null
+            child: widget.imageUrl != null
                 ? InteractiveViewer(
                     minScale: 1,
                     maxScale: 4,
                     child: Image.network(
-                      imageUrl!,
+                      widget.imageUrl!,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.broken_image_outlined,
@@ -2631,12 +2792,24 @@ class _FullscreenMediaPage extends StatelessWidget {
                       ),
                     ),
                   )
-                : videoController != null
-                    ? AspectRatio(
-                        aspectRatio: videoController!.value.aspectRatio,
-                        child: VideoPlayer(videoController!),
+                : (activeController != null &&
+                        (hasInlineVideo || hasOwnedVideo))
+                    ? GestureDetector(
+                        onTap: () => setState(() {
+                          if (activeController.value.isPlaying) {
+                            activeController.pause();
+                          } else {
+                            activeController.play();
+                          }
+                        }),
+                        child: AspectRatio(
+                          aspectRatio: activeController.value.aspectRatio,
+                          child: VideoPlayer(activeController),
+                        ),
                       )
-                    : const SizedBox.shrink(),
+                    : widget.videoUrl != null
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const SizedBox.shrink(),
           ),
           // Close button
           SafeArea(
