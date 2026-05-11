@@ -112,17 +112,12 @@ function Login() {
 
               {/* Password */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-sm font-label font-bold text-[#5a5c5c]" htmlFor="password">
-                    Password
-                  </label>
-                  <a
-                    className="text-xs font-semibold text-[#176a21] hover:text-[#025d16] transition-colors"
-                    href="#"
-                  >
-                    Forgot password?
-                  </a>
-                </div>
+                <label
+                  className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
+                  htmlFor="password"
+                >
+                  Password
+                </label>
                 <div className="relative">
                   <input
                     className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777]/70 transition-all outline-none pr-12"
