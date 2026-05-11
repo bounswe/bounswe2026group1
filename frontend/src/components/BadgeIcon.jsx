@@ -1,6 +1,9 @@
+import { useTranslation } from 'react-i18next'
+
 // Material Symbols icon + label mapping for each backend Badge enum value.
 // Keep in sync with com.bounswe2026group1.backend.model.Badge — adding a new
-// badge there means adding an entry here.
+// badge there means adding an entry here. Labels/descriptions here are the
+// EN fallback; the active locale's translation wins when present.
 const BADGE_META = {
   TRUSTED_REPORTER: {
     label: 'Trusted Reporter',
@@ -27,15 +30,19 @@ const BADGE_META = {
  * Sizes: 'sm' (compact, just the icon), 'md' (default chip with label).
  */
 function BadgeIcon({ badge, size = 'md' }) {
+  const { t } = useTranslation()
   const meta = BADGE_META[badge]
   if (!meta) return null
+
+  const label = t(`badge.${badge}.label`, meta.label)
+  const description = t(`badge.${badge}.description`, meta.description)
 
   if (size === 'sm') {
     return (
       <span
-        title={`${meta.label} — ${meta.description}`}
+        title={`${label} — ${description}`}
         className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${meta.tone}`}
-        aria-label={meta.label}
+        aria-label={label}
       >
         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
           {meta.icon}
@@ -46,13 +53,13 @@ function BadgeIcon({ badge, size = 'md' }) {
 
   return (
     <span
-      title={meta.description}
+      title={description}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${meta.tone}`}
     >
       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
         {meta.icon}
       </span>
-      {meta.label}
+      {label}
     </span>
   )
 }

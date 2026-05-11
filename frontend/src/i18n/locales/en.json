@@ -420,6 +420,20 @@
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
   },
+  "badge": {
+    "TRUSTED_REPORTER": {
+      "label": "Trusted Reporter",
+      "description": "10 verified reports"
+    },
+    "EXPERT_MAPPER": {
+      "label": "Expert Mapper",
+      "description": "50 verified reports"
+    },
+    "TOP_10": {
+      "label": "Top 10",
+      "description": "Currently in the top 10 leaderboard"
+    }
+  },
   "avatar": {
     "upload": "Upload avatar",
     "change": "Change avatar",

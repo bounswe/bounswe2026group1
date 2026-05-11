@@ -420,6 +420,20 @@
     "hoursAgo": "{{count}} sa önce",
     "daysAgo": "{{count}} gün önce"
   },
+  "badge": {
+    "TRUSTED_REPORTER": {
+      "label": "Güvenilir Raportör",
+      "description": "10 doğrulanmış rapor"
+    },
+    "EXPERT_MAPPER": {
+      "label": "Uzman Haritacı",
+      "description": "50 doğrulanmış rapor"
+    },
+    "TOP_10": {
+      "label": "İlk 10",
+      "description": "Sıralama tablosunda ilk 10'da"
+    }
+  },
   "avatar": {
     "upload": "Avatar yükle",
     "change": "Avatarı değiştir",
