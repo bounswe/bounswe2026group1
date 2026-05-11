@@ -5,6 +5,7 @@ import AvatarUploader from '../components/AvatarUploader.jsx'
 import BadgeList from '../components/BadgeList.jsx'
 import MyReportsSection from '../components/MyReportsSection.jsx'
 import RoutingPreferencesSection from '../components/RoutingPreferencesSection.jsx'
+import DangerZoneSection from '../components/DangerZoneSection.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
@@ -253,6 +254,8 @@ function ProfilePage() {
             <RoutingPreferencesSection />
 
             <MyReportsSection userId={userId} />
+
+            <DangerZoneSection email={user.email} />
           </>
         )}
       </main>
