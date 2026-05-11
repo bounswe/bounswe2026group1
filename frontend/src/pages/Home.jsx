@@ -11,6 +11,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
 import Toast from '../components/Toast.jsx'
 import MapSearchBar from '../components/MapSearchBar.jsx'
+import VoiceCommandRunner from '../components/VoiceCommandRunner.jsx'
 import OnboardingTutorial from '../components/OnboardingTutorial.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
@@ -349,6 +350,47 @@ function Home() {
   const [routeOriginLabel, setRouteOriginLabel] = useState('')
   const [routeDestLabel, setRouteDestLabel] = useState('')
 
+  // Voice command handlers (1.1.3.8). They mirror the click paths exactly —
+  // a voice "find pharmacy" is equivalent to typing "pharmacy" and pressing
+  // Enter in the search bar.
+  async function geocodeQuery(query) {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`
+    )
+    const results = await res.json()
+    const first = results?.[0]
+    if (!first) return null
+    return { lat: parseFloat(first.lat), lon: parseFloat(first.lon) }
+  }
+  async function voiceSearch(query) {
+    const hit = await geocodeQuery(query)
+    if (hit) setSearchTarget({ ...hit, zoom: 15 })
+    else setToast({ message: `No results for "${query}".`, type: 'error' })
+  }
+  async function voiceNavigate(dest) {
+    const hit = await geocodeQuery(dest)
+    if (!hit) {
+      setToast({ message: `No results for "${dest}".`, type: 'error' })
+      return
+    }
+    const destLatLng = { lat: hit.lat, lng: hit.lon }
+    setRouteMode(true)
+    setRouteDest(destLatLng)
+    reverseGeocode(destLatLng).then(setRouteDestLabel)
+    if (userLocation) {
+      setRouteOrigin(userLocation)
+      reverseGeocode(userLocation).then(setRouteOriginLabel)
+      await fetchRoutes(userLocation, destLatLng)
+    }
+  }
+  function voiceReport() {
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+    setShowCreatePanel(true)
+  }
+
   async function reverseGeocode(latlng) {
     try {
       const res = await fetch(
@@ -595,6 +637,13 @@ function Home() {
             })}
             <ZoomControls
               userLocation={userLocation}
+              onLocationError={() => setToast({ message: 'Unable to access your location.', type: 'error' })}
+            />
+            <VoiceCommandRunner
+              userLocation={userLocation}
+              onSearch={voiceSearch}
+              onNavigate={voiceNavigate}
+              onReport={voiceReport}
               onLocationError={() => setToast({ message: 'Unable to access your location.', type: 'error' })}
             />
           </MapContainer>
