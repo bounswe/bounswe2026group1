@@ -65,6 +65,16 @@ export async function setLeaderboardVisibility(token, leaderboardHidden) {
   })
 }
 
+// Caller-only accessibility toggle for voice commands (1.1.3.8). Persists
+// the choice so the mic toggle restores its state on every login.
+export async function setVoiceCommandsEnabled(token, voiceCommandsEnabled) {
+  return apiFetch('/api/users/me/voice-commands', {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify({ voiceCommandsEnabled }),
+  })
+}
+
 // Owner/admin — paginated points-history ledger view.
 export async function getPointsHistory(id, token, { page = 0, size = 20 } = {}) {
   const params = new URLSearchParams({ page: String(page), size: String(size) })
