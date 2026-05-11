@@ -466,7 +466,7 @@ export default function OnboardingTutorial({ onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Close tutorial"
-            className="w-9 h-9 rounded-full hover:bg-surface-container-low flex items-center justify-center cursor-pointer text-on-surface-variant"
+            className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
