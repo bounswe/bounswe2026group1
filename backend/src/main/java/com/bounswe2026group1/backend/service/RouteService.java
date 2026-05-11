@@ -165,18 +165,26 @@ public class RouteService {
             }
 
             // Candidate B: multi-leg route through nearest ramp entry/exit
-            Report ramp = obstacleService.findClosestRampInBoundingBox(start, end);
-            if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
-                Location rampA = ramp.getEntryPoint();
-                Location rampB = ramp.getExitPoint();
-                double distAToStart = haversineMeters(rampA, start);
-                double distBToStart = haversineMeters(rampB, start);
-                Location rampEntry = distAToStart <= distBToStart ? rampA : rampB;
-                Location rampExit  = distAToStart <= distBToStart ? rampB : rampA;
+            Report ramp = null;
+            if (fastestResult != null && fastestResult.getGeometry() != null) {
+                List<Location> walkingPath = PolylineDecoder.decode(fastestResult.getGeometry());
+                ramp = obstacleService.findRampOnPath(walkingPath);
+            }
 
-                RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
-                RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
-                RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
+            if (ramp != null && ramp.getEntryPoint() != null && ramp.getExitPoint() != null) {
+            List<Location> walkingPath = PolylineDecoder.decode(fastestResult.getGeometry());
+            Location rampA = ramp.getEntryPoint();
+            Location rampB = ramp.getExitPoint();
+            
+            int indexA = findMinIndex(rampA, walkingPath);
+            int indexB = findMinIndex(rampB, walkingPath);
+    
+            Location rampEntry = indexA <= indexB ? rampA : rampB;
+            Location rampExit  = indexA <= indexB ? rampB : rampA;
+
+            RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
+            RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
+            RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
 
                 if (leg1 != null && leg2 != null && leg3 != null) {
                     double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
@@ -239,6 +247,18 @@ public class RouteService {
         }
     }
 
+    private int findMinIndex(Location target, List<Location> path) {
+        int minIdx = 0;
+        double minD = Double.MAX_VALUE;
+        for (int i = 0; i < path.size(); i++) {
+            double d = haversineMeters(target, path.get(i));
+            if (d < minD) {
+                minD = d;
+                minIdx = i;
+            }
+        }
+        return minIdx;
+    }
     private static double haversineMeters(Location a, Location b) {
         final double R = 6_371_000.0;
         double dLat = Math.toRadians(b.getLatitude() - a.getLatitude());
