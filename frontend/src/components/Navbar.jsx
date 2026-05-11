@@ -3,6 +3,8 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import SseStatusIndicator from './SseStatusIndicator.jsx'
 import NotificationDropdown from './NotificationDropdown.jsx'
 import ThemeToggleButton from './ThemePicker.jsx'
+import VoiceCommandMicButton from './VoiceCommandMicButton.jsx'
+import VoiceCommandLiveRegion from './VoiceCommandLiveRegion.jsx'
 import logo from '../assets/mapcess-transparent.png'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
@@ -148,6 +150,8 @@ function Navbar() {
       <div className="flex items-center gap-1 sm:gap-2">
         <SseStatusIndicator />
         <ThemeToggleButton />
+        {isAuthenticated && <VoiceCommandMicButton />}
+        <VoiceCommandLiveRegion />
         {isAuthenticated && (
           <Link
             to="/search/users"
