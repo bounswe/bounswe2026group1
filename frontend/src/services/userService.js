@@ -49,6 +49,16 @@ export async function deleteAvatar(id, token) {
   })
 }
 
+// Owner-only self-delete (#594, 1.1.1.2.12). The backend anonymizes the
+// caller in place — name/email/password are scrubbed and the account is
+// banned, while reports/comments/votes stay attached to the anonymized row.
+export async function deleteCurrentUser(token) {
+  return apiFetch('/api/users/me', {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
 // ───── Gamification ──────────────────────────────────────────────────────
 
 // Public — no token needed. Anonymous callers can view a user's badges.
