@@ -474,5 +474,38 @@ describe('ReportPanel', () => {
       })
       expect(container.querySelector('video')).toBeTruthy()
     })
+
+    test('renders prev/next/dot controls when the report has multiple images via mediaUrls', () => {
+      renderPanel({
+        report: {
+          ...report,
+          mediaUrls: [
+            'https://cdn.example.com/a.jpg',
+            'https://cdn.example.com/b.jpg',
+            'https://cdn.example.com/c.jpg',
+          ],
+        },
+      })
+      expect(screen.getByLabelText('Previous')).toBeInTheDocument()
+      expect(screen.getByLabelText('Next')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 3')).toBeInTheDocument()
+    })
+
+    test('renders prev/next/dot controls when the report has multiple media via report.media (post-upload shape)', () => {
+      renderPanel({
+        report: {
+          ...report,
+          media: [
+            { id: 1, url: 'https://cdn.example.com/a.jpg' },
+            { id: 2, url: 'https://cdn.example.com/b.jpg' },
+          ],
+        },
+      })
+      expect(screen.getByLabelText('Previous')).toBeInTheDocument()
+      expect(screen.getByLabelText('Next')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 2')).toBeInTheDocument()
+    })
   })
 })
