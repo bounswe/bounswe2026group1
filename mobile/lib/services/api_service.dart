@@ -517,37 +517,51 @@ class ApiService {
 
   // ─── Media ────────────────────────────────────────────────────────────────
 
-  Future<String> uploadMedia(int reportId, File file) async {
+  /// Uploads one or more files to a report in a single multipart request,
+  /// matching the backend's `POST /api/reports/{id}/media` contract (which
+  /// caps at 5 files per report and 15 MB per file). Returns the list of
+  /// `{id, url}` records the server created — callers need the ids if they
+  /// later want to detach a specific upload via `updateReport`.
+  Future<List<MediaItem>> uploadMediaFiles(
+    int reportId,
+    List<File> files,
+  ) async {
+    if (files.isEmpty) return const [];
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/api/reports/$reportId/media'),
     );
 
-    // Add all headers except Content-Type — multipart sets its own with boundary
+    // Add all headers except Content-Type — multipart sets its own with boundary.
     final headers = Map<String, String>.from(_headers)..remove('Content-Type');
     request.headers.addAll(headers);
 
-    final ext = file.path.split('.').last.toLowerCase();
-    final mimeType = switch (ext) {
-      'mp4'         => 'video/mp4',
-      'mov'         => 'video/quicktime',
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png'         => 'image/png',
-      _             => 'application/octet-stream',
-    };
-    request.files.add(await http.MultipartFile.fromPath(
-      'file',
-      file.path,
-      contentType: MediaType.parse(mimeType),
-    ));
+    for (final file in files) {
+      final ext = file.path.split('.').last.toLowerCase();
+      final mimeType = switch (ext) {
+        'mp4'           => 'video/mp4',
+        'mov'           => 'video/quicktime',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png'           => 'image/png',
+        _               => 'application/octet-stream',
+      };
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        file.path,
+        contentType: MediaType.parse(mimeType),
+      ));
+    }
 
+    // Allow more headroom — videos at 5×15 MB take a while on flaky cell.
     final streamed =
-        await _client.send(request).timeout(const Duration(seconds: 60));
+        await _client.send(request).timeout(const Duration(seconds: 120));
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['mediaUrl'] as String;
+      final raw = jsonDecode(response.body) as List<dynamic>;
+      return raw
+          .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
     }
     throw ApiException(response.statusCode, _extractMessage(response));
   }
@@ -799,6 +813,21 @@ class FeedPage<T> {
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// A single `{ id, url }` record returned by `POST /api/reports/{id}/media`.
+/// Callers stash the id so they can detach the upload later via
+/// `updateReport(mediaIdsToRemove: …)`.
+class MediaItem {
+  final int id;
+  final String url;
+
+  const MediaItem({required this.id, required this.url});
+
+  factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
+        id: (json['id'] as num).toInt(),
+        url: json['url'] as String,
+      );
 }
 
 class ApiException implements Exception {

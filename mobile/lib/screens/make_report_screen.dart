@@ -15,6 +15,7 @@ import '../models/report_model.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../widgets/objects_section.dart';
+import 'report_location_picker_screen.dart';
 import 'report_success_screen.dart';
 
 // Fallback location used before GPS resolves: Mission District, San Francisco
@@ -47,6 +48,21 @@ class _EnvOption {
   });
 }
 
+/// In-memory record of a media file the user has queued for upload. `file`
+/// is mutable because video pickers swap the original capture for the
+/// compressed file after VideoCompress finishes — we don't want the slot
+/// to move in the gallery, just the underlying path.
+class _PendingMedia {
+  File file;
+  final bool isVideo;
+  bool converting;
+  _PendingMedia({
+    required this.file,
+    required this.isVideo,
+    this.converting = false,
+  });
+}
+
 
 class MakeReportScreen extends StatefulWidget {
   const MakeReportScreen({super.key});
@@ -62,8 +78,10 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   ReportEnvironment _environment = ReportEnvironment.outdoor;
   final List<ObjectDraft> _objects = [];
 
-  File? _selectedMedia;
-  bool _isVideo = false;
+  // Backend caps each report at 5 media items — mirror the limit on the
+  // client so the upload step can't trip a 400 right at the end of submit.
+  static const int _maxMediaItems = 5;
+  final List<_PendingMedia> _selectedMedia = [];
   bool _converting = false;
   bool _submitting = false;
 
@@ -213,7 +231,8 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       context,
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => _LocationPickerScreen(initial: _pinLocation),
+        builder: (_) =>
+            ReportLocationPickerScreen(initial: _pinLocation),
       ),
     );
     if (result != null && mounted) {
@@ -265,7 +284,23 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
     return false;
   }
 
+  bool get _canAddMoreMedia => _selectedMedia.length < _maxMediaItems;
+
+  void _toastMediaLimitReached() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('You can attach up to $_maxMediaItems files per report.'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
+    if (!_canAddMoreMedia) {
+      _toastMediaLimitReached();
+      return;
+    }
     if (source == ImageSource.camera) {
       final granted = await _ensurePermission(Permission.camera);
       if (!granted) return;
@@ -278,14 +313,19 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       );
       if (picked != null) {
         setState(() {
-          _selectedMedia = File(picked.path);
-          _isVideo = false;
+          _selectedMedia.add(
+            _PendingMedia(file: File(picked.path), isVideo: false),
+          );
         });
       }
     } catch (_) {}
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (!_canAddMoreMedia) {
+      _toastMediaLimitReached();
+      return;
+    }
     if (source == ImageSource.camera) {
       final camGranted = await _ensurePermission(Permission.camera);
       if (!camGranted) return;
@@ -296,11 +336,18 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
       final picked = await _picker.pickVideo(source: source);
       if (picked == null) return;
 
-      // Show placeholder immediately so the user sees feedback
+      // Track an in-progress slot so the user sees the convert spinner
+      // immediately. We replace `file` once VideoCompress finishes — keeping
+      // the slot in the list means the gallery doesn't shift around when
+      // multiple uploads are queued.
+      final pending = _PendingMedia(
+        file: File(picked.path),
+        isVideo: true,
+        converting: true,
+      );
       setState(() {
-        _isVideo = true;
+        _selectedMedia.add(pending);
         _converting = true;
-        _selectedMedia = null;
       });
 
       try {
@@ -310,19 +357,27 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
           deleteOrigin: false,
           includeAudio: true,
         );
-        if (info?.file != null && mounted) {
-          setState(() => _selectedMedia = info!.file!);
-        } else if (mounted) {
-          // Fallback: use original file as-is
-          setState(() => _selectedMedia = File(picked.path));
-        }
+        if (!mounted) return;
+        setState(() {
+          if (info?.file != null) pending.file = info!.file!;
+          pending.converting = false;
+        });
       } catch (_) {
-        if (mounted) setState(() => _selectedMedia = File(picked.path));
+        if (mounted) {
+          setState(() {
+            // Fall back to the raw file — the backend will accept either.
+            pending.converting = false;
+          });
+        }
       } finally {
-        if (mounted) setState(() => _converting = false);
+        if (mounted) {
+          setState(() {
+            _converting = _selectedMedia.any((m) => m.converting);
+          });
+        }
       }
     } catch (_) {
-      if (mounted) setState(() { _isVideo = false; _converting = false; });
+      if (mounted) setState(() => _converting = false);
     }
   }
 
@@ -381,16 +436,13 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                 _pickVideo(ImageSource.gallery);
               },
             ),
-            if (_selectedMedia != null)
+            if (_selectedMedia.isNotEmpty)
               _sheetOption(
                 icon: Icons.delete_outline,
-                label: 'Remove Media',
+                label: 'Remove All Media',
                 color: AppColors.errorStrong,
                 onTap: () {
-                  setState(() {
-                    _selectedMedia = null;
-                    _isVideo = false;
-                  });
+                  setState(() => _selectedMedia.clear());
                   Navigator.pop(context);
                 },
               ),
@@ -470,12 +522,18 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
         objects: reportObjects,
       );
 
-      // Upload media if selected
-      if (_selectedMedia != null) {
+      // Upload all attached media in a single multipart request. If the
+      // backend rejects part of the batch (e.g. one oversized file), the
+      // report itself is already persisted — surface a warning and keep
+      // going to the success screen so the user doesn't lose their work.
+      final readyFiles = [
+        for (final m in _selectedMedia)
+          if (!m.converting) m.file,
+      ];
+      if (readyFiles.isNotEmpty) {
         try {
-          await auth.api.uploadMedia(report.reportId, _selectedMedia!);
+          await auth.api.uploadMediaFiles(report.reportId, readyFiles);
         } catch (e) {
-          // Media upload failed — report was created; show warning but continue
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -666,173 +724,206 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Media section ─────────────────────────────────────────────────────────
 
   Widget _buildImageSection() {
+    if (_selectedMedia.isEmpty) return _buildMediaEmptyState();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 132,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _selectedMedia.length + (_canAddMoreMedia ? 1 : 0),
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              if (i == _selectedMedia.length) return _buildAddMoreTile();
+              return _buildMediaTile(_selectedMedia[i], i);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            '${_selectedMedia.length}/$_maxMediaItems attached',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMediaEmptyState() {
     return GestureDetector(
       onTap: _converting ? null : _showMediaOptions,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: _selectedMedia != null
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Preview: video thumbnail placeholder or image
-                    if (_isVideo)
-                      Container(
-                        color: Colors.black87,
-                        child: Center(
-                          child: _converting
-                              ? const Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2.5,
-                                    ),
-                                    SizedBox(height: 12),
-                                    Text(
-                                      'Converting video...',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const Icon(
-                                  Icons.play_circle_fill,
-                                  color: Colors.white,
-                                  size: 56,
-                                ),
-                        ),
-                      )
-                    else
-                      Image.file(_selectedMedia!, fit: BoxFit.cover),
-                    // Bottom overlay
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.45),
-                            ],
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _isVideo
-                                        ? Icons.videocam_outlined
-                                        : Icons.photo_outlined,
-                                    size: 12,
-                                    color: AppColors.onSurface,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _converting ? 'Converting...' : (_isVideo ? 'Video added' : 'Tap to change'),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: _converting ? null : () => setState(() {
-                                _selectedMedia = null;
-                                _isVideo = false;
-                              }),
-                              child: Container(
-                                width: 34,
-                                height: 34,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.delete_outline,
-                                  color: AppColors.errorStrong,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Container(
-                  color: AppColors.surfaceContainer,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppColors.cardSurface,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.shadow,
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.perm_media_outlined,
-                          color: AppColors.primary,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Add Photo or Video',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Photo, MP4 or MOV',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.onSurfaceVariant,
-                        ),
+          child: Container(
+            color: AppColors.surfaceContainer,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadow,
+                        blurRadius: 12,
                       ),
                     ],
                   ),
+                  child: Icon(
+                    Icons.perm_media_outlined,
+                    color: AppColors.primary,
+                    size: 26,
+                  ),
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  'Add Photos or Videos',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Up to $_maxMediaItems · Photo, MP4 or MOV',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaTile(_PendingMedia media, int index) {
+    return SizedBox(
+      width: 132,
+      height: 132,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (media.isVideo)
+              Container(
+                color: Colors.black87,
+                child: Center(
+                  child: media.converting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 36,
+                        ),
+                ),
+              )
+            else
+              Image.file(media.file, fit: BoxFit.cover),
+            // Type chip
+            Positioned(
+              left: 8,
+              top: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Icon(
+                  media.isVideo
+                      ? Icons.videocam_outlined
+                      : Icons.photo_outlined,
+                  size: 12,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+            // Delete button
+            Positioned(
+              right: 6,
+              top: 6,
+              child: GestureDetector(
+                onTap: media.converting
+                    ? null
+                    : () => setState(() {
+                          _selectedMedia.removeAt(index);
+                        }),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    color: AppColors.errorStrong,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddMoreTile() {
+    return GestureDetector(
+      onTap: _converting ? null : _showMediaOptions,
+      child: Container(
+        width: 132,
+        height: 132,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.outlineVariant,
+            style: BorderStyle.solid,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo_outlined,
+                color: AppColors.primary, size: 26),
+            const SizedBox(height: 6),
+            Text(
+              'Add more',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1445,313 +1536,10 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   }
 }
 
-// ─── Full-screen location picker ──────────────────────────────────────────────
-
-class _LocationPickerScreen extends StatefulWidget {
-  final LatLng initial;
-  const _LocationPickerScreen({required this.initial});
-
-  @override
-  State<_LocationPickerScreen> createState() => _LocationPickerScreenState();
-}
-
-class _LocationPickerScreenState extends State<_LocationPickerScreen> {
-  late LatLng _pin;
-  final MapController _mapController = MapController();
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
-  List<_Place> _results = [];
-  bool _searchLoading = false;
-  bool _searchActive = false;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _pin = widget.initial;
-  }
-
-  @override
-  void dispose() {
-    _mapController.dispose();
-    _searchController.dispose();
-    _searchFocus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onChanged(String query) {
-    _debounce?.cancel();
-    if (query.trim().isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-    _debounce = Timer(
-      const Duration(milliseconds: 500),
-      () => _search(query),
-    );
-  }
-
-  Future<void> _search(String query) async {
-    setState(() => _searchLoading = true);
-    try {
-      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
-        'q': query,
-        'format': 'json',
-        'limit': '5',
-      });
-      final response = await http.get(uri, headers: {
-        'User-Agent': 'Mapcess/1.0 (bounswe2026group1)',
-        'Accept-Language': 'en',
-      });
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final list = jsonDecode(response.body) as List<dynamic>;
-        setState(() {
-          _results = list
-              .map((e) => _Place.fromJson(e as Map<String, dynamic>))
-              .toList();
-        });
-      }
-    } catch (_) {
-      // ignore
-    } finally {
-      if (mounted) setState(() => _searchLoading = false);
-    }
-  }
-
-  void _selectPlace(_Place place) {
-    final latLng = LatLng(place.lat, place.lon);
-    setState(() {
-      _pin = latLng;
-      _results = [];
-      _searchActive = false;
-      _searchController.clear();
-    });
-    _searchFocus.unfocus();
-    _mapController.move(latLng, 15);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Full-screen map
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _pin,
-              initialZoom: 15,
-              onTap: (_, latLng) => setState(() => _pin = latLng),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.bounswe2026group1.mapcess',
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _pin,
-                    child: Icon(
-                      Icons.location_on,
-                      color: AppColors.primary,
-                      size: 40,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          // Search bar + results
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildSearchBar(),
-                  if (_searchActive && _results.isNotEmpty)
-                    const SizedBox(height: 8),
-                  if (_searchActive && _results.isNotEmpty)
-                    _buildResultsList(),
-                ],
-              ),
-            ),
-          ),
-          // Confirm button
-          Positioned(
-            bottom: 32,
-            left: 24,
-            right: 24,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context, _pin),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [AppColors.primary, AppColors.primaryDim],
-                  ),
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.35),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.check_circle_outline,
-                        color: AppColors.onPrimary, size: 22),
-                    SizedBox(width: 10),
-                    Text(
-                      'Confirm Location',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                        color: AppColors.onPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Material(
-      elevation: 6,
-      shadowColor: AppColors.shadow,
-      borderRadius: BorderRadius.circular(16),
-      color: AppColors.cardSurface,
-      child: Row(
-        children: [
-          if (_searchActive)
-            IconButton(
-              icon: Icon(Icons.arrow_back, color: AppColors.primary),
-              onPressed: () {
-                setState(() {
-                  _searchActive = false;
-                  _results = [];
-                  _searchController.clear();
-                });
-                _searchFocus.unfocus();
-              },
-            )
-          else
-            IconButton(
-              icon: Icon(Icons.close, color: AppColors.primary),
-              onPressed: () => Navigator.pop(context),
-            ),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocus,
-              onTap: () {
-                if (!_searchActive) setState(() => _searchActive = true);
-              },
-              onChanged: _onChanged,
-              textInputAction: TextInputAction.search,
-              onSubmitted: _search,
-              style: TextStyle(fontSize: 15, color: AppColors.onSurface),
-              decoration: InputDecoration(
-                hintText: 'Search for a place…',
-                hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 14),
-              ),
-            ),
-          ),
-          if (_searchLoading)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primary,
-                ),
-              ),
-            )
-          else if (_searchController.text.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.clear,
-                  color: AppColors.onSurfaceVariant, size: 20),
-              onPressed: () {
-                _searchController.clear();
-                setState(() => _results = []);
-              },
-            )
-          else
-            const SizedBox(width: 8),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultsList() {
-    return Material(
-      elevation: 6,
-      shadowColor: AppColors.shadow,
-      borderRadius: BorderRadius.circular(16),
-      color: AppColors.cardSurface,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: _results.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, indent: 52),
-        itemBuilder: (context, i) {
-          final place = _results[i];
-          return ListTile(
-            leading: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.location_on_outlined,
-                  color: AppColors.primary, size: 18),
-            ),
-            title: Text(
-              place.displayName.split(',').first,
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.onSurface),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              place.displayName,
-              style: TextStyle(
-                  fontSize: 11, color: AppColors.onSurfaceVariant),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () => _selectPlace(place),
-          );
-        },
-      ),
-    );
-  }
-}
-
 // ─── Nominatim result model ────────────────────────────────────────────────────
+// Used by the inline search bar on this screen's location card. The full-
+// screen picker keeps its own copy in `report_location_picker_screen.dart`
+// — both are file-private and don't need to be unified.
 
 class _Place {
   final String displayName;
@@ -1765,9 +1553,8 @@ class _Place {
   });
 
   factory _Place.fromJson(Map<String, dynamic> json) => _Place(
-    displayName: json['display_name'] as String,
-    lat: double.parse(json['lat'] as String),
-    lon: double.parse(json['lon'] as String),
-  );
+        displayName: json['display_name'] as String,
+        lat: double.parse(json['lat'] as String),
+        lon: double.parse(json['lon'] as String),
+      );
 }
-
