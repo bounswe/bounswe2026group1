@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
+import { currentLanguageTag } from '../services/api.js'
 import { OBJECT_TYPES, localizeObjectType } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
@@ -260,7 +261,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         imageFiles.forEach(file => formData.append('file', file))
         const mediaRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${created.reportId}/media`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, 'Accept-Language': currentLanguageTag() },
           body: formData,
         })
         if (mediaRes.ok) {

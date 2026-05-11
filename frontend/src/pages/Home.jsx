@@ -14,6 +14,7 @@ import Toast from '../components/Toast.jsx'
 import MapSearchBar from '../components/MapSearchBar.jsx'
 import OnboardingTutorial from '../components/OnboardingTutorial.jsx'
 import { useReports, reportKeys } from '../hooks/useReports.js'
+import { currentLanguageTag } from '../services/api.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
 import MapFilters from '../components/MapFilters.jsx'
 import {
@@ -360,7 +361,7 @@ function Home() {
       // contribution stats only when a Bearer token is supplied (see
       // RouteController.java). Without this header, /profile's "Routes
       // planned" counter never increments for signed-in users.
-      const headers = { 'Content-Type': 'application/json' }
+      const headers = { 'Content-Type': 'application/json', 'Accept-Language': currentLanguageTag() }
       if (token) headers.Authorization = `Bearer ${token}`
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/routes`, {
         method: 'POST',

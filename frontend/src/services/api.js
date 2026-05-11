@@ -1,5 +1,19 @@
+import i18n from '../i18n/index.js'
+
 const BASE_URL = import.meta.env.VITE_API_URL
 const API_KEY = import.meta.env.VITE_API_KEY
+
+/**
+ * Current UI language as a backend-friendly tag (`'en'` or `'tr'`). Backed by
+ * i18next's resolved language so it follows whatever the LanguageSwitcher
+ * last set. Used to populate `Accept-Language` on outgoing requests so the
+ * backend (#560) can localize error messages.
+ */
+export function currentLanguageTag() {
+  const lang = (i18n.resolvedLanguage || i18n.language || 'en').toLowerCase()
+  // Strip region (e.g. en-US → en). Backend's supported locales are en + tr.
+  return lang.split('-')[0]
+}
 
 function pickErrorMessage(payload, fallback) {
   if (payload == null || typeof payload !== 'object') return fallback
@@ -15,7 +29,11 @@ export async function apiFetch(path, options = {}) {
     throw new Error('API URL is not configured. Set VITE_API_URL (see .env.example).')
   }
 
-  const merged = { 'Mapcess-Key': API_KEY, ...headers }
+  const merged = {
+    'Mapcess-Key': API_KEY,
+    'Accept-Language': currentLanguageTag(),
+    ...headers,
+  }
   if (skipJsonContentType) {
     delete merged['Content-Type']
   } else if (!merged['Content-Type'] && rest.body != null && typeof rest.body === 'string') {
