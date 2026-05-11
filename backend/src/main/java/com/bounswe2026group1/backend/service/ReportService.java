@@ -48,6 +48,7 @@ public class ReportService {
     private final S3MediaService s3MediaService;
     private final MeasurementValidator measurementValidator;
     private final OverpassService overpassService;
+    private final NominatimReverseGeocoder reverseGeocoder;
 
     @Value("${app.report.verification.threshold:5}")
     private int verificationThreshold;
@@ -176,6 +177,13 @@ public class ReportService {
         Point reportLocation = GeoUtils.point4326(lat, lon);
         Report report = new Report(user, reportLocation, request.getDescription(),
                 request.getReportType(), request.getEnvironment());
+
+        // Reverse-geocode once at create time and persist on the row so every
+        // downstream consumer (Feed, ReportPanel, mobile, admin) shows a place
+        // name without each client geocoding independently. Best-effort: a
+        // Nominatim outage leaves the field null and the frontend falls back
+        // to displaying the coordinates.
+        report.setLocationLabel(reverseGeocoder.reverseLabel(lat, lon));
 
         List<ReportObjectRequest> objectRequests = request.getObjects() != null
                 ? request.getObjects() : List.of();
