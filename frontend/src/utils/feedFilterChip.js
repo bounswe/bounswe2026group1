@@ -5,6 +5,6 @@ export function feedFilterChipClass(active) {
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
     active
       ? 'bg-primary text-on-primary border-primary shadow-sm'
-      : 'bg-surface-container-highest text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/45',
+      : 'bg-surface-container-highest text-primary dark:text-on-surface border-primary/30 hover:bg-primary/10 hover:border-primary/45',
   ].join(' ')
 }
