@@ -205,8 +205,12 @@ class PublicSseServiceTest {
 
     @Test
     void broadcastAfterCommit_defersUntilCommit_whenTransactionActive() {
-        // Simulate a Spring-managed transaction by initialising synchronisation.
+        // Simulate a Spring-managed transaction. The helper checks
+        // isActualTransactionActive(), which only returns true when BOTH
+        // synchronisation is initialised AND the "actual" flag is set —
+        // mirroring what PlatformTransactionManager does on a real tx.
         TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             AtomicBoolean ran = new AtomicBoolean(false);
 
@@ -224,6 +228,7 @@ class PublicSseServiceTest {
 
             assertTrue(ran.get(), "afterCommit hook should have fired the deferred action");
         } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
             TransactionSynchronizationManager.clearSynchronization();
         }
     }
