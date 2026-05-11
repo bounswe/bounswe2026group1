@@ -610,4 +610,66 @@ class RegisteredUserServiceTest {
         assertEquals(0, dtos.getTotalElements());
         verify(reportRepository, never()).countByCreatedByIdIn(anyCollection());
     }
+
+    // --- SELF-DELETE TESTS (1.1.1.2.12) ---
+
+    @Test
+    void deleteSelf_anonymizesPiiAndBansUser() {
+        when(registeredUserRepository.findByEmail("test@test.com")).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        registeredUserService.deleteSelf("test@test.com");
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        RegisteredUser saved = captor.getValue();
+        assertEquals("Deleted User", saved.getName());
+        assertEquals("deleted_1@deleted.invalid", saved.getEmail());
+        assertEquals("$DELETED$", saved.getPassword());
+        assertEquals(UserStatus.BANNED, saved.getStatus());
+    }
+
+    @Test
+    void deleteSelf_lastAdmin_throwsConflict() {
+        RegisteredUser admin = new RegisteredUser();
+        admin.setId(7L);
+        admin.setEmail("admin@test.com");
+        admin.setName("Admin");
+        admin.setRole(UserRole.ADMIN);
+        admin.setStatus(UserStatus.ACTIVE);
+        when(registeredUserRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+        when(registeredUserRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
+
+        org.springframework.web.server.ResponseStatusException ex = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> registeredUserService.deleteSelf("admin@test.com"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getStatusCode());
+        verify(registeredUserRepository, never()).save(any(RegisteredUser.class));
+    }
+
+    @Test
+    void deleteSelf_adminNotLast_anonymizes() {
+        RegisteredUser admin = new RegisteredUser();
+        admin.setId(7L);
+        admin.setEmail("admin@test.com");
+        admin.setName("Admin");
+        admin.setRole(UserRole.ADMIN);
+        admin.setStatus(UserStatus.ACTIVE);
+        when(registeredUserRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+        when(registeredUserRepository.countByRole(UserRole.ADMIN)).thenReturn(2L);
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        registeredUserService.deleteSelf("admin@test.com");
+
+        verify(registeredUserRepository).save(any(RegisteredUser.class));
+    }
+
+    @Test
+    void deleteSelf_unknownEmail_throwsNoSuchElement() {
+        when(registeredUserRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.deleteSelf("ghost@test.com"));
+        verify(registeredUserRepository, never()).save(any(RegisteredUser.class));
+    }
 }

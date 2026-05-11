@@ -93,6 +93,39 @@ class RegisteredUserControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // ───── DELETE /me (self-delete, 1.1.1.2.12) ──────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("DELETE /me returns 204 and delegates to service")
+    void deleteSelf_authenticated_returns204() throws Exception {
+        mockMvc.perform(delete("/api/users/me").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+
+        verify(registeredUserService).deleteSelf(OWNER_EMAIL);
+    }
+
+    @Test
+    @DisplayName("DELETE /me returns 401 when no auth")
+    void deleteSelf_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(delete("/api/users/me").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isUnauthorized());
+
+        verify(registeredUserService, never()).deleteSelf(any());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    @DisplayName("DELETE /me returns 409 when caller is the last admin")
+    void deleteSelf_lastAdmin_returns409() throws Exception {
+        doThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "Cannot delete the last admin"))
+                .when(registeredUserService).deleteSelf(OWNER_EMAIL);
+
+        mockMvc.perform(delete("/api/users/me").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isConflict());
+    }
+
     // ───── GET /{id} ─────────────────────────────────────────────────────────
 
     @Test
