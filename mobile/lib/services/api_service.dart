@@ -7,6 +7,7 @@ import '../models/fix_request_model.dart';
 import '../models/notification_model.dart';
 import '../models/report_model.dart';
 import '../models/routing_preferences.dart';
+import '../utils/geojson.dart';
 
 const _baseUrl = 'https://api.mapcess.live';
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
@@ -407,10 +408,12 @@ class ApiService {
     required ReportEnvironment environment,
     required List<ReportObject> objects,
   }) async {
+    // Location goes on the wire as a GeoJSON Point per RFC 7946. The backend
+    // still accepts the legacy `latitude` / `longitude` scalars during the
+    // migration but `geometry` is the canonical field.
     final body = {
       'userId': userId,
-      'latitude': latitude,
-      'longitude': longitude,
+      'geometry': geoJsonPoint(latitude, longitude),
       'description': description,
       'reportType': reportType.jsonValue,
       'environment': environment.jsonValue,
@@ -442,11 +445,16 @@ class ApiService {
     List<ReportObject>? objects,
     List<int>? mediaIdsToRemove,
   }) async {
+    // When the caller changes the pin, send the new location as a GeoJSON
+    // Point. The backend treats it as a partial update and only resets the
+    // stored location when `geometry` (or the legacy scalars) is present.
+    final geometry = (latitude != null && longitude != null)
+        ? geoJsonPoint(latitude, longitude)
+        : null;
     final body = <String, dynamic>{
       if (description != null) 'description': description,
       if (environment != null) 'environment': environment.jsonValue,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
+      if (geometry != null) 'geometry': geometry,
       if (objects != null) 'objects': objects.map((o) => o.toJson()).toList(),
       if (mediaIdsToRemove != null) 'mediaIdsToRemove': mediaIdsToRemove,
     };
@@ -524,10 +532,9 @@ class ApiService {
           Uri.parse('$_baseUrl/api/routes'),
           headers: _headers,
           body: jsonEncode({
-            'startLat': startLat,
-            'startLon': startLon,
-            'endLat': endLat,
-            'endLon': endLon,
+            // Start / end go on the wire as GeoJSON Points (RFC 7946).
+            'start': geoJsonPoint(startLat, startLon),
+            'end': geoJsonPoint(endLat, endLon),
             // Sent as `null` (not omitted) so the backend's deserializer
             // sees the field and falls back to the user's preference
             // rather than its global default.
