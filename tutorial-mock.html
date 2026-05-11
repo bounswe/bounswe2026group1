@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapcess onboarding tutorial — photo-diagram mock</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --color-primary: #176a21;
+      --color-primary-dim: #1b5e20;
+      --color-on-primary: #ffffff;
+      --color-surface: #f8faf8;
+      --color-surface-container-lowest: #ffffff;
+      --color-surface-container-low: #f1f4f1;
+      --color-surface-container: #e8ece9;
+      --color-surface-container-high: #dbe1dc;
+      --color-on-surface: #1a1c1a;
+      --color-on-surface-variant: #5b605c;
+      --color-outline-variant: #cdd2ce;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      background:
+        radial-gradient(at 20% 20%, #c8d8c9 0%, transparent 40%),
+        radial-gradient(at 80% 80%, #b5cdb7 0%, transparent 50%),
+        #a8c4ab;
+      min-height: 100vh;
+      color: var(--color-on-surface);
+    }
+
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 1500;
+    }
+
+    .modal {
+      background: var(--color-surface-container-lowest);
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+      width: 100%;
+      max-width: 960px;
+      height: 780px;
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .dots {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      height: 8px;
+      width: 8px;
+      border-radius: 999px;
+      background: var(--color-surface-container-high);
+      transition: width 0.2s, background 0.2s;
+    }
+    .dot.active {
+      width: 24px;
+      background: var(--color-primary);
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: transparent;
+      border: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--color-on-surface-variant);
+    }
+    .icon-btn:hover { background: var(--color-surface-container-low); }
+
+    .title-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .title-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .title-badge .material-symbols-outlined {
+      font-size: 26px;
+      font-variation-settings: 'wght' 500;
+    }
+    .title-strip h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: row;
+      gap: 16px;
+    }
+
+    .photo-panel {
+      flex: 1;
+      min-width: 0;
+      background: var(--color-surface-container-low);
+      border: 1px solid var(--color-surface-container-high);
+      border-radius: 12px;
+      padding: 12px 12px 8px;
+      display: flex;
+      flex-direction: column;
+    }
+    .photo-frame {
+      flex: 1;
+      min-height: 0;
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-frame img,
+    .photo-frame svg {
+      display: block;
+      object-fit: contain;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .photo-caption {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-on-surface-variant);
+      margin-top: 8px;
+      flex-shrink: 0;
+    }
+    .photo-caption em {
+      font-style: normal;
+      font-weight: 700;
+      color: var(--color-primary-dim);
+    }
+
+    .text-panel {
+      width: 320px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .bullets {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13.5px;
+      line-height: 1.35;
+    }
+    .bullets li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 4px 0;
+    }
+    .bullets li .material-symbols-outlined.check {
+      color: var(--color-primary);
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-variation-settings: 'FILL' 1;
+    }
+    .bullets li .text {
+      flex: 1;
+    }
+    .bullets li .text strong {
+      color: var(--color-primary-dim);
+      font-weight: 700;
+    }
+    .audience-chips {
+      display: inline-flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .chip {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .chip .material-symbols-outlined {
+      font-size: 16px;
+      font-variation-settings: 'FILL' 1, 'wght' 500;
+    }
+    .chip.mob  { background: #DAEFDB; color: #1B5E20; }
+    .chip.vis  { background: #D4E6F8; color: #0D47A1; }
+    .chip.hear { background: #FBE0DA; color: #8D2200; }
+    .chip.eld  { background: #E8DEF8; color: #3E1F8A; }
+
+    .tip {
+      background: var(--color-surface-container-low);
+      border-left: 3px solid var(--color-primary);
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .tip .tip-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-primary-dim);
+      margin-bottom: 2px;
+    }
+
+    .attribution {
+      flex-shrink: 0;
+      font-size: 11.5px;
+      color: var(--color-on-surface-variant);
+      text-align: center;
+      padding: 2px 0 0;
+      font-style: italic;
+    }
+    .attribution strong {
+      font-style: normal;
+      font-weight: 600;
+      color: var(--color-on-surface);
+    }
+
+    .footer {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid var(--color-surface-container);
+    }
+    .btn {
+      border: 0;
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn.text {
+      background: transparent;
+      color: var(--color-on-surface-variant);
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
+    .btn.text:hover { background: var(--color-surface-container-low); color: var(--color-on-surface); }
+    .btn.secondary {
+      background: var(--color-surface-container);
+      color: var(--color-on-surface);
+    }
+    .btn.secondary:hover { background: var(--color-surface-container-high); }
+    .btn.secondary[disabled] {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .btn.primary {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+    }
+    .btn.primary:hover { background: var(--color-primary-dim); }
+    .btn .material-symbols-outlined { font-size: 18px; }
+    .invisible { visibility: hidden; }
+
+    /* Welcome SVG colors */
+    .welcome-svg { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div class="backdrop" role="dialog" aria-modal="true" aria-labelledby="title">
+    <div class="modal">
+      <div class="topbar">
+        <div class="dots" id="dots" aria-hidden="true"></div>
+        <button class="icon-btn" type="button" id="close" aria-label="Close tutorial">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="title-strip">
+        <div class="title-badge" id="title-badge" aria-hidden="true">
+          <span class="material-symbols-outlined" id="title-icon"></span>
+        </div>
+        <h2 id="title"></h2>
+      </div>
+
+      <div class="body">
+        <div class="photo-panel">
+          <div class="photo-frame" id="photo-frame"></div>
+          <div class="photo-caption" id="photo-caption"></div>
+        </div>
+
+        <div class="text-panel">
+          <ul class="bullets" id="bullets"></ul>
+          <div class="tip" id="tip" style="display:none">
+            <div class="tip-title" id="tip-title"></div>
+            <div id="tip-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="attribution">
+        Diagrams adapted from <strong>Özlem Belir</strong>, <em>Mimari Erişilebilirlik Kılavuzu</em>
+      </div>
+
+      <div class="footer">
+        <button class="btn text" id="skip" type="button">Skip tour</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn secondary" id="back" type="button">Back</button>
+          <button class="btn primary" id="next" type="button">
+            <span id="next-label">Next</span>
+            <span class="material-symbols-outlined" id="next-icon">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PRIMARY = 'var(--color-primary)';
+    const WELCOME_SVG = `
+<svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" class="welcome-svg" role="img"
+  aria-label="Stylised top-down map with accessibility report markers">
+  <defs>
+    <linearGradient id="ot-map-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c8d8c9" />
+      <stop offset="40%" stop-color="#b5cdb7" />
+      <stop offset="100%" stop-color="#a8c4ab" />
+    </linearGradient>
+    <pattern id="ot-grid" patternUnits="userSpaceOnUse" width="40" height="40">
+      <path d="M40 0 L0 0 0 40" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1" />
+    </pattern>
+    <pattern id="ot-park" patternUnits="userSpaceOnUse" width="14" height="14">
+      <rect width="14" height="14" fill="#9fbb9d" />
+      <circle cx="3" cy="4" r="1.4" fill="#7ea482" opacity="0.7" />
+      <circle cx="9" cy="9" r="1.2" fill="#7ea482" opacity="0.6" />
+    </pattern>
+  </defs>
+  <rect width="720" height="360" fill="url(#ot-map-bg)" />
+  <rect width="720" height="360" fill="url(#ot-grid)" />
+  <rect x="585" y="20" width="115" height="42" fill="url(#ot-park)" rx="4" />
+  <g fill="#e8e6dd" stroke="#b9b6ab" stroke-width="1">
+    <rect x="20" y="14" width="130" height="40" rx="3" />
+    <rect x="190" y="14" width="160" height="40" rx="3" />
+    <rect x="395" y="14" width="155" height="40" rx="3" />
+    <rect x="20" y="92" width="130" height="62" rx="3" />
+    <rect x="190" y="92" width="160" height="62" rx="3" />
+    <rect x="395" y="92" width="155" height="62" rx="3" />
+    <rect x="585" y="92" width="115" height="62" rx="3" />
+    <rect x="20" y="194" width="130" height="68" rx="3" />
+    <rect x="190" y="194" width="160" height="68" rx="3" />
+    <rect x="395" y="194" width="155" height="68" rx="3" />
+    <rect x="585" y="194" width="115" height="68" rx="3" />
+    <rect x="20" y="304" width="130" height="44" rx="3" />
+    <rect x="190" y="304" width="160" height="44" rx="3" />
+    <rect x="395" y="304" width="155" height="44" rx="3" />
+    <rect x="585" y="304" width="115" height="44" rx="3" />
+  </g>
+  <g fill="#fafafa" stroke="#cfd0cf" stroke-width="1">
+    <rect x="0" y="60" width="720" height="22" />
+    <rect x="0" y="160" width="720" height="22" />
+    <rect x="0" y="270" width="720" height="22" />
+    <rect x="160" y="0" width="22" height="360" />
+    <rect x="360" y="0" width="22" height="360" />
+    <rect x="555" y="0" width="22" height="360" />
+  </g>
+  ${[
+    { cx: 140, cy: 110, color: '#2E7D32', icon: 'accessible_forward' },
+    { cx: 340, cy: 90,  color: '#8B6A00', icon: 'door_front' },
+    { cx: 560, cy: 120, color: '#495F69', icon: 'directions_walk' },
+    { cx: 210, cy: 270, color: '#176a21', icon: 'elevator' },
+    { cx: 430, cy: 245, color: '#2E7D32', icon: 'accessible_forward' },
+    { cx: 620, cy: 260, color: '#176a21', icon: 'directions_walk' },
+  ].map(m => `
+    <g filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))">
+      <circle cx="${m.cx}" cy="${m.cy}" r="20" fill="#fff" stroke="${m.color}" stroke-width="2.5" />
+      <text x="${m.cx}" y="${m.cy}"
+        font-family="Material Symbols Outlined" font-size="20" fill="${m.color}"
+        text-anchor="middle" dominant-baseline="central"
+        style="font-variation-settings: 'FILL' 1">${m.icon}</text>
+    </g>`).join('')}
+</svg>`;
+
+    const HOW_TO_HTML = `
+<div style="display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; width:100%;">
+  ${[
+    { icon: 'touch_app',   label: 'Tap the map' },
+    { icon: 'add_a_photo', label: 'Add media' },
+    { icon: 'edit_note',   label: 'Describe' },
+    { icon: 'send',        label: 'Submit' },
+  ].map((s, i, arr) => `
+    <div style="display:flex; align-items:center;">
+      <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 14px; border-radius:14px; background:var(--color-surface-container-low); min-width:96px;">
+        <span class="material-symbols-outlined" style="font-size:30px; color:var(--color-primary);">${s.icon}</span>
+        <span style="font-size:12.5px; font-weight:600; white-space:nowrap;">${s.label}</span>
+      </div>
+      ${i < arr.length - 1 ? `<span class="material-symbols-outlined" style="font-size:22px; color:var(--color-on-surface-variant);">chevron_right</span>` : ''}
+    </div>`).join('')}
+</div>`;
+
+    // Images live under frontend/src/assets/tutorial/ (committed). The original
+    // ./resimler/ folder is gitignored so it wouldn't reach collaborators.
+    const IMG_BASE = './frontend/src/assets/tutorial';
+    const IMG = {
+      ramp:           `${IMG_BASE}/ramp-dimensions.png`,
+      rampDetail:     `${IMG_BASE}/ramp-detail.png`,
+      curb:           `${IMG_BASE}/curb-ramp.png`,
+      street:         `${IMG_BASE}/street-view.png`,
+      elevatorCabin:  `${IMG_BASE}/elevator-cabin.png`,
+      elevatorEntry:  `${IMG_BASE}/elevator-entrance.png`,
+      doorGlass:      `${IMG_BASE}/door-glass.png`,
+      doorHandles:    `${IMG_BASE}/door-handles.png`,
+    };
+
+    const SLIDES = [
+      {
+        id: 'welcome',
+        title: 'Welcome to Mapcess',
+        icon: 'explore',
+        badgeColor: '#176a21',
+        diagramHTML: WELCOME_SVG,
+        tipTitle: "What you'll learn",
+        tip: "A quick tour of the most common things people report — ramps, curb cuts, sidewalks, elevators, and doors — and how to file your first report in under a minute. The diagrams are adapted from Özlem Belir's Mimari Erişilebilirlik Kılavuzu.",
+      },
+      {
+        id: 'ramps',
+        title: 'Ramps',
+        icon: 'accessible_forward',
+        badgeColor: '#2E7D32',
+        bullets: [
+          { html: 'Slope steeper than <strong>1:12</strong> — report as <strong>too steep</strong>', aud: ['mob'] },
+          { html: 'Run longer than <strong>9 m</strong> without a <strong>≥ 1.5 m</strong> landing — report as <strong>no landing</strong>', aud: ['mob'] },
+          { html: 'No handrails — or only one side — report as <strong>missing handrail</strong>', aud: ['mob','eld','vis'] },
+          { html: 'Handrails present but mounted below <strong>90 cm</strong> — report as <strong>handrail too low</strong>', aud: ['mob','eld'] },
+          { html: 'Clear width between handrails under <strong>87 cm</strong> — report as <strong>too narrow</strong>', aud: ['mob'] },
+        ],
+        image: { src: IMG.ramp, alt: 'Isometric ramp diagram: handrails 800–920 mm, max slope 1:12, 9 m max run with 1.5 m landings' },
+        caption: 'Max slope <em>1:12</em> · max run <em>9 m</em> · landings <em>≥ 1.5 m</em>',
+      },
+      {
+        id: 'ramps-detail',
+        title: 'Ramps — landings & stairs',
+        icon: 'stairs',
+        badgeColor: '#2E7D32',
+        bullets: [
+          { html: 'Landing smaller than <strong>120 cm</strong> at the top or bottom — report as <strong>no landing</strong>', aud: ['mob'] },
+          { html: 'Ramp width under <strong>150 cm</strong> — report as <strong>too narrow</strong>', aud: ['mob'] },
+          { html: 'Stair steps without anti-slip strips — report as <strong>no anti-slip</strong>', aud: ['mob','eld','vis'] },
+          { html: 'Stair edges without a contrasting <strong>nosing strip</strong> — report as <strong>missing nosing strip</strong>', aud: ['vis','eld'] },
+          { html: 'Step risers above <strong>16 cm</strong> or treads under <strong>27 cm</strong> — report as <strong>riser too high</strong> / <strong>tread too shallow</strong>', aud: ['mob','eld'] },
+          { html: 'Steps of inconsistent size or with open vertical faces — report as <strong>irregular steps</strong> / <strong>open risers</strong>', aud: ['mob','eld','vis'] },
+        ],
+        image: { src: IMG.rampDetail, alt: 'Detailed cutaway of a ramp meeting a stair: handrails at 900 mm, landings at 1200 mm, anti-slip treads, tactile paving, and a side profile / curb' },
+        caption: 'Where the ramp meets stairs and a doorway',
+      },
+      {
+        id: 'curb-cuts',
+        title: 'Curb cuts',
+        icon: 'roundabout_right',
+        badgeColor: '#176A21',
+        bullets: [
+          { html: 'Slope steeper than <strong>1:10</strong> — report as <strong>too steep</strong>', aud: ['mob'] },
+          { html: 'Bottom width under <strong>91 cm</strong> — report as <strong>too narrow</strong>', aud: ['mob'] },
+          { html: 'No <strong>tactile warning surface</strong> where the curb meets the road — report as <strong>no tactile warning</strong>', aud: ['vis'] },
+          { html: 'Raised lip at the gutter that catches wheels — report as <strong>raised lip</strong>', aud: ['mob'] },
+          { html: 'No curb cut at all where one is needed — report as <strong>missing</strong>', aud: ['mob','vis'] },
+        ],
+        image: { src: IMG.curb, alt: 'Wheelchair user crossing a curb ramp with a 1:10 slope and minimum 915 mm bottom width' },
+        caption: 'Where the sidewalk meets the crossing · <em>1:10</em> slope · <em>≥ 915 mm</em> wide',
+      },
+      {
+        id: 'sidewalks',
+        title: 'Sidewalks',
+        icon: 'directions_walk',
+        badgeColor: '#495F69',
+        bullets: [
+          { html: 'Clear path narrower than <strong>1.2 m</strong> — report as <strong>too narrow</strong>', aud: ['mob'] },
+          { html: 'Awnings, signs or branches under <strong>2.2 m</strong> overhead — report as <strong>insufficient clearance</strong>', aud: ['mob','vis','eld'] },
+          { html: 'Parked vehicles, furniture, or debris in the path — report as <strong>blocked</strong>', aud: ['mob','vis'] },
+          { html: 'Cracks, potholes, or damage that could trip someone — report as <strong>uneven surface</strong>', aud: ['mob','eld','vis'] },
+          { html: 'Slippery when wet or worn smooth — report as <strong>slippery surface</strong>', aud: ['mob','eld'] },
+          { html: 'No tactile paving along the route — report as <strong>no tactile paving</strong>', aud: ['vis'] },
+          { html: 'Level change over <strong>1.3 cm</strong> that isn\'t ramped — report as <strong>unramped level difference</strong>', aud: ['mob'] },
+        ],
+        image: { src: IMG.street, alt: '3D street view showing maximum sign and awning heights and clear pedestrian path widths' },
+        caption: 'Street view — signs and awnings stay above head height',
+      },
+      {
+        id: 'elevators-cabin',
+        title: 'Elevators — cabin',
+        icon: 'elevator',
+        badgeColor: '#B02500',
+        bullets: [
+          { html: 'Cabin narrower than <strong>120 cm</strong> or under <strong>1.80 m²</strong> floor area — report as <strong>cabin too small</strong>', aud: ['mob'] },
+          { html: 'Door opening under <strong>90 cm</strong> — report as <strong>door too narrow</strong>', aud: ['mob'] },
+          { html: 'Approach area in front of the doors under <strong>120–150 cm</strong> — report as <strong>insufficient landing</strong>', aud: ['mob'] },
+          { html: 'No grab bar inside the cabin — report as <strong>no grab bar</strong>', aud: ['mob','eld'] },
+          { html: 'Elevator exists but isn\'t working — report as <strong>out of service</strong>', aud: ['mob','vis','eld'] },
+        ],
+        image: { src: IMG.elevatorCabin, alt: 'Top-down elevator cabin: 1730 mm wide by 1370 mm deep with 915 mm clear door' },
+        caption: 'Cabin <em>≥ 173 × 137 cm</em> · door <em>≥ 915 mm</em>',
+      },
+      {
+        id: 'elevators-panel',
+        title: 'Elevators — entrance & panel',
+        icon: 'elevator',
+        badgeColor: '#B02500',
+        bullets: [
+          { html: 'Buttons mounted outside <strong>85–120 cm</strong> — report as <strong>button height invalid</strong>', aud: ['mob'] },
+          { html: 'No Braille or raised tactile labels on the buttons — report as <strong>no braille</strong>', aud: ['vis'] },
+          { html: 'No spoken floor announcement — report as <strong>no audio</strong>', aud: ['vis'] },
+          { html: 'Cabin or controls poorly lit — report as <strong>insufficient lighting</strong>', aud: ['vis','eld'] },
+        ],
+        image: { src: IMG.elevatorEntry, alt: 'Elevator entrance: 1830 mm door, 1500 mm panel, 735 mm button height, up/down arrows' },
+        caption: 'Buttons at <em>~735 mm</em> · panel top <em>≤ 1500 mm</em> · door <em>≥ 1830 mm</em> high',
+      },
+      {
+        id: 'doors-glass',
+        title: 'Doors — glass & contrast',
+        icon: 'door_front',
+        badgeColor: '#8B6A00',
+        bullets: [
+          { html: 'Clear width under <strong>90 cm</strong> when fully open — report as <strong>too narrow</strong>', aud: ['mob'] },
+          { html: 'Large glass surfaces without contrast bands — report as <strong>no glass marking</strong>', aud: ['vis'] },
+          { html: 'Threshold sill higher than <strong>0.6 cm</strong> — report as <strong>high threshold</strong>', aud: ['mob'] },
+          { html: 'Steps at the entrance where a ramp is needed — report as <strong>step at entrance</strong>', aud: ['mob'] },
+          { html: 'Building entrance without an automatic / sensor door — report as <strong>no automatic door</strong>', aud: ['mob','eld'] },
+        ],
+        image: { src: IMG.doorGlass, alt: 'Glass entry door with horizontal contrast bands between 500 mm and 1.5 m and a lever handle' },
+        caption: 'Contrast bands between <em>50 cm</em> and <em>1.5 m</em>',
+      },
+      {
+        id: 'doors-handles',
+        title: 'Doors — handles',
+        icon: 'door_open',
+        badgeColor: '#8B6A00',
+        bullets: [
+          { html: 'Round knob instead of a lever or pull-bar — report as <strong>no lever handle</strong>', aud: ['mob','eld'] },
+          { html: 'Handle mounted outside <strong>90–110 cm</strong> — report as <strong>handle height invalid</strong>', aud: ['mob'] },
+          { html: 'Door needs excessive force to open — report as <strong>heavy door</strong>', aud: ['mob','eld'] },
+          { html: 'Intercom or doorbell outside <strong>90–140 cm</strong> or not approachable from the side — report as <strong>intercom inaccessible</strong>', aud: ['mob'] },
+        ],
+        image: { src: IMG.doorHandles, alt: 'Comparison: round knob crossed out as inaccessible; long lever and pull-bar handles shown as accessible' },
+        caption: 'Knob (left): <em>avoid</em> · Lever / pull bar (right): <em>accessible</em>',
+      },
+      {
+        id: 'how-to',
+        title: 'How to file a report',
+        icon: 'add_location_alt',
+        badgeColor: '#176a21',
+        diagramHTML: HOW_TO_HTML,
+        tipTitle: 'Done in under a minute',
+        tip: 'Once five neighbours agree, your report becomes verified and starts shaping accessible routes for everyone.',
+      },
+    ];
+
+    let index = 0;
+
+    const els = {
+      dots:         document.getElementById('dots'),
+      titleBadge:   document.getElementById('title-badge'),
+      titleIcon:    document.getElementById('title-icon'),
+      title:        document.getElementById('title'),
+      photoFrame:   document.getElementById('photo-frame'),
+      photoCap:     document.getElementById('photo-caption'),
+      bullets:      document.getElementById('bullets'),
+      tip:          document.getElementById('tip'),
+      tipTitle:     document.getElementById('tip-title'),
+      tipBody:      document.getElementById('tip-body'),
+      back:         document.getElementById('back'),
+      next:         document.getElementById('next'),
+      nextLabel:    document.getElementById('next-label'),
+      nextIcon:     document.getElementById('next-icon'),
+      skip:         document.getElementById('skip'),
+    };
+
+    function renderDots() {
+      els.dots.innerHTML = SLIDES
+        .map((_, i) => `<span class="dot ${i === index ? 'active' : ''}"></span>`)
+        .join('');
+    }
+
+    function colorMix(color, pct) {
+      return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+    }
+
+    function render() {
+      const s = SLIDES[index];
+      renderDots();
+
+      els.titleBadge.style.background = colorMix(s.badgeColor, 14);
+      els.titleBadge.style.color = s.badgeColor;
+      els.titleIcon.textContent = s.icon;
+      els.title.textContent = s.title;
+
+      if (s.image) {
+        els.photoFrame.innerHTML = `<img src="${s.image.src}" alt="${s.image.alt}" loading="lazy" />`;
+      } else if (s.diagramHTML) {
+        els.photoFrame.innerHTML = s.diagramHTML;
+      } else {
+        els.photoFrame.innerHTML = '';
+      }
+      els.photoCap.innerHTML = s.caption || '';
+      els.photoCap.style.display = s.caption ? '' : 'none';
+
+      els.bullets.innerHTML = (s.bullets || []).map(b => `
+        <li>
+          <span class="material-symbols-outlined check">check_circle</span>
+          <span class="text">${b.html}</span>
+          <span class="audience-chips">
+            ${b.aud.map(g => {
+              const icon = { mob: 'accessible', vis: 'visibility', hear: 'hearing', eld: 'elderly' }[g];
+              return `<span class="chip ${g}" aria-hidden="true"><span class="material-symbols-outlined">${icon}</span></span>`;
+            }).join('')}
+          </span>
+        </li>`).join('');
+
+      if (s.tip) {
+        els.tip.style.display = '';
+        els.tipTitle.textContent = s.tipTitle || 'Tip';
+        els.tipBody.textContent = s.tip;
+      } else {
+        els.tip.style.display = 'none';
+      }
+
+      const isLast = index === SLIDES.length - 1;
+      els.back.disabled = index === 0;
+      els.skip.classList.toggle('invisible', isLast);
+      els.nextLabel.textContent = isLast ? 'Got it' : 'Next';
+      els.nextIcon.textContent = isLast ? 'check' : 'arrow_forward';
+    }
+
+    function goNext() { if (index < SLIDES.length - 1) { index++; render(); } else { window.close(); } }
+    function goBack() { if (index > 0)                  { index--; render(); } }
+
+    els.next.addEventListener('click', goNext);
+    els.back.addEventListener('click', goBack);
+    els.skip.addEventListener('click', () => { index = SLIDES.length - 1; render(); });
+    document.getElementById('close').addEventListener('click', () => { /* mock — no-op */ });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') goNext();
+      else if (e.key === 'ArrowLeft') goBack();
+    });
+
+    render();
+  </script>
+</body>
+</html>

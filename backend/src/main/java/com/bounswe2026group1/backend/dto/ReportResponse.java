@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.dto;
 
+import com.bounswe2026group1.backend.dto.geo.GeoJsonPoint;
 import com.bounswe2026group1.backend.model.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -22,10 +23,19 @@ public class ReportResponse {
     @Schema(description = "Id of the user who submitted the report.", example = "42")
     private Long userId;
 
-    @Schema(description = "WGS84 latitude.", example = "41.085", minimum = "-90", maximum = "90")
+    @Schema(description = "Report location as a GeoJSON Point (RFC 7946). " +
+            "Coordinates are [longitude, latitude] in WGS84. Prefer reading this over the deprecated " +
+            "scalar `latitude` / `longitude` fields below.")
+    private GeoJsonPoint geometry;
+
+    @Schema(description = "WGS84 latitude. Deprecated — use `geometry.coordinates[1]` instead. " +
+            "Retained for backwards compatibility with older mobile builds.",
+            example = "41.085", minimum = "-90", maximum = "90", deprecated = true)
     private double latitude;
 
-    @Schema(description = "WGS84 longitude.", example = "29.045", minimum = "-180", maximum = "180")
+    @Schema(description = "WGS84 longitude. Deprecated — use `geometry.coordinates[0]` instead. " +
+            "Retained for backwards compatibility with older mobile builds.",
+            example = "29.045", minimum = "-180", maximum = "180", deprecated = true)
     private double longitude;
 
     @Schema(description = "Free-text description (≤ 1000 chars).",
@@ -74,20 +84,28 @@ public class ReportResponse {
     @Schema(description = "Objects (door, ramp, elevator…) that the report refers to.")
     private List<ReportObjectResponse> objects;
 
-    @Schema(description = "Latitude of the obstacle's entry point, when applicable.",
-            example = "41.0851", nullable = true)
+    @Schema(description = "Obstacle entry point as a GeoJSON Point, when applicable (FEATURE reports with ramp object).",
+            nullable = true)
+    private GeoJsonPoint entryGeometry;
+
+    @Schema(description = "Obstacle exit point as a GeoJSON Point, when applicable (FEATURE reports with ramp object).",
+            nullable = true)
+    private GeoJsonPoint exitGeometry;
+
+    @Schema(description = "Latitude of the obstacle's entry point. Deprecated — use `entryGeometry`.",
+            example = "41.0851", nullable = true, deprecated = true)
     private Double entryLatitude;
 
-    @Schema(description = "Longitude of the obstacle's entry point, when applicable.",
-            example = "29.0449", nullable = true)
+    @Schema(description = "Longitude of the obstacle's entry point. Deprecated — use `entryGeometry`.",
+            example = "29.0449", nullable = true, deprecated = true)
     private Double entryLongitude;
 
-    @Schema(description = "Latitude of the obstacle's exit point, when applicable.",
-            example = "41.0853", nullable = true)
+    @Schema(description = "Latitude of the obstacle's exit point. Deprecated — use `exitGeometry`.",
+            example = "41.0853", nullable = true, deprecated = true)
     private Double exitLatitude;
 
-    @Schema(description = "Longitude of the obstacle's exit point, when applicable.",
-            example = "29.0451", nullable = true)
+    @Schema(description = "Longitude of the obstacle's exit point. Deprecated — use `exitGeometry`.",
+            example = "29.0451", nullable = true, deprecated = true)
     private Double exitLongitude;
 
     @Schema(description = "Id of the user who last edited the report (or null if never edited since creation).",
@@ -118,6 +136,7 @@ public class ReportResponse {
         r.setReportId(report.getReportId());
         r.setUserId(report.getCreatedBy().getId());
         if (report.getLocation() != null) {
+            r.setGeometry(GeoJsonPoint.fromJts(report.getLocation()));
             r.setLatitude(report.getLocation().getY());
             r.setLongitude(report.getLocation().getX());
         }
@@ -136,10 +155,12 @@ public class ReportResponse {
         r.setObjects(objectResponses != null ? objectResponses : Collections.emptyList());
 
         if (report.getEntryPoint() != null) {
+            r.setEntryGeometry(GeoJsonPoint.fromLocation(report.getEntryPoint()));
             r.setEntryLatitude(report.getEntryPoint().getLatitude());
             r.setEntryLongitude(report.getEntryPoint().getLongitude());
         }
         if (report.getExitPoint() != null) {
+            r.setExitGeometry(GeoJsonPoint.fromLocation(report.getExitPoint()));
             r.setExitLatitude(report.getExitPoint().getLatitude());
             r.setExitLongitude(report.getExitPoint().getLongitude());
         }

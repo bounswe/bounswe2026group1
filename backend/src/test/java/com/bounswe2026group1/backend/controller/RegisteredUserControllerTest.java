@@ -1,7 +1,11 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.LeaderboardVisibilityRequest;
+import com.bounswe2026group1.backend.dto.PointEventResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
+import com.bounswe2026group1.backend.model.Badge;
+import com.bounswe2026group1.backend.model.PointReason;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.service.RegisteredUserService;
 import com.bounswe2026group1.backend.service.S3MediaService;
@@ -19,7 +23,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.NoSuchElementException;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -301,5 +311,263 @@ class RegisteredUserControllerTest {
 
         verify(registeredUserService, never()).setAvatar(any(), any());
         verify(s3MediaService, never()).deleteFile(any());
+    }
+
+    // ───── GET /api/users (list all) ────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void getAll_returnsServiceList() throws Exception {
+        when(registeredUserService.getAllProfiles()).thenReturn(List.of(ownerProfile));
+
+        mockMvc.perform(get("/api/users").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(OWNER_ID));
+    }
+
+    // ───── GET /api/users/search ────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void search_returns200_andCapsPageSize() throws Exception {
+        Page<UserProfileDTO> page = new PageImpl<>(List.of(ownerProfile));
+        when(registeredUserService.searchUsers(eq("ali"), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/users/search")
+                        .param("q", "ali")
+                        .param("page", "-3")    // clamped to 0
+                        .param("size", "999")    // clamped to 50
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(OWNER_ID));
+
+        verify(registeredUserService).searchUsers(eq("ali"),
+                argThat(p -> p.getPageNumber() == 0 && p.getPageSize() == 50));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void search_returns400WhenServiceRejectsQuery() throws Exception {
+        when(registeredUserService.searchUsers(eq(""), any(Pageable.class)))
+                .thenThrow(new IllegalArgumentException("query must not be blank"));
+
+        mockMvc.perform(get("/api/users/search")
+                        .param("q", "")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isBadRequest());
+    }
+
+    // POST /api/users intentionally skipped: this is an "internal" endpoint that takes a raw
+    // JPA RegisteredUser entity. Jackson 3 cannot deserialize that shape cleanly (lazy relations,
+    // many enums with non-null Hibernate defaults), and the endpoint comment recommends clients
+    // use POST /auth/register instead. One line of coverage isn't worth fighting Jackson here.
+
+    // ───── DELETE /api/users/{id} ───────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void delete_returns204WhenServiceDeletes() throws Exception {
+        when(registeredUserService.delete(OWNER_ID)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/users/{id}", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void delete_returns404WhenServiceReportsMissing() throws Exception {
+        when(registeredUserService.delete(404L)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/users/{id}", 404L)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    // ───── GET /me 404 path ─────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void me_returns404WhenUserNoLongerExists() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL))
+                .thenThrow(new NoSuchElementException("user gone"));
+
+        mockMvc.perform(get("/api/users/me").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    // ───── 404 paths for updateProfile / uploadAvatar / deleteAvatar ────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void updateProfile_returns404WhenServiceReportsMissing() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(registeredUserService.updateProfile(eq(OWNER_ID), any(UpdateProfileRequest.class)))
+                .thenThrow(new NoSuchElementException("gone"));
+
+        mockMvc.perform(put("/api/users/{id}/profile", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdateProfileRequest(null, "bio"))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void uploadAvatar_returns404WhenServiceReportsMissing() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(s3MediaService.uploadFile(any())).thenReturn("https://bucket.s3.amazonaws.com/a.jpg");
+        when(registeredUserService.setAvatar(eq(OWNER_ID), any()))
+                .thenThrow(new NoSuchElementException("gone"));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "pic.jpg", "image/jpeg", "bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/users/{id}/profile/avatar", OWNER_ID).file(file)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void deleteAvatar_returns404WhenServiceReportsMissing() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(registeredUserService.getProfileById(OWNER_ID))
+                .thenThrow(new NoSuchElementException("gone"));
+
+        mockMvc.perform(delete("/api/users/{id}/profile/avatar", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    // ───── GET /{id}/badges ─────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void getBadges_returns200() throws Exception {
+        when(registeredUserService.getBadges(OWNER_ID))
+                .thenReturn(List.of(Badge.TRUSTED_REPORTER, Badge.TOP_10));
+
+        mockMvc.perform(get("/api/users/{id}/badges", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void getBadges_returns404WhenUserMissing() throws Exception {
+        when(registeredUserService.getBadges(404L))
+                .thenThrow(new NoSuchElementException("no user"));
+
+        mockMvc.perform(get("/api/users/{id}/badges", 404L)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    // ───── GET /{id}/points/history ─────────────────────────────────────────
+
+    private PointEventResponse pointEvent(long id, int delta) {
+        return new PointEventResponse(id, delta, PointReason.REPORT_SUBMIT, null,
+                Instant.parse("2026-05-01T10:00:00Z"));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void getPointsHistory_ownerReceivesLedger() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        Page<PointEventResponse> page = new PageImpl<>(List.of(pointEvent(1L, 10)));
+        when(registeredUserService.listPointEvents(eq(OWNER_ID), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/users/{id}/points/history", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].delta").value(10));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void getPointsHistory_nonOwnerNonAdminReturns403() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+
+        mockMvc.perform(get("/api/users/{id}/points/history", OTHER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isForbidden());
+
+        verify(registeredUserService, never()).listPointEvents(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@test.com")
+    void getPointsHistory_adminCanViewOthers() throws Exception {
+        UserProfileDTO admin = UserProfileDTO.builder()
+                .id(9L).name("Admin").email("admin@test.com").role("ADMIN")
+                .contributionStats(UserProfileDTO.ContributionStatsDTO.builder().build())
+                .build();
+        when(registeredUserService.getProfileByEmail("admin@test.com")).thenReturn(admin);
+        Page<PointEventResponse> page = new PageImpl<>(List.of(pointEvent(7L, -5)));
+        when(registeredUserService.listPointEvents(eq(OTHER_ID), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/users/{id}/points/history", OTHER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].delta").value(-5));
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void getPointsHistory_returns404WhenLedgerLookupMisses() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        when(registeredUserService.listPointEvents(eq(OWNER_ID), any(Pageable.class)))
+                .thenThrow(new NoSuchElementException("user has no ledger"));
+
+        mockMvc.perform(get("/api/users/{id}/points/history", OWNER_ID)
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    // ───── PATCH /me/leaderboard-visibility ─────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void setLeaderboardVisibility_authenticated_returns200() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        UserProfileDTO updated = UserProfileDTO.builder()
+                .id(OWNER_ID).name("Owner").email(OWNER_EMAIL).role("USER")
+                .contributionStats(UserProfileDTO.ContributionStatsDTO.builder().build())
+                .leaderboardHidden(true)
+                .build();
+        when(registeredUserService.setLeaderboardHidden(OWNER_ID, true)).thenReturn(updated);
+
+        mockMvc.perform(patch("/api/users/me/leaderboard-visibility")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LeaderboardVisibilityRequest(true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaderboardHidden").value(true));
+    }
+
+    @Test
+    void setLeaderboardVisibility_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(patch("/api/users/me/leaderboard-visibility")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LeaderboardVisibilityRequest(false))))
+                .andExpect(status().isUnauthorized());
+
+        verify(registeredUserService, never()).setLeaderboardHidden(any(), anyBoolean());
+    }
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void setLeaderboardVisibility_returns404WhenUserGone() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL))
+                .thenThrow(new NoSuchElementException("user gone"));
+
+        mockMvc.perform(patch("/api/users/me/leaderboard-visibility")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LeaderboardVisibilityRequest(true))))
+                .andExpect(status().isNotFound());
     }
 }

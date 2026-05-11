@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -325,4 +326,53 @@ class CommentControllerTest {
         verify(commentService, never()).update(any(Long.class), any(UpdateCommentRequest.class));
     }
 
+    // ───── Remaining read endpoints ─────────────────────────────────────────
+
+    @Test
+    void getAll_returnsServiceList() throws Exception {
+        when(commentService.getAll()).thenReturn(java.util.List.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(99))
+                .andExpect(jsonPath("$[0].author.id").value(3));
+    }
+
+    @Test
+    void getByAuthor_returnsServiceList() throws Exception {
+        when(commentService.getByAuthor(eq(3L))).thenReturn(java.util.List.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments/author/3").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(99))
+                .andExpect(jsonPath("$[0].author.id").value(3));
+    }
+
+    @Test
+    void getById_returns404WhenServiceReturnsEmpty() throws Exception {
+        when(commentService.getById(eq(404L))).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/comments/404").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void delete_returns204WhenServiceDeletes() throws Exception {
+        when(commentService.delete(99L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/comments/99").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+
+        verify(commentService).delete(99L);
+    }
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void delete_returns404WhenServiceSignalsNoSuchComment() throws Exception {
+        when(commentService.delete(404L)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/comments/404").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
 }

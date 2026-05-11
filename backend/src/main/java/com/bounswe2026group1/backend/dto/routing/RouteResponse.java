@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.dto.routing;
 
+import com.bounswe2026group1.backend.dto.geo.GeoJsonLineString;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.TravelMode;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,9 +31,15 @@ public class RouteResponse {
     @Schema(description = "Travel mode used for this option.", example = "WALKING")
     private TravelMode mode;
 
-    @Schema(description = "Encoded polyline (Google polyline algorithm) describing the route geometry.",
+    @Schema(description = "Encoded polyline (Google polyline algorithm) describing the route geometry. " +
+            "Compact wire format kept for clients that already decode polylines; new integrations should prefer `geoJsonGeometry`.",
             example = "u{~vF...")
     private String geometry;
+
+    @Schema(description = "Route geometry as a GeoJSON LineString (RFC 7946). " +
+            "Each position is [longitude, latitude] in WGS84.",
+            nullable = true)
+    private GeoJsonLineString geoJsonGeometry;
 
     @Schema(description = "Turn-by-turn step list.")
     private List<RouteStep> steps;
