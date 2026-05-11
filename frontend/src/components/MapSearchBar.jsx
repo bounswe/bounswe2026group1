@@ -130,7 +130,7 @@ export default function MapSearchBar({
 
   return (
     <div className="absolute top-3 sm:top-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-2xl sm:px-6 z-[1000] pointer-events-none">
-      <div className="flex items-center bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 pointer-events-auto">
+      <div className="flex items-center bg-surface-container-lowest/80 dark:bg-surface-container-lowest/95 backdrop-blur-md rounded-2xl px-3 sm:px-6 py-2 sm:py-3 gap-2 sm:gap-4 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 pointer-events-auto">
         <span className="material-symbols-outlined text-primary text-xl sm:text-2xl">location_on</span>
         <div className="flex-1 min-w-0">
           <p className="hidden sm:block text-[10px] uppercase tracking-wider font-bold text-secondary">Current Location</p>

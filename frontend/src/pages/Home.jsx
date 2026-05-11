@@ -123,21 +123,21 @@ function ZoomControls({ userLocation, onLocationError }) {
     <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 dark:bg-surface-container-lowest/95 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom in"
       >
         <span className="material-symbols-outlined">add</span>
       </button>
       <button
         onClick={() => map.zoomOut()}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 dark:bg-surface-container-lowest/95 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
         aria-label="Zoom out"
       >
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
         onClick={handleLocate}
-        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
+        className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 dark:bg-surface-container-lowest/95 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors mt-2"
         aria-label="My location"
       >
         <span className="material-symbols-outlined">my_location</span>
@@ -692,7 +692,7 @@ function Home() {
 
           {/* Community Pulse card + FAB */}
           <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
-            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
+            <div className="hidden lg:block bg-surface-container-lowest/80 dark:bg-surface-container-lowest/95 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
