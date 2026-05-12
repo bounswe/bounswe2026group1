@@ -1,6 +1,6 @@
 /**
- * Thin Overpass API client for OSM queries (frontend-side tooling / future map features).
- * Mirrors the interpreter endpoint used by the backend OverpassService.
+ * Production Overpass API client for OSM queries (frontend runtime; mirrors backend OverpassService).
+ * Automated tests mock global `fetch` and do not exercise live Overpass integration.
  */
 
 export const DEFAULT_OVERPASS_INTERPRETER_URL = 'https://overpass-api.de/api/interpreter'
