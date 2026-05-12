@@ -75,6 +75,7 @@ public enum RoutingConstraint {
             Set.of(
                     new IssueHazard(RAMP, MISSING_HANDRAIL),
                     new IssueHazard(RAMP, HANDRAIL_TOO_LOW),
+                    new IssueHazard(STAIR, HANDRAIL_TOO_LOW),
                     new IssueHazard(STAIR, MISSING_HANDRAIL))),
 
     AVOID_BLOCKED_OR_MISSING_SIDEWALKS(
