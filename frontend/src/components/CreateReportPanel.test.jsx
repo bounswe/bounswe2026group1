@@ -236,6 +236,28 @@ describe('CreateReportPanel', () => {
       })
     })
 
+    it('does not show an error alert after a successful create (regression: stale onCreated call outside else-block)', async () => {
+      api.apiFetch.mockResolvedValue(FAKE_REPORT_RESPONSE)
+      const onCreated = vi.fn()
+      const user = userEvent.setup()
+
+      renderPanelWithPosition({ onCreated })
+
+      await user.click(screen.getByRole('button', { name: /add object/i }))
+      await user.click(screen.getByRole('button', { name: /^ramp$/i }))
+      await user.click(screen.getByRole('checkbox', { name: /too steep/i }))
+      await user.type(screen.getByPlaceholderText(/provide a brief description/i), 'test')
+      await user.click(screen.getByRole('button', { name: /submit report/i }))
+
+      // Wait for the API call to complete
+      await waitFor(() => expect(onCreated).toHaveBeenCalled())
+
+      // No error message should appear — the bug caused a ReferenceError on
+      // the stale `onCreated(mapped)` outside the else-block, which was caught
+      // and displayed as an error toast even though the create succeeded.
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
     it('shows error when API call fails', async () => {
       api.apiFetch.mockRejectedValue(new Error('Server error'))
       const user = userEvent.setup()
@@ -271,4 +293,5 @@ describe('CreateReportPanel', () => {
       })
     })
   })
+
 })

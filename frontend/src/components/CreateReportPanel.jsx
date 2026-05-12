@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
-import { createReport, mapReport } from '../services/reportService.js'
+import { createReport, updateReport, mapReport } from '../services/reportService.js'
 import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
@@ -12,17 +12,48 @@ import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 const ALLOWED_MEDIA_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'video/quicktime']
 const MAX_MEDIA_BYTES = 15 * 1024 * 1024
 
-function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError }) {
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm']
+function isVideoUrl(url) {
+  if (!url) return false
+  const path = url.toLowerCase().split('?')[0]
+  return VIDEO_EXTENSIONS.some((ext) => path.endsWith(ext))
+}
+
+// editReport: mapped report object — when provided, the panel operates in edit mode.
+// onUpdated: called with the mapped updated report after a successful edit.
+function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError, editReport, onUpdated }) {
+  const isEditMode = !!editReport
   const { token, userId } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [reportType, setReportType] = useState('OBSTACLE')
-  const [environment, setEnvironment] = useState('OUTDOOR')
-  const [objects, setObjects] = useState([])
-  const [description, setDescription] = useState('')
+  const [reportType, setReportType] = useState(editReport?.reportType ?? 'OBSTACLE')
+  const [environment, setEnvironment] = useState(editReport?.environment ?? 'OUTDOOR')
+  const [objects, setObjects] = useState(() =>
+    editReport
+      ? (editReport.objects || []).map(obj => ({
+          id: crypto.randomUUID(),
+          objectType: obj.objectType,
+          issues: obj.issues || [],
+          measurements: obj.measurements || {},
+          expanded: false,
+          showMeasurements: Object.keys(obj.measurements || {}).length > 0,
+        }))
+      : []
+  )
+  const [description, setDescription] = useState(editReport?.description ?? '')
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
+  // Existing media for edit mode — each entry: { id, url, toRemove }
+  const [existingMedia, setExistingMedia] = useState(() =>
+    editReport
+      ? (editReport.mediaUrls || []).map((url, i) => ({
+          id: editReport.mediaIds?.[i] ?? null,
+          url,
+          toRemove: false,
+        }))
+      : []
+  )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   // Errors raised while picking a file (unsupported MIME, oversized).
@@ -144,6 +175,10 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
     })
   }
 
+  function toggleExistingMediaRemove(idx) {
+    setExistingMedia(prev => prev.map((m, i) => i === idx ? { ...m, toRemove: !m.toRemove } : m))
+  }
+
   // ── report type toggle ─────────────────────────────────────────────────────
 
   function handleReportTypeChange(newType) {
@@ -218,9 +253,10 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
   async function handleSubmit() {
     if (!token) { onClose(); navigate('/login'); return }
-    if (!position) return setError('Click on the map to set a location.')
-    if (objects.length === 0) return setError('Add at least one object to describe the issue.')
 
+    if (!isEditMode && !position) return setError('Click on the map to set a location.')
+
+    if (objects.length === 0) return setError('Add at least one object to describe the issue.')
     for (const obj of objects) {
       if (!obj.objectType) return setError('Select a type for every object card.')
       if (reportType === 'OBSTACLE' && obj.issues.length === 0) {
@@ -228,62 +264,87 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         return setError(`Select at least one issue for the "${label}" object.`)
       }
     }
-
     if (!description.trim()) return setError('Please provide a description.')
 
     setSubmitting(true)
     setError('')
     try {
-      const body = {
-        userId,
-        latitude: position.lat,
-        longitude: position.lng,
-        description: description.trim(),
-        reportType,
-        environment,
-        objects: objects.map(o => ({
-          objectType: o.objectType,
-          issues: o.issues,
-          measurements: JSON.stringify(
-            Object.fromEntries(Object.entries(o.measurements).filter(([, v]) => v !== ''))
-          ),
-        })),
-        token,
-      }
-      const created = await createReport(body)
+      const mappedObjects = objects.map(o => ({
+        objectType: o.objectType,
+        issues: o.issues,
+        measurements: JSON.stringify(
+          Object.fromEntries(Object.entries(o.measurements).filter(([, v]) => v !== ''))
+        ),
+      }))
 
-      let uploadedMedia = []
-      if (imageFiles.length > 0) {
-        const formData = new FormData()
-        imageFiles.forEach(file => formData.append('file', file))
-        const mediaRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${created.reportId}/media`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        })
-        if (mediaRes.ok) {
-          // Get the json directly, do not map it
-          uploadedMedia = await mediaRes.json()
+      if (isEditMode) {
+        // ── edit flow ──────────────────────────────────────────────────────
+        const mediaIdsToRemove = existingMedia
+          .filter(m => m.toRemove && m.id != null)
+          .map(m => m.id)
+        const body = {
+          description: description.trim(),
+          environment,
+          objects: mappedObjects,
+          ...(mediaIdsToRemove.length > 0 && { mediaIdsToRemove }),
         }
-      }
 
-      const mapped = mapReport(created)
-      if (uploadedMedia.length > 0) {
-        mapped.image = uploadedMedia[0].url // Use the first photo URL for the map preview
-        mapped.media = uploadedMedia
+        const updated = await updateReport(editReport.id, body, token)
+
+        if (imageFiles.length > 0) {
+          const formData = new FormData()
+          imageFiles.forEach(file => formData.append('file', file))
+          await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${editReport.id}/media`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          })
+        }
+
+        onUpdated(mapReport(updated))
+        onClose()
+      } else {
+        // ── create flow ────────────────────────────────────────────────────
+        const body = {
+          userId,
+          latitude: position.lat,
+          longitude: position.lng,
+          description: description.trim(),
+          reportType,
+          environment,
+          objects: mappedObjects,
+          token,
+        }
+        const created = await createReport(body)
+
+        let uploadedMedia = []
+        if (imageFiles.length > 0) {
+          const formData = new FormData()
+          imageFiles.forEach(file => formData.append('file', file))
+          const mediaRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${created.reportId}/media`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          })
+          if (mediaRes.ok) {
+            uploadedMedia = await mediaRes.json()
+          }
+        }
+
+        const mapped = mapReport(created)
+        if (uploadedMedia.length > 0) {
+          mapped.image = uploadedMedia[0].url
+          mapped.media = uploadedMedia
+        }
+        // Invalidate leaderboard + profile caches so the new +10 bonus is reflected immediately.
+        queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+        queryClient.invalidateQueries({ queryKey: currentUserKey })
+        onCreated(mapped)
+        onClose()
       }
-      // A successful submission awards the +10 report-submit bonus. Invalidate
-      // leaderboard + profile caches so the caller's own tab reflects the
-      // new balance immediately; the SSE event covers other tabs/users.
-      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
-      queryClient.invalidateQueries({ queryKey: currentUserKey })
-      onCreated(mapped)
-      onClose()
     } catch (err) {
-      const message = err.message || 'Failed to submit report. Please try again.'
+      const message = err.message || (isEditMode ? 'Failed to save changes. Please try again.' : 'Failed to submit report. Please try again.')
       setError(message)
-      // Surface the same message as a global toast for callers that wired one
-      // up (Home does). The inline error stays for persistent context.
       if (onError) onError(message)
     } finally {
       setSubmitting(false)
@@ -336,11 +397,16 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
       {/* Header */}
       <div className="px-8 pt-2 lg:pt-8 pb-4 flex items-start justify-between flex-shrink-0">
         <div className="min-w-0">
-          <h2 className="text-2xl font-extrabold font-headline text-on-surface">New Report</h2>
-          {position ? (
-            // Place name from reverse-geocoding sits on the primary line; raw
-            // coordinates fall to a smaller secondary line so the user always
-            // has the precise location available even when Nominatim resolves.
+          <h2 className="text-2xl font-extrabold font-headline text-on-surface">
+            {isEditMode ? 'Edit Report' : 'New Report'}
+          </h2>
+          {isEditMode ? (
+            editReport.location && (
+              <p className="text-sm text-on-surface-variant mt-1 truncate">
+                📍 {editReport.location}
+              </p>
+            )
+          ) : position ? (
             <>
               <p className="text-sm font-semibold text-on-surface mt-1 truncate" title={positionLabel || undefined}>
                 📍 {positionLabel || `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`}
@@ -368,7 +434,42 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
         {/* Visual Evidence */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>
+          {!isEditMode && <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Visual Evidence</p>}
+
+          {/* Existing media — edit mode only */}
+          {isEditMode && existingMedia.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[10px] font-semibold text-on-surface-variant mb-2 uppercase tracking-wider">
+                Current media <span className="font-normal normal-case tracking-normal opacity-60">— click × to remove</span>
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {existingMedia.map((m, idx) => {
+                  const isVid = isVideoUrl(m.url)
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative aspect-video rounded-lg overflow-hidden border transition-opacity ${m.toRemove ? 'opacity-35 border-error/40' : 'border-outline-variant/20'}`}
+                    >
+                      {isVid ? (
+                        <video src={m.url} className="w-full h-full object-cover bg-black" muted playsInline />
+                      ) : (
+                        <img src={m.url} alt="Existing media" className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        onClick={() => toggleExistingMediaRemove(idx)}
+                        className={`absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-white transition-colors ${m.toRemove ? 'bg-error hover:bg-error/80' : 'bg-black/60 hover:bg-black/80'}`}
+                        aria-label={m.toRemove ? 'Undo remove' : 'Remove media'}
+                      >
+                        <span className="material-symbols-outlined text-sm">{m.toRemove ? 'undo' : 'close'}</span>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* New media upload */}
           <div
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
@@ -412,7 +513,9 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             ) : (
               <>
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">add_a_photo</span>
-                <p className="text-sm font-medium text-on-surface-variant">Upload or drag photos / videos here</p>
+                <p className="text-sm font-medium text-on-surface-variant">
+                  {isEditMode ? 'Upload additional photos / videos' : 'Upload or drag photos / videos here'}
+                </p>
                 <p className="text-xs text-outline">Up to 5 files, 15 MB each (JPEG, PNG, MP4, MOV).</p>
               </>
             )}
@@ -435,27 +538,39 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         {/* Report Type */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Report Type</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { value: 'OBSTACLE', icon: 'construction',      label: 'Obstacle', desc: 'Something broken or missing' },
-              { value: 'FEATURE',  icon: 'accessible_forward', label: 'Feature',  desc: 'Something helpful that exists' },
-            ].map(t => (
-              <button
-                key={t.value}
-                aria-label={t.label}
-                onClick={() => handleReportTypeChange(t.value)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${
-                  reportType === t.value
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40'
-                }`}
-              >
-                <span className="material-symbols-outlined text-xl">{t.icon}</span>
-                <span className="font-bold text-xs">{t.label}</span>
-                <span className="text-[10px] opacity-70 text-center leading-tight">{t.desc}</span>
-              </button>
-            ))}
-          </div>
+          {isEditMode ? (
+            // Read-only in edit mode — backend doesn't support changing reportType
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-surface-container border border-outline-variant/20 w-fit">
+              <span className="material-symbols-outlined text-on-surface-variant text-lg">
+                {reportType === 'FEATURE' ? 'accessible_forward' : 'construction'}
+              </span>
+              <span className="text-sm font-semibold text-on-surface">
+                {reportType === 'FEATURE' ? 'Feature' : 'Obstacle'}
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'OBSTACLE', icon: 'construction',      label: 'Obstacle', desc: 'Something broken or missing' },
+                { value: 'FEATURE',  icon: 'accessible_forward', label: 'Feature',  desc: 'Something helpful that exists' },
+              ].map(t => (
+                <button
+                  key={t.value}
+                  aria-label={t.label}
+                  onClick={() => handleReportTypeChange(t.value)}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${
+                    reportType === t.value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-xl">{t.icon}</span>
+                  <span className="font-bold text-xs">{t.label}</span>
+                  <span className="text-[10px] opacity-70 text-center leading-tight">{t.desc}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Environment */}
@@ -695,7 +810,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
+          <p role="alert" className="text-sm text-error bg-error-container/20 rounded-lg px-4 py-2">{error}</p>
         )}
 
         {/* Actions */}
@@ -711,7 +826,9 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
             disabled={submitting}
             className="py-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
           >
-            {submitting ? 'Submitting…' : 'Submit Report'}
+            {submitting
+              ? (isEditMode ? 'Saving…' : 'Submitting…')
+              : isEditMode ? 'Save Changes' : 'Submit Report'}
           </button>
         </div>
 

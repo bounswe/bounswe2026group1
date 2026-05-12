@@ -194,6 +194,7 @@ function formatReportLocation(latitude, longitude) {
  */
 export function mapReport(r) {
   const objects = (r.objects || []).map(obj => ({
+    id: obj.id,
     objectType: obj.objectType,
     issues: obj.issues || [],
     measurements: obj.measurements
@@ -240,6 +241,7 @@ export function mapReport(r) {
     objects,
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     mediaUrls: r.mediaUrls ?? [],
+    mediaIds: r.mediaIds ?? [],
     latitude: coords.lat,
     longitude: coords.lng,
     geometry: r.geometry ?? geoJsonPoint(r.latitude, r.longitude),
@@ -377,6 +379,14 @@ export async function deleteReport(id, token) {
   return apiFetch(`/api/reports/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export async function contributeMeasurements(reportId, objectId, values, token) {
+  return apiFetch(`/api/reports/${reportId}/objects/${objectId}/measurements`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ values }),
   })
 }
 

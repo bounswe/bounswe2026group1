@@ -20,6 +20,29 @@ vi.mock('../hooks/useUserProfile.js', () => ({
   useUserProfile: vi.fn(),
 }))
 
+// CreateReportPanel is a heavyweight component; stub it so ReportPanel tests
+// can assert on which props it receives without rendering its full tree.
+vi.mock('./CreateReportPanel.jsx', () => ({
+  default: ({ editReport, onClose }) => (
+    <div data-testid="create-report-panel">
+      <span data-testid="cp-report-id">{editReport?.id}</span>
+      <button onClick={onClose}>Cancel</button>
+    </div>
+  ),
+}))
+
+// ContributeMeasurementsPanel stub exposes onClose and onContributed so tests
+// can trigger them without running the real PATCH flow.
+vi.mock('./ContributeMeasurementsPanel.jsx', () => ({
+  default: ({ report, object, onClose, onContributed }) => (
+    <div data-testid="contribute-panel">
+      <span data-testid="contribute-object-type">{object?.objectType}</span>
+      <button onClick={onClose}>Close contribute</button>
+      <button onClick={() => onContributed({ id: report?.id })}>Submit contribute</button>
+    </div>
+  ),
+}))
+
 vi.mock('../services/reportService.js', () => ({
   agreeReport: vi.fn(),
   disagreeReport: vi.fn(),
@@ -27,6 +50,7 @@ vi.mock('../services/reportService.js', () => ({
   deleteReport: vi.fn(() => Promise.resolve()),
   agreeFixRequest: vi.fn(),
   disagreeFixRequest: vi.fn(),
+  contributeMeasurements: vi.fn(),
   mapReport: vi.fn(r => r),
   mapFixRequest: vi.fn(fr => fr),
   getCommentsByReport: vi.fn(() => Promise.resolve([])),
@@ -40,12 +64,9 @@ vi.mock('../services/reportService.js', () => ({
 import {
   agreeReport,
   disagreeReport,
-  updateReport,
   deleteReport,
   agreeFixRequest,
   getCommentsByReport,
-  createComment,
-  deleteComment,
 } from '../services/reportService.js'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 
@@ -177,57 +198,111 @@ describe('ReportPanel', () => {
     })
   })
 
-  describe('owner edit', () => {
-    const ownedReport = {
-      ...report,
-      ownerId: 'user123',
-      environment: 'OUTDOOR',
-    }
+  describe('edit button visibility', () => {
+    const ownedReport = { ...report, ownerId: 'user123', environment: 'OUTDOOR' }
+    const othersReport = { ...report, ownerId: 'someone-else', environment: 'OUTDOOR' }
 
-    test('does not show Edit button for non-owners', () => {
-      renderPanel({ report: { ...ownedReport, ownerId: 'someone-else' } })
-      expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
-    })
-
-    test('shows Edit button for the report owner', () => {
+    test('owner sees "Edit" button (full edit access)', () => {
       renderPanel({ report: ownedReport })
       expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
     })
 
-    test('clicking Edit reveals description textarea and environment radios', async () => {
-      renderPanel({ report: ownedReport })
-      await user.click(screen.getByRole('button', { name: /^edit$/i }))
-      expect(screen.getByLabelText(/^description$/i)).toHaveValue(ownedReport.description)
-      expect(screen.getByRole('radio', { name: /outdoor/i })).toBeChecked()
-      expect(screen.getByRole('radio', { name: /indoor/i })).not.toBeChecked()
+    test('authenticated non-owner sees no edit button in the header', () => {
+      renderPanel({ report: othersReport })
+      expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /edit measurements/i })).not.toBeInTheDocument()
     })
 
-    test('save calls updateReport with description and environment', async () => {
-      updateReport.mockResolvedValueOnce({ ...ownedReport, description: 'New' })
-      renderPanel({ report: ownedReport })
-      await user.click(screen.getByRole('button', { name: /^edit$/i }))
-
-      const textarea = screen.getByLabelText(/^description$/i)
-      await user.clear(textarea)
-      await user.type(textarea, 'New')
-      await user.click(screen.getByRole('radio', { name: /indoor/i }))
-      await user.click(screen.getByRole('button', { name: /^save$/i }))
-
-      await waitFor(() => {
-        expect(updateReport).toHaveBeenCalledWith(
-          'r1',
-          { description: 'New', environment: 'INDOOR' },
-          'mock-token',
-        )
-      })
+    test('unauthenticated user sees no edit button at all', () => {
+      mockAuth.isAuthenticated = false
+      mockAuth.token = null
+      renderPanel({ report: othersReport })
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
     })
 
-    test('Cancel exits edit mode without saving', async () => {
+    test('clicking Edit opens CreateReportPanel for owner', async () => {
       renderPanel({ report: ownedReport })
       await user.click(screen.getByRole('button', { name: /^edit$/i }))
+      expect(screen.getByTestId('create-report-panel')).toBeInTheDocument()
+      expect(screen.getByTestId('cp-report-id')).toHaveTextContent('r1')
+    })
+
+    test('closing the edit panel hides CreateReportPanel', async () => {
+      renderPanel({ report: ownedReport })
+      await user.click(screen.getByRole('button', { name: /^edit$/i }))
+      expect(screen.getByTestId('create-report-panel')).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: /^cancel$/i }))
-      expect(screen.queryByLabelText(/^description$/i)).not.toBeInTheDocument()
-      expect(updateReport).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('create-report-panel')).not.toBeInTheDocument()
+    })
+  })
+
+  // ── "Add a missing measurement" per-object button ────────────────────────
+
+  describe('"Add a missing measurement" contribute button', () => {
+    // RAMP with no measurements → all 3 fields blank
+    const reportWithBlankMeasurements = {
+      ...report,
+      ownerId: 'someone-else',
+      objects: [{ id: 1, objectType: 'RAMP', issues: ['TOO_STEEP'], measurements: {} }],
+    }
+    // RAMP with all 3 fields filled → no blank fields
+    const reportWithFullMeasurements = {
+      ...report,
+      ownerId: 'someone-else',
+      objects: [{ id: 1, objectType: 'RAMP', issues: [], measurements: { slope_percent: 8, width_cm: 120, height_cm: 50 } }],
+    }
+    const ownedReportWithObjects = {
+      ...report,
+      ownerId: 'user123',
+      objects: [{ id: 1, objectType: 'RAMP', issues: [], measurements: {} }],
+    }
+
+    test('non-owner with blank measurement fields sees the button', () => {
+      renderPanel({ report: reportWithBlankMeasurements })
+      expect(screen.getByRole('button', { name: /add a missing measurement/i })).toBeInTheDocument()
+    })
+
+    test('non-owner with all measurements filled does not see the button', () => {
+      renderPanel({ report: reportWithFullMeasurements })
+      expect(screen.queryByRole('button', { name: /add a missing measurement/i })).not.toBeInTheDocument()
+    })
+
+    test('owner does not see the per-object contribute button', () => {
+      renderPanel({ report: ownedReportWithObjects })
+      expect(screen.queryByRole('button', { name: /add a missing measurement/i })).not.toBeInTheDocument()
+    })
+
+    test('unauthenticated user does not see the contribute button', () => {
+      mockAuth.isAuthenticated = false
+      mockAuth.token = null
+      renderPanel({ report: reportWithBlankMeasurements })
+      expect(screen.queryByRole('button', { name: /add a missing measurement/i })).not.toBeInTheDocument()
+    })
+
+    test('clicking the button opens ContributeMeasurementsPanel for that object', async () => {
+      renderPanel({ report: reportWithBlankMeasurements })
+      await user.click(screen.getByRole('button', { name: /add a missing measurement/i }))
+      expect(screen.getByTestId('contribute-panel')).toBeInTheDocument()
+      expect(screen.getByTestId('contribute-object-type')).toHaveTextContent('RAMP')
+    })
+
+    test('closing ContributeMeasurementsPanel via onClose hides the panel', async () => {
+      renderPanel({ report: reportWithBlankMeasurements })
+      await user.click(screen.getByRole('button', { name: /add a missing measurement/i }))
+      expect(screen.getByTestId('contribute-panel')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /close contribute/i }))
+      expect(screen.queryByTestId('contribute-panel')).not.toBeInTheDocument()
+    })
+
+    test('onContributed calls onVoteUpdate and shows success toast', async () => {
+      renderPanel({ report: reportWithBlankMeasurements })
+      await user.click(screen.getByRole('button', { name: /add a missing measurement/i }))
+
+      await user.click(screen.getByRole('button', { name: /submit contribute/i }))
+
+      await waitFor(() => expect(onVoteUpdateMock).toHaveBeenCalled())
+      expect(screen.getByText(/measurements added/i)).toBeInTheDocument()
     })
   })
 
