@@ -32,6 +32,15 @@ vi.mock('../services/reportService.js', async (importOriginal) => {
   }
 })
 
+// Navbar -> useUnreadCount -> useNotifications fires once an auth token is set.
+// Stub the service so the hook always gets a well-typed array, regardless of
+// whatever shape the per-test fetch mock returns for unmatched URLs.
+vi.mock('../services/notificationService.js', () => ({
+  getNotifications: vi.fn().mockResolvedValue([]),
+  markNotificationRead: vi.fn().mockResolvedValue(null),
+  mintSseToken: vi.fn().mockResolvedValue({ token: 'sse-test-token' }),
+}))
+
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
   TileLayer: () => null,
