@@ -92,6 +92,77 @@ class RouteServiceTest {
     }
 
     @Test
+    void walkingUserWithAvoidStairs_takesRampAssistedRoute_whenItIsShorterThanDirect() {
+        // Setup: walking user, AVOID_STAIRS active. The fastest walking route exists,
+        // a FEATURE ramp report covers part of it, and routing through the ramp
+        // (legs 3×100m = 300m) beats the direct stair-avoiding accessible route (500m).
+        Report ramp = new Report();
+        ramp.setEntryPoint(new Location(41.0840, 29.0460));
+        ramp.setExitPoint(new Location(41.0830, 29.0480));
+        when(obstacleService.findRampOnPath(any())).thenReturn(ramp);
+
+        // Direct accessible WALKING route — long detour around the stairs
+        RoutingDirectionsResult directAccessible = RoutingDirectionsResult.builder()
+                .distanceMeters(500.0).durationSeconds(360.0).geometry("").steps(List.of()).build();
+        // Each ramp-leg — sum is 300m, beats the direct
+        RoutingDirectionsResult legRoute = RoutingDirectionsResult.builder()
+                .distanceMeters(100.0).durationSeconds(60.0).geometry("").steps(List.of()).build();
+        // Fastest walking route (drives findRampOnPath input) — geometry must decode to ≥ 2 pts
+        RoutingDirectionsResult fastest = RoutingDirectionsResult.builder()
+                .distanceMeters(800.0).durationSeconds(540.0).geometry("_p~iG~psG_p~iG~psG").steps(List.of()).build();
+
+        // 1st call: Fastest WALKING (no constraints) → fastest
+        // 2nd call: Direct Accessible WALKING (with AVOID_STAIRS) → directAccessible
+        // 3rd call: leg1 WALKING (with AVOID_STAIRS) → legRoute
+        // 4th call: leg2 WALKING (unfiltered) → legRoute
+        // 5th call: leg3 WALKING (with AVOID_STAIRS) → legRoute
+        when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WALKING), any(), any()))
+                .thenReturn(fastest)
+                .thenReturn(directAccessible)
+                .thenReturn(legRoute)
+                .thenReturn(legRoute)
+                .thenReturn(legRoute);
+
+        List<RouteResponse> routes = routeService.getRouteOptions(
+                new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING),
+                EnumSet.of(RoutingConstraint.AVOID_STAIRS),
+                TravelMode.WALKING);
+
+        RouteResponse accessible = routes.stream()
+                .filter(r -> "Accessible Route".equals(r.getRouteLabel()))
+                .findFirst()
+                .orElse(null);
+        assertTrue(accessible != null,
+                "Accessible Route must be emitted. Routes: " + routes);
+        // Ramp-assisted (300m) wins over direct accessible (500m)
+        org.junit.jupiter.api.Assertions.assertEquals(300.0, accessible.getDistanceMeters(), 0.01,
+                "Accessible Route must be the ramp-assisted multi-leg (300m), not the direct (500m)");
+    }
+
+    @Test
+    void walkingUserWithAvoidStairs_keepsDirectAccessibleRoute_whenNoRampReportFound() {
+        // No ramp reported on the fastest path → buildRampAssistedRoute returns null,
+        // so the Accessible Route stays the direct foot-walking + avoid_features result.
+        when(obstacleService.findRampOnPath(any())).thenReturn(null);
+
+        RoutingDirectionsResult anyRoute = RoutingDirectionsResult.builder()
+                .distanceMeters(250.0).durationSeconds(180.0).geometry("_p~iG~psG_p~iG~psG").steps(List.of()).build();
+        when(orsRoutingClient.fetchDirections(any(), any(), any(), any(), any())).thenReturn(anyRoute);
+
+        List<RouteResponse> routes = routeService.getRouteOptions(
+                new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING),
+                EnumSet.of(RoutingConstraint.AVOID_STAIRS),
+                TravelMode.WALKING);
+
+        RouteResponse accessible = routes.stream()
+                .filter(r -> "Accessible Route".equals(r.getRouteLabel()))
+                .findFirst()
+                .orElse(null);
+        assertTrue(accessible != null && accessible.getDistanceMeters() == 250.0,
+                "Accessible Route must be the direct result (250m) when no ramp report exists. Routes: " + routes);
+    }
+
+    @Test
     void rampAssistedRoute_isSkippedGracefully_whenLeg2WalkingCallFails() {
         // A ramp candidate exists, so the multi-leg branch is entered
         Report ramp = new Report();
