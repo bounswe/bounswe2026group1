@@ -560,7 +560,7 @@ class RegisteredUserServiceTest {
         org.springframework.data.domain.Page<RegisteredUser> results =
                 new org.springframework.data.domain.PageImpl<>(List.of(mockUser));
         when(registeredUserRepository
-                .searchUsersByNameOrEmail("test", page))
+                .searchUsersByName("test", page))
                 .thenReturn(results);
         // singletonList — List.of(Object[]) gets varargs-unpacked into a
         // List<Long>, and doReturn skips compile-time checking, so the cast
@@ -587,7 +587,7 @@ class RegisteredUserServiceTest {
         org.springframework.data.domain.Page<RegisteredUser> results =
                 new org.springframework.data.domain.PageImpl<>(List.of());
         when(registeredUserRepository
-                .searchUsersByNameOrEmail("foo", page))
+                .searchUsersByName("foo", page))
                 .thenReturn(results);
 
         registeredUserService.searchUsers("  foo  ", page);
@@ -595,14 +595,14 @@ class RegisteredUserServiceTest {
         // Whitespace stripped before passing to the repo. The repo method itself
         // is case-insensitive, so we don't need to lowercase here.
         verify(registeredUserRepository)
-                .searchUsersByNameOrEmail("foo", page);
+                .searchUsersByName("foo", page);
     }
 
     @Test
     void searchUsers_emptyResults_returnsEmptyPage() {
         org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, 20);
         when(registeredUserRepository
-                .searchUsersByNameOrEmail("zzz", page))
+                .searchUsersByName("zzz", page))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
 
         org.springframework.data.domain.Page<UserProfileDTO> dtos =

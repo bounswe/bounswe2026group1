@@ -23,12 +23,12 @@ class RegisteredUserRepositoryTest extends AbstractPostgisIntegrationTest {
     private RegisteredUserRepository repository;
 
     @Test
-    void searchUsersByNameOrEmail_includesAdminsAndExcludesBannedUsers() {
-        RegisteredUser regular = persist("Ada Lovelace", "ada@search.test", UserRole.USER, UserStatus.ACTIVE);
-        RegisteredUser admin = persist("Alan Turing", "alan@search.test", UserRole.ADMIN, UserStatus.ACTIVE);
-        RegisteredUser banned = persist("Albert Banned", "albert@search.test", UserRole.USER, UserStatus.BANNED);
+    void searchUsersByName_includesAdminsAndExcludesBannedUsers() {
+        RegisteredUser regular = persist("Search Regular", UserRole.USER, UserStatus.ACTIVE);
+        RegisteredUser admin = persist("Search Admin", UserRole.ADMIN, UserStatus.ACTIVE);
+        RegisteredUser banned = persist("Search Banned", UserRole.USER, UserStatus.BANNED);
 
-        Page<RegisteredUser> page = repository.searchUsersByNameOrEmail("search.test", PageRequest.of(0, 20));
+        Page<RegisteredUser> page = repository.searchUsersByName("search", PageRequest.of(0, 20));
 
         List<Long> ids = page.getContent().stream().map(RegisteredUser::getId).toList();
         assertTrue(ids.contains(regular.getId()));
@@ -38,25 +38,20 @@ class RegisteredUserRepositoryTest extends AbstractPostgisIntegrationTest {
     }
 
     @Test
-    void searchUsersByNameOrEmail_caseInsensitiveSubstringMatchAcrossNameAndEmail() {
-        RegisteredUser byName = persist("Grace Hopper", "grace@case.test", UserRole.USER, UserStatus.ACTIVE);
-        RegisteredUser byEmail = persist("Other Person", "alan@case.test", UserRole.USER, UserStatus.ACTIVE);
-        persist("Unrelated", "u@elsewhere.test", UserRole.USER, UserStatus.ACTIVE);
+    void searchUsersByName_caseInsensitiveSubstringMatch() {
+        RegisteredUser hit = persist("Grace Hopper", UserRole.USER, UserStatus.ACTIVE);
+        persist("Unrelated Person", UserRole.USER, UserStatus.ACTIVE);
 
-        Page<RegisteredUser> matchByName = repository.searchUsersByNameOrEmail("GRACE", PageRequest.of(0, 20));
-        Page<RegisteredUser> matchByEmail = repository.searchUsersByNameOrEmail("alan@", PageRequest.of(0, 20));
+        Page<RegisteredUser> page = repository.searchUsersByName("GRACE", PageRequest.of(0, 20));
 
-        assertEquals(1L, matchByName.getTotalElements());
-        assertEquals(byName.getId(), matchByName.getContent().get(0).getId());
-
-        assertEquals(1L, matchByEmail.getTotalElements());
-        assertEquals(byEmail.getId(), matchByEmail.getContent().get(0).getId());
+        assertEquals(1L, page.getTotalElements());
+        assertEquals(hit.getId(), page.getContent().get(0).getId());
     }
 
-    private RegisteredUser persist(String name, String email, UserRole role, UserStatus status) {
+    private RegisteredUser persist(String name, UserRole role, UserStatus status) {
         RegisteredUser u = new RegisteredUser();
         u.setName(name);
-        u.setEmail(email);
+        u.setEmail(name.toLowerCase().replace(' ', '.') + "@search.test");
         u.setPassword("hashedPassword");
         u.setRole(role);
         u.setStatus(status);
