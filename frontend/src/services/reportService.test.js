@@ -191,6 +191,92 @@ describe('reportService — fix request helpers', () => {
         signal: ac.signal,
       })
     })
+
+    it('serializes multi-value enum filters as repeated query params', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          status: ['VERIFIED', 'PENDING'],
+          objectType: ['RAMP'],
+          issueType: ['TOO_STEEP', 'MISSING'],
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.getAll('status')).toEqual(['VERIFIED', 'PENDING'])
+      expect(sp.getAll('objectType')).toEqual(['RAMP'])
+      expect(sp.getAll('issueType')).toEqual(['TOO_STEEP', 'MISSING'])
+    })
+
+    it('passes authorId, date range, q, and vote thresholds', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          authorId: 42,
+          publishedAfter: '2026-01-01T00:00:00Z',
+          publishedBefore: '2026-06-01T00:00:00Z',
+          q: '  elevator  ',
+          minAgrees: 3,
+          minDisagrees: 0,
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.get('authorId')).toBe('42')
+      expect(sp.get('publishedAfter')).toBe('2026-01-01T00:00:00Z')
+      expect(sp.get('publishedBefore')).toBe('2026-06-01T00:00:00Z')
+      expect(sp.get('q')).toBe('elevator') // trimmed
+      expect(sp.get('minAgrees')).toBe('3')
+      expect(sp.get('minDisagrees')).toBe('0')
+    })
+
+    it('sends sort when explicit; omits sort when falsy', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed({ page: 0, size: 20, sort: 'MOST_AGREED' }, null)
+      let qs = apiFetch.mock.calls[0][0].split('?')[1]
+      expect(new URLSearchParams(qs).get('sort')).toBe('MOST_AGREED')
+
+      apiFetch.mockClear()
+      await getReportFeed({ page: 0, size: 20, sort: undefined }, null)
+      qs = apiFetch.mock.calls[0][0].split('?')[1]
+      expect(new URLSearchParams(qs).has('sort')).toBe(false)
+    })
+
+    it('drops empty arrays, whitespace-only q, and negative vote thresholds', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          status: [],
+          objectType: [null, ''],
+          q: '   ',
+          minAgrees: -1,
+          minDisagrees: '',
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.has('status')).toBe(false)
+      expect(sp.has('objectType')).toBe(false)
+      expect(sp.has('q')).toBe(false)
+      expect(sp.has('minAgrees')).toBe(false)
+      expect(sp.has('minDisagrees')).toBe(false)
+    })
   })
 
   describe('mapReportStatus', () => {

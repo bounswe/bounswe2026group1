@@ -257,7 +257,14 @@ export async function getReportsByUserId(userId) {
 /**
  * Paginated community feed.
  * GET /api/reports/feed
- * With coordinates + radiusInKm: proximity ordering. Without coordinates: global newest-first feed.
+ *
+ * Filters mirror the backend `ReportFeedQuery`:
+ *  - `reportType`, `environment` (single value; 'ALL' is treated as unset)
+ *  - `status`, `objectType`, `issueType` (arrays; each value becomes a repeated query param)
+ *  - `authorId`, `publishedAfter`, `publishedBefore`, `q`
+ *  - `minAgrees`, `minDisagrees`
+ *  - `sort` (omitted when falsy; backend defaults to distance with coords, newest otherwise)
+ *  - `latitude` + `longitude` (+ optional `radiusInKm`)
  */
 export async function getReportFeed(
   {
@@ -265,6 +272,16 @@ export async function getReportFeed(
     size = 20,
     reportType,
     environment,
+    status,
+    authorId,
+    publishedAfter,
+    publishedBefore,
+    q,
+    minAgrees,
+    minDisagrees,
+    objectType,
+    issueType,
+    sort,
     latitude,
     longitude,
     radiusInKm,
@@ -277,6 +294,19 @@ export async function getReportFeed(
   params.set('size', String(size))
   if (reportType && reportType !== 'ALL') params.set('reportType', reportType)
   if (environment && environment !== 'ALL') params.set('environment', environment)
+  appendMulti(params, 'status', status)
+  if (authorId != null && Number.isFinite(Number(authorId))) {
+    params.set('authorId', String(authorId))
+  }
+  if (publishedAfter) params.set('publishedAfter', String(publishedAfter))
+  if (publishedBefore) params.set('publishedBefore', String(publishedBefore))
+  const qTrimmed = typeof q === 'string' ? q.trim() : ''
+  if (qTrimmed) params.set('q', qTrimmed)
+  appendNonNegativeInt(params, 'minAgrees', minAgrees)
+  appendNonNegativeInt(params, 'minDisagrees', minDisagrees)
+  appendMulti(params, 'objectType', objectType)
+  appendMulti(params, 'issueType', issueType)
+  if (sort) params.set('sort', sort)
   const latN = latitude != null ? Number(latitude) : NaN
   const lonN = longitude != null ? Number(longitude) : NaN
   if (Number.isFinite(latN) && Number.isFinite(lonN)) {
@@ -289,6 +319,19 @@ export async function getReportFeed(
   const headers = {}
   if (token) headers.Authorization = `Bearer ${token}`
   return apiFetch(`/api/reports/feed?${params.toString()}`, { headers, ...fetchOpts })
+}
+
+function appendMulti(params, key, values) {
+  if (!Array.isArray(values)) return
+  for (const v of values) {
+    if (v != null && v !== '') params.append(key, String(v))
+  }
+}
+
+function appendNonNegativeInt(params, key, value) {
+  if (value == null) return
+  const n = Number(value)
+  if (Number.isInteger(n) && n >= 0) params.set(key, String(n))
 }
 
 export async function updateReport(id, body, token) {
