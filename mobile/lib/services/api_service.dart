@@ -9,7 +9,7 @@ import '../models/report_model.dart';
 import '../models/routing_preferences.dart';
 import '../utils/geojson.dart';
 
-const _baseUrl = 'http://10.0.2.2:8080';
+const _baseUrl = 'https://api.mapcess.live';
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
 
 class ApiService {

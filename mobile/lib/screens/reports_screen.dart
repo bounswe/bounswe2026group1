@@ -118,6 +118,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // ─── Location filter ────────────────────────────────────────────────────────
   LatLng? _searchCenter;
   double _radiusKm = 5.0;
+  double _committedRadiusKm = 5.0;
   bool _locating = false;
   bool _locationPanelExpanded = false;
 
@@ -442,6 +443,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (!mounted) return;
       setState(() {
         _searchCenter = LatLng(pos.latitude, pos.longitude);
+        _committedRadiusKm = _radiusKm;
         _locationPanelExpanded = true;
       });
       _loadFirstPage();
@@ -467,6 +469,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (!mounted || result == null) return;
     setState(() {
       _searchCenter = result;
+      _committedRadiusKm = _radiusKm;
       _locationPanelExpanded = true;
     });
     _loadFirstPage();
@@ -482,9 +485,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _commitRadius(double v) {
-    if ((v - _radiusKm).abs() < 0.001) return;
     setState(() => _radiusKm = v);
-    if (_searchCenter != null) _loadFirstPage();
+    if (_searchCenter != null && (v - _committedRadiusKm).abs() >= 0.001) {
+      _committedRadiusKm = v;
+      _loadFirstPage();
+    }
   }
 
   double? _distanceTo(ReportModel report) {
