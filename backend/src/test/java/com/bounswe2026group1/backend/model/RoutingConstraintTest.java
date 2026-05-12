@@ -52,6 +52,7 @@ class RoutingConstraintTest {
                 RoutingConstraint.AVOID_LOW_CLEARANCE));
         assertEquals(Set.of(
                 new IssueHazard(ObjectType.RAMP, IssueType.MISSING_HANDRAIL),
+                new IssueHazard(ObjectType.RAMP, IssueType.HANDRAIL_TOO_LOW),
                 new IssueHazard(ObjectType.STAIR, IssueType.MISSING_HANDRAIL),
                 new IssueHazard(ObjectType.SIDEWALK, IssueType.INSUFFICIENT_CLEARANCE)),
                 result);
