@@ -10,6 +10,7 @@ import { feedFilterChipClass } from '../utils/feedFilterChip.js'
 import { STATUS_OPTIONS, SORT_OPTIONS } from '../utils/feedFilterOptions.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import { useUserSearch, USER_SEARCH_MIN_LENGTH } from '../hooks/useUserSearch.js'
+import { useReverseGeocode } from '../hooks/useReverseGeocode.js'
 
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY
 const TILE_LIGHT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -140,6 +141,140 @@ function validIssueKeysFor(selectedObjectTypes) {
     }
   }
   return keys
+}
+
+function ReportFeedCard({ report, distLabel, env, rtype }) {
+  // Backend stores a reverse-geocoded label at create time, but older rows
+  // (and external imports) ship without one. Resolve it client-side so the
+  // card never falls back to raw "lat, lng" digits.
+  const { data: geocodedLabel, isLoading: geocoding } = useReverseGeocode(
+    report.latitude,
+    report.longitude,
+    { enabled: !report.locationLabel }
+  )
+
+  const locationText = report.locationLabel
+    || geocodedLabel
+    || (geocoding ? 'Resolving location…' : 'Location unavailable')
+
+  return (
+    <li key={report.id} className="min-w-0">
+      <Link
+        to={`/?report=${report.id}&from=feed`}
+        className="flex flex-col h-full rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-sm p-3 hover:shadow-md transition-shadow group"
+      >
+        <div className="relative aspect-[5/3] max-h-[140px] w-full rounded-lg overflow-hidden bg-surface-container-high mb-2">
+          {report.image ? (
+            <img
+              src={report.image}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+              <span className="material-symbols-outlined text-4xl opacity-40">image</span>
+            </div>
+          )}
+          {distLabel && (
+            <div className="absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] pointer-events-none">
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-purple-800 shadow-sm ring-1 ring-white/90 dark:bg-purple-950/65 dark:text-purple-200 dark:ring-black/40">
+                <span
+                  className="material-symbols-outlined text-[12px] shrink-0 text-purple-700 dark:text-purple-300"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  near_me
+                </span>
+                <span className="truncate">{distLabel}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          <span
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              STATUS_STYLES[report.status] ?? 'bg-surface-container-high text-on-surface'
+            }`}
+          >
+            {STATUS_LABELS[report.status] ?? report.status}
+          </span>
+          {rtype && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/25 bg-primary/8 text-primary dark:bg-primary/15 dark:text-primary">
+              {rtype}
+            </span>
+          )}
+          {env && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container-high text-on-surface-variant">
+              {env}
+            </span>
+          )}
+        </div>
+
+        <h2 className="text-sm md:text-base font-bold font-headline text-on-surface leading-snug line-clamp-2 mb-1">
+          {report.title}
+        </h2>
+
+        {report.description ? (
+          <p className="text-xs text-on-surface-variant line-clamp-2 mb-2 flex-1">
+            {report.description}
+          </p>
+        ) : (
+          <p className="text-xs text-on-surface-variant/70 italic mb-2 flex-1">
+            No description
+          </p>
+        )}
+
+        <div className="mt-auto pt-1.5 border-t border-outline-variant/20 flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-on-surface-variant">
+            <span className="inline-flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
+                calendar_today
+              </span>
+              {report.date}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
+            <span className="inline-flex items-center gap-1 text-on-surface-variant truncate max-w-[55%] min-w-0">
+              <span
+                className="material-symbols-outlined text-[14px] text-primary shrink-0"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden
+              >
+                location_on
+              </span>
+              <span className="truncate font-medium text-on-surface text-[11px]">{locationText}</span>
+            </span>
+            <span className="inline-flex items-center gap-2 shrink-0 text-xs font-semibold not-italic">
+              <span
+                className="inline-flex items-center gap-1 text-primary"
+                title="Agree"
+              >
+                <span
+                  className="material-symbols-outlined text-[14px]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  thumb_up
+                </span>
+                {report.agrees ?? 0}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 text-error"
+                title="Disagree"
+              >
+                <span
+                  className="material-symbols-outlined text-[14px]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  thumb_down
+                </span>
+                {report.disagrees ?? 0}
+              </span>
+            </span>
+          </div>
+        </div>
+      </Link>
+    </li>
+  )
 }
 
 export default function Feed() {
@@ -919,126 +1054,14 @@ export default function Feed() {
               report.latitude,
               report.longitude
             )
-            const env = envLabel(report.environment)
-            const rtype = typeLabel(report.reportType)
-
             return (
-              <li key={report.id} className="min-w-0">
-                <Link
-                  to={`/?report=${report.id}&from=feed`}
-                  className="flex flex-col h-full rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-sm p-3 hover:shadow-md transition-shadow group"
-                >
-                  <div className="relative aspect-[5/3] max-h-[140px] w-full rounded-lg overflow-hidden bg-surface-container-high mb-2">
-                    {report.image ? (
-                      <img
-                        src={report.image}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
-                        <span className="material-symbols-outlined text-4xl opacity-40">image</span>
-                      </div>
-                    )}
-                    {distLabel && (
-                      <div className="absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] pointer-events-none">
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-purple-800 shadow-sm ring-1 ring-white/90 dark:bg-purple-950/65 dark:text-purple-200 dark:ring-black/40">
-                          <span
-                            className="material-symbols-outlined text-[12px] shrink-0 text-purple-700 dark:text-purple-300"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                          >
-                            near_me
-                          </span>
-                          <span className="truncate">{distLabel}</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-1.5">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        STATUS_STYLES[report.status] ?? 'bg-surface-container-high text-on-surface'
-                      }`}
-                    >
-                      {STATUS_LABELS[report.status] ?? report.status}
-                    </span>
-                    {rtype && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/25 bg-primary/8 text-primary dark:bg-primary/15 dark:text-primary">
-                        {rtype}
-                      </span>
-                    )}
-                    {env && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/35 bg-surface-container-high text-on-surface-variant">
-                        {env}
-                      </span>
-                    )}
-                  </div>
-
-                  <h2 className="text-sm md:text-base font-bold font-headline text-on-surface leading-snug line-clamp-2 mb-1">
-                    {report.title}
-                  </h2>
-
-                  {report.description ? (
-                    <p className="text-xs text-on-surface-variant line-clamp-2 mb-2 flex-1">
-                      {report.description}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-on-surface-variant/70 italic mb-2 flex-1">
-                      No description
-                    </p>
-                  )}
-
-                  <div className="mt-auto pt-1.5 border-t border-outline-variant/20 flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-on-surface-variant">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
-                          calendar_today
-                        </span>
-                        {report.date}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
-                      <span className="inline-flex items-center gap-1 text-on-surface-variant truncate max-w-[55%] min-w-0">
-                        <span
-                          className="material-symbols-outlined text-[14px] text-primary shrink-0"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                          aria-hidden
-                        >
-                          location_on
-                        </span>
-                        <span className="truncate font-medium text-on-surface text-[11px]">{report.location}</span>
-                      </span>
-                      <span className="inline-flex items-center gap-2 shrink-0 text-xs font-semibold not-italic">
-                        <span
-                          className="inline-flex items-center gap-1 text-primary"
-                          title="Agree"
-                        >
-                          <span
-                            className="material-symbols-outlined text-[14px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                          >
-                            thumb_up
-                          </span>
-                          {report.agrees ?? 0}
-                        </span>
-                        <span
-                          className="inline-flex items-center gap-1 text-error"
-                          title="Disagree"
-                        >
-                          <span
-                            className="material-symbols-outlined text-[14px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                          >
-                            thumb_down
-                          </span>
-                          {report.disagrees ?? 0}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              </li>
+              <ReportFeedCard
+                key={report.id}
+                report={report}
+                distLabel={distLabel}
+                env={envLabel(report.environment)}
+                rtype={typeLabel(report.reportType)}
+              />
             )
           })}
         </ul>

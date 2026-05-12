@@ -230,6 +230,7 @@ export function mapReport(r) {
     // fall back to rounded coordinates for older rows where the column is null.
     // Coords come from the GeoJSON helper so legacy scalars still work.
     location: r.locationLabel || formatReportLocation(coords.lat, coords.lng),
+    locationLabel: r.locationLabel || null,
     reportedBy: `User #${r.userId}`,
     ownerId: r.userId,
     agrees: r.agrees,
