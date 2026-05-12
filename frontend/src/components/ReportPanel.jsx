@@ -1139,7 +1139,6 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
           onUpdated={handleUpdated}
           onClose={() => setShowEditPanel(false)}
           onError={(msg) => showToast({ type: 'error', message: msg })}
-          measurementsOnly={false}
         />
       )}
 

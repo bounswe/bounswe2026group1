@@ -23,10 +23,9 @@ vi.mock('../hooks/useUserProfile.js', () => ({
 // CreateReportPanel is a heavyweight component; stub it so ReportPanel tests
 // can assert on which props it receives without rendering its full tree.
 vi.mock('./CreateReportPanel.jsx', () => ({
-  default: ({ editReport, measurementsOnly, onClose }) => (
+  default: ({ editReport, onClose }) => (
     <div data-testid="create-report-panel">
       <span data-testid="cp-report-id">{editReport?.id}</span>
-      <span data-testid="cp-measurements-only">{String(!!measurementsOnly)}</span>
       <button onClick={onClose}>Cancel</button>
     </div>
   ),
@@ -221,11 +220,11 @@ describe('ReportPanel', () => {
       expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
     })
 
-    test('clicking Edit opens CreateReportPanel with measurementsOnly=false for owner', async () => {
+    test('clicking Edit opens CreateReportPanel for owner', async () => {
       renderPanel({ report: ownedReport })
       await user.click(screen.getByRole('button', { name: /^edit$/i }))
       expect(screen.getByTestId('create-report-panel')).toBeInTheDocument()
-      expect(screen.getByTestId('cp-measurements-only')).toHaveTextContent('false')
+      expect(screen.getByTestId('cp-report-id')).toHaveTextContent('r1')
     })
 
     test('closing the edit panel hides CreateReportPanel', async () => {
