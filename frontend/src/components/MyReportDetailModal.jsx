@@ -58,7 +58,7 @@ function MyReportDetailModal({ report, userId, onClose }) {
       onClick={handleBackdropClick}
       className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="bg-surface-container-high rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface-container rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-outline-variant/20">
           <h3 className="text-lg font-bold font-headline text-on-surface">{report.title}</h3>
           <button
@@ -66,18 +66,18 @@ function MyReportDetailModal({ report, userId, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center cursor-pointer"
+            className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined text-on-surface-variant">close</span>
+            <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <div className="p-6 flex flex-col gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-surface-container text-on-surface'}`}>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[report.status] ?? 'bg-surface-container-highest text-on-surface'}`}>
               {STATUS_LABELS[report.status] ?? report.status}
             </span>
-            <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg">
+            <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-container-highest px-2.5 py-1 rounded-lg">
               <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
                 {report.environment === 'INDOOR' ? 'home' : 'wb_sunny'}
               </span>

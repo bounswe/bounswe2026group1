@@ -15,7 +15,7 @@ function ReportObjectsList({ objects }) {
       {objects.map((obj, i) => {
         const cfg = OBJECT_TYPE_MAP[obj.objectType]
         return (
-          <div key={i} className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 flex flex-col gap-3">
+          <div key={i} className="bg-surface-container-highest rounded-xl border border-outline-variant/10 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <span className="material-symbols-outlined text-primary" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>
