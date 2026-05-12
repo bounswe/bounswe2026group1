@@ -293,7 +293,9 @@ export async function getReportsByUserId(userId) {
  *
  * Filters mirror the backend `ReportFeedQuery`:
  *  - `reportType`, `environment` (single value; 'ALL' is treated as unset)
- *  - `status`, `objectType`, `issueType` (arrays; each value becomes a repeated query param)
+ *  - `status`, `objectType`, `issueType`, `objectIssue` (arrays; each value becomes a repeated query param)
+ *  - `objectIssue` entries are scoped pairs in `OBJECT_TYPE:ISSUE_TYPE` form (e.g. `RAMP:MISSING`);
+ *    matches require the same object to carry both the type and the issue
  *  - `authorId`, `publishedAfter`, `publishedBefore`, `q`
  *  - `minAgrees`, `minDisagrees`
  *  - `sort` (omitted when falsy; backend defaults to distance with coords, newest otherwise)
@@ -314,6 +316,7 @@ export async function getReportFeed(
     minDisagrees,
     objectType,
     issueType,
+    objectIssue,
     sort,
     latitude,
     longitude,
@@ -339,6 +342,7 @@ export async function getReportFeed(
   appendNonNegativeInt(params, 'minDisagrees', minDisagrees)
   appendMulti(params, 'objectType', objectType)
   appendMulti(params, 'issueType', issueType)
+  appendMulti(params, 'objectIssue', objectIssue)
   if (sort) params.set('sort', sort)
   const latN = latitude != null ? Number(latitude) : NaN
   const lonN = longitude != null ? Number(longitude) : NaN

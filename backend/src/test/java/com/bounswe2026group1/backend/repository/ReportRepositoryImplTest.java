@@ -357,6 +357,60 @@ class ReportRepositoryImplTest extends AbstractPostgisIntegrationTest {
     }
 
     @Test
+    void findFeedRecent_filtersByObjectIssuePair_requiresSameObjectAndIssue() {
+        RegisteredUser user = persistUser("pair-filter@test.com");
+
+        // Single-object reports — straightforward matches
+        Report rampMissing = persistReportWithObject(user, ObjectType.RAMP,
+                EnumSet.of(IssueType.MISSING));
+        Report doorMissing = persistReportWithObject(user, ObjectType.DOOR,
+                EnumSet.of(IssueType.MISSING));
+        Report rampSteep = persistReportWithObject(user, ObjectType.RAMP,
+                EnumSet.of(IssueType.TOO_STEEP));
+
+        // Two-object report — RAMP without MISSING + DOOR with MISSING. With the OLD flat
+        // filter (objectType=RAMP AND issueType=MISSING) this would falsely match. The pair
+        // filter must reject it because no single object satisfies both halves.
+        Report rampAndDoor = persistReportWithObjects(user, List.of(
+                new ReportObject(null, ObjectType.RAMP, EnumSet.of(IssueType.TOO_STEEP), null),
+                new ReportObject(null, ObjectType.DOOR, EnumSet.of(IssueType.MISSING), null)
+        ));
+
+        ReportFeedQuery rampMissingFilter = new ReportFeedQuery();
+        rampMissingFilter.setObjectIssue(List.of("RAMP:MISSING"));
+        Page<Report> page = reportRepository.findFeedRecent(rampMissingFilter, PageRequest.of(0, 10));
+
+        List<Long> ids = page.getContent().stream().map(Report::getReportId).toList();
+        assertTrue(ids.contains(rampMissing.getReportId()));
+        assertFalse(ids.contains(doorMissing.getReportId()), "different object type must not match");
+        assertFalse(ids.contains(rampSteep.getReportId()), "different issue must not match");
+        assertFalse(ids.contains(rampAndDoor.getReportId()),
+                "RAMP+MISSING must be on the same object — split across objects should not match");
+        assertEquals(1L, page.getTotalElements());
+    }
+
+    @Test
+    void findFeedRecent_filtersByObjectIssuePair_orsAcrossMultiplePairs() {
+        RegisteredUser user = persistUser("pair-or@test.com");
+        Report rampMissing = persistReportWithObject(user, ObjectType.RAMP,
+                EnumSet.of(IssueType.MISSING));
+        Report doorHeavy = persistReportWithObject(user, ObjectType.DOOR,
+                EnumSet.of(IssueType.HEAVY_DOOR));
+        Report unrelated = persistReportWithObject(user, ObjectType.STAIR,
+                EnumSet.of(IssueType.MISSING_HANDRAIL));
+
+        ReportFeedQuery q = new ReportFeedQuery();
+        q.setObjectIssue(List.of("RAMP:MISSING", "DOOR:HEAVY_DOOR"));
+        Page<Report> page = reportRepository.findFeedRecent(q, PageRequest.of(0, 10));
+
+        List<Long> ids = page.getContent().stream().map(Report::getReportId).toList();
+        assertTrue(ids.contains(rampMissing.getReportId()));
+        assertTrue(ids.contains(doorHeavy.getReportId()));
+        assertFalse(ids.contains(unrelated.getReportId()));
+        assertEquals(2L, page.getTotalElements());
+    }
+
+    @Test
     void findFeedRecent_sortMostAgreed_ordersByAgreesDesc() {
         RegisteredUser user = persistUser("sort-agreed@test.com");
         Report mid = persistReportWithVotes(user, 5, 0);
@@ -474,6 +528,18 @@ class ReportRepositoryImplTest extends AbstractPostgisIntegrationTest {
                 "test report", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
         ReportObject obj = new ReportObject(r, type, issues, null);
         r.getObjects().add(obj);
+        return reportRepository.save(r);
+    }
+
+    /** Persist a report with multiple attached objects. Callers pass detached `ReportObject`s
+     *  (with a null `report` reference); we wire them to the new report before saving. */
+    private Report persistReportWithObjects(RegisteredUser user, List<ReportObject> objects) {
+        Report r = new Report(user, GeoUtils.point4326(REF_LAT, REF_LON),
+                "test report", ReportType.OBSTACLE, ReportEnvironment.OUTDOOR);
+        for (ReportObject obj : objects) {
+            obj.setReport(r);
+            r.getObjects().add(obj);
+        }
         return reportRepository.save(r);
     }
 }

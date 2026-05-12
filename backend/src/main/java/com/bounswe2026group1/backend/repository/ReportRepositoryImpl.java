@@ -159,6 +159,23 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
                     .append(" AND roi.issue_type IN (:feedIssueTypes))");
             params.put("feedIssueTypes", issueTypes.stream().map(Enum::name).toList());
         }
+        List<String[]> pairs = parseObjectIssuePairs(filter.getObjectIssue());
+        if (!pairs.isEmpty()) {
+            StringBuilder or = new StringBuilder();
+            for (int i = 0; i < pairs.size(); i++) {
+                String tParam = "feedOi" + i + "_t";
+                String iParam = "feedOi" + i + "_i";
+                if (or.length() > 0) or.append(" OR ");
+                or.append("(ro3.object_type = :").append(tParam)
+                  .append(" AND roi3.issue_type = :").append(iParam).append(")");
+                params.put(tParam, pairs.get(i)[0]);
+                params.put(iParam, pairs.get(i)[1]);
+            }
+            sql.append(" AND EXISTS (SELECT 1 FROM report_objects ro3")
+                    .append(" JOIN report_object_issues roi3 ON roi3.report_object_id = ro3.id")
+                    .append(" WHERE ro3.report_id = r.report_id")
+                    .append(" AND (").append(or).append("))");
+        }
     }
 
     private static void appendJpqlFilters(StringBuilder jpql, Map<String, Object> params,
@@ -219,6 +236,39 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
                     .append(" WHERE ro2.report = r AND i IN :feedIssueTypes)");
             params.put("feedIssueTypes", issueTypes);
         }
+        List<String[]> pairs = parseObjectIssuePairs(filter.getObjectIssue());
+        if (!pairs.isEmpty()) {
+            StringBuilder or = new StringBuilder();
+            for (int i = 0; i < pairs.size(); i++) {
+                String tParam = "feedOi" + i + "_t";
+                String iParam = "feedOi" + i + "_i";
+                if (or.length() > 0) or.append(" OR ");
+                or.append("(ro3.objectType = :").append(tParam)
+                  .append(" AND i3 = :").append(iParam).append(")");
+                params.put(tParam, ObjectType.valueOf(pairs.get(i)[0]));
+                params.put(iParam, IssueType.valueOf(pairs.get(i)[1]));
+            }
+            jpql.append(" AND EXISTS (SELECT 1 FROM ReportObject ro3 JOIN ro3.issues i3")
+                    .append(" WHERE ro3.report = r")
+                    .append(" AND (").append(or).append("))");
+        }
+    }
+
+    /**
+     * Parse `OBJECT_TYPE:ISSUE_TYPE` entries into [type, issue] string pairs. Entries are
+     * pre-validated by the service, so we only defensively skip malformed leftovers here.
+     */
+    private static List<String[]> parseObjectIssuePairs(List<String> raw) {
+        if (raw == null || raw.isEmpty()) return List.of();
+        List<String[]> out = new ArrayList<>(raw.size());
+        for (String entry : raw) {
+            if (entry == null) continue;
+            String trimmed = entry.trim();
+            int sep = trimmed.indexOf(':');
+            if (sep <= 0 || sep == trimmed.length() - 1) continue;
+            out.add(new String[]{ trimmed.substring(0, sep), trimmed.substring(sep + 1) });
+        }
+        return out;
     }
 
     // ----- ordering ----------------------------------------------------------------------------
