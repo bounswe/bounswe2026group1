@@ -745,11 +745,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
             <div className="px-6 pb-2">
               <button
                 onClick={() => setShowCreateFix(true)}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest hover:bg-emerald-50 transition group"
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest hover:bg-primary/10 transition group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-emerald-700" style={{ fontSize: '20px' }}>build</span>
+                  <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>build</span>
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-bold text-on-surface">Has this been fixed?</p>

@@ -1,5 +1,6 @@
 import { apiFetch } from './api.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { geoJsonPoint, reportLatLng } from '../utils/geojson.js'
 
 /**
  * Fetch all reports from the backend.
@@ -49,10 +50,22 @@ export async function disagreeReport(id, token) {
  *
  * Uses fetch directly because apiFetch sets a JSON Content-Type which would
  * break the multipart boundary that FormData generates automatically.
+ *
+ * @param {number}   reportId
+ * @param {File[]}   files       — one or more image files (required, at least one)
+ * @param {string}   description — optional text (≤ 1000 chars)
+ * @param {string}   token       — JWT bearer token
  */
-export async function submitFixRequest(reportId, file, description, token) {
+export async function submitFixRequest(reportId, files, description, token) {
   const formData = new FormData()
-  formData.append('files', file)
+  // Accept both a single File and an array for backward compatibility.
+  const fileList = Array.isArray(files) ? files : [files]
+  if (fileList.length > 5) {
+    throw Object.assign(new Error('You can attach up to 5 photos per fix request.'), { status: 400 })
+  }
+  for (const file of fileList) {
+    formData.append('files', file)
+  }
   if (description && description.trim()) {
     formData.append('description', description.trim())
   }
@@ -197,6 +210,11 @@ export function mapReport(r) {
       : `${labels.join(' & ')} Issue`
   })()
 
+  // Prefer the GeoJSON geometry the backend emits; fall back to the legacy
+  // scalar fields so older responses (and the still-deprecated mobile DTOs)
+  // keep working during the migration.
+  const coords = reportLatLng(r) ?? { lat: r.latitude, lng: r.longitude }
+
   return {
     id: r.reportId,
     title,
@@ -208,7 +226,10 @@ export function mapReport(r) {
         })
       : 'Unknown date',
     fixedAt: r.fixedAt || null,
-    location: formatReportLocation(r.latitude, r.longitude),
+    // Prefer the backend-provided label (reverse-geocoded once at create time);
+    // fall back to rounded coordinates for older rows where the column is null.
+    // Coords come from the GeoJSON helper so legacy scalars still work.
+    location: r.locationLabel || formatReportLocation(coords.lat, coords.lng),
     reportedBy: `User #${r.userId}`,
     ownerId: r.userId,
     agrees: r.agrees,
@@ -221,8 +242,9 @@ export function mapReport(r) {
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     mediaUrls: r.mediaUrls ?? [],
     mediaIds: r.mediaIds ?? [],
-    latitude: r.latitude,
-    longitude: r.longitude,
+    latitude: coords.lat,
+    longitude: coords.lng,
+    geometry: r.geometry ?? geoJsonPoint(r.latitude, r.longitude),
     activeFixRequest: mapFixRequest(r.activeFixRequest),
     authorTopBadge: r.authorTopBadge ?? null,
   }
@@ -231,12 +253,21 @@ export function mapReport(r) {
 /**
  * Submit a new report.
  * POST /api/reports
+ *
+ * Sends location as a GeoJSON Point per RFC 7946 (coordinates in [lon, lat] order).
  */
 export async function createReport({ userId, latitude, longitude, description, reportType, environment, objects, token }) {
   return apiFetch('/api/reports', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ userId, latitude, longitude, description, reportType, environment, objects }),
+    body: JSON.stringify({
+      userId,
+      geometry: geoJsonPoint(latitude, longitude),
+      description,
+      reportType,
+      environment,
+      objects,
+    }),
   })
 }
 
@@ -259,7 +290,14 @@ export async function getReportsByUserId(userId) {
 /**
  * Paginated community feed.
  * GET /api/reports/feed
- * With coordinates + radiusInKm: proximity ordering. Without coordinates: global newest-first feed.
+ *
+ * Filters mirror the backend `ReportFeedQuery`:
+ *  - `reportType`, `environment` (single value; 'ALL' is treated as unset)
+ *  - `status`, `objectType`, `issueType` (arrays; each value becomes a repeated query param)
+ *  - `authorId`, `publishedAfter`, `publishedBefore`, `q`
+ *  - `minAgrees`, `minDisagrees`
+ *  - `sort` (omitted when falsy; backend defaults to distance with coords, newest otherwise)
+ *  - `latitude` + `longitude` (+ optional `radiusInKm`)
  */
 export async function getReportFeed(
   {
@@ -267,6 +305,16 @@ export async function getReportFeed(
     size = 20,
     reportType,
     environment,
+    status,
+    authorId,
+    publishedAfter,
+    publishedBefore,
+    q,
+    minAgrees,
+    minDisagrees,
+    objectType,
+    issueType,
+    sort,
     latitude,
     longitude,
     radiusInKm,
@@ -279,6 +327,19 @@ export async function getReportFeed(
   params.set('size', String(size))
   if (reportType && reportType !== 'ALL') params.set('reportType', reportType)
   if (environment && environment !== 'ALL') params.set('environment', environment)
+  appendMulti(params, 'status', status)
+  if (authorId != null && Number.isFinite(Number(authorId))) {
+    params.set('authorId', String(authorId))
+  }
+  if (publishedAfter) params.set('publishedAfter', String(publishedAfter))
+  if (publishedBefore) params.set('publishedBefore', String(publishedBefore))
+  const qTrimmed = typeof q === 'string' ? q.trim() : ''
+  if (qTrimmed) params.set('q', qTrimmed)
+  appendNonNegativeInt(params, 'minAgrees', minAgrees)
+  appendNonNegativeInt(params, 'minDisagrees', minDisagrees)
+  appendMulti(params, 'objectType', objectType)
+  appendMulti(params, 'issueType', issueType)
+  if (sort) params.set('sort', sort)
   const latN = latitude != null ? Number(latitude) : NaN
   const lonN = longitude != null ? Number(longitude) : NaN
   if (Number.isFinite(latN) && Number.isFinite(lonN)) {
@@ -291,6 +352,19 @@ export async function getReportFeed(
   const headers = {}
   if (token) headers.Authorization = `Bearer ${token}`
   return apiFetch(`/api/reports/feed?${params.toString()}`, { headers, ...fetchOpts })
+}
+
+function appendMulti(params, key, values) {
+  if (!Array.isArray(values)) return
+  for (const v of values) {
+    if (v != null && v !== '') params.append(key, String(v))
+  }
+}
+
+function appendNonNegativeInt(params, key, value) {
+  if (value == null || value === '') return
+  const n = Number(value)
+  if (Number.isInteger(n) && n >= 0) params.set(key, String(n))
 }
 
 export async function updateReport(id, body, token) {

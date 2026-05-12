@@ -69,7 +69,7 @@ describe('CreateFixRequestPanel', () => {
     await act(async () => { await user.click(submitBtn) })
 
     await waitFor(() => {
-      expect(submitFixRequest).toHaveBeenCalledWith(42, file, 'looks great', 'mock-token')
+      expect(submitFixRequest).toHaveBeenCalledWith(42, [file], 'looks great', 'mock-token')
       expect(onSubmittedMock).toHaveBeenCalledWith({ id: 7, state: 'OPEN' })
       expect(onCloseMock).toHaveBeenCalled()
     })

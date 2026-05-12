@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import Navbar from '../components/Navbar.jsx'
 import FeedLocationPickerModal from '../components/FeedLocationPickerModal.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getReportFeed, mapReport } from '../services/reportService.js'
 import { feedFilterChipClass } from '../utils/feedFilterChip.js'
+import { STATUS_OPTIONS, SORT_OPTIONS } from '../utils/feedFilterOptions.js'
+import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
+import { useUserSearch, USER_SEARCH_MIN_LENGTH } from '../hooks/useUserSearch.js'
 
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY
 const TILE_LIGHT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -80,12 +83,71 @@ function typeLabel(t) {
   return null
 }
 
+/** Converts a `<input type="datetime-local">` value to an ISO-8601 instant. Empty → null. */
+function localDatetimeToIso(v) {
+  if (!v) return null
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
+function parseNonNegativeInt(v) {
+  if (v === '' || v == null) return null
+  const n = Number(v)
+  return Number.isInteger(n) && n >= 0 ? n : null
+}
+
+function toggleInArray(arr, value) {
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
+}
+
+const OBJECT_CHIP_BASE =
+  'inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold border transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+
+function objectTypeChipClass(selected) {
+  return selected ? OBJECT_CHIP_BASE : `${OBJECT_CHIP_BASE} bg-surface-container-highest`
+}
+
+function objectTypeChipStyle(color, selected) {
+  return selected
+    ? { backgroundColor: color, borderColor: color, color: '#ffffff' }
+    : { borderColor: 'transparent', borderLeft: `4px solid ${color}` }
+}
+
+/**
+ * Issue groups for the advanced filter, keyed by object type. Order follows the user's click
+ * order in `selectedObjectTypes` so issue groups appear in the same order the user picked
+ * their object types — visually matching the colored chips above.
+ */
+function buildIssueGroups(selectedObjectTypes) {
+  if (selectedObjectTypes.length === 0) return []
+  return selectedObjectTypes
+    .map((type) => OBJECT_TYPES.find((t) => t.type === type))
+    .filter(Boolean)
+    .map((t) => ({
+      type: t.type,
+      label: t.label,
+      color: t.markerColor,
+      issues: t.issues,
+    }))
+}
+
+/** All issue keys valid for the given object types (used to prune orphan selections). */
+function validIssueKeysFor(selectedObjectTypes) {
+  const keys = new Set()
+  for (const t of OBJECT_TYPES) {
+    if (selectedObjectTypes.includes(t.type)) {
+      for (const i of t.issues) keys.add(i.key)
+    }
+  }
+  return keys
+}
+
 export default function Feed() {
   const { resolved: themeResolved } = useTheme()
   const isDark = themeResolved === 'dark'
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT
   const tileAttr = isDark ? TILE_ATTR_DARK : TILE_ATTR_LIGHT
-  const { token } = useAuth()
+  const { token, isAuthenticated } = useAuth()
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [feedCenterDraft, setFeedCenterDraft] = useState(null)
@@ -94,6 +156,41 @@ export default function Feed() {
 
   const [reportTypeFilter, setReportTypeFilter] = useState('ALL')
   const [environmentFilter, setEnvironmentFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState(/** @type {string[]} */ ([]))
+  const [sortFilter, setSortFilter] = useState('NEWEST')
+
+  // Free-text search: draft updates immediately, applied is debounced (300ms) to avoid hammering the API.
+  const [qDraft, setQDraft] = useState('')
+  const [qApplied, setQApplied] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setQApplied(qDraft.trim()), 300)
+    return () => clearTimeout(t)
+  }, [qDraft])
+
+  // Advanced filters live behind a toggle to keep the default bar uncluttered.
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [objectTypeFilter, setObjectTypeFilter] = useState(/** @type {string[]} */ ([]))
+  const [issueTypeFilter, setIssueTypeFilter] = useState(/** @type {string[]} */ ([]))
+  // Drop orphan issues whenever the user narrows or clears their object selection — an
+  // unrelated issue chip silently filtering the feed is confusing.
+  useEffect(() => {
+    if (objectTypeFilter.length === 0) {
+      setIssueTypeFilter((prev) => (prev.length === 0 ? prev : []))
+      return
+    }
+    const valid = validIssueKeysFor(objectTypeFilter)
+    setIssueTypeFilter((prev) => {
+      const filtered = prev.filter((k) => valid.has(k))
+      return filtered.length === prev.length ? prev : filtered
+    })
+  }, [objectTypeFilter])
+  /** @type {[null | {id:number,name:string}, Function]} */
+  const [selectedAuthor, setSelectedAuthor] = useState(null)
+  const [authorQuery, setAuthorQuery] = useState('')
+  const [publishedAfterInput, setPublishedAfterInput] = useState('')
+  const [publishedBeforeInput, setPublishedBeforeInput] = useState('')
+  const [minAgreesInput, setMinAgreesInput] = useState('')
+  const [minDisagreesInput, setMinDisagreesInput] = useState('')
 
   const [locateHint, setLocateHint] = useState(null)
 
@@ -112,10 +209,73 @@ export default function Feed() {
       ? Number(feedCenterDraft.lng)
       : null
 
-  const feedQueryKey = useMemo(
-    () => ['reportFeed', reportTypeFilter, environmentFilter, feedLat, feedLng, radiusKm, token ?? ''],
-    [reportTypeFilter, environmentFilter, feedLat, feedLng, radiusKm, token]
+  // Resolved author id comes from autocomplete selection — typing a name without picking from
+  // the dropdown does not filter the feed (avoids ambiguous matches across duplicate names).
+  const authorIdNum = selectedAuthor?.id ?? null
+
+  const publishedAfterIso = useMemo(
+    () => localDatetimeToIso(publishedAfterInput),
+    [publishedAfterInput]
   )
+  const publishedBeforeIso = useMemo(
+    () => localDatetimeToIso(publishedBeforeInput),
+    [publishedBeforeInput]
+  )
+
+  const minAgreesNum = parseNonNegativeInt(minAgreesInput)
+  const minDisagreesNum = parseNonNegativeInt(minDisagreesInput)
+
+  // Serialize set-like filters into stable strings so the queryKey is referentially stable.
+  const statusKey = statusFilter.join(',')
+  const objectTypeKey = objectTypeFilter.join(',')
+  const issueTypeKey = issueTypeFilter.join(',')
+
+  const feedQueryKey = useMemo(
+    () => [
+      'reportFeed',
+      reportTypeFilter,
+      environmentFilter,
+      statusKey,
+      sortFilter,
+      qApplied,
+      authorIdNum,
+      publishedAfterIso,
+      publishedBeforeIso,
+      minAgreesNum,
+      minDisagreesNum,
+      objectTypeKey,
+      issueTypeKey,
+      feedLat,
+      feedLng,
+      radiusKm,
+      token ?? '',
+    ],
+    [
+      reportTypeFilter,
+      environmentFilter,
+      statusKey,
+      sortFilter,
+      qApplied,
+      authorIdNum,
+      publishedAfterIso,
+      publishedBeforeIso,
+      minAgreesNum,
+      minDisagreesNum,
+      objectTypeKey,
+      issueTypeKey,
+      feedLat,
+      feedLng,
+      radiusKm,
+      token,
+    ]
+  )
+
+  // Block the request entirely when the selected sort needs data we don't have — surfacing
+  // a clear UI hint is much better than a 400 round-trip + generic "couldn't load" error.
+  const feedBlockedReason =
+    sortFilter === 'DISTANCE' && (feedLat == null || feedLng == null)
+      ? 'Pick a reference point to sort by distance.'
+      : null
 
   const {
     data,
@@ -123,24 +283,37 @@ export default function Feed() {
     hasNextPage,
     isFetchingNextPage,
     isPending,
+    isFetching,
+    isPlaceholderData,
     isError,
     error,
   } = useInfiniteQuery({
     queryKey: feedQueryKey,
-    // Build the request from `queryKey` so filters always match the cache entry (avoids stale
-    // closures when combining location + report type / environment).
-    queryFn: ({ pageParam, signal, queryKey }) => {
-      const [, rt, env, lat, lng, rKm] = queryKey
-      const hasLocation = lat != null && lng != null
+    enabled: feedBlockedReason == null,
+    // Keeps the previous page list visible while a filter change refetches — without it the
+    // list flashes empty, the page collapses, and the scroll position jumps to the top.
+    placeholderData: keepPreviousData,
+    queryFn: ({ pageParam, signal }) => {
+      const hasLocation = feedLat != null && feedLng != null
       return getReportFeed(
         {
           page: pageParam,
           size: 20,
-          reportType: rt,
-          environment: env,
-          latitude: hasLocation ? lat : undefined,
-          longitude: hasLocation ? lng : undefined,
-          radiusInKm: hasLocation ? rKm : undefined,
+          reportType: reportTypeFilter,
+          environment: environmentFilter,
+          status: statusFilter.length ? statusFilter : undefined,
+          authorId: authorIdNum ?? undefined,
+          publishedAfter: publishedAfterIso ?? undefined,
+          publishedBefore: publishedBeforeIso ?? undefined,
+          q: qApplied || undefined,
+          minAgrees: minAgreesNum ?? undefined,
+          minDisagrees: minDisagreesNum ?? undefined,
+          objectType: objectTypeFilter.length ? objectTypeFilter : undefined,
+          issueType: issueTypeFilter.length ? issueTypeFilter : undefined,
+          sort: sortFilter,
+          latitude: hasLocation ? feedLat : undefined,
+          longitude: hasLocation ? feedLng : undefined,
+          radiusInKm: hasLocation ? radiusKm : undefined,
         },
         token,
         { signal }
@@ -167,9 +340,13 @@ export default function Feed() {
   const modalCenter = feedCenterDraft ?? DEFAULT_CENTER
   const referenceForDistance = feedCenterDraft
 
+  // Client-side distance re-sort is a safety net for the DISTANCE case where the backend
+  // already orders by ST_Distance. Any other explicit sort (NEWEST, MOST_AGREED, …) must
+  // be left in the order the backend returned it.
   const reportsSorted = useMemo(() => {
     const ref = referenceForDistance
-    if (!ref) return reportsMatchingFilters
+    const useDistance = ref && sortFilter === 'DISTANCE'
+    if (!useDistance) return reportsMatchingFilters
     return [...reportsMatchingFilters].sort((a, b) => {
       const da = haversineKm(ref.lat, ref.lng, Number(a.latitude), Number(a.longitude))
       const db = haversineKm(ref.lat, ref.lng, Number(b.latitude), Number(b.longitude))
@@ -177,7 +354,7 @@ export default function Feed() {
       const fb = Number.isFinite(db) ? db : Number.POSITIVE_INFINITY
       return fa - fb
     })
-  }, [reportsMatchingFilters, referenceForDistance])
+  }, [reportsMatchingFilters, referenceForDistance, sortFilter])
 
   const loadMoreRef = useRef(null)
   const onIntersect = useCallback(
@@ -199,14 +376,70 @@ export default function Feed() {
   }, [onIntersect])
 
   const hasActiveFilter =
-    reportTypeFilter !== 'ALL' || environmentFilter !== 'ALL'
+    reportTypeFilter !== 'ALL' ||
+    environmentFilter !== 'ALL' ||
+    statusFilter.length > 0 ||
+    qApplied.length > 0 ||
+    authorIdNum != null ||
+    publishedAfterIso != null ||
+    publishedBeforeIso != null ||
+    minAgreesNum != null ||
+    minDisagreesNum != null ||
+    objectTypeFilter.length > 0 ||
+    issueTypeFilter.length > 0
 
+  function resetAdvancedFilters() {
+    setStatusFilter([])
+    setSortFilter('NEWEST')
+    setQDraft('')
+    setQApplied('')
+    setObjectTypeFilter([])
+    setIssueTypeFilter([])
+    setSelectedAuthor(null)
+    setAuthorQuery('')
+    setPublishedAfterInput('')
+    setPublishedBeforeInput('')
+    setMinAgreesInput('')
+    setMinDisagreesInput('')
+  }
+
+  // Suppress the empty / loading message while a filter-change refetch is in flight and we're
+  // still showing placeholder (i.e. previous) data — otherwise it would briefly overlay the list.
+  const isRefreshingWithPlaceholder = isFetching && isPlaceholderData
   const emptyMessage = useMemo(() => {
+    if (feedBlockedReason) return null
     if (reportsSorted.length > 0 || isPending || isError) return null
+    if (isRefreshingWithPlaceholder) return null
     if (hasActiveFilter) return 'No reports match your filters.'
     if (feedCenterDraft != null) return 'No reports within this search radius.'
     return 'No reports yet.'
-  }, [reportsSorted.length, isPending, isError, hasActiveFilter, feedCenterDraft])
+  }, [
+    feedBlockedReason,
+    reportsSorted.length,
+    isPending,
+    isError,
+    isRefreshingWithPlaceholder,
+    hasActiveFilter,
+    feedCenterDraft,
+  ])
+
+  // Hide the dropdown once a user is selected so the previous result list doesn't linger.
+  const authorSearchActive = !selectedAuthor && authorQuery.trim().length >= USER_SEARCH_MIN_LENGTH
+  const { data: authorSearchPage, isFetching: authorSearchFetching } = useUserSearch(
+    authorSearchActive ? authorQuery : '',
+    { page: 0, size: 8 }
+  )
+  const authorOptions = authorSearchActive ? authorSearchPage?.content ?? [] : []
+
+  function clearSelectedAuthor() {
+    setSelectedAuthor(null)
+    setAuthorQuery('')
+  }
+
+  function pickAuthor(option) {
+    setSelectedAuthor({ id: option.id, name: option.name })
+    setAuthorQuery(option.name)
+  }
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
@@ -311,6 +544,71 @@ export default function Feed() {
             </div>
           </div>
 
+          {/* Status (multi) + sort + search row */}
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+            <div className="flex flex-col gap-2 min-w-0">
+              <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                Status
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {STATUS_OPTIONS.map(({ id, label }) => {
+                  const selected = statusFilter.includes(id)
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={`Status: ${label}`}
+                      className={feedFilterChipClass(selected)}
+                      onClick={() => setStatusFilter((prev) => toggleInArray(prev, id))}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 min-w-0">
+              <label
+                htmlFor="feed-sort"
+                className="text-xs font-bold uppercase tracking-wide text-on-surface-variant"
+              >
+                Sort
+              </label>
+              <select
+                id="feed-sort"
+                value={sortFilter}
+                onChange={(e) => setSortFilter(e.target.value)}
+                className="rounded-2xl border border-outline-variant bg-surface-container-highest px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {SORT_OPTIONS.map(({ id, label }) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2 flex-1 min-w-[14rem]">
+              <label
+                htmlFor="feed-q"
+                className="text-xs font-bold uppercase tracking-wide text-on-surface-variant"
+              >
+                Search description
+              </label>
+              <input
+                id="feed-q"
+                type="search"
+                inputMode="search"
+                placeholder="e.g. elevator, ramp, sidewalk"
+                value={qDraft}
+                onChange={(e) => setQDraft(e.target.value)}
+                className="rounded-2xl border border-outline-variant bg-background px-4 py-2 text-sm text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -332,12 +630,243 @@ export default function Feed() {
               </span>
               Use current location
             </button>
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              aria-expanded={advancedOpen}
+              aria-controls="feed-advanced-filters"
+              className={`${feedFilterChipClass(advancedOpen)} gap-2`}
+            >
+              <span className="material-symbols-outlined text-lg" aria-hidden>
+                tune
+              </span>
+              Advanced filters
+            </button>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={resetAdvancedFilters}
+                className="text-sm font-semibold text-primary hover:bg-primary/10 px-3 py-2 rounded-2xl cursor-pointer"
+              >
+                Clear all
+              </button>
+            )}
           </div>
 
           {feedCenterDraft != null && (
             <p className="text-sm text-on-surface-variant">
               Reference point: {feedCenterDraft.lat.toFixed(4)}, {feedCenterDraft.lng.toFixed(4)}
             </p>
+          )}
+
+          {advancedOpen && (
+            <div
+              id="feed-advanced-filters"
+              className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-outline-variant/20"
+            >
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                  Object type
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {OBJECT_TYPES.map((t) => {
+                    const selected = objectTypeFilter.includes(t.type)
+                    return (
+                      <button
+                        key={t.type}
+                        type="button"
+                        aria-pressed={selected}
+                        aria-label={`Object type: ${t.label}`}
+                        onClick={() => setObjectTypeFilter((prev) => toggleInArray(prev, t.type))}
+                        className={objectTypeChipClass(selected)}
+                        style={objectTypeChipStyle(t.markerColor, selected)}
+                      >
+                        <span
+                          aria-hidden
+                          className="inline-block w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: selected ? '#ffffff' : t.markerColor }}
+                        />
+                        <span>{t.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                  Issue type
+                </span>
+                {objectTypeFilter.length === 0 ? (
+                  <p className="text-xs text-on-surface-variant italic">
+                    Pick at least one object type to choose issue types.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3 max-h-60 overflow-y-auto pr-1">
+                    {buildIssueGroups(objectTypeFilter).map((group) => (
+                      <div key={group.type} className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span
+                            aria-hidden
+                            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: group.color }}
+                          />
+                          <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface">
+                            {group.label}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 pl-4">
+                          {group.issues.map((i) => {
+                            const selected = issueTypeFilter.includes(i.key)
+                            return (
+                              <button
+                                key={`${group.type}:${i.key}`}
+                                type="button"
+                                aria-pressed={selected}
+                                aria-label={`${group.label} issue: ${i.label}`}
+                                onClick={() =>
+                                  setIssueTypeFilter((prev) => toggleInArray(prev, i.key))
+                                }
+                                className={`${feedFilterChipClass(selected)} text-xs px-3 py-1.5`}
+                                style={
+                                  selected
+                                    ? undefined
+                                    : { borderLeft: `4px solid ${group.color}` }
+                                }
+                              >
+                                {i.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1 relative">
+                <label
+                  htmlFor="feed-author-name"
+                  className="text-xs font-bold uppercase tracking-wide text-on-surface-variant"
+                >
+                  Author
+                </label>
+                {selectedAuthor ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-on-surface">
+                    <span className="material-symbols-outlined text-base text-primary" aria-hidden>
+                      person
+                    </span>
+                    <span className="truncate font-medium">{selectedAuthor.name}</span>
+                    <button
+                      type="button"
+                      onClick={clearSelectedAuthor}
+                      aria-label="Clear author filter"
+                      className="ml-auto w-6 h-6 rounded-full hover:bg-primary/20 flex items-center justify-center cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      id="feed-author-name"
+                      type="search"
+                      autoComplete="off"
+                      placeholder={
+                        isAuthenticated
+                          ? 'Type at least 2 letters of a name'
+                          : 'Sign in to filter by author'
+                      }
+                      value={authorQuery}
+                      disabled={!isAuthenticated}
+                      onChange={(e) => setAuthorQuery(e.target.value)}
+                      className="rounded-xl border border-outline-variant bg-background px-3 py-2 text-sm text-on-surface disabled:bg-surface-container disabled:cursor-not-allowed"
+                    />
+                    {authorSearchActive && (
+                      <div
+                        role="listbox"
+                        aria-label="Author search results"
+                        className="absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest shadow-md"
+                      >
+                        {authorSearchFetching && authorOptions.length === 0 && (
+                          <p className="px-3 py-2 text-xs text-on-surface-variant">Searching…</p>
+                        )}
+                        {!authorSearchFetching && authorOptions.length === 0 && (
+                          <p className="px-3 py-2 text-xs text-on-surface-variant">No users found.</p>
+                        )}
+                        {authorOptions.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            role="option"
+                            aria-selected={false}
+                            onClick={() => pickAuthor(u)}
+                            className="block w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-primary/10 cursor-pointer"
+                          >
+                            {u.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                    Published after
+                  </span>
+                  <input
+                    type="datetime-local"
+                    value={publishedAfterInput}
+                    onChange={(e) => setPublishedAfterInput(e.target.value)}
+                    className="rounded-xl border border-outline-variant bg-background px-3 py-2 text-sm text-on-surface"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                    Published before
+                  </span>
+                  <input
+                    type="datetime-local"
+                    value={publishedBeforeInput}
+                    onChange={(e) => setPublishedBeforeInput(e.target.value)}
+                    className="rounded-xl border border-outline-variant bg-background px-3 py-2 text-sm text-on-surface"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 md:col-span-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                    Min agrees
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={minAgreesInput}
+                    onChange={(e) => setMinAgreesInput(e.target.value)}
+                    className="rounded-xl border border-outline-variant bg-background px-3 py-2 text-sm text-on-surface"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                    Min disagrees
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={minDisagreesInput}
+                    onChange={(e) => setMinDisagreesInput(e.target.value)}
+                    className="rounded-xl border border-outline-variant bg-background px-3 py-2 text-sm text-on-surface"
+                  />
+                </label>
+              </div>
+            </div>
           )}
         </section>
 
@@ -347,13 +876,43 @@ export default function Feed() {
           </p>
         )}
 
-        {isError && (
+        {feedBlockedReason && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-100"
+          >
+            <span className="material-symbols-outlined text-base shrink-0" aria-hidden>
+              location_searching
+            </span>
+            <span className="flex-1">{feedBlockedReason}</span>
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              className="text-sm font-semibold underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-50"
+            >
+              Use current location
+            </button>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="text-sm font-semibold underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-50"
+            >
+              Choose on map
+            </button>
+          </div>
+        )}
+
+        {isError && !feedBlockedReason && (
           <p role="alert" className="text-sm text-error font-medium">
             {error?.message || 'Could not load the feed.'}
           </p>
         )}
 
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 list-none p-0 m-0">
+        <ul
+          aria-busy={isRefreshingWithPlaceholder ? 'true' : 'false'}
+          hidden={feedBlockedReason != null}
+          className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 list-none p-0 m-0 transition-opacity duration-150 ${isRefreshingWithPlaceholder ? 'opacity-60' : 'opacity-100'}`}
+        >
           {reportsSorted.map((report) => {
             const distLabel = formatDistanceKm(
               referenceForDistance,
@@ -488,7 +1047,7 @@ export default function Feed() {
           <p className="text-center text-lg text-on-surface-variant py-16">{emptyMessage}</p>
         )}
 
-        {isPending && (
+        {isPending && !feedBlockedReason && (
           <p className="text-center text-lg text-on-surface-variant py-12">Loading feed…</p>
         )}
 

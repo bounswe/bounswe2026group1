@@ -69,6 +69,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   final PageController _mediaPageController = PageController();
   int _currentMediaIndex = 0;
 
+  // Separate carousel state for the active fix-request photos so swiping one
+  // gallery doesn't move the other.
+  final PageController _fixMediaPageController = PageController();
+  int _currentFixMediaIndex = 0;
+
   // ── Vote state ─────────────────────────────────────────────────────────────
   late int _agrees;
   late int _disagrees;
@@ -400,6 +405,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _sseSub?.cancel();
     _videoController?.dispose();
     _mediaPageController.dispose();
+    _fixMediaPageController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -1168,59 +1174,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (fix.mediaUrls.isNotEmpty) ...[
-                  GestureDetector(
-                    onTap: () => _openFullscreenImage(fix.mediaUrls.first),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            fix.mediaUrls.first,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              height: 180,
-                              color: AppColors.surfaceContainer,
-                              alignment: Alignment.center,
-                              child: Icon(Icons.image_not_supported_outlined,
-                                  color: AppColors.outlineVariant, size: 32),
-                            ),
-                          ),
-                        ),
-                        // Hint chip — same convention as the report hero so
-                        // users know the photo is tappable.
-                        Positioned(
-                          right: 8,
-                          bottom: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.scrim.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.fullscreen,
-                                    size: 12, color: AppColors.onScrim),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Tap to enlarge',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.onScrim,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildFixMediaCarousel(fix.mediaUrls),
                   const SizedBox(height: 10),
                 ],
                 Row(
@@ -1281,6 +1235,124 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFixMediaCarousel(List<String> urls) {
+    final index =
+        _currentFixMediaIndex.clamp(0, urls.isEmpty ? 0 : urls.length - 1);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: 180,
+        width: double.infinity,
+        child: Stack(
+          children: [
+            // The carousel itself. Single-photo case still uses PageView so
+            // tap behaviour and styling stay identical across both branches.
+            PageView.builder(
+              controller: _fixMediaPageController,
+              itemCount: urls.length,
+              onPageChanged: (i) =>
+                  setState(() => _currentFixMediaIndex = i),
+              itemBuilder: (_, i) => GestureDetector(
+                onTap: () => _openFullscreenImage(urls[i]),
+                child: Image.network(
+                  urls[i],
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: AppColors.surfaceContainer,
+                    alignment: Alignment.center,
+                    child: Icon(Icons.image_not_supported_outlined,
+                        color: AppColors.outlineVariant, size: 32),
+                  ),
+                ),
+              ),
+            ),
+            // Position counter — only when multi-photo.
+            if (urls.length > 1)
+              Positioned(
+                left: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${index + 1}/${urls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            // Fullscreen hint — same convention as the parent report hero.
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.scrim.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.fullscreen,
+                        size: 12, color: AppColors.onScrim),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tap to enlarge',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onScrim,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Page dots — only when multi-photo.
+            if (urls.length > 1)
+              Positioned(
+                bottom: 8,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < urls.length; i++)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin:
+                              const EdgeInsets.symmetric(horizontal: 3),
+                          width: i == index ? 16 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: i == index
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

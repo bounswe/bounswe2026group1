@@ -176,7 +176,7 @@ function ProfilePage() {
                   <button
                     type="button"
                     onClick={handleStartEdit}
-                    className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-semibold text-sm cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer"
                   >
                     Edit
                   </button>
@@ -198,7 +198,7 @@ function ProfilePage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       maxLength={NAME_MAX}
-                      className="w-full px-5 py-3 bg-surface-container border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
+                      className="w-full px-5 py-3 bg-surface-container-high border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
                     />
                     <p className={`text-xs text-right ${nameInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
                       {trimmedName.length < NAME_MIN
@@ -216,7 +216,7 @@ function ProfilePage() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={4}
-                      className="w-full px-5 py-3 bg-surface-container border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
+                      className="w-full px-5 py-3 bg-surface-container-high border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
                     />
                     <p className={`text-xs text-right ${bioInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
                       {bio.length}/{BIO_MAX}
@@ -242,7 +242,7 @@ function ProfilePage() {
                       type="button"
                       onClick={handleCancel}
                       disabled={updateProfileMutation.isPending}
-                      className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold cursor-pointer"
+                      className="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-semibold cursor-pointer"
                     >
                       Cancel
                     </button>

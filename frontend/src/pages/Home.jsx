@@ -21,6 +21,7 @@ import {
   isReportVisible,
   excludedCount,
 } from '../utils/mapFilters.js'
+import { geoJsonPoint, leafletPathFromLineString } from '../utils/geojson.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 // First-visit onboarding flag. Cleared once the user dismisses or completes the
@@ -377,8 +378,8 @@ function Home() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          startLat: origin.lat, startLon: origin.lng,
-          endLat: dest.lat, endLon: dest.lng,
+          start: geoJsonPoint(origin.lat, origin.lng),
+          end: geoJsonPoint(dest.lat, dest.lng),
           mode: null,
         }),
       })
@@ -389,7 +390,11 @@ function Home() {
       // the new server-side count when the user navigates to /profile.
       if (token) queryClient.invalidateQueries({ queryKey: currentUserKey })
       const mapped = data.map(r => ({
-        coords: decodePolyline(r.geometry),
+        // Prefer the GeoJSON LineString over the legacy encoded polyline string.
+        // Older responses without `geoJsonGeometry` still work via the fallback.
+        coords: r.geoJsonGeometry
+          ? leafletPathFromLineString(r.geoJsonGeometry)
+          : decodePolyline(r.geometry),
         hasObstacles: r.hasObstacles,
         label: r.routeLabel,
         distance: r.distanceMeters,
@@ -403,7 +408,10 @@ function Home() {
       const hasRamp = mapped.some(r => r.label?.includes('Ramp'))
       const missing = []
       if (fastestHasObstacles && !hasAccessible) missing.push('accessible walking')
-      if (!hasWheelchair && !hasRamp) missing.push('wheelchair')
+      // Authenticated users may have wheelchair alternatives suppressed by design
+      // (based on stored routing preferences). Don't warn about missing wheelchair
+      // routes unless the caller is anonymous.
+      if (!token && !hasWheelchair && !hasRamp) missing.push('wheelchair')
       if (missing.length) setRouteNotice(`No ${missing.join(' or ')} route could be found for this path.`)
     } catch (err) {
       const msg = err?.message || ''
@@ -704,7 +712,6 @@ function Home() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-on-surface">{reports.length} Active Reports</p>
-                    <p className="text-[10px] text-on-surface-variant">Within 500m of your location</p>
                   </div>
                 </div>
                 <div className="bg-primary/5 rounded-2xl p-4">

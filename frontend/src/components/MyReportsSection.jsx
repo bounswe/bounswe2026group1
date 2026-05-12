@@ -66,7 +66,7 @@ function MyReportsSection({ userId, isOwnProfile = true }) {
               <button
                 type="button"
                 onClick={() => setSelectedId(report.id)}
-                className="w-full flex gap-3 items-start text-left p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer"
+                className="w-full flex gap-3 items-start text-left p-3 rounded-xl bg-surface-container-high hover:bg-surface-container-highest transition-colors cursor-pointer"
               >
                 {report.image ? (
                   <img
@@ -76,7 +76,7 @@ function MyReportsSection({ userId, isOwnProfile = true }) {
                     onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0">
+                  <div className="w-16 h-16 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0">
                     <span className="material-symbols-outlined text-on-surface-variant">image</span>
                   </div>
                 )}

@@ -51,15 +51,16 @@ describe('reportService — fix request helpers', () => {
   })
 
   describe('submitFixRequest', () => {
-    it('builds multipart body and includes both auth headers', async () => {
+    it('builds multipart body with multiple files and includes both auth headers', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ id: 7, state: 'OPEN' }),
       })
       vi.stubGlobal('fetch', fetchMock)
-      const file = new File(['bytes'], 'fix.jpg', { type: 'image/jpeg' })
+      const file1 = new File(['bytes1'], 'fix1.jpg', { type: 'image/jpeg' })
+      const file2 = new File(['bytes2'], 'fix2.jpg', { type: 'image/jpeg' })
 
-      const result = await submitFixRequest(42, file, 'fixed it', 'jwt')
+      const result = await submitFixRequest(42, [file1, file2], 'fixed it', 'jwt')
 
       expect(result).toEqual({ id: 7, state: 'OPEN' })
       const [url, opts] = fetchMock.mock.calls[0]
@@ -68,8 +69,25 @@ describe('reportService — fix request helpers', () => {
       expect(opts.headers.Authorization).toBe('Bearer jwt')
       expect(opts.headers['Mapcess-Key']).toBe('test-key')
       expect(opts.body).toBeInstanceOf(FormData)
-      expect(opts.body.get('files')).toBe(file)
+      expect(opts.body.getAll('files')).toHaveLength(2)
+      expect(opts.body.getAll('files')[0]).toBe(file1)
+      expect(opts.body.getAll('files')[1]).toBe(file2)
       expect(opts.body.get('description')).toBe('fixed it')
+    })
+
+    it('handles a single File for backward compatibility', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 8, state: 'OPEN' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      const file = new File(['bytes'], 'fix.jpg', { type: 'image/jpeg' })
+
+      await submitFixRequest(42, file, 'done', 'jwt')
+
+      const opts = fetchMock.mock.calls[0][1]
+      expect(opts.body.getAll('files')).toHaveLength(1)
+      expect(opts.body.getAll('files')[0]).toBe(file)
     })
 
     it('omits the description field when blank', async () => {
@@ -80,7 +98,7 @@ describe('reportService — fix request helpers', () => {
       vi.stubGlobal('fetch', fetchMock)
       const file = new File(['bytes'], 'fix.jpg', { type: 'image/jpeg' })
 
-      await submitFixRequest(42, file, '   ', 'jwt')
+      await submitFixRequest(42, [file], '   ', 'jwt')
 
       const opts = fetchMock.mock.calls[0][1]
       expect(opts.body.has('description')).toBe(false)
@@ -97,7 +115,7 @@ describe('reportService — fix request helpers', () => {
       vi.stubGlobal('fetch', fetchMock)
       const file = new File(['bytes'], 'fix.jpg', { type: 'image/jpeg' })
 
-      await expect(submitFixRequest(42, file, 'x', 'jwt')).rejects.toMatchObject({
+      await expect(submitFixRequest(42, [file], 'x', 'jwt')).rejects.toMatchObject({
         message: 'duplicate',
         status: 409,
       })
@@ -114,7 +132,7 @@ describe('reportService — fix request helpers', () => {
       vi.stubGlobal('fetch', fetchMock)
       const file = new File(['bytes'], 'fix.jpg', { type: 'image/jpeg' })
 
-      await expect(submitFixRequest(42, file, null, 'jwt')).rejects.toThrow('expired')
+      await expect(submitFixRequest(42, [file], null, 'jwt')).rejects.toThrow('expired')
       const events = dispatchSpy.mock.calls.map(([e]) => e.type)
       expect(events).toContain('auth:expired')
     })
@@ -191,6 +209,92 @@ describe('reportService — fix request helpers', () => {
         headers: {},
         signal: ac.signal,
       })
+    })
+
+    it('serializes multi-value enum filters as repeated query params', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          status: ['VERIFIED', 'PENDING'],
+          objectType: ['RAMP'],
+          issueType: ['TOO_STEEP', 'MISSING'],
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.getAll('status')).toEqual(['VERIFIED', 'PENDING'])
+      expect(sp.getAll('objectType')).toEqual(['RAMP'])
+      expect(sp.getAll('issueType')).toEqual(['TOO_STEEP', 'MISSING'])
+    })
+
+    it('passes authorId, date range, q, and vote thresholds', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          authorId: 42,
+          publishedAfter: '2026-01-01T00:00:00Z',
+          publishedBefore: '2026-06-01T00:00:00Z',
+          q: '  elevator  ',
+          minAgrees: 3,
+          minDisagrees: 0,
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.get('authorId')).toBe('42')
+      expect(sp.get('publishedAfter')).toBe('2026-01-01T00:00:00Z')
+      expect(sp.get('publishedBefore')).toBe('2026-06-01T00:00:00Z')
+      expect(sp.get('q')).toBe('elevator') // trimmed
+      expect(sp.get('minAgrees')).toBe('3')
+      expect(sp.get('minDisagrees')).toBe('0')
+    })
+
+    it('sends sort when explicit; omits sort when falsy', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed({ page: 0, size: 20, sort: 'MOST_AGREED' }, null)
+      let qs = apiFetch.mock.calls[0][0].split('?')[1]
+      expect(new URLSearchParams(qs).get('sort')).toBe('MOST_AGREED')
+
+      apiFetch.mockClear()
+      await getReportFeed({ page: 0, size: 20, sort: undefined }, null)
+      qs = apiFetch.mock.calls[0][0].split('?')[1]
+      expect(new URLSearchParams(qs).has('sort')).toBe(false)
+    })
+
+    it('drops empty arrays, whitespace-only q, and negative vote thresholds', async () => {
+      apiFetch.mockResolvedValue({ content: [] })
+
+      await getReportFeed(
+        {
+          page: 0,
+          size: 20,
+          status: [],
+          objectType: [null, ''],
+          q: '   ',
+          minAgrees: -1,
+          minDisagrees: '',
+        },
+        null
+      )
+
+      const qs = apiFetch.mock.calls[0][0].split('?')[1]
+      const sp = new URLSearchParams(qs)
+      expect(sp.has('status')).toBe(false)
+      expect(sp.has('objectType')).toBe(false)
+      expect(sp.has('q')).toBe(false)
+      expect(sp.has('minAgrees')).toBe(false)
+      expect(sp.has('minDisagrees')).toBe(false)
     })
   })
 

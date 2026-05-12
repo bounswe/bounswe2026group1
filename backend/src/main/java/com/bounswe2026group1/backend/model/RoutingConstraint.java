@@ -45,6 +45,7 @@ public enum RoutingConstraint {
                     new IssueHazard(RAMP, TOO_STEEP),
                     new IssueHazard(RAMP, TOO_NARROW),
                     new IssueHazard(RAMP, NO_LANDING),
+                    new IssueHazard(RAMP, INSUFFICIENT_LANDING_AREA),
                     new IssueHazard(RAMP, SLIPPERY_SURFACE),
                     new IssueHazard(RAMP, MISSING_HANDRAIL))),
 
