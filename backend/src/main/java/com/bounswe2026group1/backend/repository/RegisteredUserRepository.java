@@ -58,8 +58,10 @@ public interface RegisteredUserRepository extends JpaRepository<RegisteredUser, 
             """)
     long countAboveForRank(@Param("points") int points);
 
-    // User search (#306 / #501): case-insensitive substring match by username only, regular users only.
-    @Query("SELECT u FROM RegisteredUser u WHERE u.role = com.bounswe2026group1.backend.model.UserRole.USER " +
+    // User search: case-insensitive substring match on the user's name.
+    // Admins are included; BANNED accounts are excluded.
+    @Query("SELECT u FROM RegisteredUser u " +
+           "WHERE u.status = com.bounswe2026group1.backend.model.UserStatus.ACTIVE " +
            "AND LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%'))")
-    Page<RegisteredUser> searchRegularUsersByNameOrEmail(@Param("q") String q, Pageable pageable);
+    Page<RegisteredUser> searchUsersByName(@Param("q") String q, Pageable pageable);
 }

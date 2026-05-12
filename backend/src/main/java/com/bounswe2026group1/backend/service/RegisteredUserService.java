@@ -191,15 +191,16 @@ public class RegisteredUserService {
                 .toList();
     }
 
-    /** User search (#306 / #501): paginated, case-insensitive substring match by username.
-     *  Empty / blank query is rejected with IllegalArgumentException so the controller can return 400. */
+    /** User search: paginated, case-insensitive substring match on the user's name.
+     *  Empty / blank query is rejected with IllegalArgumentException so the controller can return 400.
+     *  Admins are included; BANNED accounts are excluded at the repository. */
     public Page<UserProfileDTO> searchUsers(String query, Pageable pageable) {
         if (query == null || query.isBlank()) {
             throw new IllegalArgumentException("Search query must not be empty.");
         }
         String trimmed = query.trim();
         Page<RegisteredUser> page = registeredUserRepository
-                .searchRegularUsersByNameOrEmail(trimmed, pageable);
+                .searchUsersByName(trimmed, pageable);
         if (page.isEmpty()) return page.map(u -> buildDTO(u, false, 0L, 0L, List.of(), null));
 
         // Batch the contribution-stats queries so we stay flat at 3 queries
