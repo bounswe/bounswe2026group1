@@ -69,39 +69,22 @@ public class RouteController {
         if (caller == null) {
             options = routeService.getRouteOptions(request);
         } else {
-            RoutingPreset preset = caller.getPreferredPreset();
-            Set<RoutingConstraint> stored = caller.getRoutingConstraints();
-
-            // If the user has never configured routing preferences (still on the
-            // default NONE preset with an empty constraint set), treat them
-            // identically to an anonymous caller so they see all route alternatives
-            // (Fastest + Accessible + Wheelchair) rather than only Fastest.
-            boolean hasNoPreferences = (preset == RoutingPreset.NONE || preset == null)
-                    && (stored == null || stored.isEmpty());
-
-            if (hasNoPreferences) {
-                // Same route set as anonymous, but honor stored travel-mode for
-                // preferred:true (the 1-arg overload passes preferredMode=null).
-                options = routeService.getRouteOptionsWithAnonymousAlternatives(
-                        request, caller.getPreferredTravelMode());
+            // Three-state contract for the constraints argument (issue #544):
+            //   • null     — caller has explicitly opted out of avoidance:
+            //                NONE preset, or CUSTOM preset with zero rules,
+            //                or any preset whose stored constraint set is
+            //                empty (the last covers data anomalies).
+            //   • non-empty — filter avoid set to hazards the user actually
+            //                 cares about.
+            Set<RoutingConstraint> constraints;
+            if (caller.getPreferredPreset() == RoutingPreset.NONE
+                    || caller.getRoutingConstraints() == null
+                    || caller.getRoutingConstraints().isEmpty()) {
+                constraints = null;
             } else {
-                // Three-state contract for the constraints argument (issue #544):
-                //   • null     — caller explicitly opted out of avoidance:
-                //                CUSTOM preset with zero rules.
-                //   • empty    — baseline avoidance (avoid all VERIFIED obstacles).
-                //   • non-empty — filter avoid set to hazards the user cares about.
-                Set<RoutingConstraint> constraints;
-                if (preset == RoutingPreset.CUSTOM && (stored == null || stored.isEmpty())) {
-                    // CUSTOM with zero rules = explicit opt-out (issue #544).
-                    constraints = null;
-                } else if (stored == null || stored.isEmpty()) {
-                    // Has a non-NONE preset but no stored constraints → baseline avoidance.
-                    constraints = Set.of();
-                } else {
-                    constraints = stored;
-                }
-                options = routeService.getRouteOptions(request, constraints, caller.getPreferredTravelMode());
+                constraints = caller.getRoutingConstraints();
             }
+            options = routeService.getRouteOptions(request, constraints, caller.getPreferredTravelMode());
             recordPlannedRouteForUser(caller, request, options);
         }
         return ResponseEntity.ok(options);

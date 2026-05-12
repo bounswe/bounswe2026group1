@@ -237,16 +237,16 @@ class RoutingPreferencesRouteIntegrationTest {
         }
     }
 
-    // ── NONE preset + empty constraints → baseline like anonymous ───────────
+    // ── NONE preset → null constraints reach ObstacleService (issue #544) ──
 
     /**
-     * A signed-in user who has never configured prefs still has DB defaults:
-     * {@code RoutingPreset.NONE} with an empty constraint set. They are routed
-     * like anonymous callers: {@link ObstacleService} receives {@link Set#of()}
-     * (baseline avoidance), not {@code null}.
+     * A signed-in user who explicitly chose {@code RoutingPreset.NONE} should
+     * NOT have their reports avoided. The controller must distinguish them
+     * from anonymous callers (who fall through to the {@code Set.of()}
+     * baseline) by passing {@code null} instead.
      */
     @Test
-    void authenticated_withNonePreset_passesEmptyConstraintsToObstacleService() throws Exception {
+    void authenticated_withNonePreset_passesNullConstraintsToObstacleService() throws Exception {
         // Default setup already has preset=NONE; reaffirm explicitly for clarity.
         user.setPreferredPreset(RoutingPreset.NONE);
         user.setRoutingConstraints(new HashSet<>());
@@ -258,7 +258,10 @@ class RoutingPreferencesRouteIntegrationTest {
                         .content(routeRequestBody()))
                 .andExpect(status().isOk());
 
-        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(eq(Set.of()));
+        // Anonymous would pass Set.of(); NONE-preset users pass null so
+        // ObstacleService skips avoidance entirely.
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
     }
 
     /**
@@ -391,13 +394,15 @@ class RoutingPreferencesRouteIntegrationTest {
     }
 
     /**
-     * Edge case: default NONE + empty constraints + wheelchair travel mode.
-     * Caller is treated like anonymous for alternatives but keeps wheelchair
-     * preference for {@code preferred:true}. Baseline avoidance uses
-     * {@code Set.of()} (same as anonymous), not explicit opt-out ({@code null}).
+     * Edge case: a signed-in wheelchair user with {@code RoutingPreset.NONE}
+     * has opted out of avoidance (so controller passes {@code constraints =
+     * null} → {@code buildAvoidPolygons} returns {@code null}) AND is in
+     * wheelchair mode (so the wheelchair-mode Accessible Route is emitted).
+     * That alternative comes out unfiltered — wheelchair-profile but with no
+     * avoid polygons applied. Defensible (they opted out), pinned by this test.
      */
     @Test
-    void authenticated_withNonePresetAndWheelchairMode_emitsWheelchairAccessibleRoute() throws Exception {
+    void authenticated_withNonePresetAndWheelchairMode_emitsUnfilteredWheelchairAccessibleRoute() throws Exception {
         user.setPreferredPreset(RoutingPreset.NONE);
         user.setRoutingConstraints(new HashSet<>());
         user.setPreferredTravelMode(TravelMode.WHEELCHAIR);
@@ -410,7 +415,10 @@ class RoutingPreferencesRouteIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(eq(Set.of()));
+        // Controller passes null constraints; ObstacleService short-circuits
+        // and never sees Set.of() for this caller.
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
 
         // Route set is the wheelchair caller's: Fastest + Accessible (no
         // separate Wheelchair Route label). The Accessible Route runs the

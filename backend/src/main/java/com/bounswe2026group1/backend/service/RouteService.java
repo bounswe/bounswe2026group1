@@ -37,23 +37,6 @@ public class RouteService {
     }
 
     /**
-     * Same alternatives as {@link #getRouteOptions(RouteRequest)} — Fastest plus
-     * walking Accessible plus Wheelchair — with baseline obstacle avoidance
-     * ({@code constraints = Set.of()}). Use for signed-in users who have not
-     * configured routing preferences yet; {@code preferredMode} only affects
-     * which alternative is marked {@code preferred:true}, not which routes are
-     * computed (unlike {@link #getRouteOptions(RouteRequest, Set, TravelMode)}).
-     *
-     * @param preferredMode may be null so no alternative is starred
-     */
-    public List<RouteResponse> getRouteOptionsWithAnonymousAlternatives(
-            RouteRequest request, TravelMode preferredMode) {
-        return getRouteOptions(request, Set.of(), preferredMode,
-                /* includeWalkingAccessibleAlternative = */ true,
-                /* includeWheelchairAlternative = */ true);
-    }
-
-    /**
      * Authenticated routing path. The alternative set adapts to the caller's
      * preferred travel mode:
      * <ul>
