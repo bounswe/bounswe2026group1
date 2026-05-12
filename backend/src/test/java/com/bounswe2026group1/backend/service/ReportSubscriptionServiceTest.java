@@ -123,6 +123,41 @@ class ReportSubscriptionServiceTest {
     }
 
     @Test
+    void subscribeInternal_persistsRowForFreshSubscriber() {
+        report.setReportId(50L);
+        when(subscriptionRepository.findByUserIdAndReportReportId(1L, 50L)).thenReturn(Optional.empty());
+        when(subscriptionRepository.save(any(ReportSubscription.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        subscriptionService.subscribeInternal(report, user);
+
+        ArgumentCaptor<ReportSubscription> captor = ArgumentCaptor.forClass(ReportSubscription.class);
+        verify(subscriptionRepository).save(captor.capture());
+        assertEquals(user, captor.getValue().getUser());
+        assertEquals(report, captor.getValue().getReport());
+    }
+
+    @Test
+    void subscribeInternal_isIdempotent_whenRowAlreadyExists() {
+        report.setReportId(50L);
+        ReportSubscription existing = new ReportSubscription();
+        when(subscriptionRepository.findByUserIdAndReportReportId(1L, 50L)).thenReturn(Optional.of(existing));
+
+        subscriptionService.subscribeInternal(report, user);
+
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void subscribeInternal_isNoOpOnNullArgsOrMissingIds() {
+        subscriptionService.subscribeInternal(null, user);
+        subscriptionService.subscribeInternal(report, null);
+        // Report has no reportId yet — service should bail out, not blow up.
+        subscriptionService.subscribeInternal(report, user);
+
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
     void isSubscribed_returnsRepositoryAnswer() {
         when(registeredUserRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(user));
         when(subscriptionRepository.existsByUserIdAndReportReportId(1L, 100L)).thenReturn(true);
