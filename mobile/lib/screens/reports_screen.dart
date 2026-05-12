@@ -22,7 +22,7 @@ const _kSortOptions = [
   ('NEWEST', 'Newest'),
   ('OLDEST', 'Oldest'),
   ('MOST_AGREED', 'Most agreed'),
-  ('MOST_CONTROVERSIAL', 'Most controversial'),
+  ('MOST_VOTED', 'Most voted'),
   ('DISTANCE', 'Nearest'),
 ];
 
@@ -124,6 +124,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // ─── Paged state ────────────────────────────────────────────────────────────
   final List<ReportModel> _items = [];
   int _nextPage = 0;
+  int? _totalResults;
   bool _isInitialLoading = false;
   bool _isLoadingMore = false;
   bool _reachedEnd = false;
@@ -201,7 +202,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
       issueType: _issueTypeFilter.isEmpty ? null : _issueTypeFilter,
       authorId: _selectedAuthorId,
       publishedAfter: _publishedAfter?.toUtc().toIso8601String(),
-      publishedBefore: _publishedBefore?.toUtc().toIso8601String(),
+      publishedBefore: _publishedBefore == null
+          ? null
+          : DateTime(
+              _publishedBefore!.year,
+              _publishedBefore!.month,
+              _publishedBefore!.day,
+              23,
+              59,
+              59,
+              999,
+            ).toUtc().toIso8601String(),
       minAgrees: _minAgrees,
       minDisagrees: _minDisagrees,
       latitude: _searchCenter?.latitude,
@@ -226,6 +237,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ..addAll(page.content);
         _nextPage = 1;
         _reachedEnd = page.last;
+        _totalResults = page.totalElements;
         _isInitialLoading = false;
         _hasNewActivity = false;
       });
@@ -270,6 +282,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ..addAll(page.content);
         _nextPage = 1;
         _reachedEnd = page.last;
+        _totalResults = page.totalElements;
         _error = null;
         _hasNewActivity = false;
       });
@@ -461,7 +474,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   void _clearLocation() {
     if (_searchCenter == null) return;
-    setState(() => _searchCenter = null);
+    setState(() {
+      _searchCenter = null;
+      if (_sortOrder == 'DISTANCE') _sortOrder = 'NEWEST';
+    });
     _loadFirstPage();
   }
 
@@ -495,7 +511,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
       case 'REPORT_DELETED':
         final before = _items.length;
         _items.removeWhere((r) => r.reportId == event.reportId);
-        if (_items.length != before && mounted) setState(() {});
+        if (_items.length != before && mounted) {
+          setState(() {
+            if (_totalResults != null) _totalResults = _totalResults! - 1;
+          });
+        }
       default:
         break;
     }
@@ -591,24 +611,49 @@ class _ReportsScreenState extends State<ReportsScreen> {
         radiusKm: _radiusKm,
       );
     }
-    return RefreshIndicator(
-      color: AppColors.primary,
-      onRefresh: _refresh,
-      child: ListView.separated(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: _items.length + 1,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (_, i) {
-          if (i == _items.length) return _buildFooter();
-          final report = _items[i];
-          return ReportCard(
-            report: report,
-            distanceKm: _distanceTo(report),
-            onTap: () => _openReport(report),
-          );
-        },
+    return Column(
+      children: [
+        if (_totalResults != null) _buildResultCount(_totalResults!),
+        Expanded(
+          child: RefreshIndicator(
+            color: AppColors.primary,
+            onRefresh: _refresh,
+            child: ListView.separated(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              itemCount: _items.length + 1,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (_, i) {
+                if (i == _items.length) return _buildFooter();
+                final report = _items[i];
+                return ReportCard(
+                  report: report,
+                  distanceKm: _distanceTo(report),
+                  onTap: () => _openReport(report),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultCount(int count) {
+    final label = count == 1 ? '1 result' : '$count results';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
