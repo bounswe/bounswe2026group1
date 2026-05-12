@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { useQueryClient } from '@tanstack/react-query'
@@ -332,6 +332,26 @@ function Home() {
   }
   const handleToastDismiss = useCallback(() => setToast(null), [])
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? null
+
+  // Community Pulse card stats. Single pass over `reports`; recomputes only
+  // when the array reference changes (React Query gives a stable reference
+  // until an SSE event mutates the cache). `status` here is the lowercase
+  // form from mapReportStatus(): 'unverified' covers PENDING.
+  const pulseStats = useMemo(() => {
+    let active = 0
+    let fixed = 0
+    for (const r of reports) {
+      if (r.reportType !== 'OBSTACLE') continue
+      if (r.status === 'unverified' || r.status === 'verified') active++
+      else if (r.status === 'fixed') fixed++
+    }
+    const denom = active + fixed
+    return {
+      active,
+      fixed,
+      resolutionPct: denom ? Math.round((fixed / denom) * 100) : 0,
+    }
+  }, [reports])
 
   useEffect(() => {
     // ?report cleared (panel closed via onClose) — arm for the next deep-link.
@@ -700,29 +720,43 @@ function Home() {
 
           {/* Community Pulse card + FAB */}
           <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
-            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
+            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-5 w-80 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
                 <span className="material-symbols-outlined text-primary">analytics</span>
               </div>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary-container/40 flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary">trending_up</span>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="rounded-2xl bg-primary-container/30 p-3.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>flag</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Active</span>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-on-surface">{reports.length} Active Reports</p>
-                  </div>
+                  <p className="text-2xl font-headline font-extrabold text-on-surface leading-none">{pulseStats.active}</p>
+                  <p className="text-[11px] text-on-surface-variant mt-1">unresolved obstacles</p>
                 </div>
-                <div className="bg-primary/5 rounded-2xl p-4">
-                  <div className="flex justify-between text-[10px] font-bold mb-2">
-                    <span className="text-on-surface">City Resolution Rate</span>
-                    <span className="text-primary">84%</span>
+                <div className="rounded-2xl bg-surface-container-low p-3.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Fixed</span>
                   </div>
-                  <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: '84%' }} />
-                  </div>
+                  <p className="text-2xl font-headline font-extrabold text-on-surface leading-none">{pulseStats.fixed}</p>
+                  <p className="text-[11px] text-on-surface-variant mt-1">by the community</p>
                 </div>
+              </div>
+              <div className="bg-primary/5 rounded-2xl p-3.5">
+                <div className="flex justify-between items-baseline text-[11px] font-bold mb-2">
+                  <span className="text-on-surface">Resolution rate</span>
+                  <span className="text-primary text-base font-headline">{pulseStats.resolutionPct}%</span>
+                </div>
+                <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-[width] duration-500"
+                    style={{ width: `${pulseStats.resolutionPct}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-on-surface-variant mt-2 leading-relaxed">
+                  {pulseStats.fixed} of {pulseStats.fixed + pulseStats.active} confirmed issues resolved
+                </p>
               </div>
             </div>
 
