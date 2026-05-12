@@ -95,4 +95,35 @@ describe('UserSearchPage', () => {
     expect(screen.getByRole('button', { name: /next/i })).toBeEnabled()
     expect(screen.getByText(/page 1 of 3/i)).toBeInTheDocument()
   })
+
+  it('steps through pages with Previous and Next', async () => {
+    const user = userEvent.setup()
+    useUserSearch.mockReturnValue({
+      data: {
+        content: [
+          {
+            id: 1,
+            name: 'Ada',
+            role: 'USER',
+            contributionStats: { reportsSubmitted: 2, routesPlanned: 1 },
+          },
+        ],
+        totalElements: 25,
+        totalPages: 3,
+        last: false,
+      },
+      isPending: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+    })
+    renderPage()
+    await user.type(screen.getByLabelText(/search users/i), 'ada')
+
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    expect(screen.getByText(/page 2 of 3/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^previous$/i }))
+    expect(screen.getByText(/page 1 of 3/i)).toBeInTheDocument()
+  })
 })

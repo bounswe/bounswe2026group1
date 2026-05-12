@@ -22,11 +22,38 @@ vi.mock('../hooks/useUserProfile.js', () => ({
 
 // CreateReportPanel is a heavyweight component; stub it so ReportPanel tests
 // can assert on which props it receives without rendering its full tree.
+vi.mock('./CreateFixRequestPanel.jsx', () => ({
+  default: ({ onClose, onSubmitted }) => (
+    <div role="dialog" aria-label="Submit fix report">
+      <button type="button" aria-label="Close" onClick={onClose}>
+        <span className="material-symbols-outlined">close</span>
+      </button>
+      <button type="button" data-testid="stub-fix-submitted" onClick={() => onSubmitted?.()}>
+        Stub submitted
+      </button>
+    </div>
+  ),
+}))
+
 vi.mock('./CreateReportPanel.jsx', () => ({
-  default: ({ editReport, onClose }) => (
+  default: ({ editReport, onClose, onUpdated, onError }) => (
     <div data-testid="create-report-panel">
       <span data-testid="cp-report-id">{editReport?.id}</span>
       <button onClick={onClose}>Cancel</button>
+      {onUpdated && (
+        <button
+          type="button"
+          data-testid="stub-edit-save"
+          onClick={() => onUpdated({ ...editReport, description: 'Updated via stub' })}
+        >
+          Stub save
+        </button>
+      )}
+      {onError && (
+        <button type="button" data-testid="stub-edit-error" onClick={() => onError('Save failed')}>
+          Stub error
+        </button>
+      )}
     </div>
   ),
 }))
@@ -48,6 +75,7 @@ vi.mock('../services/reportService.js', () => ({
   disagreeReport: vi.fn(),
   updateReport: vi.fn(),
   deleteReport: vi.fn(() => Promise.resolve()),
+  submitFixRequest: vi.fn(),
   agreeFixRequest: vi.fn(),
   disagreeFixRequest: vi.fn(),
   contributeMeasurements: vi.fn(),
@@ -66,7 +94,12 @@ import {
   disagreeReport,
   deleteReport,
   agreeFixRequest,
+  disagreeFixRequest,
   getCommentsByReport,
+  createComment,
+  followReport,
+  unfollowReport,
+  getFollowStatus,
 } from '../services/reportService.js'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 
@@ -99,6 +132,7 @@ describe('ReportPanel', () => {
     user = userEvent.setup()
     vi.clearAllMocks()
     getCommentsByReport.mockResolvedValue([])
+    getFollowStatus.mockResolvedValue({ following: false })
     useUserProfile.mockReturnValue({ data: undefined })
     // Reset auth defaults between tests so admin/owner flags don't leak.
     mockAuth.token = 'mock-token'
@@ -133,6 +167,36 @@ describe('ReportPanel', () => {
     expect(screen.getByText(/41\.0683, 29\.0505/)).toBeInTheDocument()
     expect(screen.getByLabelText('Agree')).toBeInTheDocument()
     expect(screen.getByLabelText('Disagree')).toBeInTheDocument()
+  })
+
+  test('shows Back to feed and navigates to /feed when clicked', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/?from=feed']}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <ReportPanel
+                  report={report}
+                  onClose={onCloseMock}
+                  onVoteChange={onVoteChangeMock}
+                  onVoteUpdate={onVoteUpdateMock}
+                  onFollowChange={onFollowChangeMock}
+                />
+              }
+            />
+            <Route path="/feed" element={<div data-testid="feed-route">feed</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByRole('button', { name: /back to feed/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /back to feed/i }))
+    await waitFor(() => expect(screen.getByTestId('feed-route')).toBeInTheDocument())
   })
 
   test('calls onVoteChange with agree/disagree/null correctly', async () => {
@@ -400,6 +464,52 @@ describe('ReportPanel', () => {
     expect(screen.getByText(/Has this been fixed\?/i)).toBeInTheDocument()
   })
 
+  test('opens the fix-request sheet when the fix CTA row is activated', async () => {
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: /has this been fixed/i }))
+    expect(await screen.findByRole('dialog', { name: /submit fix report/i })).toBeInTheDocument()
+  })
+
+  test('closes the fix-request sheet without submitting', async () => {
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: /has this been fixed/i }))
+    const dlg = await screen.findByRole('dialog', { name: /submit fix report/i })
+    await user.click(within(dlg).getByRole('button', { name: /^close$/i }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /submit fix report/i })).not.toBeInTheDocument(),
+    )
+  })
+
+  test('fires fix submission side-effects when the fix sheet completes', async () => {
+    const invalidateSpy = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: /has this been fixed/i }))
+    await user.click(screen.getByTestId('stub-fix-submitted'))
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalled())
+    invalidateSpy.mockRestore()
+  })
+
+  test('shows a spinner on the follow control while the follow request is pending', async () => {
+    followReport.mockImplementationOnce(() => new Promise(() => {}))
+    renderPanel()
+    const followBtn = screen.getByRole('button', { name: /follow updates/i })
+    await act(async () => {
+      await user.click(followBtn)
+    })
+    expect(followBtn.querySelector('.animate-spin')).toBeTruthy()
+  })
+
+  test('handles unfollow failures without crashing', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    getFollowStatus.mockResolvedValueOnce({ following: true })
+    unfollowReport.mockRejectedValueOnce(new Error('network'))
+    renderPanel()
+    await waitFor(() => expect(screen.getByRole('button', { name: /unfollow/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /unfollow/i }))
+    await waitFor(() => expect(errSpy).toHaveBeenCalled())
+    errSpy.mockRestore()
+  })
+
   test('hides the fix CTA when the report is already FIXED', () => {
     renderPanel({ report: { ...report, status: 'fixed' } })
     expect(screen.queryByText(/Has this been fixed\?/i)).not.toBeInTheDocument()
@@ -488,6 +598,54 @@ describe('ReportPanel', () => {
     await waitFor(() => {
       expect(agreeFixRequest).toHaveBeenCalledWith('r1', 11, 'mock-token')
     })
+  })
+
+  test('clicking No, still there calls disagreeFixRequest', async () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99,
+      submittedByName: 'Mehmet',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    disagreeFixRequest.mockResolvedValueOnce({ ...activeFix, disagrees: 1, userVote: 'disagree' })
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /no, still there/i }))
+    })
+
+    await waitFor(() => {
+      expect(disagreeFixRequest).toHaveBeenCalledWith('r1', 11, 'mock-token')
+    })
+  })
+
+  test('posts a new comment and prepends it to the thread', async () => {
+    createComment.mockResolvedValueOnce({
+      id: 'n1',
+      content: 'Thanks for the detailed report.',
+      author: { id: 'user123', name: 'Tester' },
+      createdAt: '2026-05-02T12:00:00Z',
+    })
+    renderPanel()
+    await user.type(screen.getByPlaceholderText(/add a comment/i), 'Thanks for the detailed report.')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^post$/i }))
+    })
+    await waitFor(() => {
+      expect(createComment).toHaveBeenCalledWith(
+        'r1',
+        'Thanks for the detailed report.',
+        'mock-token',
+        'user123',
+      )
+    })
+    expect(screen.getByText('Thanks for the detailed report.')).toBeInTheDocument()
   })
 
   describe('reporter row', () => {
@@ -612,5 +770,135 @@ describe('ReportPanel', () => {
       expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
       expect(screen.getByLabelText('Go to media 2')).toBeInTheDocument()
     })
+
+    test('embeds JSON-LD when the report has coordinates and objects', () => {
+      renderPanel({
+        report: {
+          ...report,
+          latitude: 41.06,
+          longitude: 29.04,
+          objects: [{ objectType: 'RAMP', issues: ['TOO_STEEP'] }],
+        },
+      })
+      const el = screen.getByTestId('report-jsonld')
+      expect(el).toBeInTheDocument()
+      expect(el.textContent).toContain('schema.org')
+    })
+
+    test('opens the media lightbox from a photo slide and closes it with Escape', async () => {
+      renderPanel({
+        report: {
+          ...report,
+          mediaUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+        },
+      })
+      await user.click(
+        screen.getByRole('button', { name: /open broken elevator photo 1 in viewer/i }),
+      )
+      expect(screen.getByRole('dialog', { name: /media viewer/i })).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: /media viewer/i })).not.toBeInTheDocument(),
+      )
+    })
+
+    test('opens the lightbox from a video slide via the expand control', async () => {
+      renderPanel({
+        report: { ...report, mediaUrls: ['https://cdn.example.com/clip.mp4'] },
+      })
+      await user.click(screen.getByRole('button', { name: /open in viewer/i }))
+      expect(screen.getByRole('dialog', { name: /media viewer/i })).toBeInTheDocument()
+    })
+
+    test('advances slides in the fullscreen viewer with arrow keys', async () => {
+      renderPanel({
+        report: {
+          ...report,
+          mediaUrls: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'],
+        },
+      })
+      await user.click(
+        screen.getByRole('button', { name: /open broken elevator photo 1 in viewer/i }),
+      )
+      expect(screen.getByText('1 / 2')).toBeInTheDocument()
+      await user.keyboard('{ArrowRight}')
+      expect(screen.getByText('2 / 2')).toBeInTheDocument()
+    })
+  })
+
+  test('shows an error when voting fails', async () => {
+    agreeReport.mockRejectedValueOnce(new Error('network'))
+    renderPanel()
+    await user.click(screen.getByLabelText('Agree'))
+    expect(await screen.findByText(/failed to submit vote/i)).toBeInTheDocument()
+  })
+
+  test('shows an error when voting on the fix request fails', async () => {
+    const activeFix = {
+      id: 11,
+      submittedByUserId: 99,
+      submittedByName: 'Mehmet',
+      description: null,
+      state: 'OPEN',
+      agrees: 0,
+      disagrees: 0,
+      createdAt: '2026-05-01T10:00:00Z',
+      mediaUrls: [],
+      userVote: null,
+    }
+    disagreeFixRequest.mockRejectedValueOnce(new Error('network'))
+    renderPanel({ report: { ...report, activeFixRequest: activeFix } })
+    await user.click(screen.getByRole('button', { name: /no, still there/i }))
+    expect(await screen.findByText(/failed to vote on fix/i)).toBeInTheDocument()
+  })
+
+  test('routes toast messages through onShowToast when the prop is provided', async () => {
+    const onShowToast = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    deleteReport.mockRejectedValueOnce(new Error('Request failed: 403'))
+    renderPanel({
+      report: { ...report, ownerId: 'user123', environment: 'OUTDOOR' },
+      onShowToast,
+    })
+    await user.click(screen.getByRole('button', { name: /delete report|^delete$/i }))
+    await waitFor(() =>
+      expect(onShowToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' })),
+    )
+    confirmSpy.mockRestore()
+  })
+
+  test('notifies onVoteUpdate after a successful edit save', async () => {
+    const ownedReport = { ...report, ownerId: 'user123', environment: 'OUTDOOR' }
+    renderPanel({ report: ownedReport })
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.click(screen.getByTestId('stub-edit-save'))
+    await waitFor(() => expect(onVoteUpdateMock).toHaveBeenCalled())
+  })
+
+  test('shows an error toast when edit mode reports a failure', async () => {
+    const ownedReport = { ...report, ownerId: 'user123', environment: 'OUTDOOR' }
+    renderPanel({ report: ownedReport })
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.click(screen.getByTestId('stub-edit-error'))
+    expect(await screen.findByText('Save failed')).toBeInTheDocument()
+  })
+
+  test('renders the mobile sheet resize slider when the viewport is narrow', () => {
+    const prev = window.matchMedia
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+      matches: String(query).includes('1023'),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    try {
+      renderPanel()
+      expect(screen.getByRole('slider', { name: /resize report panel/i })).toBeInTheDocument()
+    } finally {
+      window.matchMedia = prev
+    }
   })
 })

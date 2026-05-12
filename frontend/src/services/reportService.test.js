@@ -7,6 +7,20 @@ import {
   mapFixRequest,
   mapReportStatus,
   contributeMeasurements,
+  getReports,
+  getReportById,
+  agreeReport,
+  disagreeReport,
+  getCommentsByReport,
+  createComment,
+  createReport,
+  deleteComment,
+  getReportsByUserId,
+  updateReport,
+  deleteReport,
+  followReport,
+  unfollowReport,
+  getFollowStatus,
 } from './reportService.js'
 import { apiFetch } from './api.js'
 
@@ -118,6 +132,14 @@ describe('reportService — fix request helpers', () => {
       await expect(submitFixRequest(42, [file], 'x', 'jwt')).rejects.toMatchObject({
         message: 'duplicate',
         status: 409,
+      })
+    })
+
+    it('rejects when more than 5 files are attached', async () => {
+      const files = Array.from({ length: 6 }, (_, i) => new File(['x'], `p${i}.jpg`, { type: 'image/jpeg' }))
+      await expect(submitFixRequest(1, files, 'desc', 'jwt')).rejects.toMatchObject({
+        message: expect.stringMatching(/5 photos/i),
+        status: 400,
       })
     })
 
@@ -475,6 +497,146 @@ describe('reportService — fix request helpers', () => {
         ],
       })
       expect(result.objects[0].measurements).toEqual({})
+    })
+  })
+
+  describe('reportService — REST wrappers', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+      vi.stubEnv('VITE_API_URL', 'http://localhost:8080')
+      vi.stubEnv('VITE_API_KEY', 'test-key')
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('getReports calls GET /api/reports with optional bearer', async () => {
+      apiFetch.mockResolvedValue([])
+      await getReports()
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports', undefined)
+      await getReports('abc')
+      expect(apiFetch).toHaveBeenLastCalledWith('/api/reports', {
+        headers: { Authorization: 'Bearer abc' },
+      })
+    })
+
+    it('getReportById builds path and optional auth', async () => {
+      apiFetch.mockResolvedValue({})
+      await getReportById(99, null)
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/99', undefined)
+      await getReportById(99, 't')
+      expect(apiFetch).toHaveBeenLastCalledWith('/api/reports/99', {
+        headers: { Authorization: 'Bearer t' },
+      })
+    })
+
+    it('agreeReport and disagreeReport POST verify endpoints', async () => {
+      apiFetch.mockResolvedValue({})
+      await agreeReport(3, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/3/verify', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer jwt' },
+      })
+      await disagreeReport(3, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/3/unverify', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer jwt' },
+      })
+    })
+
+    it('getCommentsByReport passes Authorization only when token is set', async () => {
+      apiFetch.mockResolvedValue([])
+      await getCommentsByReport(5, null)
+      expect(apiFetch).toHaveBeenCalledWith('/api/comments/report/5', { headers: {} })
+      await getCommentsByReport(5, 'x')
+      expect(apiFetch).toHaveBeenLastCalledWith('/api/comments/report/5', {
+        headers: { Authorization: 'Bearer x' },
+      })
+    })
+
+    it('createComment POSTs JSON payload', async () => {
+      apiFetch.mockResolvedValue({ id: 1 })
+      await createComment(9, 'hello', 'jwt', 42)
+      expect(apiFetch).toHaveBeenCalledWith('/api/comments', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer jwt' },
+        body: JSON.stringify({
+          content: 'hello',
+          author: { id: 42 },
+          report: { reportId: 9 },
+        }),
+      })
+    })
+
+    it('createReport POSTs GeoJSON point and metadata', async () => {
+      apiFetch.mockResolvedValue({ reportId: 1 })
+      await createReport({
+        userId: 1,
+        latitude: 41,
+        longitude: 29,
+        description: 'd',
+        reportType: 'OBSTACLE',
+        environment: 'OUTDOOR',
+        objects: [],
+        token: 'jwt',
+      })
+      expect(apiFetch).toHaveBeenCalledWith(
+        '/api/reports',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { Authorization: 'Bearer jwt' },
+        }),
+      )
+      const opts = apiFetch.mock.calls[0][1]
+      const body = JSON.parse(opts.body)
+      expect(body.userId).toBe(1)
+      expect(body.description).toBe('d')
+      expect(body.geometry.type).toBe('Point')
+    })
+
+    it('deleteComment, updateReport, deleteReport hit correct methods', async () => {
+      apiFetch.mockResolvedValue(null)
+      await deleteComment(55, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/comments/55', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer jwt' },
+      })
+      await updateReport(3, { description: 'x' }, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/3', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer jwt' },
+        body: JSON.stringify({ description: 'x' }),
+      })
+      await deleteReport(3, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/3', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer jwt' },
+      })
+    })
+
+    it('getReportsByUserId GETs without auth header', async () => {
+      apiFetch.mockResolvedValue([])
+      await getReportsByUserId(7)
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/user/7')
+    })
+
+    it('followReport, unfollowReport, getFollowStatus use follow endpoints', async () => {
+      apiFetch.mockResolvedValue({ following: false })
+      await followReport(8, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/8/follow', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer jwt' },
+      })
+      await unfollowReport(8, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/8/follow', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer jwt' },
+      })
+      await getFollowStatus(8, 'jwt')
+      expect(apiFetch).toHaveBeenCalledWith('/api/reports/8/follow/me', {
+        headers: { Authorization: 'Bearer jwt' },
+      })
     })
   })
 })

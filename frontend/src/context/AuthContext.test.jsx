@@ -19,6 +19,31 @@ describe('AuthContext', () => {
   })
 
   describe('initial state', () => {
+    it('discards expired JWT from localStorage on mount', () => {
+      const pastExp = Math.floor(Date.now() / 1000) - 60
+      const payload = btoa(JSON.stringify({ id: 1, exp: pastExp }))
+      localStorage.setItem('token', `h.${payload}.s`)
+
+      const { result } = renderHook(() => useAuth(), { wrapper })
+
+      expect(result.current.isAuthenticated).toBe(false)
+      expect(localStorage.getItem('token')).toBeNull()
+    })
+
+    it('clears session when auth:expired fires', () => {
+      localStorage.setItem('token', 'h.' + btoa(JSON.stringify({ id: 1 })) + '.s')
+      const { result } = renderHook(() => useAuth(), { wrapper })
+
+      expect(result.current.isAuthenticated).toBe(true)
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('auth:expired'))
+      })
+
+      expect(result.current.isAuthenticated).toBe(false)
+      expect(localStorage.getItem('token')).toBeNull()
+    })
+
     it('is unauthenticated when localStorage has no token', () => {
       const { result } = renderHook(() => useAuth(), { wrapper })
 
