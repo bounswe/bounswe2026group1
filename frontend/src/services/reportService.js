@@ -50,10 +50,22 @@ export async function disagreeReport(id, token) {
  *
  * Uses fetch directly because apiFetch sets a JSON Content-Type which would
  * break the multipart boundary that FormData generates automatically.
+ *
+ * @param {number}   reportId
+ * @param {File[]}   files       — one or more image files (required, at least one)
+ * @param {string}   description — optional text (≤ 1000 chars)
+ * @param {string}   token       — JWT bearer token
  */
-export async function submitFixRequest(reportId, file, description, token) {
+export async function submitFixRequest(reportId, files, description, token) {
   const formData = new FormData()
-  formData.append('files', file)
+  // Accept both a single File and an array for backward compatibility.
+  const fileList = Array.isArray(files) ? files : [files]
+  if (fileList.length > 5) {
+    throw Object.assign(new Error('You can attach up to 5 photos per fix request.'), { status: 400 })
+  }
+  for (const file of fileList) {
+    formData.append('files', file)
+  }
   if (description && description.trim()) {
     formData.append('description', description.trim())
   }
