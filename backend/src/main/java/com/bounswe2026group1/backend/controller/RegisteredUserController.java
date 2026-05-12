@@ -57,9 +57,8 @@ public class RegisteredUserController {
 
     @GetMapping("/search")
     @Operation(
-            summary = "Search users by name or email",
-            description = "Case-insensitive substring match across name OR email. " +
-                    "Authenticated users only. Email is omitted from the response (privacy)."
+            summary = "Search users by username",
+            description = "Case-insensitive substring match on username only. Authenticated users only."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Page of matching profiles."),

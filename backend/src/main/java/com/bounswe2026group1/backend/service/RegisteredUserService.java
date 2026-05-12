@@ -191,10 +191,8 @@ public class RegisteredUserService {
                 .toList();
     }
 
-    /** User search (#306 / #501): paginated, case-insensitive substring match
-     *  across name OR email. Empty / blank query is rejected with
-     *  IllegalArgumentException so the controller can return 400.
-     *  Email is omitted in the DTO (privacy) — search results are public. */
+    /** User search (#306 / #501): paginated, case-insensitive substring match by username.
+     *  Empty / blank query is rejected with IllegalArgumentException so the controller can return 400. */
     public Page<UserProfileDTO> searchUsers(String query, Pageable pageable) {
         if (query == null || query.isBlank()) {
             throw new IllegalArgumentException("Search query must not be empty.");
