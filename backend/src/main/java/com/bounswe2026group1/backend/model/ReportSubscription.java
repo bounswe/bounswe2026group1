@@ -7,10 +7,12 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/** Explicit "Follow Updates" subscription — a user opts in to receive
- *  notifications about a report even if they did not create, comment on,
- *  or vote on it. Commenters and voters are notified through their own
- *  cohort lookups, so we do not auto-create a subscription for them. */
+/** Single source of truth for the notification audience of a report.
+ *  A row is created when a user creates the report, votes on it, comments
+ *  on it, or hits the "Follow Updates" button. {@link com.bounswe2026group1.backend.service.NotificationService#resolveAudience}
+ *  reads only this table, so the Follow button (and pressing Unfollow) always
+ *  reflects whether the user actually receives STATUS_CHANGE / NEW_COMMENT
+ *  notifications. */
 @Entity
 @Table(name = "report_subscriptions",
         uniqueConstraints = @UniqueConstraint(
