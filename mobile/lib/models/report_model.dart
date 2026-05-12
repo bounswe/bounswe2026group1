@@ -590,6 +590,13 @@ enum ReportStatus {
         _ => ReportStatus.pending,
       };
 
+  String get jsonValue => switch (this) {
+        ReportStatus.pending => 'PENDING',
+        ReportStatus.verified => 'VERIFIED',
+        ReportStatus.rejected => 'REJECTED',
+        ReportStatus.fixed => 'FIXED',
+      };
+
   String get label => switch (this) {
         ReportStatus.pending => 'Pending',
         ReportStatus.verified => 'Verified',

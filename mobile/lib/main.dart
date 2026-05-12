@@ -77,7 +77,7 @@ class MapcessApp extends StatelessWidget {
               ));
               return child!;
             },
-            home: const AuthShell(),
+            home: auth.isAuthenticated ? const MainShell() : const AuthShell(),
           );
         },
       ),

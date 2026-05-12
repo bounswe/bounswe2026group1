@@ -14,6 +14,6 @@ export const SORT_OPTIONS = [
   { id: 'NEWEST', label: 'Newest' },
   { id: 'OLDEST', label: 'Oldest' },
   { id: 'MOST_AGREED', label: 'Most agreed' },
-  { id: 'MOST_CONTROVERSIAL', label: 'Most controversial' },
+  { id: 'MOST_VOTED', label: 'Most voted' },
   { id: 'DISTANCE', label: 'Nearest (needs location)' },
 ]
