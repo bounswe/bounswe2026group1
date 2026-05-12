@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Community Pulse — Redesign Mockups</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#176a21',
+            'primary-dim': '#025d16',
+            'primary-container': '#9df197',
+            'on-primary-container': '#005c15',
+            secondary: '#495f69',
+            'on-surface': '#2d2f2f',
+            'on-surface-variant': '#5a5c5c',
+            'surface-container-lowest': '#ffffff',
+            'surface-container-low': '#f0f1f1',
+            'surface-container': '#e7e8e8',
+            background: '#f6f6f6',
+            outline: '#767777',
+            'outline-variant': '#acadad',
+            amber: { 50: '#fff8e1', 600: '#c08c1a', 800: '#7a5a0a' },
+          },
+          fontFamily: {
+            headline: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            body: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" />
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .filled { font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+    /* Faux Leaflet-ish map background so cards read in-context */
+    .faux-map {
+      background-color: #e3ddca;
+      background-image:
+        linear-gradient(120deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 28% 38%, rgba(157, 241, 151, 0.55) 0%, transparent 22%),
+        radial-gradient(circle at 78% 62%, rgba(157, 241, 151, 0.45) 0%, transparent 26%),
+        radial-gradient(circle at 50% 85%, rgba(174, 209, 255, 0.45) 0%, transparent 18%),
+        repeating-linear-gradient( 45deg, rgba(255,255,255,0.18) 0 1px, transparent 1px 22px),
+        repeating-linear-gradient(-45deg, rgba(0,0,0,0.04) 0 1px, transparent 1px 22px);
+    }
+    .recommended-glow {
+      box-shadow: 0 0 0 2px rgba(23, 106, 33, 0.35), 0 18px 50px -10px rgba(23, 106, 33, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface">
+  <div class="max-w-[1400px] mx-auto px-6 py-10 space-y-14">
+
+    <!-- HEADER ─────────────────────────────────────────────────────────── -->
+    <header>
+      <p class="text-xs font-headline font-bold uppercase tracking-[0.18em] text-primary">Frontend / Home map overlay</p>
+      <h1 class="text-3xl sm:text-4xl font-headline font-extrabold text-on-surface mt-1">Community Pulse — Redesign Mockups</h1>
+      <p class="text-on-surface-variant mt-3 max-w-3xl leading-relaxed">
+        The current overlay has two problems: a single small stat ("Active Reports") sits awkwardly next to a heavy 48&nbsp;px icon, and the 84% resolution rate is a hard-coded string. Below: the current state for reference, three redesign options, and the data wiring each one needs. All sample numbers come from the same hypothetical dataset of <strong>30 reports citywide</strong> (8 pending, 14 verified, 8 fixed). The current frontend doesn't viewport-filter the report list — see the recommendation section for the optional upgrade that makes these numbers update as you pan the map.
+      </p>
+    </header>
+
+    <!-- CURRENT ────────────────────────────────────────────────────────── -->
+    <section>
+      <div class="flex items-baseline gap-3 mb-4">
+        <h2 class="text-sm font-headline font-bold uppercase tracking-wider text-on-surface-variant">Current</h2>
+        <span class="text-xs text-on-surface-variant/70">— frontend/src/pages/Home.jsx, lines 703–727</span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
+        <div class="faux-map rounded-3xl p-6 min-h-[260px] relative">
+          <div class="bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-6 w-72 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 absolute top-6 left-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-headline font-bold text-on-surface">Community Pulse</h3>
+              <span class="material-symbols-outlined text-primary">analytics</span>
+            </div>
+            <div class="space-y-4">
+              <div class="flex gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary-container/40 flex-shrink-0 flex items-center justify-center">
+                  <span class="material-symbols-outlined text-primary">trending_up</span>
+                </div>
+                <div class="flex items-center">
+                  <p class="text-xs font-bold text-on-surface">27 Active Reports</p>
+                </div>
+              </div>
+              <div class="bg-primary/5 rounded-2xl p-4">
+                <div class="flex justify-between text-[10px] font-bold mb-2">
+                  <span class="text-on-surface">City Resolution Rate</span>
+                  <span class="text-primary">84%</span>
+                </div>
+                <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                  <div class="h-full bg-primary rounded-full" style="width: 84%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="lg:pt-4">
+          <h3 class="font-headline font-bold text-on-surface mb-3">Why it reads as off</h3>
+          <ul class="space-y-2 text-sm text-on-surface-variant leading-relaxed list-disc list-outside pl-5">
+            <li>A 48&nbsp;px icon tile sits next to a single line of text — the row reads as half-empty and visually unbalanced.</li>
+            <li>The headline statistic uses <code class="px-1 bg-surface-container rounded text-xs">text-xs</code>, smaller than the card's own title above it.</li>
+            <li>"Active Reports" displays <code class="px-1 bg-surface-container rounded text-xs">reports.length</code> — that includes <em>fixed</em> and <em>rejected</em> reports too, contradicting the label.</li>
+            <li class="text-on-surface"><strong>84% is a literal string</strong>, not derived from any field on the report objects. Two reports in, three reports out — number never moves.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══ VARIANT A ═══════════════════════════════════════════════════ -->
+    <section>
+      <div class="flex items-baseline gap-3 mb-4">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary text-white text-[11px] font-bold tracking-wide uppercase">
+          <span class="material-symbols-outlined filled" style="font-size:14px">check_circle</span>
+          Recommended
+        </span>
+        <h2 class="text-sm font-headline font-bold uppercase tracking-wider text-on-surface-variant">Variant A — Balanced Two-Stat Row</h2>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
+        <div class="faux-map rounded-3xl p-6 min-h-[320px] relative">
+          <div class="bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-5 w-80 recommended-glow border border-outline-variant/20 absolute top-6 left-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-headline font-bold text-on-surface">Community Pulse</h3>
+              <span class="material-symbols-outlined text-primary">analytics</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <!-- Tile 1: Active -->
+              <div class="rounded-2xl bg-primary-container/30 p-3.5">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="material-symbols-outlined text-primary" style="font-size:18px">flag</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Active</span>
+                </div>
+                <p class="text-2xl font-headline font-extrabold text-on-surface leading-none">22</p>
+                <p class="text-[11px] text-on-surface-variant mt-1">unresolved obstacles</p>
+              </div>
+              <!-- Tile 2: Fixed -->
+              <div class="rounded-2xl bg-surface-container-low p-3.5">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="material-symbols-outlined text-primary filled" style="font-size:18px">task_alt</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Fixed</span>
+                </div>
+                <p class="text-2xl font-headline font-extrabold text-on-surface leading-none">8</p>
+                <p class="text-[11px] text-on-surface-variant mt-1">by the community</p>
+              </div>
+            </div>
+            <div class="bg-primary/5 rounded-2xl p-3.5">
+              <div class="flex justify-between items-baseline text-[11px] font-bold mb-2">
+                <span class="text-on-surface">Resolution rate</span>
+                <span class="text-primary text-base font-headline">36%</span>
+              </div>
+              <div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+                <div class="h-full bg-primary rounded-full" style="width: 36%"></div>
+              </div>
+              <p class="text-[10px] text-on-surface-variant mt-2 leading-relaxed">8 of 22 confirmed issues resolved</p>
+            </div>
+          </div>
+        </div>
+        <div class="lg:pt-4">
+          <h3 class="font-headline font-bold text-on-surface mb-2">What changes & why</h3>
+          <ul class="space-y-2 text-sm text-on-surface-variant leading-relaxed list-disc list-outside pl-5 mb-5">
+            <li>Two equal-weight tiles replace the awkward icon-and-text row — the layout now reads as a deliberate dashboard, not a half-built widget.</li>
+            <li>Numbers jump from <code class="px-1 bg-surface-container rounded text-xs">text-xs</code> to <code class="px-1 bg-surface-container rounded text-xs">text-2xl</code>, the headline-font weight matches the card title, and labels move below the value for proper hierarchy.</li>
+            <li>"Active" now means what it sounds like (pending + verified obstacles); "Fixed" celebrates the community win.</li>
+            <li>Resolution rate becomes <em>fixed ÷ (fixed + active)</em>, recalculates on every SSE update, and a sub-caption tells you the underlying numbers so the bar is auditable.</li>
+          </ul>
+          <details class="bg-surface-container-low rounded-xl p-3 text-sm">
+            <summary class="cursor-pointer font-headline font-bold text-on-surface">Data wiring</summary>
+            <pre class="mt-3 text-xs leading-relaxed overflow-x-auto"><code>const obstacles = reports.filter(r =&gt; r.reportType === 'OBSTACLE')
+const active = obstacles.filter(r =&gt; r.status === 'PENDING' || r.status === 'VERIFIED').length
+const fixed  = obstacles.filter(r =&gt; r.status === 'FIXED').length
+const denom  = active + fixed
+const resolutionPct = denom ? Math.round((fixed / denom) * 100) : 0</code></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══ VARIANT B ═══════════════════════════════════════════════════ -->
+    <section>
+      <div class="flex items-baseline gap-3 mb-4">
+        <h2 class="text-sm font-headline font-bold uppercase tracking-wider text-on-surface-variant">Variant B — Hero Number + Status Chips</h2>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
+        <div class="faux-map rounded-3xl p-6 min-h-[320px] relative">
+          <div class="bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-5 w-80 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 absolute top-6 left-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-headline font-bold text-on-surface">Community Pulse</h3>
+              <span class="material-symbols-outlined text-primary">analytics</span>
+            </div>
+            <div class="text-center py-2">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Active issues citywide</p>
+              <p class="text-5xl font-headline font-extrabold text-on-surface leading-none mt-1.5">22</p>
+            </div>
+            <div class="flex justify-between mt-4 mb-4 px-1">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                <span class="text-[11px] font-semibold text-on-surface-variant"><span class="text-on-surface font-bold">8</span> pending</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-primary"></span>
+                <span class="text-[11px] font-semibold text-on-surface-variant"><span class="text-on-surface font-bold">14</span> verified</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                <span class="text-[11px] font-semibold text-on-surface-variant"><span class="text-on-surface font-bold">8</span> fixed</span>
+              </div>
+            </div>
+            <div class="h-px bg-outline-variant/30 mb-3"></div>
+            <div class="bg-primary/5 rounded-2xl p-3.5">
+              <div class="flex justify-between items-baseline text-[11px] font-bold mb-2">
+                <span class="text-on-surface">Resolution rate</span>
+                <span class="text-primary text-base font-headline">36%</span>
+              </div>
+              <div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+                <div class="h-full bg-primary rounded-full" style="width: 36%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="lg:pt-4">
+          <h3 class="font-headline font-bold text-on-surface mb-2">What changes & why</h3>
+          <ul class="space-y-2 text-sm text-on-surface-variant leading-relaxed list-disc list-outside pl-5 mb-5">
+            <li>One big hero number anchors the card — eye lands on it instantly, no competition with the icon row.</li>
+            <li>Three small dot-chips give the status split without needing three tiles' worth of real estate.</li>
+            <li>Best fit if you want the card to <strong>tell a story at a glance</strong> rather than read as a multi-KPI dashboard. Trade-off: the "Fixed" count is demoted from a headline to a chip.</li>
+          </ul>
+          <p class="text-xs text-on-surface-variant italic">Same data wiring as Variant A; the chips just expose the underlying status breakdown.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══ VARIANT C ═══════════════════════════════════════════════════ -->
+    <section>
+      <div class="flex items-baseline gap-3 mb-4">
+        <h2 class="text-sm font-headline font-bold uppercase tracking-wider text-on-surface-variant">Variant C — Composition Bar</h2>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
+        <div class="faux-map rounded-3xl p-6 min-h-[320px] relative">
+          <div class="bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-5 w-80 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 absolute top-6 left-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-headline font-bold text-on-surface">Community Pulse</h3>
+              <span class="material-symbols-outlined text-primary">analytics</span>
+            </div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">30 reports citywide</p>
+            <!-- Stacked bar: 8 pending / 14 verified / 8 fixed (out of 30) -->
+            <div class="flex h-3 w-full rounded-full overflow-hidden gap-0.5 mb-3">
+              <div class="bg-amber-600" style="width: 26.7%"></div>
+              <div class="bg-primary"  style="width: 46.7%"></div>
+              <div class="bg-outline-variant" style="width: 26.7%"></div>
+            </div>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-center justify-between text-[12px]">
+                <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-amber-600"></span><span class="font-semibold text-on-surface-variant">Pending</span></div>
+                <span class="font-headline font-bold text-on-surface">8</span>
+              </div>
+              <div class="flex items-center justify-between text-[12px]">
+                <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-primary"></span><span class="font-semibold text-on-surface-variant">Verified</span></div>
+                <span class="font-headline font-bold text-on-surface">14</span>
+              </div>
+              <div class="flex items-center justify-between text-[12px]">
+                <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-outline-variant"></span><span class="font-semibold text-on-surface-variant">Fixed</span></div>
+                <span class="font-headline font-bold text-on-surface">8</span>
+              </div>
+            </div>
+            <div class="bg-primary/5 rounded-2xl p-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary filled" style="font-size:18px">task_alt</span>
+                <span class="text-[11px] font-bold text-on-surface">Resolution rate</span>
+              </div>
+              <span class="text-base font-headline font-extrabold text-primary">36%</span>
+            </div>
+          </div>
+        </div>
+        <div class="lg:pt-4">
+          <h3 class="font-headline font-bold text-on-surface mb-2">What changes & why</h3>
+          <ul class="space-y-2 text-sm text-on-surface-variant leading-relaxed list-disc list-outside pl-5 mb-5">
+            <li>A single proportional bar shows the lifecycle of nearby reports — readers can see at a glance whether the area skews "lots of pending unverified noise" vs. "mostly verified, slow to fix."</li>
+            <li>Most analytically dense of the three options; closest to a status-tracking dashboard.</li>
+            <li>Trade-off: needs slightly more vertical space, and the bar can be hard to parse on the smallest screens (we already hide the card below <code class="px-1 bg-surface-container rounded text-xs">lg</code> so this is mostly fine).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECOMMENDATION ─────────────────────────────────────────────────── -->
+    <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-3xl p-6 sm:p-8">
+      <h2 class="text-lg font-headline font-bold text-on-surface mb-3">My recommendation</h2>
+      <p class="text-sm text-on-surface-variant leading-relaxed mb-4">
+        Ship <strong class="text-on-surface">Variant A</strong>. It directly addresses both reported issues:
+      </p>
+      <ol class="space-y-2 text-sm text-on-surface-variant leading-relaxed list-decimal list-outside pl-6">
+        <li>The <em>"out of place" feeling</em> comes from the asymmetric icon-vs-text row. Two equal stat tiles make the layout deliberately balanced, and the bigger numbers give the card the visual weight a floating overlay deserves.</li>
+        <li>The <em>hardcoded 84%</em> becomes a derived value with the data wiring shown above — a one-liner over <code class="px-1 bg-surface-container rounded text-xs">reports</code>, no API changes needed. It will live-update through the existing <code class="px-1 bg-surface-container rounded text-xs">useSseSync</code> path.</li>
+      </ol>
+      <p class="text-sm text-on-surface-variant leading-relaxed mt-4">
+        Variant B is a strong fallback if the team prefers a one-glance card; Variant C is a good fit if you want to push the home page closer to an analytics surface, but it's the heaviest of the three. Happy to wire up whichever you pick — say the word.
+      </p>
+      <div class="mt-5 pt-5 border-t border-outline-variant/30">
+        <h3 class="font-headline font-bold text-on-surface mb-2 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary" style="font-size:18px">map</span>
+          Optional upgrade: make the numbers viewport-scoped
+        </h3>
+        <p class="text-sm text-on-surface-variant leading-relaxed">
+          Today <code class="px-1 bg-surface-container rounded text-xs">useReports()</code> returns the full citywide list — no map-bounds filter exists in the frontend. As a follow-up (~15 lines on <a href="../frontend/src/pages/Home.jsx" class="text-primary underline">Home.jsx</a>), we can track <code class="px-1 bg-surface-container rounded text-xs">map.getBounds()</code> on the existing <code class="px-1 bg-surface-container rounded text-xs">moveend</code> handler and filter the array before counting. The card then becomes a live "pulse of what you're looking at" — numbers tick as the user pans. Worth doing because the card literally sits on the map.
+        </p>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>
