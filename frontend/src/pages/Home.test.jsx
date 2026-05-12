@@ -352,8 +352,9 @@ describe('Home page — map flows & filters', () => {
       makeRawReport({ reportId: 20, latitude: 41.1, longitude: 29.1, objects: [] }),
     ])
     renderHome({ token: makeJwt() })
-    // Community Pulse uses `hidden lg:block`; in jsdom it often stays display:none, so RTL ignores it unless hidden:true.
-    await screen.findByText('2 Active Reports', { hidden: true })
+    await waitFor(() => {
+      expect(screen.getAllByTestId('leaflet-marker')).toHaveLength(2)
+    })
     const markers = screen.getAllByTestId('leaflet-marker')
     await user.click(markers[0])
     expect(await screen.findByRole('button', { name: /close panel/i })).toBeInTheDocument()
@@ -366,7 +367,9 @@ describe('Home page — map flows & filters', () => {
       makeRawReport({ reportId: 10, latitude: 41.0, longitude: 29.0 }),
     ])
     renderHome({ token: makeJwt() })
-    await screen.findByText('1 Active Reports', { hidden: true })
+    await waitFor(() => {
+      expect(screen.getAllByTestId('leaflet-marker')).toHaveLength(1)
+    })
     await user.click(screen.getByRole('button', { name: /report an issue/i }))
     await screen.findByText(/click on the map to set report location/i)
     await user.click(screen.getByTestId('leaflet-marker'))
