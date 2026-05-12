@@ -140,6 +140,51 @@ class RouteServiceTest {
     }
 
     @Test
+    void walkingUserWithRequireRamps_takesRampAssistedRoute_whenItIsShorter() {
+        // REQUIRE_RAMPS is the constraint whose label literally promises "Prefer routes
+        // with ramps over steps" — ramp-assisted routing should fire on it too, not
+        // only on AVOID_STAIRS. (Otherwise MOBILITY_LIMITED preset users — which include
+        // REQUIRE_RAMPS but not AVOID_STAIRS — never get positive ramp routing.)
+        Report ramp = new Report();
+        ramp.setEntryPoint(new Location(41.0840, 29.0460));
+        ramp.setExitPoint(new Location(41.0830, 29.0480));
+        when(obstacleService.findRampOnPath(any())).thenReturn(ramp);
+
+        // Avoid polygons must exist so the Accessible Route branch is entered at all
+        // (REQUIRE_RAMPS produces no native filters today, only polygons via reports).
+        ObjectNode avoidPolygons = JsonMapper.builder().build().createObjectNode();
+        when(obstacleService.buildAvoidPolygons(any())).thenReturn(avoidPolygons);
+
+        RoutingDirectionsResult directAccessible = RoutingDirectionsResult.builder()
+                .distanceMeters(500.0).durationSeconds(360.0).geometry("").steps(List.of()).build();
+        RoutingDirectionsResult legRoute = RoutingDirectionsResult.builder()
+                .distanceMeters(100.0).durationSeconds(60.0).geometry("").steps(List.of()).build();
+        RoutingDirectionsResult fastest = RoutingDirectionsResult.builder()
+                .distanceMeters(800.0).durationSeconds(540.0).geometry("_p~iG~psG_p~iG~psG").steps(List.of()).build();
+
+        when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WALKING), any(), any()))
+                .thenReturn(fastest)         // 1. Fastest
+                .thenReturn(directAccessible)// 2. Direct Accessible
+                .thenReturn(legRoute)        // 3. leg1
+                .thenReturn(legRoute)        // 4. leg2
+                .thenReturn(legRoute);       // 5. leg3
+
+        List<RouteResponse> routes = routeService.getRouteOptions(
+                new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING),
+                EnumSet.of(RoutingConstraint.REQUIRE_RAMPS),
+                TravelMode.WALKING);
+
+        RouteResponse accessible = routes.stream()
+                .filter(r -> "Accessible Route".equals(r.getRouteLabel()))
+                .findFirst()
+                .orElse(null);
+        assertTrue(accessible != null,
+                "Accessible Route must be emitted for REQUIRE_RAMPS users. Routes: " + routes);
+        org.junit.jupiter.api.Assertions.assertEquals(300.0, accessible.getDistanceMeters(), 0.01,
+                "Accessible Route must be the ramp-assisted multi-leg (300m), not the direct (500m)");
+    }
+
+    @Test
     void walkingUserWithAvoidStairs_keepsDirectAccessibleRoute_whenNoRampReportFound() {
         // No ramp reported on the fastest path → buildRampAssistedRoute returns null,
         // so the Accessible Route stays the direct foot-walking + avoid_features result.

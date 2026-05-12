@@ -140,13 +140,18 @@ public class RouteService {
                             .hasObstacles(false)
                             .build();
 
-            // When AVOID_STAIRS is active, also consider routing through a reported
-            // FEATURE ramp (same pattern as the wheelchair branch below). Both legs
-            // use WALKING + the caller's constraints so the approach/exit respect
-            // avoid_features:["steps"]; the through-ramp leg stays unfiltered.
+            // When the caller wants ramps (REQUIRE_RAMPS is the natural fit — its
+            // label literally says "Prefer routes with ramps over steps") or stairs
+            // avoided (AVOID_STAIRS users benefit from going through known ramps),
+            // consider routing through a reported FEATURE ramp (same pattern as
+            // the wheelchair branch below). The approach/exit legs use WALKING +
+            // the caller's constraints (so avoid_features:["steps"] is honored
+            // when AVOID_STAIRS is set); the through-ramp leg stays unfiltered.
+            boolean wantsRampAssist = constraints != null
+                    && (constraints.contains(RoutingConstraint.REQUIRE_RAMPS)
+                        || constraints.contains(RoutingConstraint.AVOID_STAIRS));
             RouteResponse rampAssistedAccessible = null;
-            if (constraints != null && constraints.contains(RoutingConstraint.AVOID_STAIRS)
-                    && fastestResult != null && fastestResult.getGeometry() != null) {
+            if (wantsRampAssist && fastestResult != null && fastestResult.getGeometry() != null) {
                 List<Location> walkingPath = PolylineDecoder.decode(fastestResult.getGeometry());
                 rampAssistedAccessible = buildRampAssistedRoute(
                         start, end, TravelMode.WALKING, avoidPolygons, constraints,
