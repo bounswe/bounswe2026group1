@@ -35,12 +35,35 @@ flutter pub get
 
 # iOS only — install CocoaPods
 cd ios && pod install && cd ..
-
-# Run on a connected device or simulator
-flutter run
 ```
 
-> **Note:** The app connects to `https://api.mapcess.live`. No local backend setup is required for development.
+### Run against the live backend (default)
+
+No extra configuration needed — `API_BASE_URL` defaults to `https://api.mapcess.live`.
+
+```bash
+flutter run
+# or explicitly:
+flutter run --dart-define-from-file=dart_defines/production.json
+```
+
+### Run against a local backend
+
+**Android emulator** (`10.0.2.2` is the emulator's alias for your host machine):
+```bash
+flutter run --dart-define-from-file=dart_defines/local-emulator.json
+```
+
+**Physical device** (device and machine must be on the same Wi-Fi):
+```bash
+# 1. Find your machine's local IP:
+#    macOS/Linux:  ipconfig getifaddr en0
+#    Windows:      ipconfig  (IPv4 under your Wi-Fi adapter)
+# 2. Edit dart_defines/local-device.json — set API_BASE_URL to http://<YOUR_IP>:8080
+flutter run --dart-define-from-file=dart_defines/local-device.json
+```
+
+> **Android HTTP note:** If your local backend is plain HTTP, add `android:usesCleartextTraffic="true"` to the `<application>` tag in `android/app/src/main/AndroidManifest.xml`.
 
 ---
 
@@ -164,12 +187,68 @@ Reconnection uses exponential backoff (1 s → 2 s → … → 30 s cap). After 
 
 ## Configuration
 
-### Backend
+### Network / API endpoint
 
-| Key | Value |
-|-----|-------|
-| Base URL | `https://api.mapcess.live` |
-| SSE endpoint | `/api/sse/public/subscribe` |
+All network variables are injected at build time via `--dart-define-from-file`.  
+No `.env` file is read at runtime — the values are compiled into the binary.
+
+#### Pre-built profiles (`dart_defines/`)
+
+| File | When to use |
+|------|-------------|
+| `production.json` | Default production build targeting `https://api.mapcess.live` |
+| `local-emulator.json` | Android emulator → host machine at `10.0.2.2:8080` |
+| `local-device.json` | Physical device → edit `YOUR_MACHINE_IP` before use |
+
+#### Running against the production backend
+
+```bash
+flutter run --dart-define-from-file=dart_defines/production.json
+flutter build apk --dart-define-from-file=dart_defines/production.json
+```
+
+If no `--dart-define-from-file` flag is passed, `API_BASE_URL` defaults to `https://api.mapcess.live` automatically.
+
+#### Running against a local backend (Docker Compose)
+
+**Android emulator** (host machine is always reachable at `10.0.2.2`):
+```bash
+flutter run --dart-define-from-file=dart_defines/local-emulator.json
+```
+
+**Physical Android/iOS device** (must be on the same Wi-Fi as your machine):
+```bash
+# 1. Find your machine's local IP:
+#    macOS/Linux:  ipconfig getifaddr en0
+#    Windows:      ipconfig  →  "IPv4 Address" under your Wi-Fi adapter
+
+# 2. Edit dart_defines/local-device.json — replace YOUR_MACHINE_IP:
+#    "API_BASE_URL": "http://192.168.1.42:8080"
+
+flutter run --dart-define-from-file=dart_defines/local-device.json
+```
+
+**iOS Simulator** (can use `localhost` directly):
+```bash
+# Create dart_defines/local-ios-sim.json with "API_BASE_URL": "http://localhost:8080"
+flutter run --dart-define-from-file=dart_defines/local-ios-sim.json
+```
+
+> **HTTP on Android:** If your local backend is HTTP (not HTTPS), add `android:usesCleartextTraffic="true"` to the `<application>` tag in `android/app/src/main/AndroidManifest.xml`.
+
+#### Available variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_BASE_URL` | `https://api.mapcess.live` | Base URL for all REST + SSE calls |
+| `API_KEY` | `bounswe2026-local-api-key` | API key sent in the `X-Api-Key` header |
+
+### Backend endpoints used
+
+| Purpose | Path |
+|---------|------|
+| REST API | `$API_BASE_URL/api/…` |
+| SSE live updates | `$API_BASE_URL/api/sse/public/subscribe` |
 
 ### Timeouts
 

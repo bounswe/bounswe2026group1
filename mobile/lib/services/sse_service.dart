@@ -5,7 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import '../models/sse_event.dart';
 
-const _sseUrl = 'https://api.mapcess.live/api/sse/public/subscribe';
+final _sseUrl =
+    '${const String.fromEnvironment('API_BASE_URL', defaultValue: 'https://api.mapcess.live')}'
+    '/api/sse/public/subscribe';
 const _apiKey = String.fromEnvironment(
   'API_KEY',
   defaultValue: 'bounswe2026-local-api-key',
