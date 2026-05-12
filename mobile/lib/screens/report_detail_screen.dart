@@ -2492,11 +2492,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 children: [
                   Icon(Icons.wifi_off, size: 14, color: AppColors.outline),
                   const SizedBox(width: 8),
-                  Text(
-                    _commentsError!,
-                    style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                  Expanded(
+                    child: Text(
+                      _commentsError!,
+                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: _loadComments,
                     child: Text(

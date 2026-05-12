@@ -1,0 +1,1097 @@
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.5.1 available)
+  flutter_map 7.0.2 (8.3.0 available)
+  geolocator 13.0.4 (14.0.2 available)
+  geolocator_android 4.6.2 (5.0.2 available)
+  image_picker 1.2.1 (1.2.2 available)
+  image_picker_android 0.8.13+15 (0.8.13+17 available)
+  latlong2 0.9.1 (0.10.1 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.17.0 (1.18.2 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  proj4dart 2.1.0 (3.0.0 available)
+  test_api 0.7.10 (0.7.12 available)
+  unicode 0.3.1 (1.1.9 available)
+  vector_math 2.2.0 (2.3.0 available)
+  video_player_avfoundation 2.9.4 (2.9.6 available)
+  video_player_platform_interface 6.6.0 (6.7.0 available)
+  vm_service 15.0.2 (15.2.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+20 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/notification_model_test.dart
+00:00 +0: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/notification_model_test.dart: NotificationModel fromJson maps enums and fields
+00:00 +1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/notification_model_test.dart: NotificationModel unknown type falls back gracefully
+00:00 +2: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/notification_model_test.dart: NotificationType icons and labels are stable
+00:00 +3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/object_draft_test.dart: ObjectDraft.fromReportObject parses measurements JSON blob into map
+00:00 +4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/object_draft_test.dart: ObjectDraft.fromReportObject invalid measurements string yields empty map
+00:00 +5: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/fix_request_model_test.dart: FixRequestModel fromJson maps fields and state
+00:00 +6: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/fix_request_model_test.dart: FixRequestModel unknown state maps to unknown enum
+00:00 +7: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: (setUpAll)
+00:00 +7: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/report_model_test.dart: ReportModel fromJson maps nested objects and enums
+00:00 +8: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService starts disconnected without calling connect
+00:00 +9: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService starts disconnected without calling connect
+00:00 +10: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService starts disconnected without calling connect
+00:00 +11: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService starts disconnected without calling connect
+00:00 +12: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService starts disconnected without calling connect
+00:00 +13: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService starts disconnected without calling connect
+00:00 +14: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService connect() establishes connection and parses events
+[SSE] SseEvent(type: POINTS_CHANGED, userId: 1, points: 100)
+00:00 +15: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService reconnects if response status is not 200
+00:00 +16: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService disconnect() cleans up resources
+00:00 +17: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService handles app lifecycle changes
+00:00 +18: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_service_test.dart: SseService needsFullRefresh flags correctly
+00:00 +19: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils badgeMeta returns correct BadgeMeta for known badge
+00:00 +20: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils badgeMeta returns null for unknown badge
+00:00 +21: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils badgeMeta returns null for null badge
+00:00 +22: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils pickHighestTierBadge returns highest tier badge from list
+00:00 +23: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils pickHighestTierBadge ignores unknown badges
+00:00 +24: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils pickHighestTierBadge returns null for empty list
+00:00 +25: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/badge_test.dart: BadgeMeta & badgeUtils pickHighestTierBadge returns null if only unknown badges
+00:00 +26: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/leaderboard_entry_test.dart: LeaderboardEntry fromJson creates correct instance
+00:00 +27: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/leaderboard_entry_test.dart: LeaderboardEntry fromJson handles missing optional fields gracefully
+00:00 +28: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/leaderboard_entry_test.dart: LeaderboardEntry fromJson handles double type for numbers correctly
+00:00 +29: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/leaderboard_entry_test.dart: RankInfo fromJson creates correct instance
+00:00 +30: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/leaderboard_entry_test.dart: RankInfo fromJson handles missing points gracefully
+00:00 +31: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/leaderboard_entry_test.dart: RankInfo fromJson handles double points correctly
+00:00 +32: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/routing_preferences_test.dart: RoutingPreferences.fromJson parses full routing-preferences payload
+00:00 +33: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/routing_preferences_test.dart: RoutingPreferences.fromJson defaults missing catalogue fields
+00:00 +34: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/models/routing_preferences_test.dart: RoutingPresetInfo CUSTOM preset is not selectable in UI
+00:00 +35: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser parses REPORT_UPDATED event
+00:00 +36: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser parses MEDIA_ADDED event
+00:00 +37: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser parses REPORT_CREATED event
+00:00 +38: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser parses POINTS_CHANGED event with userId and points
+00:00 +39: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser parses REPORT_DELETED event
+00:00 +40: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser returns null for malformed JSON
+00:00 +41: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser handles missing optional fields gracefully
+00:00 +42: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/sse_event_test.dart: SseEvent parser toString includes type and reportId
+00:00 +43: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/auth_service_test.dart: AuthService init restores user id from JWT subject claim
+00:00 +44: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/auth_service_test.dart: AuthService loginAsGuest clears token and flags guest
+00:00 +45: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/auth_service_test.dart: AuthService logout clears stored credentials
+00:00 +46: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widget_test.dart: Mapcess smoke test
+00:01 +46: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure
+ClientException: Request to https://tile.openstreetmap.org/14/2620/6333.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2620/6333.png
+ClientException: Request to https://tile.openstreetmap.org/14/2621/6333.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2621/6333.png
+ClientException: Request to https://tile.openstreetmap.org/14/2620/6332.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2620/6332.png
+ClientException: Request to https://tile.openstreetmap.org/14/2621/6332.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2621/6332.png
+ClientException: Request to https://tile.openstreetmap.org/14/2620/6334.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2620/6334.png
+ClientException: Request to https://tile.openstreetmap.org/14/2621/6334.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2621/6334.png
+ClientException: Request to https://tile.openstreetmap.org/14/2619/6333.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2619/6333.png
+ClientException: Request to https://tile.openstreetmap.org/14/2622/6333.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2622/6333.png
+ClientException: Request to https://tile.openstreetmap.org/14/2619/6332.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2619/6332.png
+ClientException: Request to https://tile.openstreetmap.org/14/2622/6332.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2622/6332.png
+ClientException: Request to https://tile.openstreetmap.org/14/2619/6334.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2619/6334.png
+ClientException: Request to https://tile.openstreetmap.org/14/2622/6334.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2622/6334.png
+ClientException: Request to https://tile.openstreetmap.org/14/2620/6331.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2620/6331.png
+ClientException: Request to https://tile.openstreetmap.org/14/2621/6331.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2621/6331.png
+ClientException: Request to https://tile.openstreetmap.org/14/2620/6335.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2620/6335.png
+ClientException: Request to https://tile.openstreetmap.org/14/2621/6335.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2621/6335.png
+ClientException: Request to https://tile.openstreetmap.org/14/2619/6331.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2619/6331.png
+ClientException: Request to https://tile.openstreetmap.org/14/2622/6331.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2622/6331.png
+ClientException: Request to https://tile.openstreetmap.org/14/2618/6333.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2618/6333.png
+ClientException: Request to https://tile.openstreetmap.org/14/2623/6333.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2623/6333.png
+ClientException: Request to https://tile.openstreetmap.org/14/2619/6335.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2619/6335.png
+ClientException: Request to https://tile.openstreetmap.org/14/2622/6335.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2622/6335.png
+ClientException: Request to https://tile.openstreetmap.org/14/2618/6332.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2618/6332.png
+ClientException: Request to https://tile.openstreetmap.org/14/2623/6332.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2623/6332.png
+ClientException: Request to https://tile.openstreetmap.org/14/2618/6334.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2618/6334.png
+ClientException: Request to https://tile.openstreetmap.org/14/2623/6334.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2623/6334.png
+ClientException: Request to https://tile.openstreetmap.org/14/2618/6331.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2618/6331.png
+ClientException: Request to https://tile.openstreetmap.org/14/2623/6331.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2623/6331.png
+ClientException: Request to https://tile.openstreetmap.org/14/2618/6335.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2618/6335.png
+ClientException: Request to https://tile.openstreetmap.org/14/2623/6335.png failed with status 400: ., uri=https://tile.openstreetmap.org/14/2623/6335.png
+00:01 +47: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure
+00:01 +48: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure
+00:01 +49: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure
+00:01 +50: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure
+00:01 +51: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following assertion was thrown while finalizing the widget tree:
+Looking up a deactivated widget's ancestor is unsafe.
+At this point the state of the widget's element tree is no longer stable.
+To safely refer to a widget's ancestor in its dispose() method, save a reference to the ancestor by
+calling dependOnInheritedWidgetOfExactType() in the widget's didChangeDependencies() method.
+
+When the exception was thrown, this was the stack:
+#0      Element._debugCheckStateIsActiveForAncestorLookup.<anonymous closure> (package:flutter/src/widgets/framework.dart:5049:9)
+#1      Element._debugCheckStateIsActiveForAncestorLookup (package:flutter/src/widgets/framework.dart:5063:6)
+#2      Element.getElementForInheritedWidgetOfExactType (package:flutter/src/widgets/framework.dart:5098:12)
+#3      Provider._inheritedElementOf (package:provider/src/provider.dart:373:38)
+#4      Provider.of (package:provider/src/provider.dart:327:30)
+#5      ReadContext.read (package:provider/src/provider.dart:683:21)
+#6      _HomeScreenState.dispose (package:mapcess/screens/home_screen.dart:262:13)
+#7      StatefulElement.unmount (package:flutter/src/widgets/framework.dart:6030:11)
+#8      _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2117:13)
+#9      _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#10     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#11     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#12     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#13     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#14     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#15     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#16     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#17     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#18     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#19     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#20     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#21     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#22     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#23     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#24     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#25     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#26     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#27     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#28     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#29     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#30     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#31     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#32     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#33     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#34     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#35     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#36     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#37     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#38     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#39     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#40     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#41     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#42     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#43     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#44     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#45     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#46     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#47     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#48     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#49     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#50     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#51     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#52     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#53     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#54     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#55     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#56     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#57     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#58     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#59     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#60     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#61     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#62     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#63     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#64     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#65     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#66     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#67     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#68     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#69     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#70     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#71     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#72     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#73     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#74     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#75     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#76     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#77     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#78     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#79     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#80     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#81     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#82     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#83     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#84     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#85     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#86     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#87     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#88     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#89     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#90     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#91     SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#92     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#93     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#94     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#95     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#96     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#97     ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#98     _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#99     _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#100    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#101    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#102    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#103    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#104    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#105    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#106    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#107    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#108    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#109    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#110    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#111    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#112    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#113    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#114    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#115    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#116    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#117    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#118    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#119    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#120    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#121    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#122    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#123    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#124    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#125    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#126    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#127    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#128    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#129    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#130    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#131    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#132    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#133    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#134    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#135    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#136    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#137    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#138    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#139    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#140    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#141    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#142    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#143    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#144    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#145    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#146    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#147    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#148    MultiChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7223:16)
+#149    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#150    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#151    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#152    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#153    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#154    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#155    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#156    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#157    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#158    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#159    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#160    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#161    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#162    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#163    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#164    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#165    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#166    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#167    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#168    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#169    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#170    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#171    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#172    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#173    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#174    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#175    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#176    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#177    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#178    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#179    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#180    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#181    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#182    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#183    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#184    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#185    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#186    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#187    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#188    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#189    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#190    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#191    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#192    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#193    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#194    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#195    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#196    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#197    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#198    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#199    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#200    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#201    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#202    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#203    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#204    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#205    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#206    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#207    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#208    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#209    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#210    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#211    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#212    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#213    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#214    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#215    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#216    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#217    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#218    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#219    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#220    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#221    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#222    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#223    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#224    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#225    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#226    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#227    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#228    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#229    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#230    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#231    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#232    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#233    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#234    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#235    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#236    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#237    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#238    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#239    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#240    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#241    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#242    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#243    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#244    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#245    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#246    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#247    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#248    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#249    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#250    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#251    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#252    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#253    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#254    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#255    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#256    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#257    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#258    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#259    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#260    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#261    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#262    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#263    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#264    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#265    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#266    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#267    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#268    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#269    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#270    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#271    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#272    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#273    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#274    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#275    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#276    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#277    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#278    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#279    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#280    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#281    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#282    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#283    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#284    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#285    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#286    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#287    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#288    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#289    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#290    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#291    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#292    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#293    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#294    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#295    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#296    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#297    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#298    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#299    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#300    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#301    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#302    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#303    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#304    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#305    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#306    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#307    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#308    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#309    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#310    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#311    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#312    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#313    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#314    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#315    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#316    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#317    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#318    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#319    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#320    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#321    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#322    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#323    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#324    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#325    SingleChildRenderObjectElement.visitChildren (package:flutter/src/widgets/framework.dart:7101:14)
+#326    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#327    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#328    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#329    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#330    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#331    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#332    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#333    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#334    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#335    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#336    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#337    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#338    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#339    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#340    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#341    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#342    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#343    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#344    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#345    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#346    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#347    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#348    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#349    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#350    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#351    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#352    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#353    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#354    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#355    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#356    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#357    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#358    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#359    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#360    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#361    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#362    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#363    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#364    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#365    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#366    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#367    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#368    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#369    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#370    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#371    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#372    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#373    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#374    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#375    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#376    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#377    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#378    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#379    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#380    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#381    _InactiveElements._unmount.<anonymous closure> (package:flutter/src/widgets/framework.dart:2115:7)
+#382    ComponentElement.visitChildren (package:flutter/src/widgets/framework.dart:5871:14)
+#383    _InactiveElements._unmount (package:flutter/src/widgets/framework.dart:2113:13)
+#384    ListIterable.forEach (dart:_internal/iterable.dart:49:13)
+#385    _InactiveElements._unmountAll (package:flutter/src/widgets/framework.dart:2126:25)
+#386    BuildOwner.lockState (package:flutter/src/widgets/framework.dart:3020:15)
+#387    BuildOwner.finalizeTree (package:flutter/src/widgets/framework.dart:3344:7)
+#388    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2153:19)
+#389    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#390    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#391    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#392    AutomatedTestWidgetsFlutterBinding.scheduleWarmUpFrame (package:flutter_test/src/binding.dart:2057:5)
+#393    _runWidget (package:flutter/src/widgets/binding.dart:1683:7)
+#394    runApp (package:flutter/src/widgets/binding.dart:1616:3)
+#395    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1689:7)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +51 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +51 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/home_screen_test.dart: HomeScreen Tests renders home screen structure [E]
+  Test failed. See exception logs above.
+  The test description was: renders home screen structure
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+00:01 +52 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +53 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +54 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +55 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +56 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +57 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12668.png
+00:01 +58 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests renders screen properly
+00:01 +59 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widget_test.dart: Register: shows error when password does not meet requirements
+00:01 +60 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widget_test.dart: Register: shows error when password does not meet requirements
+00:01 +61 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/register_screen_test.dart: RegisterScreen Tests shows validation errors when fields are empty
+00:01 +61 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests shows validation errors when submitting empty
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5241/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5241/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5242/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5242/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5240/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5240/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5243/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5243/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12666.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12666.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12667.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12667.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12665.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12665.png
+ClientException: Request to https://tile.openstreetmap.org/15/5239/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5239/12668.png
+ClientException: Request to https://tile.openstreetmap.org/15/5244/12668.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/5244/12668.png
+00:01 +62 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/make_report_screen_test.dart: MakeReportScreen Tests shows validation errors when submitting empty
+00:01 +63 -1: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/login_screen_test.dart: LoginScreen Tests calls login with correct credentials
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following ProviderNotFoundException was thrown building MainShell(dirty, state:
+_MainShellState#d7348(ticker inactive)):
+Error: Could not find the correct Provider<ThemeService> above this MainShell Widget
+
+This happens because you used a `BuildContext` that does not include the provider
+of your choice. There are a few common scenarios:
+
+- You added a new provider in your `main.dart` and performed a hot-reload.
+  To fix, perform a hot-restart.
+
+- The provider you are trying to read is in a different route.
+
+  Providers are "scoped". So if you insert of provider inside a route, then
+  other routes will not be able to access that provider.
+
+- You used a `BuildContext` that is an ancestor of the provider you are trying to read.
+
+  Make sure that MainShell is under your MultiProvider/Provider<ThemeService>.
+  This usually happens when you are creating a provider and trying to read it immediately.
+
+  For example, instead of:
+
+  ```
+  Widget build(BuildContext context) {
+    return Provider<Example>(
+      create: (_) => Example(),
+      // Will throw a ProviderNotFoundError, because `context` is associated
+      // to the widget that is the parent of `Provider<Example>`
+      child: Text(context.watch<Example>().toString()),
+    );
+  }
+  ```
+
+  consider using `builder` like so:
+
+  ```
+  Widget build(BuildContext context) {
+    return Provider<Example>(
+      create: (_) => Example(),
+      // we use `builder` to obtain a new `BuildContext` that has access to the provider
+      builder: (context, child) {
+        // No longer throws
+        return Text(context.watch<Example>().toString());
+      }
+    );
+  }
+  ```
+
+If none of these solutions work, consider asking for help on StackOverflow:
+https://stackoverflow.com/questions/tagged/flutter
+
+The relevant error-causing widget was:
+  MainShell
+  MainShell:file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/lib/screens/login_screen.dart:51:49
+
+When the exception was thrown, this was the stack:
+#0      Provider._inheritedElementOf (package:provider/src/provider.dart:377:7)
+#1      Provider.of (package:provider/src/provider.dart:327:30)
+#2      WatchContext.watch (package:provider/src/provider.dart:727:21)
+#3      _MainShellState.build (package:mapcess/main.dart:162:13)
+#4      StatefulElement.build (package:flutter/src/widgets/framework.dart:5931:27)
+#5      ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5817:15)
+#6      StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#7      Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#8      ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5799:5)
+#9      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5973:11)
+#10     ComponentElement.mount (package:flutter/src/widgets/framework.dart:5793:5)
+...     Normal element mounting (260 frames)
+#270    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#271    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#272    Element.updateChild (package:flutter/src/widgets/framework.dart:4059:18)
+#273    Element.updateChildren (package:flutter/src/widgets/framework.dart:4255:32)
+#274    MultiChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7295:17)
+#275    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#276    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#277    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#278    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#279    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#280    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#281    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#282    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#283    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#284    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#285    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#286    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#287    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#288    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#289    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#290    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#291    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#292    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#293    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#294    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#295    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#296    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#297    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#298    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#299    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#300    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#301    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#302    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#303    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#304    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#305    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#306    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#307    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#308    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#309    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#310    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#311    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#312    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#313    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#314    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#315    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#316    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#317    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#318    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#319    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#320    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#321    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#322    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#323    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#324    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#325    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#326    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#327    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#328    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2131:19)
+#329    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#330    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#331    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#332    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1960:9)
+#335    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#336    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1949:27)
+#337    WidgetTester.pump.<anonymous closure> (package:flutter_test/src/widget_tester.dart:652:53)
+#340    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#341    WidgetTester.pump (package:flutter_test/src/widget_tester.dart:652:27)
+#342    main.<anonymous closure>.<anonymous closure> (file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/login_screen_test.dart:64:20)
+<asynchronous suspension>
+#343    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#344    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +63 -2: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +63 -2: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/login_screen_test.dart: LoginScreen Tests calls login with correct credentials [E]
+  Test failed. See exception logs above.
+  The test description was: calls login with correct credentials
+  
+00:01 +64 -2: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +65 -2: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +65 -2: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/login_screen_test.dart: LoginScreen Tests handles guest login
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following ProviderNotFoundException was thrown building MainShell(dirty, state:
+_MainShellState#73880(ticker inactive)):
+Error: Could not find the correct Provider<ThemeService> above this MainShell Widget
+
+This happens because you used a `BuildContext` that does not include the provider
+of your choice. There are a few common scenarios:
+
+- You added a new provider in your `main.dart` and performed a hot-reload.
+  To fix, perform a hot-restart.
+
+- The provider you are trying to read is in a different route.
+
+  Providers are "scoped". So if you insert of provider inside a route, then
+  other routes will not be able to access that provider.
+
+- You used a `BuildContext` that is an ancestor of the provider you are trying to read.
+
+  Make sure that MainShell is under your MultiProvider/Provider<ThemeService>.
+  This usually happens when you are creating a provider and trying to read it immediately.
+
+  For example, instead of:
+
+  ```
+  Widget build(BuildContext context) {
+    return Provider<Example>(
+      create: (_) => Example(),
+      // Will throw a ProviderNotFoundError, because `context` is associated
+      // to the widget that is the parent of `Provider<Example>`
+      child: Text(context.watch<Example>().toString()),
+    );
+  }
+  ```
+
+  consider using `builder` like so:
+
+  ```
+  Widget build(BuildContext context) {
+    return Provider<Example>(
+      create: (_) => Example(),
+      // we use `builder` to obtain a new `BuildContext` that has access to the provider
+      builder: (context, child) {
+        // No longer throws
+        return Text(context.watch<Example>().toString());
+      }
+    );
+  }
+  ```
+
+If none of these solutions work, consider asking for help on StackOverflow:
+https://stackoverflow.com/questions/tagged/flutter
+
+The relevant error-causing widget was:
+  MainShell
+  MainShell:file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/lib/screens/login_screen.dart:256:51
+
+When the exception was thrown, this was the stack:
+#0      Provider._inheritedElementOf (package:provider/src/provider.dart:377:7)
+#1      Provider.of (package:provider/src/provider.dart:327:30)
+#2      WatchContext.watch (package:provider/src/provider.dart:727:21)
+#3      _MainShellState.build (package:mapcess/main.dart:162:13)
+#4      StatefulElement.build (package:flutter/src/widgets/framework.dart:5931:27)
+#5      ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5817:15)
+#6      StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#7      Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#8      ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5799:5)
+#9      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5973:11)
+#10     ComponentElement.mount (package:flutter/src/widgets/framework.dart:5793:5)
+...     Normal element mounting (260 frames)
+#270    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#271    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#272    Element.updateChild (package:flutter/src/widgets/framework.dart:4059:18)
+#273    Element.updateChildren (package:flutter/src/widgets/framework.dart:4255:32)
+#274    MultiChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7295:17)
+#275    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#276    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#277    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#278    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#279    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#280    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#281    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#282    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#283    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#284    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#285    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#286    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#287    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#288    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#289    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#290    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#291    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#292    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#293    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#294    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#295    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#296    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#297    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#298    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#299    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#300    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#301    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#302    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#303    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#304    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#305    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#306    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#307    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#308    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#309    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#310    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#311    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#312    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#313    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#314    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#315    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#316    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#317    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#318    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#319    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#320    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#321    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#322    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#323    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#324    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#325    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#326    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#327    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#328    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2131:19)
+#329    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#330    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#331    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#332    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1960:9)
+#335    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#336    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1949:27)
+#337    WidgetTester.pump.<anonymous closure> (package:flutter_test/src/widget_tester.dart:652:53)
+#340    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#341    WidgetTester.pump (package:flutter_test/src/widget_tester.dart:652:27)
+#342    main.<anonymous closure>.<anonymous closure> (file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/login_screen_test.dart:93:20)
+<asynchronous suspension>
+#343    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#344    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +65 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +65 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/login_screen_test.dart: LoginScreen Tests handles guest login [E]
+  Test failed. See exception logs above.
+  The test description was: handles guest login
+  
+00:01 +66 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +67 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +68 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +69 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +70 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +71 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +72 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +73 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +74 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:01 +75 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:02 +76 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+00:02 +77 -3: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly
+══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞═════════════════════════════════════════════════════════
+The following assertion was thrown during layout:
+A RenderFlex overflowed by 584 pixels on the right.
+
+The relevant error-causing widget was:
+  Row
+  Row:file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/lib/screens/report_detail_screen.dart:2491:22
+
+The overflowing RenderFlex has an orientation of Axis.horizontal.
+The edge of the RenderFlex that is overflowing has been marked in the rendering with a yellow and
+black striped pattern. This is usually caused by the contents being too big for the RenderFlex.
+Consider applying a flex factor (e.g. using an Expanded widget) to force the children of the
+RenderFlex to fit within the available space instead of being sized to their natural size.
+This is considered an error condition because it indicates that there is content that cannot be
+seen. If the content is legitimately bigger than the available space, consider clipping it with a
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#a8c6b relayoutBoundary=up18 OVERFLOWING:
+  creator: Row ← Padding ← Column ← Padding ← DecoratedBox ← Container ← Column ← Padding ←
+    _SingleChildViewport ← IgnorePointer-[GlobalKey#dc58d] ← Semantics ← Listener ← ⋯
+  parentData: offset=Offset(0.0, 8.0) (can use size)
+  constraints: BoxConstraints(0.0<=w<=724.0, 0.0<=h<=Infinity)
+  size: Size(724.0, 17.0)
+  direction: horizontal
+  mainAxisAlignment: start
+  mainAxisSize: max
+  crossAxisAlignment: center
+  textDirection: ltr
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following _TypeError was thrown running a test:
+type 'Null' is not a subtype of type 'Future<Map<String, dynamic>?>'
+
+When the exception was thrown, this was the stack:
+#0      MockApiService.getUserById (file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart:14:7)
+#1      _ReportDetailScreenState._loadUsername (package:mapcess/screens/report_detail_screen.dart:418:47)
+#2      _ReportDetailScreenState.initState (package:mapcess/screens/report_detail_screen.dart:117:5)
+#3      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5950:55)
+#4      ComponentElement.mount (package:flutter/src/widgets/framework.dart:5793:5)
+...     Normal element mounting (260 frames)
+#264    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#265    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#266    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7279:32)
+...     Normal element mounting (473 frames)
+#739    _InheritedProviderScopeElement.mount (package:provider/src/inherited_provider.dart:424:11)
+...     Normal element mounting (7 frames)
+#746    _InheritedProviderScopeElement.mount (package:provider/src/inherited_provider.dart:424:11)
+...     Normal element mounting (7 frames)
+#753    SingleChildWidgetElementMixin.mount (package:nested/nested.dart:222:11)
+...     Normal element mounting (7 frames)
+#760    _NestedHookElement.mount (package:nested/nested.dart:187:11)
+...     Normal element mounting (7 frames)
+#767    SingleChildWidgetElementMixin.mount (package:nested/nested.dart:222:11)
+#768    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#769    Element.updateChild (package:flutter/src/widgets/framework.dart:4053:20)
+#770    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#771    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#772    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#773    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#774    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#775    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#776    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#777    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#778    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#779    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#780    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#781    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#782    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#783    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#784    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#785    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#786    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#787    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#788    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#789    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#790    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#791    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#792    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#793    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#794    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#795    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#796    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#797    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#798    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#799    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#800    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#801    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#802    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#803    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#804    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#805    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#806    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#807    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#808    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#809    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#810    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#811    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#812    _RawViewElement._updateChild (package:flutter/src/widgets/view.dart:481:16)
+#813    _RawViewElement.update (package:flutter/src/widgets/view.dart:568:5)
+#814    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#815    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#816    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#817    StatelessElement.update (package:flutter/src/widgets/framework.dart:5895:5)
+#818    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#819    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#820    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#821    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#822    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#823    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#824    RootElement._rebuild (package:flutter/src/widgets/binding.dart:1822:16)
+#825    RootElement.update (package:flutter/src/widgets/binding.dart:1800:5)
+#826    RootElement.performRebuild (package:flutter/src/widgets/binding.dart:1814:7)
+#827    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#828    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#829    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#830    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#831    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2131:19)
+#832    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#833    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#834    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#835    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1960:9)
+#838    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#839    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1949:27)
+#840    WidgetTester.pumpWidget.<anonymous closure> (package:flutter_test/src/widget_tester.dart:598:22)
+#843    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#844    WidgetTester.pumpWidget (package:flutter_test/src/widget_tester.dart:595:27)
+#845    main.<anonymous closure>.<anonymous closure> (file:///Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart:49:20)
+#846    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:29)
+<asynchronous suspension>
+#847    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+The test description was:
+  shows content properly
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:02 +77 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/badge_chip_test.dart: BadgeChip renders empty widget for unknown badge
+00:02 +77 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/screens/report_detail_screen_test.dart: ReportDetailScreen Tests shows content properly [E]
+  Test failed. See exception logs above.
+  The test description was: shows content properly
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+ClientException: Request to https://tile.openstreetmap.org/15/19023/12285.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19023/12285.png
+ClientException: Request to https://tile.openstreetmap.org/15/19024/12285.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19024/12285.png
+ClientException: Request to https://tile.openstreetmap.org/15/19023/12284.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19023/12284.png
+ClientException: Request to https://tile.openstreetmap.org/15/19024/12284.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19024/12284.png
+ClientException: Request to https://tile.openstreetmap.org/15/19023/12286.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19023/12286.png
+ClientException: Request to https://tile.openstreetmap.org/15/19024/12286.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19024/12286.png
+ClientException: Request to https://tile.openstreetmap.org/15/19022/12285.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19022/12285.png
+ClientException: Request to https://tile.openstreetmap.org/15/19025/12285.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19025/12285.png
+ClientException: Request to https://tile.openstreetmap.org/15/19022/12284.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19022/12284.png
+ClientException: Request to https://tile.openstreetmap.org/15/19025/12284.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19025/12284.png
+ClientException: Request to https://tile.openstreetmap.org/15/19022/12286.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19022/12286.png
+ClientException: Request to https://tile.openstreetmap.org/15/19025/12286.png failed with status 400: ., uri=https://tile.openstreetmap.org/15/19025/12286.png
+00:02 +78 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/objects_section_test.dart: ObjectsSection: add object card and scroll without overflow
+00:02 +79 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/objects_section_test.dart: ObjectsSection: add object card and scroll without overflow
+00:02 +80 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/objects_section_test.dart: ObjectsSection: add object card and scroll without overflow
+00:02 +81 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/objects_section_test.dart: ObjectsSection: add object card and scroll without overflow
+00:02 +82 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/objects_section_test.dart: ObjectsSection: add object card and scroll without overflow
+00:02 +83 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/report_card_test.dart: ReportCard renders headline and taps propagate
+00:02 +84 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/report_card_test.dart: ReportCard renders headline and taps propagate
+00:02 +85 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/report_success_screen_test.dart: ReportSuccessScreen renders summary and scrolls
+00:02 +86 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/onboarding_tutorial_screen_test.dart: OnboardingTutorialScreen renders the welcome slide first with the brand badge
+00:02 +87 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:02 +88 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:02 +89 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:02 +90 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:02 +91 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:02 +92 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:02 +93 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:03 +94 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:03 +95 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:03 +96 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: Reports feed loads from API and scroll triggers pagination
+00:03 +97 -4: /Users/mertcat/StudioProjects/bounswe2026group1/mobile/test/widgets/reports_screen_test.dart: (tearDownAll)
+00:03 +97 -4: Some tests failed.
