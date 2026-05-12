@@ -44,6 +44,35 @@ describe('useNotificationSseSync', () => {
     expect(connect).not.toHaveBeenCalled()
   })
 
+  it('initializes the cache with a single notification when no list existed', () => {
+    expect(queryClient.getQueryData(notificationKeys.list())).toBeUndefined()
+
+    renderHook(() => useNotificationSseSync(), { wrapper: makeWrapper(queryClient) })
+    const { onNotification } = connect.mock.calls[0][2]
+
+    onNotification({
+      notificationId: 99,
+      recipientId: 1,
+      type: 'NEW_COMMENT',
+      message: 'First',
+      relatedEntityId: 1,
+      read: false,
+      createdAt: '2026-05-09T10:00:00Z',
+    })
+
+    expect(queryClient.getQueryData(notificationKeys.list())).toEqual([
+      {
+        id: 99,
+        recipientId: 1,
+        type: 'NEW_COMMENT',
+        message: 'First',
+        relatedEntityId: 1,
+        read: false,
+        createdAt: '2026-05-09T10:00:00Z',
+      },
+    ])
+  })
+
   it('prepends a new notification to the React Query cache with the correct shape', () => {
     const existing = { id: 1, message: 'old notification', read: false }
     queryClient.setQueryData(notificationKeys.list(), [existing])

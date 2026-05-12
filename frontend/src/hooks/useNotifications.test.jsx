@@ -116,5 +116,30 @@ describe('useNotifications module', () => {
 
       expect(markNotificationRead).toHaveBeenCalledWith(1, 'tok')
     })
+
+    it('restores previous cache when mark-all fails', async () => {
+      useAuth.mockReturnValue({ token: 'tok', isAuthenticated: true })
+      getNotifications.mockResolvedValue(sample)
+      markNotificationRead.mockRejectedValue(new Error('network'))
+
+      renderHook(() => useNotifications(), { wrapper: makeWrapper(queryClient) })
+      await waitFor(() => expect(getNotifications).toHaveBeenCalled())
+
+      const { result } = renderHook(() => useMarkAllNotificationsRead(), {
+        wrapper: makeWrapper(queryClient),
+      })
+
+      await act(async () => {
+        try {
+          await result.current.mutateAsync([1])
+        } catch {
+          /* expected */
+        }
+      })
+
+      await waitFor(() =>
+        expect(queryClient.getQueryData(notificationKeys.list())).toEqual(sample),
+      )
+    })
   })
 })

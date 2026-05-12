@@ -109,4 +109,104 @@ describe('AvatarUploader', () => {
     await user.click(screen.getByRole('button', { name: /^remove$/i }))
     await waitFor(() => expect(onDelete).toHaveBeenCalled())
   })
+
+  it('accepts a file via drag-and-drop', async () => {
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:drag-preview')
+    const user = userEvent.setup()
+    const onUpload = vi.fn().mockResolvedValue(undefined)
+    render(
+      <AvatarUploader
+        currentAvatarUrl={null}
+        isUploading={false}
+        isDeleting={false}
+        onUpload={onUpload}
+        onDelete={vi.fn()}
+      />,
+    )
+    const zone = screen.getByText(/jpeg or png/i).closest('[class*="border-dashed"]')
+    const file = new File(['x'], 'd.jpg', { type: 'image/jpeg' })
+    fireEvent.dragEnter(zone, { dataTransfer: { files: [] } })
+    expect(screen.getByText(/drop image to preview/i)).toBeInTheDocument()
+    fireEvent.drop(zone, { dataTransfer: { files: [file] } })
+    await user.click(screen.getByRole('button', { name: /save avatar/i }))
+    await waitFor(() => expect(onUpload).toHaveBeenCalledWith(file))
+    createSpy.mockRestore()
+  })
+
+  it('clears the pending upload when Cancel is clicked', async () => {
+    const user = userEvent.setup()
+    render(
+      <AvatarUploader
+        currentAvatarUrl={null}
+        isUploading={false}
+        isDeleting={false}
+        onUpload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+    await user.upload(screen.getByTestId('avatar-file-input'), new File(['x'], 'p.jpg', { type: 'image/jpeg' }))
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+    expect(screen.queryByRole('button', { name: /save avatar/i })).not.toBeInTheDocument()
+  })
+
+  it('shows Change avatar when an image already exists', () => {
+    render(
+      <AvatarUploader
+        currentAvatarUrl="https://example.com/a.png"
+        isUploading={false}
+        isDeleting={false}
+        onUpload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /change avatar/i })).toBeInTheDocument()
+  })
+
+  it('falls back when the current avatar URL fails to load', async () => {
+    render(
+      <AvatarUploader
+        currentAvatarUrl="https://example.com/broken.png"
+        isUploading={false}
+        isDeleting={false}
+        onUpload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+    const img = screen.getByRole('img', { name: /avatar preview/i })
+    fireEvent.error(img)
+    expect(screen.queryByRole('img', { name: /avatar preview/i })).not.toBeInTheDocument()
+  })
+
+  it('does not delete when confirmation is declined', async () => {
+    window.confirm.mockReturnValueOnce(false)
+    const onDelete = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <AvatarUploader
+        currentAvatarUrl="https://example.com/a.png"
+        isUploading={false}
+        isDeleting={false}
+        onUpload={vi.fn()}
+        onDelete={onDelete}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /^remove$/i }))
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('surfaces delete errors', async () => {
+    const onDelete = vi.fn().mockRejectedValue(new Error('cannot remove'))
+    const user = userEvent.setup()
+    render(
+      <AvatarUploader
+        currentAvatarUrl="https://example.com/a.png"
+        isUploading={false}
+        isDeleting={false}
+        onUpload={vi.fn()}
+        onDelete={onDelete}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /^remove$/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/cannot remove/i)
+  })
 })
