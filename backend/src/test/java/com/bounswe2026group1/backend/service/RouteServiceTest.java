@@ -49,7 +49,7 @@ class RouteServiceTest {
                 .geometry("")
                 .steps(List.of())
                 .build();
-        when(orsRoutingClient.fetchDirections(any(), any(), any(), any())).thenReturn(anyRoute);
+        when(orsRoutingClient.fetchDirections(any(), any(), any(), any(), any())).thenReturn(anyRoute);
 
         List<RouteResponse> routes = routeService.getRouteOptions(
                 new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING));
@@ -80,7 +80,7 @@ class RouteServiceTest {
                 .geometry("")
                 .steps(List.of())
                 .build();
-        when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WHEELCHAIR), any()))
+        when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WHEELCHAIR), any(), any()))
                 .thenReturn(wheelchairRoute);
 
         // Fastest WALKING route must succeed so the ramp-on-path search is triggered.
@@ -95,7 +95,7 @@ class RouteServiceTest {
         // 1st call: Fastest Route (WALKING) -> succeeds
         // 2nd call: Accessible Route (WALKING) -> succeeds
         // 3rd call: Leg 2 of Wheelchair (WALKING) -> fails
-        when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WALKING), any()))
+        when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WALKING), any(), any()))
                 .thenReturn(walkingRoute)
                 .thenReturn(walkingRoute)
                 .thenThrow(new RuntimeException("ors down"));
