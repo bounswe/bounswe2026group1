@@ -166,6 +166,17 @@ public class OrsRoutingClient {
         return features;
     }
 
+    /**
+     * Whether the given constraint set would attach any ORS-native filters to
+     * the routing request, independent of report-driven avoid polygons. Used by
+     * callers (e.g. {@code RouteService}) to decide whether the Accessible Route
+     * alternative is meaningfully different from the Fastest Route even when
+     * no reports apply.
+     */
+    public static boolean producesNativeAvoidFeatures(Set<RoutingConstraint> constraints) {
+        return !deriveAvoidFeatures(constraints).isEmpty();
+    }
+
     private RoutingDirectionsResult parseDirectionsResponse(String responseJson) {
         try {
             JsonNode root = objectMapper.readTree(responseJson);

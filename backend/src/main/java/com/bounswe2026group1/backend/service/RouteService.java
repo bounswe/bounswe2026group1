@@ -117,11 +117,15 @@ public class RouteService {
                     .build());
         }
 
-        // 2. Accessible walking route — computed when avoid polygons exist AND
-        // the caller would actually act on a walking-mode alternative.
-        // Wheelchair callers' accessible alternative IS the wheelchair-mode
-        // route below; emitting a walking Accessible Route to them is noise.
-        if (avoidPolygons != null && includeWalkingAccessibleAlternative) {
+        // 2. Accessible walking route — computed when avoidance is in effect
+        // (report-driven polygons or ORS-native filters like avoid_features:
+        // ["steps"] for AVOID_STAIRS) AND the caller would actually act on a
+        // walking-mode alternative. Wheelchair callers' accessible alternative
+        // IS the wheelchair-mode route below; emitting a walking Accessible
+        // Route to them is noise.
+        boolean hasNativeFilters = OrsRoutingClient.producesNativeAvoidFeatures(constraints);
+        boolean hasAvoidance = avoidPolygons != null || hasNativeFilters;
+        if (hasAvoidance && includeWalkingAccessibleAlternative) {
             RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons, constraints);
 
             if (accessibleResult != null) {

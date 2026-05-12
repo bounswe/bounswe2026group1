@@ -5,7 +5,10 @@ import com.bounswe2026group1.backend.dto.routing.RouteResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.Report;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.TravelMode;
+
+import java.util.EnumSet;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -59,6 +62,33 @@ class RouteServiceTest {
         assertTrue(hasAccessibleRoute,
                 "Accessible Route should be returned whenever avoid polygons exist, "
                         + "even if the fastest route has no obstacles on it. Routes: " + routes);
+    }
+
+    @Test
+    void accessibleRoute_isEmitted_whenAvoidStairsActiveEvenWithoutPolygons() {
+        // User opted into AVOID_STAIRS but no obstacle reports nearby — buildAvoidPolygons
+        // returns null (Mockito default). Pre-fix the Accessible Route was suppressed
+        // because the gate only checked avoidPolygons. With ORS-native avoid_features in
+        // play, the Accessible Route IS meaningfully different from Fastest and must
+        // be emitted.
+        RoutingDirectionsResult anyRoute = RoutingDirectionsResult.builder()
+                .distanceMeters(100.0)
+                .durationSeconds(60.0)
+                .geometry("")
+                .steps(List.of())
+                .build();
+        when(orsRoutingClient.fetchDirections(any(), any(), any(), any(), any())).thenReturn(anyRoute);
+
+        List<RouteResponse> routes = routeService.getRouteOptions(
+                new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING),
+                EnumSet.of(RoutingConstraint.AVOID_STAIRS),
+                TravelMode.WALKING);
+
+        boolean hasAccessibleRoute = routes.stream()
+                .anyMatch(r -> "Accessible Route".equals(r.getRouteLabel()));
+        assertTrue(hasAccessibleRoute,
+                "Accessible Route must be emitted when AVOID_STAIRS is active even without polygons. "
+                        + "Routes: " + routes);
     }
 
     @Test
