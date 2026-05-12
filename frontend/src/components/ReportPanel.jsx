@@ -402,6 +402,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       // balance before the SSE event lands.
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
       queryClient.invalidateQueries({ queryKey: currentUserKey })
+      // Backend auto-subscribes the voter (except on withdraw). Mirror that
+      // optimistically so the Follow button flips without a panel reopen.
+      if (mappedUpdated.userVote) {
+        setFollowing(true)
+        onFollowChange?.(true)
+      }
     },
     onError: () => {
       setVoteError('Failed to submit vote. Please try again.')
@@ -475,6 +481,12 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       console.log('[handleCommentSubmit] Created comment:', created)
       setComments(prev => [created, ...prev])
       setNewComment('')
+      // Backend auto-subscribes the commenter — mirror it so the Follow
+      // button reflects the new state without waiting for a panel reopen.
+      if (!following) {
+        setFollowing(true)
+        onFollowChange?.(true)
+      }
     } catch (err) {
       console.error('[handleCommentSubmit] Error submitting comment:', err)
     } finally {
