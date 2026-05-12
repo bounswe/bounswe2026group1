@@ -329,7 +329,7 @@ function appendMulti(params, key, values) {
 }
 
 function appendNonNegativeInt(params, key, value) {
-  if (value == null) return
+  if (value == null || value === '') return
   const n = Number(value)
   if (Number.isInteger(n) && n >= 0) params.set(key, String(n))
 }
