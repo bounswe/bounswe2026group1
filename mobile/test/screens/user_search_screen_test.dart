@@ -17,6 +17,7 @@ FeedPage<Map<String, dynamic>> _emptyFeed() => const FeedPage(
       size: 20,
       last: true,
       totalPages: 0,
+      totalElements: 0,
     );
 
 FeedPage<Map<String, dynamic>> _feedOf(List<Map<String, dynamic>> items) =>
@@ -26,6 +27,7 @@ FeedPage<Map<String, dynamic>> _feedOf(List<Map<String, dynamic>> items) =>
       size: 20,
       last: true,
       totalPages: 1,
+      totalElements: items.length,
     );
 
 void main() {

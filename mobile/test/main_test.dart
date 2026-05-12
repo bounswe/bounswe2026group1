@@ -121,6 +121,7 @@ void main() {
             size: 20,
             last: true,
             totalPages: 0,
+            totalElements: 0,
           ));
     });
 
@@ -200,6 +201,7 @@ void main() {
             size: 20,
             last: true,
             totalPages: 0,
+            totalElements: 0,
           ));
       when(() => api.getMyProfile()).thenAnswer((_) async => {
             'name': 'Me',
@@ -303,6 +305,7 @@ void main() {
             size: 20,
             last: true,
             totalPages: 0,
+            totalElements: 0,
           ));
       // The bell handler calls refresh() before opening the sheet — stub
       // by default so individual tests don't have to.
@@ -338,6 +341,7 @@ void main() {
             size: 20,
             last: true,
             totalPages: 0,
+            totalElements: 0,
           ));
       when(() => notifications.refresh()).thenAnswer((_) async {});
 
@@ -421,7 +425,7 @@ void main() {
       when(() => notifications.refresh()).thenAnswer((_) async {});
 
       await openSheet(tester);
-      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.refresh));
       await tester.pump();
 
       verify(() => notifications.refresh()).called(greaterThanOrEqualTo(1));
@@ -447,6 +451,7 @@ void main() {
             size: 20,
             last: true,
             totalPages: 0,
+            totalElements: 0,
           ));
       when(() => notifications.unreadCount).thenReturn(7);
 
@@ -475,6 +480,7 @@ void main() {
             size: 20,
             last: true,
             totalPages: 0,
+            totalElements: 0,
           ));
       when(() => notifications.unreadCount).thenReturn(150);
 
