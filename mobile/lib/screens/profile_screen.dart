@@ -514,11 +514,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildEditView() {
     final avatarUrl = _userInfo?['avatarUrl'] as String?;
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-
     return SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + keyboardInset),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       child: Form(
         key: _formKey,
         child: Column(
