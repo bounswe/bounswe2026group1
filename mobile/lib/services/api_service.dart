@@ -373,7 +373,7 @@ class ApiService {
     String? sort,
     String? q,
     List<ObjectType>? objectType,
-    List<IssueType>? issueType,
+    List<String>? objectIssue,
     int? authorId,
     String? publishedAfter,
     String? publishedBefore,
@@ -399,8 +399,11 @@ class ApiService {
         'status': status.map((s) => s.jsonValue).toList(),
       if (objectType != null && objectType.isNotEmpty)
         'objectType': objectType.map((o) => o.jsonValue).toList(),
-      if (issueType != null && issueType.isNotEmpty)
-        'issueType': issueType.map((i) => i.jsonValue).toList(),
+      // `objectIssue` entries are scoped pairs in `OBJECT_TYPE:ISSUE_TYPE` form
+      // (e.g. `RAMP:MISSING`) — the backend requires both halves to live on the
+      // same object, unlike the legacy flat `issueType` filter.
+      if (objectIssue != null && objectIssue.isNotEmpty)
+        'objectIssue': List<String>.from(objectIssue),
     };
     if (latitude != null && longitude != null) {
       params['latitude'] = '$latitude';

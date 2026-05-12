@@ -45,7 +45,8 @@ String _formatDate(DateTime d) {
 
 class _AdvancedFilterResult {
   final List<ObjectType> objectTypes;
-  final List<IssueType> issueTypes;
+  /// Scoped pairs as `OBJECT_TYPE:ISSUE_TYPE` strings — backend's `objectIssue` shape.
+  final List<String> objectIssues;
   final int? authorId;
   final String? authorName;
   final DateTime? publishedAfter;
@@ -55,7 +56,7 @@ class _AdvancedFilterResult {
 
   const _AdvancedFilterResult({
     required this.objectTypes,
-    required this.issueTypes,
+    required this.objectIssues,
     this.authorId,
     this.authorName,
     this.publishedAfter,
@@ -66,7 +67,7 @@ class _AdvancedFilterResult {
 
   int get activeCount =>
       (objectTypes.isNotEmpty ? 1 : 0) +
-      (issueTypes.isNotEmpty ? 1 : 0) +
+      (objectIssues.isNotEmpty ? 1 : 0) +
       (authorId != null ? 1 : 0) +
       (publishedAfter != null ? 1 : 0) +
       (publishedBefore != null ? 1 : 0) +
@@ -107,7 +108,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   // ─── Advanced filters (from bottom sheet) ───────────────────────────────────
   List<ObjectType> _objectTypeFilter = [];
-  List<IssueType> _issueTypeFilter = [];
+  // Scoped pairs in `OBJECT_TYPE:ISSUE_TYPE` form — same shape the backend's
+  // `objectIssue` filter expects. Toggling MISSING under RAMP stores `RAMP:MISSING`,
+  // leaving any DOOR-context selections untouched.
+  List<String> _objectIssueFilter = [];
   int? _selectedAuthorId;
   String? _selectedAuthorName;
   DateTime? _publishedAfter;
@@ -142,7 +146,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _sortOrder != 'NEWEST' ||
       _searchApplied.isNotEmpty ||
       _objectTypeFilter.isNotEmpty ||
-      _issueTypeFilter.isNotEmpty ||
+      _objectIssueFilter.isNotEmpty ||
       _selectedAuthorId != null ||
       _publishedAfter != null ||
       _publishedBefore != null ||
@@ -151,7 +155,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   int get _advancedFilterCount =>
       (_objectTypeFilter.isNotEmpty ? 1 : 0) +
-      (_issueTypeFilter.isNotEmpty ? 1 : 0) +
+      (_objectIssueFilter.isNotEmpty ? 1 : 0) +
       (_selectedAuthorId != null ? 1 : 0) +
       (_publishedAfter != null ? 1 : 0) +
       (_publishedBefore != null ? 1 : 0) +
@@ -200,7 +204,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       sort: _sortOrder,
       q: _searchApplied.isEmpty ? null : _searchApplied,
       objectType: _objectTypeFilter.isEmpty ? null : _objectTypeFilter,
-      issueType: _issueTypeFilter.isEmpty ? null : _issueTypeFilter,
+      objectIssue: _objectIssueFilter.isEmpty ? null : _objectIssueFilter,
       authorId: _selectedAuthorId,
       publishedAfter: _publishedAfter?.toUtc().toIso8601String(),
       publishedBefore: _publishedBefore == null
@@ -374,7 +378,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       builder: (_) => _AdvancedFiltersSheet(
         api: _api,
         objectTypes: List.from(_objectTypeFilter),
-        issueTypes: List.from(_issueTypeFilter),
+        objectIssues: List.from(_objectIssueFilter),
         authorId: _selectedAuthorId,
         authorName: _selectedAuthorName,
         publishedAfter: _publishedAfter,
@@ -386,7 +390,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (!mounted || result == null) return;
     setState(() {
       _objectTypeFilter = result.objectTypes;
-      _issueTypeFilter = result.issueTypes;
+      _objectIssueFilter = result.objectIssues;
       _selectedAuthorId = result.authorId;
       _selectedAuthorName = result.authorName;
       _publishedAfter = result.publishedAfter;
@@ -407,7 +411,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _sortOrder = 'NEWEST';
       _searchApplied = '';
       _objectTypeFilter = [];
-      _issueTypeFilter = [];
+      _objectIssueFilter = [];
       _selectedAuthorId = null;
       _selectedAuthorName = null;
       _publishedAfter = null;
@@ -1097,7 +1101,8 @@ class _SortSheet extends StatelessWidget {
 class _AdvancedFiltersSheet extends StatefulWidget {
   final ApiService api;
   final List<ObjectType> objectTypes;
-  final List<IssueType> issueTypes;
+  /// Scoped pairs as `OBJECT_TYPE:ISSUE_TYPE` strings — already in the backend filter shape.
+  final List<String> objectIssues;
   final int? authorId;
   final String? authorName;
   final DateTime? publishedAfter;
@@ -1108,7 +1113,7 @@ class _AdvancedFiltersSheet extends StatefulWidget {
   const _AdvancedFiltersSheet({
     required this.api,
     required this.objectTypes,
-    required this.issueTypes,
+    required this.objectIssues,
     this.authorId,
     this.authorName,
     this.publishedAfter,
@@ -1139,10 +1144,17 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
   void initState() {
     super.initState();
     _objectTypes = List.from(widget.objectTypes);
-    _selectedIssueChips = widget.issueTypes
-        .expand((i) => widget.objectTypes
-            .where((o) => i.isValidFor(o))
-            .map((o) => (o, i)))
+    // Parse `OBJECT_TYPE:ISSUE_TYPE` pair strings back into typed tuples for the UI state.
+    // Unknown / malformed entries are skipped defensively.
+    _selectedIssueChips = widget.objectIssues
+        .map((p) {
+          final sep = p.indexOf(':');
+          if (sep <= 0 || sep == p.length - 1) return null;
+          final ot = ObjectType.fromJson(p.substring(0, sep));
+          final it = IssueType.fromJson(p.substring(sep + 1));
+          return it == null ? null : (ot, it);
+        })
+        .whereType<(ObjectType, IssueType)>()
         .toSet();
     _authorId = widget.authorId;
     _authorName = widget.authorName;
@@ -1272,11 +1284,17 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
   void _apply() {
     final minAgrees = int.tryParse(_minAgreesCtrl.text.trim());
     final minDisagrees = int.tryParse(_minDisagreesCtrl.text.trim());
+    // Emit pairs as `OBJECT_TYPE:ISSUE_TYPE` strings — the backend's `objectIssue` filter
+    // requires both halves to live on the same object. Flattening to a plain issue list here
+    // would lose that scope and bring back the cross-object false matches.
+    final objectIssues = _selectedIssueChips
+        .map((p) => '${p.$1.jsonValue}:${p.$2.jsonValue}')
+        .toList();
     Navigator.pop(
       context,
       _AdvancedFilterResult(
         objectTypes: List.from(_objectTypes),
-        issueTypes: _selectedIssueChips.map((e) => e.$2).toSet().toList(),
+        objectIssues: objectIssues,
         authorId: _authorId,
         authorName: _authorName,
         publishedAfter: _publishedAfter,
