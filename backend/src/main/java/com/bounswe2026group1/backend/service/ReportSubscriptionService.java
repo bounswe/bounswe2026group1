@@ -41,6 +41,26 @@ public class ReportSubscriptionService {
                 });
     }
 
+    /** Internal entry-point for service-layer code that already has the user
+     *  and report entities in hand (report-create, vote-cast, comment-create).
+     *  Idempotent — re-subscribing a user is a no-op. We accept Hibernate
+     *  reference proxies, so this stays a single round trip when the caller
+     *  already holds the entity. */
+    @Transactional
+    public void subscribeInternal(Report report, RegisteredUser user) {
+        if (report == null || user == null) return;
+        Long userId = user.getId();
+        Long reportId = report.getReportId();
+        if (userId == null || reportId == null) return;
+        subscriptionRepository.findByUserIdAndReportReportId(userId, reportId)
+                .orElseGet(() -> {
+                    ReportSubscription sub = new ReportSubscription();
+                    sub.setUser(user);
+                    sub.setReport(report);
+                    return subscriptionRepository.save(sub);
+                });
+    }
+
     /** Unsubscribe is idempotent: deleting a row that does not exist is a no-op. */
     @Transactional
     public void unsubscribe(Long reportId, String email) {
