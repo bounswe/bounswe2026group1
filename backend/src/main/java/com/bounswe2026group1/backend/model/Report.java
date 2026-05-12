@@ -101,6 +101,9 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FixRequest> fixRequests = new ArrayList<>();
 
+    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReportSubscription> subscriptions = new ArrayList<>();
+
     public Report(RegisteredUser createdBy, Point location, String description,
                   ReportType reportType, ReportEnvironment environment) {
         this.createdBy = createdBy;
