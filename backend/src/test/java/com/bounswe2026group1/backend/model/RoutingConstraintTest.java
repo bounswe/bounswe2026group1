@@ -54,6 +54,7 @@ class RoutingConstraintTest {
                 new IssueHazard(ObjectType.RAMP, IssueType.MISSING_HANDRAIL),
                 new IssueHazard(ObjectType.RAMP, IssueType.HANDRAIL_TOO_LOW),
                 new IssueHazard(ObjectType.STAIR, IssueType.MISSING_HANDRAIL),
+                new IssueHazard(ObjectType.STAIR, IssueType.HANDRAIL_TOO_LOW),
                 new IssueHazard(ObjectType.SIDEWALK, IssueType.INSUFFICIENT_CLEARANCE)),
                 result);
     }
@@ -81,7 +82,7 @@ class RoutingConstraintTest {
                 IssueType.MISSING_HANDRAIL, IssueType.NO_LANDING, IssueType.TOO_NARROW,
                 IssueType.SLIPPERY_SURFACE, IssueType.RISER_TOO_HIGH, IssueType.TREAD_TOO_SHALLOW,
                 IssueType.NO_ANTI_SLIP, IssueType.OPEN_RISERS,
-                IssueType.IRREGULAR_STEPS, IssueType.MISSING_NOSING_STRIP);
+                IssueType.IRREGULAR_STEPS, IssueType.MISSING_NOSING_STRIP, IssueType.HANDRAIL_TOO_LOW);
         for (IssueType issue : stairIssues) {
             assertTrue(hazards.contains(new IssueHazard(ObjectType.STAIR, issue)),
                     "AVOID_STAIRS missing (STAIR, " + issue + ")");

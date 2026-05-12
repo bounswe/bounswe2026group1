@@ -158,7 +158,7 @@ public enum IssueType {
     // --- Ramp ---
     HANDRAIL_TOO_LOW(
         "Handrail is present but mounted below the required 90 cm height.",
-        EnumSet.of(ObjectType.RAMP)
+        EnumSet.of(ObjectType.RAMP, ObjectType.STAIR)
     ),
     INSUFFICIENT_LANDING_AREA(
         "Top/bottom landing is smaller than the required 150 × 150 cm maneuvering area.",

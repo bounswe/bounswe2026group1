@@ -31,7 +31,8 @@ public enum RoutingConstraint {
                     new IssueHazard(STAIR, NO_ANTI_SLIP),
                     new IssueHazard(STAIR, OPEN_RISERS),
                     new IssueHazard(STAIR, IRREGULAR_STEPS),
-                    new IssueHazard(STAIR, MISSING_NOSING_STRIP))),
+                    new IssueHazard(STAIR, MISSING_NOSING_STRIP),
+                    new IssueHazard(STAIR, HANDRAIL_TOO_LOW))),
 
     REQUIRE_RAMPS(
             "Prefer routes with ramps over steps",
@@ -75,7 +76,8 @@ public enum RoutingConstraint {
             Set.of(
                     new IssueHazard(RAMP, MISSING_HANDRAIL),
                     new IssueHazard(RAMP, HANDRAIL_TOO_LOW),
-                    new IssueHazard(STAIR, MISSING_HANDRAIL))),
+                    new IssueHazard(STAIR, MISSING_HANDRAIL),
+                    new IssueHazard(STAIR, HANDRAIL_TOO_LOW))),
 
     AVOID_BLOCKED_OR_MISSING_SIDEWALKS(
             "Avoid blocked, missing, or damaged sidewalks",
