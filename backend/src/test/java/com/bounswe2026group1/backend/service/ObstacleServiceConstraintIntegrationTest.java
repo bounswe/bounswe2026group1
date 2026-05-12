@@ -116,13 +116,13 @@ class ObstacleServiceConstraintIntegrationTest extends AbstractPostgisIntegratio
     @Test
     void buildAvoidPolygons_blindOrLowVisionPreset_filtersOutWheelchairOnlyReports() {
         // BLIND_OR_LOW_VISION bundles AVOID_LOW_CLEARANCE, AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
-        // AVOID_MISSING_TACTILE_PAVING. Only the blocked-sidewalk report matches; the
-        // wheelchair-relevant stair and ramp reports are filtered out.
+        // AVOID_MISSING_TACTILE_PAVING, AVOID_UNSAFE_STAIRS, REQUIRE_HANDRAILS, AVOID_SLIPPERY_SURFACES.
+        // Both the blocked-sidewalk report and the missing-handrail stair report match.
         ObjectNode polygons = obstacleService.buildAvoidPolygons(
                 RoutingPreset.BLIND_OR_LOW_VISION.getConstraints());
 
         assertThat(polygons).isNotNull();
-        assertThat(polygons.get("coordinates")).hasSize(1);
+        assertThat(polygons.get("coordinates")).hasSize(2);
     }
 
     @Test
