@@ -552,7 +552,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.surface,
       body: SafeArea(
         child: Column(
@@ -593,7 +595,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 );
                 _refresh();
               }),
-            Expanded(child: _buildBody()),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: keyboardInset),
+                child: _buildBody(),
+              ),
+            ),
           ],
         ),
       ),
