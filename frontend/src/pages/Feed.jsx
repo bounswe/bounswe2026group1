@@ -101,16 +101,18 @@ function toggleInArray(arr, value) {
 }
 
 const OBJECT_CHIP_BASE =
-  'inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold border transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+  'inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold border-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 function objectTypeChipClass(selected) {
-  return selected ? OBJECT_CHIP_BASE : `${OBJECT_CHIP_BASE} bg-surface-container-highest`
+  return selected
+    ? `${OBJECT_CHIP_BASE} text-white`
+    : `${OBJECT_CHIP_BASE} bg-surface-container-highest text-on-surface`
 }
 
 function objectTypeChipStyle(color, selected) {
   return selected
-    ? { backgroundColor: color, borderColor: color, color: '#ffffff' }
-    : { borderColor: 'transparent', borderLeft: `4px solid ${color}` }
+    ? { backgroundColor: color, borderColor: color }
+    : { borderColor: color }
 }
 
 /**
@@ -729,11 +731,15 @@ export default function Feed() {
                                 onClick={() =>
                                   setIssueTypeFilter((prev) => toggleInArray(prev, i.key))
                                 }
-                                className={`${feedFilterChipClass(selected)} text-xs px-3 py-1.5`}
+                                className={`inline-flex items-center justify-center px-3 py-1.5 rounded-2xl text-xs font-semibold border-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                                  selected
+                                    ? 'text-white'
+                                    : 'bg-surface-container-highest text-on-surface'
+                                }`}
                                 style={
                                   selected
-                                    ? undefined
-                                    : { borderLeft: `4px solid ${group.color}` }
+                                    ? { backgroundColor: group.color, borderColor: group.color }
+                                    : { borderColor: group.color }
                                 }
                               >
                                 {i.label}
