@@ -242,7 +242,7 @@ describe('reportService — fix request helpers', () => {
           size: 20,
           status: ['VERIFIED', 'PENDING'],
           objectType: ['RAMP'],
-          issueType: ['TOO_STEEP', 'MISSING'],
+          objectIssue: ['RAMP:TOO_STEEP', 'RAMP:MISSING'],
         },
         null
       )
@@ -251,7 +251,7 @@ describe('reportService — fix request helpers', () => {
       const sp = new URLSearchParams(qs)
       expect(sp.getAll('status')).toEqual(['VERIFIED', 'PENDING'])
       expect(sp.getAll('objectType')).toEqual(['RAMP'])
-      expect(sp.getAll('issueType')).toEqual(['TOO_STEEP', 'MISSING'])
+      expect(sp.getAll('objectIssue')).toEqual(['RAMP:TOO_STEEP', 'RAMP:MISSING'])
     })
 
     it('passes authorId, date range, q, and vote thresholds', async () => {

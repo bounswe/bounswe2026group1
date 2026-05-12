@@ -172,6 +172,38 @@ void main() {
       expect(page.last, true);
       expect(page.number, 0);
     });
+
+    test('getReportFeed serializes objectIssue pairs as repeated query params', () async {
+      when(
+        () => client.get(any(), headers: any(named: 'headers')),
+      ).thenAnswer(
+        (_) async => http.Response(
+          jsonEncode({
+            'content': [],
+            'number': 0,
+            'size': 20,
+            'last': true,
+            'totalPages': 1,
+          }),
+          200,
+        ),
+      );
+
+      final api = ApiService(httpClient: client);
+      await api.getReportFeed(
+        page: 0,
+        size: 20,
+        objectIssue: ['RAMP:MISSING', 'DOOR:HEAVY_DOOR'],
+      );
+
+      final captured = verify(
+        () => client.get(captureAny(), headers: any(named: 'headers')),
+      ).captured;
+      final uri = captured.single as Uri;
+      expect(uri.path, endsWith('/api/reports/feed'));
+      expect(uri.queryParametersAll['objectIssue'],
+          ['RAMP:MISSING', 'DOOR:HEAVY_DOOR']);
+    });
   });
 }
 

@@ -126,6 +126,7 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "sort=DISTANCE requires latitude and longitude");
         }
+        validateObjectIssuePairs(query.getObjectIssue());
 
         int pageNumber = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.min(100, Math.max(1, pageable.getPageSize()));
@@ -823,4 +824,31 @@ public class ReportService {
         return result;
     }
 
+    /**
+     * Validates entries of the {@code objectIssue} feed filter. Each entry must be of the form
+     * {@code OBJECT_TYPE:ISSUE_TYPE} with both halves resolving to a known enum value. Null /
+     * empty list is a no-op. Throws 400 with the offending entry on failure.
+     */
+    private static void validateObjectIssuePairs(List<String> pairs) {
+        if (pairs == null || pairs.isEmpty()) return;
+        for (String raw : pairs) {
+            if (raw == null) continue;
+            String trimmed = raw.trim();
+            if (trimmed.isEmpty()) continue;
+            int sep = trimmed.indexOf(':');
+            if (sep <= 0 || sep == trimmed.length() - 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "objectIssue must be 'OBJECT_TYPE:ISSUE_TYPE' (got '" + raw + "')");
+            }
+            String otPart = trimmed.substring(0, sep);
+            String itPart = trimmed.substring(sep + 1);
+            try {
+                ObjectType.valueOf(otPart);
+                IssueType.valueOf(itPart);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "objectIssue references an unknown enum value: '" + raw + "'");
+            }
+        }
+    }
 }

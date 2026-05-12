@@ -450,7 +450,9 @@ describe('Feed page', () => {
     await waitFor(() => {
       const last = getReportFeedMock.mock.calls.at(-1)?.[0]
       expect(last?.objectType).toEqual(expect.arrayContaining(['RAMP']))
-      expect(last?.issueType).toEqual(expect.arrayContaining(['TOO_STEEP']))
+      // Issues are now sent as scoped `OBJECT:ISSUE` pairs via `objectIssue`,
+      // not as a flat `issueType` array.
+      expect(last?.objectIssue).toEqual(expect.arrayContaining(['RAMP:TOO_STEEP']))
     })
   })
 

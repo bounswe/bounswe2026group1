@@ -144,13 +144,16 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             sql.append(" AND (r.agrees - r.disagrees) >= :feedMinNetScore");
             params.put("feedMinNetScore", filter.getMinNetScore());
         }
+        // Merged object/pair filter: object types covered by an `objectIssue` pair are
+        // narrowed to that pair, uncovered object types match any issue (or no issue). All
+        // clauses are OR'd inside a single EXISTS so picking RAMP+MISSING alongside a plain
+        // DOOR chip yields "RAMP-with-MISSING OR any-DOOR" — not their intersection.
         List<ObjectType> objectTypes = nonEmpty(filter.getObjectType());
-        if (objectTypes != null) {
-            sql.append(" AND EXISTS (SELECT 1 FROM report_objects ro")
-                    .append(" WHERE ro.report_id = r.report_id")
-                    .append(" AND ro.object_type IN (:feedObjectTypes))");
-            params.put("feedObjectTypes", objectTypes.stream().map(Enum::name).toList());
-        }
+        List<String[]> pairs = parseObjectIssuePairs(filter.getObjectIssue());
+        appendNativeObjectFilterClause(sql, params, objectTypes, pairs);
+
+        // Legacy flat `issueType` filter — kept as an independent EXISTS for API consumers
+        // that only want "any object on the report has one of these issues".
         List<IssueType> issueTypes = nonEmpty(filter.getIssueType());
         if (issueTypes != null) {
             sql.append(" AND EXISTS (SELECT 1 FROM report_objects ro2")
@@ -159,6 +162,46 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
                     .append(" AND roi.issue_type IN (:feedIssueTypes))");
             params.put("feedIssueTypes", issueTypes.stream().map(Enum::name).toList());
         }
+    }
+
+    private static void appendNativeObjectFilterClause(StringBuilder sql,
+                                                       Map<String, Object> params,
+                                                       List<ObjectType> objectTypes,
+                                                       List<String[]> pairs) {
+        if ((objectTypes == null || objectTypes.isEmpty()) && pairs.isEmpty()) return;
+
+        java.util.Set<String> coveredTypes = new java.util.HashSet<>();
+        for (String[] p : pairs) coveredTypes.add(p[0]);
+
+        StringBuilder or = new StringBuilder();
+        for (int i = 0; i < pairs.size(); i++) {
+            String tParam = "feedOi" + i + "_t";
+            String iParam = "feedOi" + i + "_i";
+            if (or.length() > 0) or.append(" OR ");
+            or.append("(ro3.object_type = :").append(tParam)
+              .append(" AND roi3.issue_type = :").append(iParam).append(")");
+            params.put(tParam, pairs.get(i)[0]);
+            params.put(iParam, pairs.get(i)[1]);
+        }
+        if (objectTypes != null) {
+            int k = 0;
+            for (ObjectType ot : objectTypes) {
+                if (coveredTypes.contains(ot.name())) continue;
+                String tParam = "feedOt" + k + "_any";
+                if (or.length() > 0) or.append(" OR ");
+                or.append("(ro3.object_type = :").append(tParam).append(")");
+                params.put(tParam, ot.name());
+                k++;
+            }
+        }
+        if (or.length() == 0) return;
+
+        // LEFT JOIN so an uncovered-type clause still matches report_objects that carry no
+        // issue rows (a RAMP with no issues should pass an "any RAMP" filter).
+        sql.append(" AND EXISTS (SELECT 1 FROM report_objects ro3")
+                .append(" LEFT JOIN report_object_issues roi3 ON roi3.report_object_id = ro3.id")
+                .append(" WHERE ro3.report_id = r.report_id")
+                .append(" AND (").append(or).append("))");
     }
 
     private static void appendJpqlFilters(StringBuilder jpql, Map<String, Object> params,
@@ -207,18 +250,74 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             jpql.append(" AND (r.agrees - r.disagrees) >= :feedMinNetScore");
             params.put("feedMinNetScore", filter.getMinNetScore());
         }
+        // Merged object/pair filter (see appendNativeObjectFilterClause for the rationale).
         List<ObjectType> objectTypes = nonEmpty(filter.getObjectType());
-        if (objectTypes != null) {
-            jpql.append(" AND EXISTS (SELECT 1 FROM ReportObject ro")
-                    .append(" WHERE ro.report = r AND ro.objectType IN :feedObjectTypes)");
-            params.put("feedObjectTypes", objectTypes);
-        }
+        List<String[]> pairs = parseObjectIssuePairs(filter.getObjectIssue());
+        appendJpqlObjectFilterClause(jpql, params, objectTypes, pairs);
+
+        // Legacy flat issueType — independent EXISTS, kept for API consumers.
         List<IssueType> issueTypes = nonEmpty(filter.getIssueType());
         if (issueTypes != null) {
             jpql.append(" AND EXISTS (SELECT 1 FROM ReportObject ro2 JOIN ro2.issues i")
                     .append(" WHERE ro2.report = r AND i IN :feedIssueTypes)");
             params.put("feedIssueTypes", issueTypes);
         }
+    }
+
+    private static void appendJpqlObjectFilterClause(StringBuilder jpql,
+                                                     Map<String, Object> params,
+                                                     List<ObjectType> objectTypes,
+                                                     List<String[]> pairs) {
+        if ((objectTypes == null || objectTypes.isEmpty()) && pairs.isEmpty()) return;
+
+        java.util.Set<String> coveredTypes = new java.util.HashSet<>();
+        for (String[] p : pairs) coveredTypes.add(p[0]);
+
+        StringBuilder or = new StringBuilder();
+        for (int i = 0; i < pairs.size(); i++) {
+            String tParam = "feedOi" + i + "_t";
+            String iParam = "feedOi" + i + "_i";
+            if (or.length() > 0) or.append(" OR ");
+            or.append("(ro3.objectType = :").append(tParam)
+              .append(" AND i3 = :").append(iParam).append(")");
+            params.put(tParam, ObjectType.valueOf(pairs.get(i)[0]));
+            params.put(iParam, IssueType.valueOf(pairs.get(i)[1]));
+        }
+        if (objectTypes != null) {
+            int k = 0;
+            for (ObjectType ot : objectTypes) {
+                if (coveredTypes.contains(ot.name())) continue;
+                String tParam = "feedOt" + k + "_any";
+                if (or.length() > 0) or.append(" OR ");
+                or.append("(ro3.objectType = :").append(tParam).append(")");
+                params.put(tParam, ot);
+                k++;
+            }
+        }
+        if (or.length() == 0) return;
+
+        // LEFT JOIN: an uncovered-type clause must still match a report_object that has no
+        // associated issues (a RAMP with no issues should pass an "any RAMP" filter).
+        jpql.append(" AND EXISTS (SELECT 1 FROM ReportObject ro3 LEFT JOIN ro3.issues i3")
+                .append(" WHERE ro3.report = r")
+                .append(" AND (").append(or).append("))");
+    }
+
+    /**
+     * Parse `OBJECT_TYPE:ISSUE_TYPE` entries into [type, issue] string pairs. Entries are
+     * pre-validated by the service, so we only defensively skip malformed leftovers here.
+     */
+    private static List<String[]> parseObjectIssuePairs(List<String> raw) {
+        if (raw == null || raw.isEmpty()) return List.of();
+        List<String[]> out = new ArrayList<>(raw.size());
+        for (String entry : raw) {
+            if (entry == null) continue;
+            String trimmed = entry.trim();
+            int sep = trimmed.indexOf(':');
+            if (sep <= 0 || sep == trimmed.length() - 1) continue;
+            out.add(new String[]{ trimmed.substring(0, sep), trimmed.substring(sep + 1) });
+        }
+        return out;
     }
 
     // ----- ordering ----------------------------------------------------------------------------
