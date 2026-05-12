@@ -746,11 +746,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               IconButton(
                 icon: Icon(Icons.edit_outlined, color: AppColors.primary),
                 onPressed: _openEdit,
-              ),
-            IconButton(
-              icon: Icon(Icons.search, color: AppColors.onSurface),
-              onPressed: () {},
-            ),
+              )
           ],
         ),
       ),

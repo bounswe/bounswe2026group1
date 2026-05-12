@@ -274,4 +274,51 @@ describe('RoutingPreferencesSection', () => {
     await user.click(within(dialog).getByRole('button', { name: /^save$/i }))
     expect(await within(dialog).findByText(/maximum of 5/i)).toBeInTheDocument()
   })
+
+  it('shows load failure with retry', async () => {
+    const user = userEvent.setup()
+    useRoutingPreferences.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      error: new Error('offline'),
+      refetch,
+    })
+    render(<RoutingPreferencesSection />)
+    expect(screen.getByRole('alert')).toHaveTextContent(/offline/)
+    await user.click(screen.getByRole('button', { name: /^retry$/i }))
+    expect(refetch).toHaveBeenCalled()
+  })
+
+  it('does not call update when clicking an already-active built-in preset', async () => {
+    const user = userEvent.setup()
+    useRoutingPreferences.mockReturnValue({
+      data: baseData({ preferredPreset: 'WHEELCHAIR_USER' }),
+      isPending: false,
+      isError: false,
+      refetch,
+    })
+    render(<RoutingPreferencesSection />)
+    await user.click(screen.getByRole('button', { name: /^activate wheelchair user$/i }))
+    expect(updatePrefsMutate).not.toHaveBeenCalled()
+  })
+
+  it('does not call activate when clicking the active custom profile again', async () => {
+    const user = userEvent.setup()
+    useRoutingPreferences.mockReturnValue({
+      data: baseData({
+        preferredPreset: 'CUSTOM',
+        activeCustomProfileId: 11,
+        customProfiles: [
+          { id: 11, name: 'Work commute', constraints: [], preferredTravelMode: null },
+        ],
+      }),
+      isPending: false,
+      isError: false,
+      refetch,
+    })
+    render(<RoutingPreferencesSection />)
+    await user.click(screen.getByRole('button', { name: /^activate work commute$/i }))
+    expect(activateMutate).not.toHaveBeenCalled()
+  })
 })
