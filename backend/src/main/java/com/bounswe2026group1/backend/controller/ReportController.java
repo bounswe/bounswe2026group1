@@ -45,22 +45,18 @@ public class ReportController {
     @GetMapping("/feed")
     @Operation(
             summary = "Paginated, filterable report feed",
-            description = "Like `GET /api/reports`, but paginated and filterable by reportType / " +
-                    "environment / proximity. When `latitude` and `longitude` are supplied, results " +
-                    "are ordered by PostGIS distance from that point."
+            description = "Paginated feed with filters for reportType, environment, status, authorId, " +
+                    "publish date range, free-text description (`q`, case-insensitive), vote thresholds " +
+                    "(`minAgrees`, `minDisagrees`, `minNetScore`), attached objectType / issueType, and " +
+                    "proximity. When `latitude` and `longitude` are supplied, results default to " +
+                    "PostGIS distance ordering; an explicit `sort` parameter overrides this " +
+                    "(`NEWEST`, `OLDEST`, `MOST_AGREED`, `MOST_CONTROVERSIAL`, `DISTANCE`)."
     )
     public Page<ReportResponse> feed(
             @ParameterObject ReportFeedQuery query,
             @ParameterObject @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal String email) {
-        return reportService.feed(
-                query.getReportType(),
-                query.getEnvironment(),
-                query.getLatitude(),
-                query.getLongitude(),
-                query.getRadiusInKm(),
-                pageable,
-                email);
+        return reportService.feed(query, pageable, email);
     }
 
     @GetMapping("/{id}")

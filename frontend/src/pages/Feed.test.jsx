@@ -247,4 +247,89 @@ describe('Feed page', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/service unavailable/i)
     })
   })
+
+  it('passes selected status filters as an array to getReportFeed', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    await waitFor(() => expect(getReportFeedMock).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: /status: validated/i }))
+
+    await waitFor(() => {
+      const withStatus = getReportFeedMock.mock.calls.filter((call) =>
+        Array.isArray(call[0]?.status) && call[0].status.includes('VERIFIED')
+      )
+      expect(withStatus.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('passes the selected sort option to getReportFeed', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    await waitFor(() => expect(getReportFeedMock).toHaveBeenCalled())
+
+    await user.selectOptions(screen.getByLabelText(/^sort$/i), 'MOST_AGREED')
+
+    await waitFor(() => {
+      const withSort = getReportFeedMock.mock.calls.filter(
+        (call) => call[0]?.sort === 'MOST_AGREED'
+      )
+      expect(withSort.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('passes the debounced description search to getReportFeed', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    await waitFor(() => expect(getReportFeedMock).toHaveBeenCalled())
+
+    await user.type(screen.getByLabelText(/search description/i), 'elevator')
+
+    await waitFor(
+      () => {
+        const withQ = getReportFeedMock.mock.calls.filter((call) => call[0]?.q === 'elevator')
+        expect(withQ.length).toBeGreaterThan(0)
+      },
+      { timeout: 1500 }
+    )
+  })
+
+  it('blocks the feed request and shows a warning when Nearest is picked without a location', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    await waitFor(() => expect(getReportFeedMock).toHaveBeenCalled())
+    getReportFeedMock.mockClear()
+
+    await user.selectOptions(screen.getByLabelText(/^sort$/i), 'DISTANCE')
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/pick a reference point to sort by distance/i)
+      ).toBeInTheDocument()
+    })
+    // No new feed request should have fired while the sort needs data we don't have.
+    expect(getReportFeedMock).not.toHaveBeenCalled()
+  })
+
+  it('reveals advanced filters when toggled and clears all on demand', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    await waitFor(() => expect(getReportFeedMock).toHaveBeenCalled())
+
+    // Advanced panel is hidden initially.
+    expect(screen.queryByLabelText(/published after/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /advanced filters/i }))
+    expect(screen.getByLabelText(/published after/i)).toBeInTheDocument()
+
+    // Activate a filter so "Clear all" shows up, then reset.
+    await user.click(screen.getByRole('button', { name: /status: pending/i }))
+    const clearBtn = await screen.findByRole('button', { name: /clear all/i })
+    await user.click(clearBtn)
+
+    await waitFor(() => {
+      const lastCall = getReportFeedMock.mock.calls.at(-1)
+      expect(lastCall?.[0]?.status).toBeUndefined()
+    })
+  })
 })

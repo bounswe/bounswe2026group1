@@ -102,37 +102,41 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ReportResponse> feed(
-            ReportType reportType,
-            ReportEnvironment environment,
-            Double latitude,
-            Double longitude,
-            Double radiusInKm,
-            Pageable pageable,
-            String email) {
+    public Page<ReportResponse> feed(ReportFeedQuery query, Pageable pageable, String email) {
+
+        if (query == null) {
+            query = new ReportFeedQuery();
+        }
+
+        Double latitude = query.getLatitude();
+        Double longitude = query.getLongitude();
+        boolean hasCoords = latitude != null && longitude != null;
 
         if (latitude != null ^ longitude != null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "latitude and longitude must both be provided for proximity feed");
         }
+        if (query.getPublishedAfter() != null && query.getPublishedBefore() != null
+                && query.getPublishedAfter().isAfter(query.getPublishedBefore())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "publishedAfter must not be after publishedBefore");
+        }
+        if (query.getSort() == FeedSort.DISTANCE && !hasCoords) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "sort=DISTANCE requires latitude and longitude");
+        }
 
         int pageNumber = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.min(100, Math.max(1, pageable.getPageSize()));
-        Pageable paged = latitude != null
+        Pageable paged = hasCoords
                 ? PageRequest.of(pageNumber, pageSize, Sort.unsorted())
                 : PageRequest.of(pageNumber, pageSize);
 
         Long userId = resolveUserId(email);
 
-        Page<Report> page = latitude != null
-                ? reportRepository.findFeedWithinRadius(
-                        reportType,
-                        environment,
-                        latitude,
-                        longitude,
-                        radiusInKm != null ? radiusInKm : 1.0,
-                        paged)
-                : reportRepository.findFeedRecent(reportType, environment, paged);
+        Page<Report> page = hasCoords
+                ? reportRepository.findFeedWithinRadius(query, paged)
+                : reportRepository.findFeedRecent(query, paged);
 
         Map<Long, VoteType> votesByReportId = resolveUserVotes(userId, page.getContent());
         Map<Long, FixRequestResponse> activeFixByReportId = resolveActiveFixRequests(userId, page.getContent());
