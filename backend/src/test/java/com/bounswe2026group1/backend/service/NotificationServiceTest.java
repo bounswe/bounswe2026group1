@@ -11,11 +11,9 @@ import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportEnvironment;
 import com.bounswe2026group1.backend.model.ReportStatus;
 import com.bounswe2026group1.backend.model.ReportType;
-import com.bounswe2026group1.backend.repository.CommentRepository;
 import com.bounswe2026group1.backend.repository.NotificationRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportSubscriptionRepository;
-import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
 import com.bounswe2026group1.backend.util.GeoUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +28,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -53,8 +50,6 @@ class NotificationServiceTest {
     @Mock private NotificationRepository notificationRepository;
     @Mock private RegisteredUserRepository registeredUserRepository;
     @Mock private NotificationSseService notificationSseService;
-    @Mock private CommentRepository commentRepository;
-    @Mock private ReportVerificationRepository verificationRepository;
     @Mock private ReportSubscriptionRepository subscriptionRepository;
 
     @InjectMocks
@@ -77,10 +72,9 @@ class NotificationServiceTest {
         ReflectionTestUtils.setField(report, "reportId", 100L);
     }
 
-    private void stubEmptyAudience() {
-        when(commentRepository.findCommenterUserIdsByReportId(100L)).thenReturn(Collections.emptyList());
-        when(verificationRepository.findVoterUserIdsByReportId(100L)).thenReturn(Collections.emptyList());
-        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L)).thenReturn(Collections.emptyList());
+    private void stubAudience(Long... userIds) {
+        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
+                .thenReturn(java.util.Arrays.asList(userIds));
     }
 
     private void stubSaveAssignsId() {
@@ -105,7 +99,8 @@ class NotificationServiceTest {
 
     @Test
     void notifyStatusChange_persistsStatusChangeForReportAuthor() {
-        stubEmptyAudience();
+        // Author is in the subscriber list (auto-subscribed at report create).
+        stubAudience(author.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author);
         report.setStatus(ReportStatus.VERIFIED);
@@ -127,7 +122,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyStatusChange_persistsRevertToPendingWithDistinctPhrasing() {
-        stubEmptyAudience();
+        stubAudience(author.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author);
         report.setStatus(ReportStatus.PENDING);
@@ -148,7 +143,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyStatusChange_persistsStatusChangeForFixedTransition() {
-        stubEmptyAudience();
+        stubAudience(author.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author);
         report.setStatus(ReportStatus.FIXED);
@@ -168,15 +163,12 @@ class NotificationServiceTest {
     }
 
     @Test
-    void notifyStatusChange_fansOutToCommentersVotersSubscribers_excludingActor() {
-        // Bob (commenter) is the actor; Carol (voter) and Dave (subscriber) should each receive one,
-        // plus Alice (author).
-        when(commentRepository.findCommenterUserIdsByReportId(100L))
-                .thenReturn(List.of(commenter.getId()));
-        when(verificationRepository.findVoterUserIdsByReportId(100L))
-                .thenReturn(List.of(voter.getId()));
-        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
-                .thenReturn(List.of(subscriber.getId()));
+    void notifyStatusChange_fansOutToSubscribers_excludingActor() {
+        // Bob (commenter) is the actor; everyone else is in the subscriber table
+        // (author via auto-subscribe at create, voter via auto-subscribe at vote,
+        // commenter via auto-subscribe at comment, plus explicit Follow subscriber).
+        // Bob still appears in the subscriber list but is removed as the actor.
+        stubAudience(author.getId(), commenter.getId(), voter.getId(), subscriber.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author, voter, subscriber);
         report.setStatus(ReportStatus.VERIFIED);
@@ -200,12 +192,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyStatusChange_fetchesAllRecipientsInASingleQuery() {
-        when(commentRepository.findCommenterUserIdsByReportId(100L))
-                .thenReturn(List.of(commenter.getId()));
-        when(verificationRepository.findVoterUserIdsByReportId(100L))
-                .thenReturn(List.of(voter.getId()));
-        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
-                .thenReturn(List.of(subscriber.getId()));
+        stubAudience(author.getId(), commenter.getId(), voter.getId(), subscriber.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author, voter, subscriber);
         report.setStatus(ReportStatus.VERIFIED);
@@ -218,14 +205,10 @@ class NotificationServiceTest {
     }
 
     @Test
-    void notifyStatusChange_dedupesUsersSpanningMultipleCohorts() {
-        // Carol both commented AND voted AND is subscribed; she should still get only one notification.
-        when(commentRepository.findCommenterUserIdsByReportId(100L))
-                .thenReturn(List.of(voter.getId()));
-        when(verificationRepository.findVoterUserIdsByReportId(100L))
-                .thenReturn(List.of(voter.getId()));
-        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
-                .thenReturn(List.of(voter.getId()));
+    void notifyStatusChange_dedupesDuplicateSubscriberIds() {
+        // A duplicate row in the projection (e.g. due to a race) must still yield
+        // a single notification per user.
+        stubAudience(author.getId(), voter.getId(), voter.getId(), voter.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author, voter);
         report.setStatus(ReportStatus.VERIFIED);
@@ -243,8 +226,10 @@ class NotificationServiceTest {
 
     @Test
     void notifyStatusChange_excludesActorEvenWhenActorIsAuthor() {
-        // Author votes on her own report, flipping the status. She should not be notified.
-        stubEmptyAudience();
+        // Author votes on her own report, flipping the status. She is in the
+        // subscriber list (auto-subscribed at create) but should still be
+        // dropped as the actor.
+        stubAudience(author.getId());
         report.setStatus(ReportStatus.VERIFIED);
 
         notificationService.notifyStatusChange(report, author.getId());
@@ -254,7 +239,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyNewComment_persistsCommentNotificationForReportAuthor() {
-        stubEmptyAudience();
+        stubAudience(author.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author);
         Comment comment = new Comment();
@@ -276,15 +261,10 @@ class NotificationServiceTest {
     }
 
     @Test
-    void notifyNewComment_fansOutToVotersAndSubscribers_excludingCommenter() {
-        // Bob (commenter) is the actor; Carol (voter) and Dave (subscriber) get notifications,
-        // plus Alice (author).
-        when(commentRepository.findCommenterUserIdsByReportId(100L))
-                .thenReturn(List.of(commenter.getId()));
-        when(verificationRepository.findVoterUserIdsByReportId(100L))
-                .thenReturn(List.of(voter.getId()));
-        when(subscriptionRepository.findSubscriberUserIdsByReportId(100L))
-                .thenReturn(List.of(subscriber.getId()));
+    void notifyNewComment_fansOutToSubscribers_excludingCommenter() {
+        // Bob (commenter) is the actor; everyone else is in the subscriber list
+        // and should receive a notification.
+        stubAudience(author.getId(), commenter.getId(), voter.getId(), subscriber.getId());
         stubSaveAssignsId();
         stubFindAllByIdReturns(author, voter, subscriber);
 
@@ -306,7 +286,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyNewComment_skipsWhenAuthorCommentsOnOwnReport() {
-        stubEmptyAudience();
+        stubAudience(author.getId());
         Comment comment = new Comment();
         comment.setId(56L);
         comment.setReport(report);
