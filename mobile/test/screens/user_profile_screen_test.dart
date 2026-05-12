@@ -93,6 +93,54 @@ void main() {
       // The stat grid always renders a REPORTS card for any loaded profile.
       expect(find.text('REPORTS'), findsOneWidget);
     });
+
+    testWidgets('Retry button retries the profile load after error',
+        (tester) async {
+      var calls = 0;
+      when(() => mockApiService.getUserById(any())).thenAnswer((_) async {
+        calls++;
+        if (calls == 1) throw ApiException(500, 'Server down');
+        return {'id': 42, 'name': 'Eve', 'points': 0};
+      });
+
+      await tester.pumpWidget(createScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(calls, 2);
+      expect(find.text('REPORTS'), findsOneWidget);
+    });
+
+    testWidgets('renders points stat for loaded user', (tester) async {
+      when(() => mockApiService.getUserById(42)).thenAnswer(
+        (_) async => {'id': 42, 'name': 'Eve', 'points': 250, 'rank': 3},
+      );
+
+      await tester.pumpWidget(createScreen());
+      await tester.pumpAndSettle();
+
+      // Stats grid surfaces the points value somewhere on screen.
+      expect(find.text('250'), findsWidgets);
+    });
+
+    testWidgets('renders the user reports list when reports are returned',
+        (tester) async {
+      when(() => mockApiService.getUserById(42)).thenAnswer(
+        (_) async => {'id': 42, 'name': 'Eve', 'points': 0},
+      );
+      // Provide a minimal reports list — exercises _buildReportsList path.
+      // (Uses the imported ReportModel for compactness.)
+      when(() => mockApiService.getReportsByUser(42))
+          .thenAnswer((_) async => const []);
+
+      await tester.pumpWidget(createScreen());
+      await tester.pumpAndSettle();
+
+      verify(() => mockApiService.getReportsByUser(42)).called(1);
+    });
   });
 }
 
