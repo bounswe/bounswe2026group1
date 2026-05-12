@@ -194,6 +194,7 @@ public class RegisteredUserService {
     /** User search (#306 / #501): paginated, case-insensitive substring match
      *  across name OR email. Empty / blank query is rejected with
      *  IllegalArgumentException so the controller can return 400.
+     *  Admins are included; BANNED accounts are excluded at the repository.
      *  Email is omitted in the DTO (privacy) — search results are public. */
     public Page<UserProfileDTO> searchUsers(String query, Pageable pageable) {
         if (query == null || query.isBlank()) {
@@ -201,7 +202,7 @@ public class RegisteredUserService {
         }
         String trimmed = query.trim();
         Page<RegisteredUser> page = registeredUserRepository
-                .searchRegularUsersByNameOrEmail(trimmed, pageable);
+                .searchUsersByNameOrEmail(trimmed, pageable);
         if (page.isEmpty()) return page.map(u -> buildDTO(u, false, 0L, 0L, List.of(), null));
 
         // Batch the contribution-stats queries so we stay flat at 3 queries
