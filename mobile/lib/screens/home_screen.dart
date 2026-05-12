@@ -87,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── SSE ───────────────────────────────────────────────────────────────────
   StreamSubscription<SseEvent>? _sseSub;
   bool _wasConnected = false;
+  SseService? _sseService;
 
   // ── Search state ──────────────────────────────────────────────────────────
   bool _searchActive = false;
@@ -151,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initSse() {
     final sse = context.read<SseService>();
+    _sseService = sse;
     _wasConnected = sse.connected;
     sse.addListener(_onSseConnectivity);
     _sseSub = sse.events.listen(_onSseEvent);
@@ -267,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    context.read<SseService>().removeListener(_onSseConnectivity);
+    _sseService?.removeListener(_onSseConnectivity);
     _sseSub?.cancel();
     _locationStream?.cancel();
     _mapController.dispose();
