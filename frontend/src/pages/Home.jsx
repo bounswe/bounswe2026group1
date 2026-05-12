@@ -712,7 +712,6 @@ function Home() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-on-surface">{reports.length} Active Reports</p>
-                    <p className="text-[10px] text-on-surface-variant">Within 500m of your location</p>
                   </div>
                 </div>
                 <div className="bg-primary/5 rounded-2xl p-4">
