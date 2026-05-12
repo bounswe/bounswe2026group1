@@ -53,28 +53,40 @@ public class ObstacleService {
 
     /**
      * Backwards-compatible no-arg overload — same as the empty-constraint case,
-     * which preserves the pre-#365 baseline (every VERIFIED obstacle becomes
-     * a polygon).
+     * which preserves the pre-#365 anonymous baseline (every VERIFIED obstacle
+     * becomes a polygon). Distinct from passing {@code null}, which means
+     * "skip avoidance entirely" (issue #544).
      */
     public ObjectNode buildAvoidPolygons() {
         return buildAvoidPolygons(Set.of());
     }
 
     /**
-     * Build the GeoJSON MultiPolygon avoid set for routing.
+     * Build the GeoJSON MultiPolygon avoid set for routing. Three input states:
      *
-     * <p>When {@code constraints} is empty the baseline is preserved: every
-     * VERIFIED obstacle report becomes an avoid polygon (anonymous and
-     * NONE-preset users get the historical "Accessible Route" behaviour).
+     * <ul>
+     *   <li>{@code null} → caller explicitly opted out of avoidance (signed-in
+     *       user with {@code RoutingPreset.NONE}). Returns {@code null} so no
+     *       polygons are sent to ORS and the Accessible Route alternative is
+     *       skipped (issue #544).</li>
+     *   <li>Empty set → anonymous baseline. Every VERIFIED obstacle report
+     *       becomes an avoid polygon — preserves the pre-#365 contract for
+     *       callers without a profile we can read.</li>
+     *   <li>Non-empty set → only VERIFIED obstacle reports whose objects expose
+     *       at least one {@link IssueHazard} matching a hazard in the expanded
+     *       constraint set become polygons. Constraints can only narrow the
+     *       avoid set, never widen it past the baseline.</li>
+     * </ul>
      *
-     * <p>When {@code constraints} is non-empty, only VERIFIED obstacle reports
-     * whose objects expose at least one {@link IssueHazard} matching a hazard
-     * in the expanded constraint set become polygons. Constraints can only
-     * narrow the avoid set, never widen it past the baseline.
-     *
-     * @return a GeoJSON MultiPolygon node, or null if no reports survive the filter
+     * @return a GeoJSON MultiPolygon node, or null if avoidance is skipped /
+     *         no reports survive the filter
      */
     public ObjectNode buildAvoidPolygons(Set<RoutingConstraint> constraints) {
+        // null = caller explicitly opted out (NONE preset). Skip avoidance.
+        if (constraints == null) {
+            return null;
+        }
+
         // Fetch only VERIFIED obstacle reports for route avoidance.
         List<Report> obstacles = reportRepository.findByTypeAndStatusIn(ReportType.OBSTACLE, ACTIVE_STATUSES);
         if (obstacles.isEmpty()) {
@@ -186,6 +198,53 @@ public class ObstacleService {
     }
 
     // -------------------------------------------------------------------------
+    // Ramp routing: found all ramps
+    // -------------------------------------------------------------------------
+
+    /**
+     * Identifies if any verified ramp reports lie directly on or very close to the 
+     * given path. This is used to detect when a standard "fastest" route actually 
+     * utilizes a ramp, which helps in labeling and calculating accessibility metrics.
+     *
+     * @return The first verified ramp report found on the path, or null if none exist
+     */
+    public Report findRampOnPath(List<Location> pathPoints) {
+        if (pathPoints == null || pathPoints.size() < 2) {
+            return null;
+        }
+
+        // 1. Define a search area (bounding box) around the entire path padded by PATH_BUFFER_METERS to catch nearby features.
+        double bufferDeg = PATH_BUFFER_METERS / METERS_PER_DEGREE;
+        double minLat = pathPoints.stream().mapToDouble(Location::getLatitude).min().orElseThrow() - bufferDeg;
+        double maxLat = pathPoints.stream().mapToDouble(Location::getLatitude).max().orElseThrow() + bufferDeg;
+        double minLon = pathPoints.stream().mapToDouble(Location::getLongitude).min().orElseThrow() - bufferDeg;
+        double maxLon = pathPoints.stream().mapToDouble(Location::getLongitude).max().orElseThrow() + bufferDeg;
+
+        // 2. Fetch all verified FEATURE reports within this bounding box from the database.
+        List<Report> candidates = reportRepository.findByTypeInBoundingBoxWithStatuses(
+                ReportType.FEATURE.name(), minLat, maxLat, minLon, maxLon, ACTIVE_STATUS_NAMES);
+
+        // 3. Filter candidates to find those that are explicitly RAMPs and touch the path.
+        for (Report ramp : candidates) {
+            Location entryPoint = ramp.getEntryPoint();
+            Location exitPoint = ramp.getExitPoint();
+            if (entryPoint == null || exitPoint == null) continue;
+
+            // Verify the report actually contains a RAMP object (vs other features).
+            boolean hasRamp = ramp.getObjects().stream()
+                    .anyMatch(o -> o.getObjectType() == com.bounswe2026group1.backend.model.ObjectType.RAMP);
+            if (!hasRamp) continue;
+
+            
+            if (isWithinPathBuffer(entryPoint, pathPoints) || isWithinPathBuffer(exitPoint, pathPoints)) {
+                return ramp;
+            }
+        }
+
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
     // Fastest route check: finds negative reports intersecting a decoded path
     // -------------------------------------------------------------------------
 
@@ -201,17 +260,25 @@ public class ObstacleService {
     /**
      * Return VERIFIED OUTDOOR obstacle reports that lie within
      * {@value PATH_BUFFER_METERS} m of any segment of the given decoded path
-     * AND are relevant to the caller's accessibility constraints.
+     * AND are relevant to the caller's accessibility constraints. Mirrors the
+     * three-state {@code constraints} contract on {@link #buildAvoidPolygons(Set)}:
      *
-     * <p>When {@code constraints} is empty the baseline applies: every nearby
-     * VERIFIED OUTDOOR obstacle is returned (anonymous and NONE-preset users
-     * get the full set). When non-empty, the result is filtered to obstacles
-     * whose objects expose at least one hazard the user actually cares about
-     * — same predicate that {@link #buildAvoidPolygons(Set)} uses, so the
-     * {@code hasObstacles} flag on a route response stays consistent with
-     * which polygons would have been avoided.
+     * <ul>
+     *   <li>{@code null} → caller explicitly opted out — returns an empty list
+     *       so the {@code hasObstacles} flag never lights up for them (issue #544).</li>
+     *   <li>Empty set → anonymous baseline: every nearby VERIFIED OUTDOOR
+     *       obstacle is returned.</li>
+     *   <li>Non-empty set → filtered to obstacles whose objects expose at least
+     *       one hazard the user actually cares about, using the same predicate
+     *       as {@link #buildAvoidPolygons(Set)} so {@code hasObstacles} stays
+     *       consistent with which polygons would have been avoided.</li>
+     * </ul>
      */
     public List<Report> findObstaclesOnPath(List<Location> pathPoints, Set<RoutingConstraint> constraints) {
+        // null = caller explicitly opted out — no obstacle is "on path" for them.
+        if (constraints == null) {
+            return List.of();
+        }
         if (pathPoints.size() < 2) {
             return List.of();
         }

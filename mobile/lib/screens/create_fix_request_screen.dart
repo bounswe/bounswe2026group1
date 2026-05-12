@@ -8,9 +8,9 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 
-/// Lets a user submit a "this looks fixed" report against [reportId]. A photo
-/// is required (JPEG/PNG); the description is optional and capped at 1000
-/// chars to match the backend's column constraint.
+/// Lets a user submit a "this looks fixed" report against [reportId]. At least
+/// one photo is required (JPEG/PNG); the description is optional and capped at
+/// 1000 chars to match the backend's column constraint.
 class CreateFixRequestScreen extends StatefulWidget {
   final int reportId;
 
@@ -33,7 +33,10 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
   final _descController = TextEditingController();
   final _picker = ImagePicker();
 
-  File? _photo;
+  // Cap matches the make-report screen so users get the same mental model.
+  static const int _maxPhotos = 5;
+
+  final List<File> _photos = [];
   bool _submitting = false;
   String? _error;
 
@@ -45,24 +48,68 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
 
   // ── Image picking ──────────────────────────────────────────────────────────
 
-  Future<void> _pickFromSource(ImageSource source) async {
+  bool get _canAddMore => _photos.length < _maxPhotos;
+
+  int get _remainingSlots => _maxPhotos - _photos.length;
+
+  Future<void> _pickFromCamera() async {
+    if (!_canAddMore) {
+      _toastLimitReached();
+      return;
+    }
     try {
       final picked = await _picker.pickImage(
-        source: source,
+        source: ImageSource.camera,
         imageQuality: 85,
         maxWidth: 1920,
       );
       if (picked == null) return;
       setState(() {
-        _photo = File(picked.path);
+        _photos.add(File(picked.path));
         _error = null;
       });
     } catch (_) {
-      setState(() => _error = 'Could not access that source.');
+      setState(() => _error = 'Could not access the camera.');
     }
   }
 
+  Future<void> _pickFromGallery() async {
+    if (!_canAddMore) {
+      _toastLimitReached();
+      return;
+    }
+    try {
+      final picked = await _picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1920,
+      );
+      if (picked.isEmpty) return;
+      final allowed = picked.take(_remainingSlots).toList();
+      setState(() {
+        _photos.addAll(allowed.map((x) => File(x.path)));
+        _error = null;
+      });
+      if (picked.length > allowed.length) _toastLimitReached();
+    } catch (_) {
+      setState(() => _error = 'Could not open the gallery.');
+    }
+  }
+
+  void _toastLimitReached() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('You can attach up to $_maxPhotos photos.'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Future<void> _showSourcePicker() async {
+    if (!_canAddMore) {
+      _toastLimitReached();
+      return;
+    }
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceContainerLowest,
@@ -89,7 +136,7 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
                   style: TextStyle(color: AppColors.onSurface)),
               onTap: () {
                 Navigator.pop(ctx);
-                _pickFromSource(ImageSource.camera);
+                _pickFromCamera();
               },
             ),
             ListTile(
@@ -99,7 +146,7 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
                   style: TextStyle(color: AppColors.onSurface)),
               onTap: () {
                 Navigator.pop(ctx);
-                _pickFromSource(ImageSource.gallery);
+                _pickFromGallery();
               },
             ),
             const SizedBox(height: 8),
@@ -113,8 +160,8 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
 
   Future<void> _submit() async {
     if (_submitting) return;
-    if (_photo == null) {
-      setState(() => _error = 'Attach a photo of the fixed area first.');
+    if (_photos.isEmpty) {
+      setState(() => _error = 'Attach at least one photo of the fixed area.');
       return;
     }
     setState(() {
@@ -125,7 +172,7 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
       final auth = context.read<AuthService>();
       final created = await auth.api.submitFixRequest(
         reportId: widget.reportId,
-        file: _photo!,
+        files: _photos,
         description: _descController.text,
       );
       if (!mounted) return;
@@ -277,7 +324,7 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
         Row(
           children: [
             Text(
-              'PHOTO',
+              'PHOTOS',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -297,99 +344,167 @@ class _CreateFixRequestScreenState extends State<CreateFixRequestScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        GestureDetector(
-          onTap: _submitting ? null : _showSourcePicker,
-          child: Container(
-            height: 220,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainer,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: _photo == null
-                    ? AppColors.outlineVariant.withValues(alpha: 0.5)
-                    : AppColors.primary.withValues(alpha: 0.4),
-                width: _photo == null ? 1.5 : 2,
+        if (_photos.isEmpty)
+          _buildEmptyDropZone()
+        else
+          _buildPhotoGallery(),
+      ],
+    );
+  }
+
+  Widget _buildEmptyDropZone() {
+    return GestureDetector(
+      onTap: _submitting ? null : _showSourcePicker,
+      child: Container(
+        height: 220,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.outlineVariant.withValues(alpha: 0.5),
+            width: 1.5,
+          ),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.cardSurface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.add_a_photo_outlined,
+                  color: AppColors.primary, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Add photos',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: AppColors.onSurface,
               ),
             ),
-            clipBehavior: Clip.hardEdge,
-            child: _photo == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppColors.cardSurface,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.add_a_photo_outlined,
-                            color: AppColors.primary, size: 24),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Add a photo',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: AppColors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'JPG or PNG · max 15 MB',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  )
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.file(_photo!, fit: BoxFit.cover),
-                      Positioned(
-                        bottom: 10,
-                        right: 10,
-                        child: GestureDetector(
-                          onTap: _submitting
-                              ? null
-                              : () => setState(() => _photo = null),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.cardSurface
-                                  .withValues(alpha: 0.92),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.refresh,
-                                    size: 14, color: AppColors.primary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Replace',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            const SizedBox(height: 4),
+            Text(
+              'Up to $_maxPhotos · JPG or PNG · max 15 MB each',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoGallery() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 132,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _photos.length + (_canAddMore ? 1 : 0),
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              if (i == _photos.length) return _buildAddMoreTile();
+              return _buildPhotoTile(_photos[i], i);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            '${_photos.length}/$_maxPhotos attached',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPhotoTile(File file, int index) {
+    return SizedBox(
+      width: 132,
+      height: 132,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.file(file, fit: BoxFit.cover),
+            Positioned(
+              right: 6,
+              top: 6,
+              child: GestureDetector(
+                onTap: _submitting
+                    ? null
+                    : () => setState(() => _photos.removeAt(index)),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    color: AppColors.errorStrong,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddMoreTile() {
+    return GestureDetector(
+      onTap: _submitting ? null : _showSourcePicker,
+      child: Container(
+        width: 132,
+        height: 132,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.outlineVariant,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo_outlined,
+                color: AppColors.primary, size: 26),
+            const SizedBox(height: 6),
+            Text(
+              'Add more',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppColors.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

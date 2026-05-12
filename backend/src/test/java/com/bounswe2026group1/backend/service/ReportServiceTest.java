@@ -47,6 +47,7 @@ class ReportServiceTest {
     @Mock private S3MediaService s3MediaService;
     @Mock private MeasurementValidator measurementValidator;
     @Mock private OverpassService overpassService;
+    @Mock private NominatimReverseGeocoder reverseGeocoder;
     @Mock private NotificationService notificationService;
     @Mock private GamificationService gamificationService;
     @Mock private UserBadgeRepository userBadgeRepository;
@@ -976,4 +977,202 @@ class ReportServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }
 
+    // ───── addMediaToReport authorization paths ────────────────────────────
+
+    @Test
+    void addMediaToReport_reportMissing_throwsNoSuchElement() {
+        when(reportRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> reportService.addMediaToReport(404L, "url", "owner@test.com"));
+        verify(mediaRepository, never()).save(any());
+    }
+
+    @Test
+    void addMediaToReport_userNotFound_throws401() {
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.addMediaToReport(1L, "url", "ghost@test.com"));
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
+        verify(mediaRepository, never()).save(any());
+    }
+
+    @Test
+    void addMediaToReport_nonOwnerNonAdmin_throws403() {
+        RegisteredUser intruder = new RegisteredUser();
+        intruder.setId(99L);
+        intruder.setEmail("intruder@test.com");
+        intruder.setRole(UserRole.USER);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("intruder@test.com"))
+                .thenReturn(Optional.of(intruder));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.addMediaToReport(1L, "url", "intruder@test.com"));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+        verify(mediaRepository, never()).save(any());
+    }
+
+    @Test
+    void addMediaToReport_adminCanUploadOnAnyReport() {
+        RegisteredUser admin = new RegisteredUser();
+        admin.setId(99L);
+        admin.setEmail("admin@test.com");
+        admin.setRole(UserRole.ADMIN);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        reportService.addMediaToReport(1L, "https://cdn/x.jpg", "admin@test.com");
+
+        verify(mediaRepository).save(any(Media.class));
+    }
+
+    // ───── addMediaToReportBatch full coverage ──────────────────────────────
+
+    @Test
+    void addMediaToReportBatch_persistsAllUrls_andBroadcastsPerMedia() {
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        List<String> urls = List.of("https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg");
+        List<Media> result = reportService.addMediaToReportBatch(1L, urls, "owner@test.com");
+
+        assertEquals(3, result.size());
+        verify(mediaRepository, times(3)).save(any(Media.class));
+        verify(publicSseService, times(3))
+                .broadcastMediaAdded(eq(testReport), any(Media.class));
+    }
+
+    @Test
+    void addMediaToReportBatch_emptyList_returnsEmpty_andDoesNotBroadcast() {
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("owner@test.com")).thenReturn(Optional.of(testUser));
+
+        List<Media> result = reportService.addMediaToReportBatch(1L, List.of(), "owner@test.com");
+
+        assertTrue(result.isEmpty());
+        verify(mediaRepository, never()).save(any());
+        verify(publicSseService, never()).broadcastMediaAdded(any(), any());
+    }
+
+    @Test
+    void addMediaToReportBatch_reportMissing_throwsNoSuchElement() {
+        when(reportRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> reportService.addMediaToReportBatch(404L,
+                        List.of("https://cdn/a.jpg"), "owner@test.com"));
+    }
+
+    @Test
+    void addMediaToReportBatch_userNotFound_throws401() {
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.addMediaToReportBatch(1L,
+                        List.of("https://cdn/a.jpg"), "ghost@test.com"));
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
+        verify(mediaRepository, never()).save(any());
+    }
+
+    @Test
+    void addMediaToReportBatch_nonOwnerNonAdmin_throws403() {
+        RegisteredUser intruder = new RegisteredUser();
+        intruder.setId(99L);
+        intruder.setRole(UserRole.USER);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("intruder@test.com"))
+                .thenReturn(Optional.of(intruder));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> reportService.addMediaToReportBatch(1L,
+                        List.of("https://cdn/a.jpg"), "intruder@test.com"));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+        verify(mediaRepository, never()).save(any());
+    }
+
+    @Test
+    void addMediaToReportBatch_adminCanBulkUploadOnAnyReport() {
+        RegisteredUser admin = new RegisteredUser();
+        admin.setId(99L);
+        admin.setRole(UserRole.ADMIN);
+
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(registeredUserRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        List<Media> result = reportService.addMediaToReportBatch(1L,
+                List.of("https://cdn/a.jpg", "https://cdn/b.jpg"), "admin@test.com");
+
+        assertEquals(2, result.size());
+    }
+
+    // ───── resolveActiveFixRequests via getAll(email) ────────────────────────
+
+    @Test
+    void getAll_withActiveFixRequest_attachesFixRequestSummaryToReportResponse() {
+        ReflectionTestUtils.setField(testReport, "reportId", 1L);
+        when(reportRepository.findAll()).thenReturn(List.of(testReport));
+
+        FixRequest fixRequest = new FixRequest(testReport, testUser, "fixed");
+        ReflectionTestUtils.setField(fixRequest, "id", 77L);
+
+        when(fixRequestRepository.findOpenFixRequestIdsByReportIds(List.of(1L)))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 77L}));
+        when(fixRequestRepository.findAllById(List.of(77L)))
+                .thenReturn(List.of(fixRequest));
+        when(registeredUserRepository.findByEmail("owner@test.com"))
+                .thenReturn(Optional.of(testUser));
+        when(fixRequestVoteRepository.findVotesByUserIdAndFixRequestIds(eq(1L), eq(List.of(77L))))
+                .thenReturn(List.<Object[]>of(new Object[]{77L, VoteType.AGREE}));
+
+        List<ReportResponse> result = reportService.getAll("owner@test.com");
+
+        assertEquals(1, result.size());
+        // resolveActiveFixRequests ran and propagated the open fix request
+        assertNotNull(result.get(0).getActiveFixRequest());
+        assertEquals(77L, result.get(0).getActiveFixRequest().getId());
+    }
+
+    @Test
+    void getAll_anonymousCaller_skipsUserVoteLookup_butStillResolvesActiveFix() {
+        ReflectionTestUtils.setField(testReport, "reportId", 1L);
+        when(reportRepository.findAll()).thenReturn(List.of(testReport));
+
+        FixRequest fixRequest = new FixRequest(testReport, testUser, "fixed");
+        ReflectionTestUtils.setField(fixRequest, "id", 77L);
+
+        when(fixRequestRepository.findOpenFixRequestIdsByReportIds(List.of(1L)))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 77L}));
+        when(fixRequestRepository.findAllById(List.of(77L)))
+                .thenReturn(List.of(fixRequest));
+
+        List<ReportResponse> result = reportService.getAll(null);
+
+        assertEquals(1, result.size());
+        assertNotNull(result.get(0).getActiveFixRequest());
+        // Anonymous caller — the user-vote lookup is short-circuited
+        verify(fixRequestVoteRepository, never()).findVotesByUserIdAndFixRequestIds(any(), any());
+    }
+
+    @Test
+    void getAll_noOpenFixRequests_skipsTheFixRequestLoadEntirely() {
+        ReflectionTestUtils.setField(testReport, "reportId", 1L);
+        when(reportRepository.findAll()).thenReturn(List.of(testReport));
+        when(fixRequestRepository.findOpenFixRequestIdsByReportIds(List.of(1L)))
+                .thenReturn(List.of());
+
+        List<ReportResponse> result = reportService.getAll(null);
+
+        assertEquals(1, result.size());
+        verify(fixRequestRepository, never()).findAllById(anyList());
+    }
 }

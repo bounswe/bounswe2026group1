@@ -218,7 +218,7 @@ function RoutePanel({
         </div>
         <button
           onClick={onReset}
-          className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-error/10 hover:text-error transition-colors"
+          className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors"
           aria-label="Close route panel"
         >
           <span className="material-symbols-outlined text-base">close</span>

@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.controller;
 
+import com.bounswe2026group1.backend.dto.CommentAnnotationResponse;
 import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -56,6 +58,18 @@ class CommentControllerTest {
                 "looks good",
                 Instant.parse("2026-05-08T20:00:00Z"),
                 new CommentResponse.AuthorRef(3L, "Alice", null));
+    }
+
+    private CommentAnnotationResponse annotationStub() {
+        return new CommentAnnotationResponse(
+                "http://www.w3.org/ns/anno.jsonld",
+                "http://localhost/api/comments/99",
+                "Annotation",
+                new CommentAnnotationResponse.Creator(
+                        "http://localhost/api/users/3", "Person", "Alice"),
+                Instant.parse("2026-05-08T20:00:00Z"),
+                new CommentAnnotationResponse.Body("TextualBody", "looks good", "text/plain"),
+                "http://localhost/api/reports/18");
     }
 
     // ───── Happy path ────────────────────────────────────────────────────────
@@ -228,6 +242,71 @@ class CommentControllerTest {
         verify(commentService, never()).update(any(Long.class), any(UpdateCommentRequest.class));
     }
 
+    // ───── W3C Web Annotation shape (issue #537) ─────────────────────────────
+
+    @Test
+    void getByIdAsAnnotation_returnsAnnotationShape() throws Exception {
+        when(commentService.getByIdAsAnnotation(eq(99L), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(Optional.of(annotationStub()));
+
+        mockMvc.perform(get("/api/comments/99/annotation")
+                        .header("Mapcess-Key", validApiKey)
+                        .accept("application/ld+json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.['@context']").value("http://www.w3.org/ns/anno.jsonld"))
+                .andExpect(jsonPath("$.type").value("Annotation"))
+                .andExpect(jsonPath("$.id").value("http://localhost/api/comments/99"))
+                .andExpect(jsonPath("$.body.type").value("TextualBody"))
+                .andExpect(jsonPath("$.body.value").value("looks good"))
+                .andExpect(jsonPath("$.body.format").value("text/plain"))
+                .andExpect(jsonPath("$.target").value("http://localhost/api/reports/18"))
+                .andExpect(jsonPath("$.creator.type").value("Person"))
+                .andExpect(jsonPath("$.creator.name").value("Alice"))
+                .andExpect(jsonPath("$.creator.password").doesNotExist())
+                .andExpect(jsonPath("$.creator.email").doesNotExist());
+    }
+
+    @Test
+    void getByIdAsAnnotation_returns404WhenMissing() throws Exception {
+        when(commentService.getByIdAsAnnotation(eq(404L), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/comments/404/annotation")
+                        .header("Mapcess-Key", validApiKey)
+                        .accept("application/ld+json"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getByReportAsAnnotation_returnsAnnotationList() throws Exception {
+        when(commentService.getByReportAsAnnotation(eq(18L), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(java.util.List.of(annotationStub()));
+
+        mockMvc.perform(get("/api/comments/report/18/annotations")
+                        .header("Mapcess-Key", validApiKey)
+                        .accept("application/ld+json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].['@context']").value("http://www.w3.org/ns/anno.jsonld"))
+                .andExpect(jsonPath("$[0].type").value("Annotation"))
+                .andExpect(jsonPath("$[0].body.value").value("looks good"))
+                .andExpect(jsonPath("$[0].target").value("http://localhost/api/reports/18"));
+    }
+
+    // ───── Legacy endpoints stay unchanged ───────────────────────────────────
+
+    @Test
+    void getByReport_legacyShapeUnchanged() throws Exception {
+        when(commentService.getByReport(eq(18L))).thenReturn(java.util.List.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments/report/18")
+                        .header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].['@context']").doesNotExist())
+                .andExpect(jsonPath("$[0].body").doesNotExist())
+                .andExpect(jsonPath("$[0].id").value(99))
+                .andExpect(jsonPath("$[0].content").value("looks good"));
+    }
+
     // The original prod-failure body for POST contained nested `author` and `report`
     // objects that triggered Jackson 3's primitive-int blow-up. Make sure the PUT
     // endpoint is no longer reachable through that legacy entity-shaped body — it
@@ -247,4 +326,53 @@ class CommentControllerTest {
         verify(commentService, never()).update(any(Long.class), any(UpdateCommentRequest.class));
     }
 
+    // ───── Remaining read endpoints ─────────────────────────────────────────
+
+    @Test
+    void getAll_returnsServiceList() throws Exception {
+        when(commentService.getAll()).thenReturn(java.util.List.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(99))
+                .andExpect(jsonPath("$[0].author.id").value(3));
+    }
+
+    @Test
+    void getByAuthor_returnsServiceList() throws Exception {
+        when(commentService.getByAuthor(eq(3L))).thenReturn(java.util.List.of(savedCommentStub()));
+
+        mockMvc.perform(get("/api/comments/author/3").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(99))
+                .andExpect(jsonPath("$[0].author.id").value(3));
+    }
+
+    @Test
+    void getById_returns404WhenServiceReturnsEmpty() throws Exception {
+        when(commentService.getById(eq(404L))).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/comments/404").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void delete_returns204WhenServiceDeletes() throws Exception {
+        when(commentService.delete(99L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/comments/99").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNoContent());
+
+        verify(commentService).delete(99L);
+    }
+
+    @Test
+    @WithMockUser(username = AUTHOR_EMAIL)
+    void delete_returns404WhenServiceSignalsNoSuchComment() throws Exception {
+        when(commentService.delete(404L)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/comments/404").header("Mapcess-Key", validApiKey))
+                .andExpect(status().isNotFound());
+    }
 }

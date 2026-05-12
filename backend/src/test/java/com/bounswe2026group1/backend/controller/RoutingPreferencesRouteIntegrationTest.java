@@ -31,6 +31,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -234,8 +235,215 @@ class RoutingPreferencesRouteIntegrationTest {
         for (JsonNode alternative : body) {
             assertThat(alternative.get("preferred").asBoolean()).isFalse();
         }
+    }
 
-        // ObstacleService should still receive an empty constraint set (NONE preset).
-        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(eq(Set.of()));
+    // ── NONE preset → null constraints reach ObstacleService (issue #544) ──
+
+    /**
+     * A signed-in user who explicitly chose {@code RoutingPreset.NONE} should
+     * NOT have their reports avoided. The controller must distinguish them
+     * from anonymous callers (who fall through to the {@code Set.of()}
+     * baseline) by passing {@code null} instead.
+     */
+    @Test
+    void authenticated_withNonePreset_passesNullConstraintsToObstacleService() throws Exception {
+        // Default setup already has preset=NONE; reaffirm explicitly for clarity.
+        user.setPreferredPreset(RoutingPreset.NONE);
+        user.setRoutingConstraints(new HashSet<>());
+        registeredUserRepository.save(user);
+
+        mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk());
+
+        // Anonymous would pass Set.of(); NONE-preset users pass null so
+        // ObstacleService skips avoidance entirely.
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
+    }
+
+    /**
+     * A signed-in user with a {@code CUSTOM} preset and zero rules has, just
+     * like a {@code NONE}-preset user, explicitly opted out of obstacle
+     * avoidance — they built a profile and chose to filter on nothing. The
+     * controller treats them the same: {@code constraints = null} so
+     * {@link ObstacleService} skips avoidance entirely.
+     */
+    @Test
+    void authenticated_withCustomPresetAndEmptyConstraints_passesNullConstraintsToObstacleService() throws Exception {
+        user.setPreferredPreset(RoutingPreset.CUSTOM);
+        user.setRoutingConstraints(new HashSet<>());
+        registeredUserRepository.save(user);
+
+        mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk());
+
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
+    }
+
+    // ── Preset-aware route set ──────────────────────────────────────────────
+    //
+    // Contract:
+    //   • Anonymous: Fastest + walking Accessible + Wheelchair (3).
+    //   • Authed non-wheelchair: Fastest + walking Accessible (2).
+    //   • Authed wheelchair: Fastest + Accessible Route in WHEELCHAIR mode (2);
+    //     no separate "Wheelchair Route" label since the
+    //     accessibility-aware alternative is already wheelchair-routed.
+
+    @Test
+    void anonymous_includesBothWalkingAccessibleAndWheelchairRoutes() throws Exception {
+        // Accessible Route is emitted only when avoid polygons exist — stub a
+        // non-null payload so the test exercises the three-alternative path.
+        when(obstacleService.buildAvoidPolygons(any())).thenReturn(objectMapper.createObjectNode());
+
+        MvcResult result = mockMvc.perform(post("/api/routes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(labels(result))
+                .as("Anonymous callers don't have a declared mode, so all alternatives are returned")
+                .contains("Fastest Route", "Accessible Route", "Wheelchair Route");
+    }
+
+    @Test
+    void authenticated_withWheelchairPreference_emitsAccessibleRouteInWheelchairMode() throws Exception {
+        // A wheelchair caller's accessibility-aware alternative IS the
+        // wheelchair route. We label it "Accessible Route" (not "Wheelchair
+        // Route") and its mode is WHEELCHAIR — so it goes through
+        // avoid_polygons + mapped ramps.
+        when(obstacleService.buildAvoidPolygons(any())).thenReturn(objectMapper.createObjectNode());
+        user.setPreferredTravelMode(TravelMode.WHEELCHAIR);
+        // Give them a non-empty constraint set so the controller doesn't
+        // null-out their constraints (which would skip avoidance entirely).
+        user.setPreferredPreset(RoutingPreset.WHEELCHAIR_USER);
+        user.setRoutingConstraints(new HashSet<>(RoutingPreset.WHEELCHAIR_USER.getConstraints()));
+        registeredUserRepository.save(user);
+
+        MvcResult result = mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertThat(labels(result))
+                .as("Wheelchair caller's route set: Fastest + Accessible (wheelchair mode); no separate Wheelchair label")
+                .containsExactlyInAnyOrder("Fastest Route", "Accessible Route");
+
+        // The Accessible Route's mode is WHEELCHAIR for a wheelchair caller.
+        JsonNode accessible = null;
+        for (JsonNode alt : body) {
+            if ("Accessible Route".equals(alt.get("routeLabel").asString())) {
+                accessible = alt;
+                break;
+            }
+        }
+        assertThat(accessible).as("Accessible Route must be present for wheelchair caller").isNotNull();
+        assertThat(accessible.get("mode").asString())
+                .as("Wheelchair caller's Accessible Route uses the wheelchair profile")
+                .isEqualTo("WHEELCHAIR");
+    }
+
+    @Test
+    void authenticated_withWalkingPreference_dropsWheelchairRoute() throws Exception {
+        user.setPreferredTravelMode(TravelMode.WALKING);
+        user.setPreferredPreset(RoutingPreset.BLIND_OR_LOW_VISION);
+        user.setRoutingConstraints(new HashSet<>(RoutingPreset.BLIND_OR_LOW_VISION.getConstraints()));
+        registeredUserRepository.save(user);
+
+        MvcResult result = mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(labels(result))
+                .as("Walking-mode users don't get a separate Wheelchair Route card")
+                .doesNotContain("Wheelchair Route");
+    }
+
+    @Test
+    void authenticated_withoutPreferredTravelMode_dropsWheelchairRoute() throws Exception {
+        user.setPreferredTravelMode(null);
+        // Non-empty constraints so the user reaches the route-emission path
+        // rather than the null-constraints (opt-out) path.
+        user.setPreferredPreset(RoutingPreset.MOBILITY_LIMITED);
+        user.setRoutingConstraints(new HashSet<>(RoutingPreset.MOBILITY_LIMITED.getConstraints()));
+        registeredUserRepository.save(user);
+
+        MvcResult result = mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(labels(result))
+                .as("Authed users who haven't declared a mode are treated as non-wheelchair")
+                .doesNotContain("Wheelchair Route");
+    }
+
+    /**
+     * Edge case: a signed-in wheelchair user with {@code RoutingPreset.NONE}
+     * has opted out of avoidance (so controller passes {@code constraints =
+     * null} → {@code buildAvoidPolygons} returns {@code null}) AND is in
+     * wheelchair mode (so the wheelchair-mode Accessible Route is emitted).
+     * That alternative comes out unfiltered — wheelchair-profile but with no
+     * avoid polygons applied. Defensible (they opted out), pinned by this test.
+     */
+    @Test
+    void authenticated_withNonePresetAndWheelchairMode_emitsUnfilteredWheelchairAccessibleRoute() throws Exception {
+        user.setPreferredPreset(RoutingPreset.NONE);
+        user.setRoutingConstraints(new HashSet<>());
+        user.setPreferredTravelMode(TravelMode.WHEELCHAIR);
+        registeredUserRepository.save(user);
+
+        MvcResult result = mockMvc.perform(post("/api/routes")
+                        .with(user(EMAIL).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(routeRequestBody()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Controller passes null constraints; ObstacleService short-circuits
+        // and never sees Set.of() for this caller.
+        verify(obstacleService, atLeastOnce()).buildAvoidPolygons(isNull());
+        verify(obstacleService, never()).buildAvoidPolygons(eq(Set.of()));
+
+        // Route set is the wheelchair caller's: Fastest + Accessible (no
+        // separate Wheelchair Route label). The Accessible Route runs the
+        // wheelchair profile — but without avoidance, since the user opted out.
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode accessible = null;
+        for (JsonNode alt : body) {
+            if ("Accessible Route".equals(alt.get("routeLabel").asString())) {
+                accessible = alt;
+                break;
+            }
+        }
+        assertThat(accessible).as("Accessible Route must be present").isNotNull();
+        assertThat(accessible.get("mode").asString())
+                .as("NONE-preset wheelchair caller's Accessible Route still uses the wheelchair profile")
+                .isEqualTo("WHEELCHAIR");
+        assertThat(labels(result))
+                .as("No separate Wheelchair Route card for a wheelchair caller")
+                .doesNotContain("Wheelchair Route");
+    }
+
+    private List<String> labels(MvcResult result) throws Exception {
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        List<String> out = new java.util.ArrayList<>();
+        for (JsonNode alt : body) out.add(alt.get("routeLabel").asString());
+        return out;
     }
 }

@@ -5,6 +5,7 @@ import AvatarUploader from '../components/AvatarUploader.jsx'
 import BadgeList from '../components/BadgeList.jsx'
 import MyReportsSection from '../components/MyReportsSection.jsx'
 import RoutingPreferencesSection from '../components/RoutingPreferencesSection.jsx'
+import DangerZoneSection from '../components/DangerZoneSection.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
@@ -109,7 +110,7 @@ function ProfilePage() {
 
         {!isPending && !isError && user && (
           <>
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-start gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-2xl font-bold font-headline text-on-surface break-words">
@@ -142,13 +143,13 @@ function ProfilePage() {
             </section>
 
             {user.badges && user.badges.length > 0 && (
-              <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+              <section className="bg-surface-container rounded-2xl shadow-sm p-6 flex flex-col gap-3">
                 <h2 className="text-xl font-bold font-headline text-on-surface">Badges</h2>
                 <BadgeList badges={user.badges} />
               </section>
             )}
 
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+            <section className="bg-surface-container rounded-2xl shadow-sm p-6 flex flex-col gap-3">
               <h2 className="text-xl font-bold font-headline text-on-surface">Leaderboard</h2>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -168,14 +169,14 @@ function ProfilePage() {
               </p>
             </section>
 
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <section className="bg-surface-container rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold font-headline text-on-surface">About</h2>
                 {!isEditing && (
                   <button
                     type="button"
                     onClick={handleStartEdit}
-                    className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-semibold text-sm cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold text-sm cursor-pointer"
                   >
                     Edit
                   </button>
@@ -197,7 +198,7 @@ function ProfilePage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       maxLength={NAME_MAX}
-                      className="w-full px-5 py-3 bg-surface-container border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
+                      className="w-full px-5 py-3 bg-surface-container-high border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
                     />
                     <p className={`text-xs text-right ${nameInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
                       {trimmedName.length < NAME_MIN
@@ -215,7 +216,7 @@ function ProfilePage() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={4}
-                      className="w-full px-5 py-3 bg-surface-container border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
+                      className="w-full px-5 py-3 bg-surface-container-high border-none rounded-xl text-on-surface focus:ring-2 focus:ring-primary/40 outline-none"
                     />
                     <p className={`text-xs text-right ${bioInvalid ? 'text-error' : 'text-on-surface-variant'}`}>
                       {bio.length}/{BIO_MAX}
@@ -241,7 +242,7 @@ function ProfilePage() {
                       type="button"
                       onClick={handleCancel}
                       disabled={updateProfileMutation.isPending}
-                      className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-semibold cursor-pointer"
+                      className="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-semibold cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -253,6 +254,8 @@ function ProfilePage() {
             <RoutingPreferencesSection />
 
             <MyReportsSection userId={userId} />
+
+            <DangerZoneSection email={user.email} />
           </>
         )}
       </main>

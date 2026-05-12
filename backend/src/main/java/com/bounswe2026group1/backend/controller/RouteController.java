@@ -7,6 +7,7 @@ import com.bounswe2026group1.backend.model.Location;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Route;
 import com.bounswe2026group1.backend.model.RoutingConstraint;
+import com.bounswe2026group1.backend.model.RoutingPreset;
 import com.bounswe2026group1.backend.model.TravelMode;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.RouteRepository;
@@ -60,13 +61,30 @@ public class RouteController {
         // and the user object again for recording the planned route. Anonymous → null.
         RegisteredUser caller = currentUserOrNull();
 
-        Set<RoutingConstraint> constraints = caller != null && caller.getRoutingConstraints() != null
-                ? caller.getRoutingConstraints()
-                : Set.of();
-        TravelMode preferredMode = caller != null ? caller.getPreferredTravelMode() : null;
-
-        List<RouteResponse> options = routeService.getRouteOptions(request, constraints, preferredMode);
-        if (caller != null) {
+        // Anonymous callers go through the 1-arg overload (always emits every
+        // alternative — Fastest + Accessible + Wheelchair — since we don't
+        // know what they need). Authed callers go through the 3-arg overload
+        // which adapts the alternative set to their preferred mode.
+        List<RouteResponse> options;
+        if (caller == null) {
+            options = routeService.getRouteOptions(request);
+        } else {
+            // Three-state contract for the constraints argument (issue #544):
+            //   • null     — caller has explicitly opted out of avoidance:
+            //                NONE preset, or CUSTOM preset with zero rules,
+            //                or any preset whose stored constraint set is
+            //                empty (the last covers data anomalies).
+            //   • non-empty — filter avoid set to hazards the user actually
+            //                 cares about.
+            Set<RoutingConstraint> constraints;
+            if (caller.getPreferredPreset() == RoutingPreset.NONE
+                    || caller.getRoutingConstraints() == null
+                    || caller.getRoutingConstraints().isEmpty()) {
+                constraints = null;
+            } else {
+                constraints = caller.getRoutingConstraints();
+            }
+            options = routeService.getRouteOptions(request, constraints, caller.getPreferredTravelMode());
             recordPlannedRouteForUser(caller, request, options);
         }
         return ResponseEntity.ok(options);
@@ -107,8 +125,8 @@ public class RouteController {
         try {
             RouteResponse first = options.get(0);
             Route record = Route.builder()
-                    .startLocation(new Location(request.getStartLat(), request.getStartLon()))
-                    .endLocation(new Location(request.getEndLat(), request.getEndLon()))
+                    .startLocation(new Location(request.effectiveStartLat(), request.effectiveStartLon()))
+                    .endLocation(new Location(request.effectiveEndLat(), request.effectiveEndLon()))
                     .distance((int) Math.round(first.getDistanceMeters()))
                     .duration((int) Math.round(first.getDurationSeconds()))
                     .travelMode(first.getMode())

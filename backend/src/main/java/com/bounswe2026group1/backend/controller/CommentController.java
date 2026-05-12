@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.config.OpenApiConfig;
+import com.bounswe2026group1.backend.dto.CommentAnnotationResponse;
 import com.bounswe2026group1.backend.dto.CommentResponse;
 import com.bounswe2026group1.backend.dto.CreateCommentRequest;
 import com.bounswe2026group1.backend.dto.UpdateCommentRequest;
@@ -14,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 
@@ -24,6 +26,8 @@ import java.util.List;
 public class CommentController {
 
     private final CommentService commentService;
+
+    private static final String LD_JSON = "application/ld+json";
 
     @GetMapping
     @Operation(summary = "List all comments")
@@ -43,6 +47,20 @@ public class CommentController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping(value = "/{id}/annotation", produces = LD_JSON)
+    @Operation(summary = "Get a single comment as a W3C Web Annotation",
+            description = "Same data as GET /api/comments/{id} but serialized per the W3C Web Annotation Data Model "
+                    + "(https://www.w3.org/TR/annotation-model/). Response media type is application/ld+json.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Comment found."),
+            @ApiResponse(responseCode = "404", description = "No comment with that id.")
+    })
+    public ResponseEntity<CommentAnnotationResponse> getByIdAsAnnotation(@PathVariable Long id) {
+        return commentService.getByIdAsAnnotation(id, currentApiBase())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/author/{authorId}")
     @Operation(summary = "List comments authored by a given user")
     public List<CommentResponse> getByAuthor(@PathVariable Long authorId) {
@@ -53,6 +71,18 @@ public class CommentController {
     @Operation(summary = "List comments on a given report")
     public List<CommentResponse> getByReport(@PathVariable Long reportId) {
         return commentService.getByReport(reportId);
+    }
+
+    @GetMapping(value = "/report/{reportId}/annotations", produces = LD_JSON)
+    @Operation(summary = "List comments on a given report as W3C Web Annotations",
+            description = "Same data as GET /api/comments/report/{reportId} but each item is serialized per the "
+                    + "W3C Web Annotation Data Model. Response media type is application/ld+json.")
+    public List<CommentAnnotationResponse> getByReportAsAnnotation(@PathVariable Long reportId) {
+        return commentService.getByReportAsAnnotation(reportId, currentApiBase());
+    }
+
+    private static String currentApiBase() {
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
     }
 
     @PostMapping

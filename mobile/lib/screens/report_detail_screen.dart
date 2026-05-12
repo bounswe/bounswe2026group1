@@ -13,6 +13,7 @@ import '../models/sse_event.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/sse_service.dart';
+import '../widgets/badge_chip.dart';
 import '../main.dart' show MainShell, AuthShell;
 import 'create_fix_request_screen.dart';
 import 'edit_report_screen.dart';
@@ -47,13 +48,31 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   VideoPlayerController? _videoController;
   bool _videoReady = false;
 
+  /// True when the *first* media item is a video — that one gets inline
+  /// playback through [_videoController]. Subsequent videos in the gallery
+  /// fall back to a thumbnail that opens fullscreen on tap (we don't keep
+  /// N controllers warm).
   bool get _hasVideo {
     if (report.mediaUrls.isEmpty) return false;
-    // Strip query params (e.g. S3 pre-signed URLs) before checking extension
-    final path = (Uri.tryParse(report.mediaUrls.first)?.path ?? report.mediaUrls.first).toLowerCase();
-    return path.endsWith('.mp4') || path.endsWith('.mov') ||
-           path.endsWith('.avi') || path.endsWith('.mkv') || path.endsWith('.webm');
+    return _isVideoUrl(report.mediaUrls.first);
   }
+
+  static bool _isVideoUrl(String url) {
+    // Strip query params (e.g. S3 pre-signed URLs) before checking extension.
+    final path = (Uri.tryParse(url)?.path ?? url).toLowerCase();
+    return path.endsWith('.mp4') || path.endsWith('.mov') ||
+           path.endsWith('.avi') || path.endsWith('.mkv') ||
+           path.endsWith('.webm');
+  }
+
+  // ── Media gallery ──────────────────────────────────────────────────────────
+  final PageController _mediaPageController = PageController();
+  int _currentMediaIndex = 0;
+
+  // Separate carousel state for the active fix-request photos so swiping one
+  // gallery doesn't move the other.
+  final PageController _fixMediaPageController = PageController();
+  int _currentFixMediaIndex = 0;
 
   // ── Vote state ─────────────────────────────────────────────────────────────
   late int _agrees;
@@ -385,6 +404,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   void dispose() {
     _sseSub?.cancel();
     _videoController?.dispose();
+    _mediaPageController.dispose();
+    _fixMediaPageController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -753,28 +774,41 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
+  void _openFullscreenMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _FullscreenMapPage(
+          latitude: report.latitude,
+          longitude: report.longitude,
+          markerColor: AppColors.primary,
+          title: report.headline,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeroSection() {
+    final urls = report.mediaUrls;
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: report.mediaUrls.isNotEmpty
-                ? _hasVideo
-                    ? _buildVideoPlayer()
-                    : GestureDetector(
-                        onTap: _openFullscreen,
-                        child: Image.network(
-                          report.mediaUrls.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) =>
-                              _heroPlaceholder(),
-                        ),
-                      )
-                : _heroPlaceholder(),
+            child: urls.isEmpty
+                ? _heroPlaceholder()
+                : urls.length == 1
+                    ? _buildMediaItem(urls.first, 0)
+                    : PageView.builder(
+                        controller: _mediaPageController,
+                        itemCount: urls.length,
+                        onPageChanged: (i) =>
+                            setState(() => _currentMediaIndex = i),
+                        itemBuilder: (_, i) => _buildMediaItem(urls[i], i),
+                      ),
           ),
         ),
+        // Status pill — top-right.
         Positioned(
           top: 14,
           right: 14,
@@ -810,7 +844,94 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ),
         ),
+        // Position counter (e.g. "2/4") — top-left, only when multi-item.
+        if (urls.length > 1)
+          Positioned(
+            top: 14,
+            left: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${_currentMediaIndex + 1}/${urls.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        // Page indicator dots — bottom-centre, only when multi-item.
+        if (urls.length > 1)
+          Positioned(
+            bottom: 10,
+            left: 0,
+            right: 0,
+            child: Center(child: _buildMediaDots(urls.length)),
+          ),
       ],
+    );
+  }
+
+  /// Builds the right viewer for a single carousel page. The inline video
+  /// player is reserved for index 0 — that's where [_videoController] was
+  /// pre-warmed in initState; other videos open fullscreen on tap because
+  /// keeping a fresh controller per page would balloon memory.
+  Widget _buildMediaItem(String url, int index) {
+    if (_isVideoUrl(url)) {
+      if (index == 0 && _hasVideo) return _buildVideoPlayer();
+      return GestureDetector(
+        onTap: () => _openFullscreenVideo(url),
+        child: Container(
+          color: Colors.black87,
+          alignment: Alignment.center,
+          child: const Icon(Icons.play_circle_fill,
+              color: Colors.white, size: 64),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => _openFullscreenImage(url),
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _heroPlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildMediaDots(int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: i == _currentMediaIndex ? 18 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: i == _currentMediaIndex
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openFullscreenVideo(String url) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (ctx, _, __) => _FullscreenMediaPage(videoUrl: url),
+      ),
     );
   }
 
@@ -932,32 +1053,41 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _isGuest
-                    ? Text(
-                        'User #${report.userId}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.onSurface,
-                        ),
-                      )
-                    : _usernameLoading
-                        ? Container(
-                            width: 90,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          )
-                        : Text(
-                            _displayUsername,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _isGuest
+                        ? Text(
+                            'User #${report.userId}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.onSurface,
                             ),
-                          ),
+                          )
+                        : _usernameLoading
+                            ? Container(
+                                width: 90,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              )
+                            : Text(
+                                _displayUsername,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.onSurface,
+                                ),
+                              ),
+                    if (report.authorTopBadge != null) ...[
+                      const SizedBox(width: 6),
+                      BadgeChip(badge: report.authorTopBadge!, compact: true),
+                    ],
+                  ],
+                ),
                 Text(
                   'Reported ${report.timeAgo}',
                   style: TextStyle(
@@ -1044,59 +1174,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (fix.mediaUrls.isNotEmpty) ...[
-                  GestureDetector(
-                    onTap: () => _openFullscreenImage(fix.mediaUrls.first),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            fix.mediaUrls.first,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              height: 180,
-                              color: AppColors.surfaceContainer,
-                              alignment: Alignment.center,
-                              child: Icon(Icons.image_not_supported_outlined,
-                                  color: AppColors.outlineVariant, size: 32),
-                            ),
-                          ),
-                        ),
-                        // Hint chip — same convention as the report hero so
-                        // users know the photo is tappable.
-                        Positioned(
-                          right: 8,
-                          bottom: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.scrim.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.fullscreen,
-                                    size: 12, color: AppColors.onScrim),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Tap to enlarge',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.onScrim,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildFixMediaCarousel(fix.mediaUrls),
                   const SizedBox(height: 10),
                 ],
                 Row(
@@ -1157,6 +1235,124 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFixMediaCarousel(List<String> urls) {
+    final index =
+        _currentFixMediaIndex.clamp(0, urls.isEmpty ? 0 : urls.length - 1);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: 180,
+        width: double.infinity,
+        child: Stack(
+          children: [
+            // The carousel itself. Single-photo case still uses PageView so
+            // tap behaviour and styling stay identical across both branches.
+            PageView.builder(
+              controller: _fixMediaPageController,
+              itemCount: urls.length,
+              onPageChanged: (i) =>
+                  setState(() => _currentFixMediaIndex = i),
+              itemBuilder: (_, i) => GestureDetector(
+                onTap: () => _openFullscreenImage(urls[i]),
+                child: Image.network(
+                  urls[i],
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: AppColors.surfaceContainer,
+                    alignment: Alignment.center,
+                    child: Icon(Icons.image_not_supported_outlined,
+                        color: AppColors.outlineVariant, size: 32),
+                  ),
+                ),
+              ),
+            ),
+            // Position counter — only when multi-photo.
+            if (urls.length > 1)
+              Positioned(
+                left: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${index + 1}/${urls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            // Fullscreen hint — same convention as the parent report hero.
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.scrim.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.fullscreen,
+                        size: 12, color: AppColors.onScrim),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tap to enlarge',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onScrim,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Page dots — only when multi-photo.
+            if (urls.length > 1)
+              Positioned(
+                bottom: 8,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < urls.length; i++)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin:
+                              const EdgeInsets.symmetric(horizontal: 3),
+                          width: i == index ? 16 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: i == index
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1435,45 +1631,50 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             child: Column(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    height: 90,
-                    width: double.infinity,
-                    child: FlutterMap(
-                      options: MapOptions(
-                        initialCenter: LatLng(
-                          report.latitude,
-                          report.longitude,
-                        ),
-                        initialZoom: 15,
-                        interactionOptions: const InteractionOptions(
-                          flags: InteractiveFlag.none,
-                        ),
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName:
-                              'com.bounswe2026group1.mapcess',
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: LatLng(
-                                report.latitude,
-                                report.longitude,
-                              ),
-                              child: Icon(
-                                Icons.location_on,
-                                color: AppColors.primary,
-                                size: 32,
-                              ),
+                GestureDetector(
+                  onTap: _openFullscreenMap,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      height: 90,
+                      width: double.infinity,
+                      child: AbsorbPointer(
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: LatLng(
+                              report.latitude,
+                              report.longitude,
+                            ),
+                            initialZoom: 15,
+                            interactionOptions: const InteractionOptions(
+                              flags: InteractiveFlag.none,
+                            ),
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName:
+                                  'com.bounswe2026group1.mapcess',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: LatLng(
+                                    report.latitude,
+                                    report.longitude,
+                                  ),
+                                  child: Icon(
+                                    Icons.location_on,
+                                    color: AppColors.primary,
+                                    size: 32,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -1612,6 +1813,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           if (obj.measurements != null && obj.measurements!.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildMeasurementsBlock(obj),
+          ],
+          if (_canContributeMeasurements(obj)) ...[
+            const SizedBox(height: 10),
+            _buildContributeMeasurementsButton(obj),
           ],
           if (obj.warnings.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -1853,6 +2058,114 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Returns the schema specs whose key isn't already populated for [obj].
+  /// "Populated" matches the backend's rule: any non-null, non-blank value
+  /// counts — so zero is locked once the author records it.
+  List<MeasurementSpec> _missingMeasurementSpecs(ReportObject obj) {
+    final specs = measurementSpecsFor(obj.objectType);
+    if (specs.isEmpty) return const [];
+    final raw = obj.measurements;
+    final parsed = (raw == null || raw.isEmpty)
+        ? <String, String>{}
+        : (_tryParseMeasurements(raw) ?? const <String, String>{});
+    return [
+      for (final spec in specs)
+        if ((parsed[spec.key] ?? '').trim().isEmpty) spec,
+    ];
+  }
+
+  /// A signed-in non-author may contribute missing measurements for any
+  /// persisted object that still has at least one empty schema key. Authors
+  /// already have the full edit screen and don't need this shortcut.
+  bool _canContributeMeasurements(ReportObject obj) {
+    if (_isGuest) return false;
+    if (obj.id == null) return false;
+    final auth = context.read<AuthService>();
+    if (auth.userId == report.userId) return false;
+    return _missingMeasurementSpecs(obj).isNotEmpty;
+  }
+
+  Widget _buildContributeMeasurementsButton(ReportObject obj) {
+    final missingCount = _missingMeasurementSpecs(obj).length;
+    return GestureDetector(
+      onTap: () => _openContributeMeasurementsSheet(obj),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.add_circle_outline,
+                size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                missingCount == 1
+                    ? 'Add a missing measurement'
+                    : 'Add $missingCount missing measurements',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                size: 18, color: AppColors.primary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openContributeMeasurementsSheet(ReportObject obj) async {
+    final missing = _missingMeasurementSpecs(obj);
+    if (missing.isEmpty || obj.id == null) return;
+
+    final result = await showModalBottomSheet<Map<String, num>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _MeasurementContributionSheet(
+        objectType: obj.objectType,
+        missing: missing,
+      ),
+    );
+
+    if (result == null || result.isEmpty || !mounted) return;
+
+    try {
+      final updated =
+          await context.read<AuthService>().api.contributeMeasurements(
+                reportId: report.reportId,
+                objectId: obj.id!,
+                values: result,
+              );
+      if (!mounted) return;
+      setState(() => _report = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Thanks — your measurements were added.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      // 409 surfaces as "Measurements already set by the author for: …" via
+      // ApiException.userMessage — pass it through so the user sees which
+      // keys raced.
+      final msg = e is ApiException ? e.userMessage : 'Could not save.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -2271,6 +2584,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildCommentItem(_CommentData comment) {
+    // Show delete only when the signed-in user authored this comment. Backend
+    // enforces author-only deletion too, but hiding the affordance keeps the
+    // UI honest.
+    final auth = context.watch<AuthService>();
+    final canDelete = auth.isAuthenticated &&
+        comment.authorId != null &&
+        comment.authorId == auth.userId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -2313,6 +2633,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
+                    if (canDelete) ...[
+                      const Spacer(),
+                      InkWell(
+                        onTap: () => _confirmDeleteComment(comment),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: AppColors.outline,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -2330,6 +2665,66 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteComment(_CommentData comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Delete comment?',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: Text(
+          'This will permanently remove your comment.',
+          style: TextStyle(color: AppColors.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.outline)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    // Optimistically remove so the list updates instantly; restore on failure.
+    final index = _comments.indexWhere((c) => c.id == comment.id);
+    if (index == -1) return;
+    final removed = _comments[index];
+    setState(() => _comments.removeAt(index));
+
+    try {
+      await context.read<AuthService>().api.deleteComment(comment.id);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _comments.insert(index, removed));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t delete comment — ${e.userMessage}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _comments.insert(index, removed));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t delete comment — $e')),
+      );
+    }
   }
 
   // ─── Follow button ──────────────────────────────────────────────────────────
@@ -2604,25 +2999,85 @@ class _ImagePlaceholderPainter extends CustomPainter {
 
 // ─── Fullscreen media page ────────────────────────────────────────────────────
 
-class _FullscreenMediaPage extends StatelessWidget {
+class _FullscreenMediaPage extends StatefulWidget {
+  /// Image source to display. Mutually exclusive with [videoController]
+  /// and [videoUrl].
   final String? imageUrl;
+
+  /// Pre-initialised controller — passed when the hero already had an
+  /// inline video player primed. Reused as-is so the user picks up where
+  /// they left off.
   final VideoPlayerController? videoController;
 
-  const _FullscreenMediaPage({this.imageUrl, this.videoController});
+  /// Network video URL — used for additional gallery items that don't have
+  /// a pre-built controller. The page owns the controller it creates and
+  /// disposes it on close.
+  final String? videoUrl;
+
+  const _FullscreenMediaPage({
+    this.imageUrl,
+    this.videoController,
+    this.videoUrl,
+  });
+
+  @override
+  State<_FullscreenMediaPage> createState() => _FullscreenMediaPageState();
+}
+
+class _FullscreenMediaPageState extends State<_FullscreenMediaPage> {
+  VideoPlayerController? _ownedController;
+  bool _ownedReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final url = widget.videoUrl;
+    if (url != null && widget.videoController == null) {
+      _initVideo(url);
+    }
+  }
+
+  Future<void> _initVideo(String url) async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      setState(() {
+        _ownedController = controller;
+        _ownedReady = true;
+      });
+      controller.play();
+    } catch (_) {
+      controller.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ownedController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final activeController = widget.videoController ?? _ownedController;
+    final hasInlineVideo = widget.videoController != null;
+    final hasOwnedVideo =
+        _ownedController != null && _ownedReady;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           Center(
-            child: imageUrl != null
+            child: widget.imageUrl != null
                 ? InteractiveViewer(
                     minScale: 1,
                     maxScale: 4,
                     child: Image.network(
-                      imageUrl!,
+                      widget.imageUrl!,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.broken_image_outlined,
@@ -2631,12 +3086,24 @@ class _FullscreenMediaPage extends StatelessWidget {
                       ),
                     ),
                   )
-                : videoController != null
-                    ? AspectRatio(
-                        aspectRatio: videoController!.value.aspectRatio,
-                        child: VideoPlayer(videoController!),
+                : (activeController != null &&
+                        (hasInlineVideo || hasOwnedVideo))
+                    ? GestureDetector(
+                        onTap: () => setState(() {
+                          if (activeController.value.isPlaying) {
+                            activeController.pause();
+                          } else {
+                            activeController.play();
+                          }
+                        }),
+                        child: AspectRatio(
+                          aspectRatio: activeController.value.aspectRatio,
+                          child: VideoPlayer(activeController),
+                        ),
                       )
-                    : const SizedBox.shrink(),
+                    : widget.videoUrl != null
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const SizedBox.shrink(),
           ),
           // Close button
           SafeArea(
@@ -2708,6 +3175,362 @@ class _AvatarCircle extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: inner,
+      ),
+    );
+  }
+}
+
+/// Fullscreen, interactive map centered on the report's location.
+class _FullscreenMapPage extends StatelessWidget {
+  final double latitude;
+  final double longitude;
+  final Color markerColor;
+  final String title;
+
+  const _FullscreenMapPage({
+    required this.latitude,
+    required this.longitude,
+    required this.markerColor,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final center = LatLng(latitude, longitude);
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceTint,
+        foregroundColor: AppColors.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: markerColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.place, color: markerColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Report location',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: AppColors.onSurface,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      color: AppColors.onSurfaceVariant,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.outlineVariant),
+        ),
+      ),
+      body: Stack(
+        children: [
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: 16,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.bounswe2026group1.mapcess',
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: center,
+                    width: 48,
+                    height: 48,
+                    child: Icon(
+                      Icons.location_on,
+                      color: markerColor,
+                      size: 48,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.outlineVariant),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.place, color: markerColor, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onSurface,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bottom sheet that collects values for the measurement keys an author left
+/// blank on a single report object. Returns a `{key: numeric_value}` map to
+/// the caller, or `null` when the user dismisses. Empty inputs are dropped
+/// from the result so submitting "nothing" round-trips as no-op.
+class _MeasurementContributionSheet extends StatefulWidget {
+  final ObjectType objectType;
+  final List<MeasurementSpec> missing;
+
+  const _MeasurementContributionSheet({
+    required this.objectType,
+    required this.missing,
+  });
+
+  @override
+  State<_MeasurementContributionSheet> createState() =>
+      _MeasurementContributionSheetState();
+}
+
+class _MeasurementContributionSheetState
+    extends State<_MeasurementContributionSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final Map<String, TextEditingController> _controllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final spec in widget.missing) spec.key: TextEditingController(),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final values = <String, num>{};
+    for (final spec in widget.missing) {
+      final raw = _controllers[spec.key]?.text.trim() ?? '';
+      if (raw.isEmpty) continue;
+      final parsed = num.tryParse(raw);
+      if (parsed != null) values[spec.key] = parsed;
+    }
+    Navigator.of(context).pop(values);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: widget.objectType.color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(widget.objectType.icon,
+                          color: widget.objectType.color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Add missing measurements',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.objectType.label} · only blank fields can be filled',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                for (final spec in widget.missing) _buildField(spec),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _submit,
+                        child: const Text('Submit'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(MeasurementSpec spec) {
+    final hint = spec.unit.isEmpty ? spec.label : '${spec.label} (${spec.unit})';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            spec.label,
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _controllers[spec.key],
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true, signed: false),
+            decoration: InputDecoration(
+              hintText: hint,
+              suffixText: spec.unit.isEmpty ? null : spec.unit,
+              isDense: true,
+              filled: true,
+              fillColor: AppColors.surfaceContainerLowest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.outlineVariant),
+              ),
+            ),
+            validator: (value) {
+              final raw = value?.trim() ?? '';
+              if (raw.isEmpty) return null; // optional — skipped on submit
+              if (num.tryParse(raw) == null) {
+                return 'Enter a number';
+              }
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }

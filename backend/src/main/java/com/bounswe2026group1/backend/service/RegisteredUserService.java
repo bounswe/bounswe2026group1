@@ -9,6 +9,7 @@ import com.bounswe2026group1.backend.dto.UserProfileDTO;
 import com.bounswe2026group1.backend.model.Badge;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.UserRole;
+import com.bounswe2026group1.backend.model.UserStatus;
 import com.bounswe2026group1.backend.dto.PointEventResponse;
 import com.bounswe2026group1.backend.repository.PointEventRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
@@ -19,9 +20,12 @@ import com.bounswe2026group1.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,8 +45,10 @@ public class RegisteredUserService {
     private final UserBadgeRepository userBadgeRepository;
     private final PointEventRepository pointEventRepository;
     private final LeaderboardService leaderboardService;
+    private final S3MediaService s3MediaService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RegisteredUserService.class);
 
     // Password strength regex pattern: Minimum 8 characters, at least one uppercase letter, one lowercase letter, one digit and one special character
     private static final String PASSWORD_PATTERN = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
@@ -112,6 +118,53 @@ public class RegisteredUserService {
         if (!registeredUserRepository.existsById(id)) return false;
         registeredUserRepository.deleteById(id);
         return true;
+    }
+
+    /**
+     * Anonymizes a user in place so FK references from their reports/comments/votes
+     * stay valid while PII is erased. Shared by self-delete (1.1.1.2.12) and admin-delete (1.1.1.3.8).
+     *
+     * Clears: name, email, password, bio, avatarUrl (and deletes the underlying S3 object
+     * when present); sets status to BANNED. S3 errors are logged but don't abort the
+     * anonymization — once the user-facing fields are cleared we never want to roll back
+     * the deletion just because the photo was missing or unreachable.
+     */
+    @Transactional
+    public void anonymizeUser(RegisteredUser target) {
+        String oldAvatarUrl = target.getAvatarUrl();
+        target.setName("Deleted User");
+        target.setEmail("deleted_" + target.getId() + "@deleted.invalid");
+        target.setPassword("$DELETED$");
+        target.setBio(null);
+        target.setAvatarUrl(null);
+        target.setStatus(UserStatus.BANNED);
+        registeredUserRepository.save(target);
+
+        if (oldAvatarUrl != null && !oldAvatarUrl.isBlank()) {
+            try {
+                s3MediaService.deleteFile(oldAvatarUrl);
+            } catch (Exception e) {
+                log.warn("Failed to delete avatar S3 object during anonymization of user {}: {}",
+                        target.getId(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Self-delete (1.1.1.2.12). Looks up the caller by email and anonymizes them.
+     * If the caller is the only remaining admin, refuses with 409.
+     */
+    @Transactional
+    public void deleteSelf(String callerEmail) {
+        RegisteredUser target = registeredUserRepository.findByEmail(callerEmail)
+                .orElseThrow(() -> new NoSuchElementException("User not found with email: " + callerEmail));
+
+        if (target.getRole() == UserRole.ADMIN
+                && registeredUserRepository.countByRole(UserRole.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete the last admin");
+        }
+        anonymizeUser(target);
     }
 
     // ───── Profile (issue #302) ─────────────────────────────────────────────

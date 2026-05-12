@@ -45,9 +45,25 @@ The app will be available at `http://localhost:8080`.
 
 ## Running Tests
 
+Unit tests use **JUnit 5** and **Mockito**; REST controllers use **`@WebMvcTest`** and **MockMvc**; JPA repositories use **`@DataJpaTest`** with **PostgreSQL via Testcontainers** (plus **H2** on the test classpath for slices that need it).
+
 ```bash
 ./mvnw test
 ```
+
+On Windows: `mvnw.cmd test`.
+
+### Coverage reports (JaCoCo)
+
+JaCoCo is wired behind the Maven profile **`jacoco`** so default test runs do not require resolving the plugin when Maven Central is unreachable locally:
+
+```bash
+./mvnw test -Pjacoco
+```
+
+HTML report: `target/site/jacoco/index.html`. Surefire XML/HTML: `target/surefire-reports/`.
+
+CI should run `./mvnw test` (and optionally `-Pjacoco` on `main`/`staging`) so failures fail the build.
 
 
 ## Common Issues 

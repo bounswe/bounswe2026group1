@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createReport, mapReport } from '../services/reportService.js'
+import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPES } from '../utils/objectTypeConfig.js'
 import ObjectTutorialModal from './ObjectTutorialModal.jsx'
 
@@ -13,6 +15,7 @@ const MAX_MEDIA_BYTES = 15 * 1024 * 1024
 function CreateReportPanel({ position, positionLabel, onClose, onCreated, onError }) {
   const { token, userId } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [reportType, setReportType] = useState('OBSTACLE')
   const [environment, setEnvironment] = useState('OUTDOOR')
@@ -269,6 +272,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         mapped.image = uploadedMedia[0].url // Use the first photo URL for the map preview
         mapped.media = uploadedMedia
       }
+      // A successful submission awards the +10 report-submit bonus. Invalidate
+      // leaderboard + profile caches so the caller's own tab reflects the
+      // new balance immediately; the SSE event covers other tabs/users.
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      queryClient.invalidateQueries({ queryKey: currentUserKey })
       onCreated(mapped)
       onClose()
     } catch (err) {
@@ -349,7 +357,7 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
         </div>
         <button
           onClick={onClose}
-          className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
+          className="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors"
           aria-label="Close"
         >
           <span className="material-symbols-outlined text-base">close</span>
@@ -436,10 +444,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                 key={t.value}
                 aria-label={t.label}
                 onClick={() => handleReportTypeChange(t.value)}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold"
-                style={reportType === t.value
-                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
-                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '', color: '#5a5c5c' }}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${
+                  reportType === t.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40'
+                }`}
               >
                 <span className="material-symbols-outlined text-xl">{t.icon}</span>
                 <span className="font-bold text-xs">{t.label}</span>
@@ -461,10 +470,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                 key={e.value}
                 aria-label={e.label}
                 onClick={() => handleEnvironmentChange(e.value)}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all"
-                style={environment === e.value
-                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.07)', color: '#176a21' }
-                  : { borderColor: 'rgba(172,173,173,.25)', color: '#5a5c5c' }}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${
+                  environment === e.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40'
+                }`}
               >
                 <span className="material-symbols-outlined text-base">{e.icon}</span>
                 {e.label}
@@ -528,10 +538,11 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                                 disabled={isDisabled}
                                 onClick={() => selectObjectType(obj.id, t.type)}
                                 title={isDisabled ? `${t.label} already added` : t.label}
-                                className="flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed"
-                                style={isSelected
-                                  ? { borderColor: '#176a21', backgroundColor: 'rgba(23,106,33,.08)', color: '#176a21' }
-                                  : { borderColor: 'rgba(172,173,173,.25)', backgroundColor: '#f0f1f1', color: '#5a5c5c' }}
+                                className={`flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all text-[10px] font-semibold disabled:opacity-35 disabled:cursor-not-allowed ${
+                                  isSelected
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : 'border-outline-variant/30 bg-surface-container-high text-on-surface-variant hover:border-primary/40'
+                                }`}
                               >
                                 <span className="material-symbols-outlined text-xl">{t.icon}</span>
                                 {t.label}
@@ -592,19 +603,44 @@ function CreateReportPanel({ position, positionLabel, onClose, onCreated, onErro
                               {cfg.measurements.map(m => (
                                 <div key={m.key}>
                                   <p className="text-[10px] font-semibold text-on-surface-variant mb-1">{m.label}</p>
-                                  <div className="flex items-center rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden focus-within:border-primary/50">
+                                  <div className="flex items-center rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden focus-within:border-primary/50 h-10">
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.1"
                                       value={obj.measurements[m.key] ?? ''}
                                       onChange={e => setMeasurement(obj.id, m.key, e.target.value)}
-                                      className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-on-surface"
+                                      className="flex-1 min-w-0 px-3 text-sm bg-transparent outline-none text-on-surface [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                       placeholder="—"
                                     />
-                                    <span className="px-2.5 text-xs text-on-surface-variant font-medium border-l border-outline-variant/25 bg-surface-container">
+                                    <span className="px-2.5 text-xs font-semibold text-on-surface-variant/70 border-l border-outline-variant/25 bg-surface-container self-stretch flex items-center shrink-0">
                                       {m.unit}
                                     </span>
+                                    <div className="flex flex-col border-l border-outline-variant/25 shrink-0 self-stretch">
+                                      <button
+                                        type="button"
+                                        tabIndex={-1}
+                                        onClick={() => {
+                                          const cur = parseFloat(obj.measurements[m.key]) || 0
+                                          setMeasurement(obj.id, m.key, String(Math.round((cur + 0.1) * 10) / 10))
+                                        }}
+                                        className="flex-1 w-8 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors border-b border-outline-variant/25"
+                                      >
+                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>expand_less</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        tabIndex={-1}
+                                        onClick={() => {
+                                          const cur = parseFloat(obj.measurements[m.key]) || 0
+                                          const next = Math.round((cur - 0.1) * 10) / 10
+                                          setMeasurement(obj.id, m.key, String(next < 0 ? 0 : next))
+                                        }}
+                                        className="flex-1 w-8 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"
+                                      >
+                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>expand_more</span>
+                                      </button>
+                                    </div>
                                   </div>
                                   {m.accessible_min !== undefined && (
                                     <p className="text-[10px] text-primary mt-1 flex items-center gap-1">

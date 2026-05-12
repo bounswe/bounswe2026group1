@@ -135,6 +135,36 @@ describe('ReportPanel', () => {
     await waitFor(() => expect(onVoteChangeMock).toHaveBeenCalledWith(null))
   })
 
+  test('voting invalidates leaderboard and currentUser caches', async () => {
+    // A successful vote earns +5 / removes -5 points. The caller's tab must
+    // pick that up on the next leaderboard/profile visit without waiting
+    // for the public SSE event to arrive.
+    agreeReport.mockResolvedValueOnce({ id: 'r1', agrees: 1, disagrees: 0, userVote: 'agree' })
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ReportPanel
+            report={report}
+            onClose={onCloseMock}
+            onVoteChange={onVoteChangeMock}
+            onVoteUpdate={onVoteUpdateMock}
+            onFollowChange={onFollowChangeMock}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await act(async () => { await user.click(screen.getByLabelText('Agree')) })
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['leaderboard'] })
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['currentUser'] })
+    })
+  })
+
   test('toggles follow state', async () => {
     renderPanel()
 
@@ -473,6 +503,39 @@ describe('ReportPanel', () => {
         report: { ...report, image: 'https://cdn.example.com/clip.MOV?X-Amz-Sig=abc' },
       })
       expect(container.querySelector('video')).toBeTruthy()
+    })
+
+    test('renders prev/next/dot controls when the report has multiple images via mediaUrls', () => {
+      renderPanel({
+        report: {
+          ...report,
+          mediaUrls: [
+            'https://cdn.example.com/a.jpg',
+            'https://cdn.example.com/b.jpg',
+            'https://cdn.example.com/c.jpg',
+          ],
+        },
+      })
+      expect(screen.getByLabelText('Previous')).toBeInTheDocument()
+      expect(screen.getByLabelText('Next')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 3')).toBeInTheDocument()
+    })
+
+    test('renders prev/next/dot controls when the report has multiple media via report.media (post-upload shape)', () => {
+      renderPanel({
+        report: {
+          ...report,
+          media: [
+            { id: 1, url: 'https://cdn.example.com/a.jpg' },
+            { id: 2, url: 'https://cdn.example.com/b.jpg' },
+          ],
+        },
+      })
+      expect(screen.getByLabelText('Previous')).toBeInTheDocument()
+      expect(screen.getByLabelText('Next')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 1')).toBeInTheDocument()
+      expect(screen.getByLabelText('Go to media 2')).toBeInTheDocument()
     })
   })
 })

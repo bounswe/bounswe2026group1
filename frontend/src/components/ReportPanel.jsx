@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import {
@@ -19,7 +20,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 import { reportKeys, useUpdateMapReport, useDeleteMapReport } from '../hooks/useReports.js'
+import { currentUserKey } from '../hooks/useCurrentUser.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { reportJsonLdString } from '../utils/schemaOrg.js'
 import CreateFixRequestPanel from './CreateFixRequestPanel.jsx'
 import Toast from './Toast.jsx'
 import BadgeIcon from './BadgeIcon.jsx'
@@ -36,73 +39,226 @@ function isVideoUrl(url) {
   return VIDEO_EXTENSIONS.some((ext) => path.endsWith(ext))
 }
 
-function ImageCarousel({ allImages, title, className = 'h-64' }) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+// Centered fullscreen viewer for a single media URL or a list. Closes on
+// Escape, backdrop click, or the X button. ArrowLeft/ArrowRight navigate
+// when there is more than one item. Portaled to <body> so the panel's
+// pointer-events-none wrapper doesn't swallow clicks.
+function MediaLightbox({ items, startIndex = 0, title, onClose }) {
+  const [index, setIndex] = useState(startIndex)
 
-  if (!allImages || allImages.length === 0) {
+  useEffect(() => {
+    function handleKey(e) {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft' && items.length > 1) {
+        setIndex((i) => (i === 0 ? items.length - 1 : i - 1))
+      } else if (e.key === 'ArrowRight' && items.length > 1) {
+        setIndex((i) => (i === items.length - 1 ? 0 : i + 1))
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [items.length, onClose])
+
+  if (!items || items.length === 0) return null
+  if (typeof document === 'undefined') return null
+
+  const current = items[index]
+  const isVideo = isVideoUrl(current)
+
+  function handleBackdrop(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title ? `${title} media viewer` : 'Media viewer'}
+      onClick={handleBackdrop}
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close viewer"
+        className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+      >
+        <span className="material-symbols-outlined">close</span>
+      </button>
+
+      {items.length > 1 && (
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/10 text-white text-xs font-semibold tracking-wide">
+          {index + 1} / {items.length}
+        </div>
+      )}
+
+      {items.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIndex((i) => (i === 0 ? items.length - 1 : i - 1)) }}
+            aria-label="Previous"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-2xl">chevron_left</span>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIndex((i) => (i === items.length - 1 ? 0 : i + 1)) }}
+            aria-label="Next"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-2xl">chevron_right</span>
+          </button>
+        </>
+      )}
+
+      <div
+        className="max-w-[90vw] max-h-[85vh] flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isVideo ? (
+          <video
+            key={current}
+            src={current}
+            controls
+            autoPlay
+            playsInline
+            className="max-w-[90vw] max-h-[85vh] rounded-lg bg-black"
+          />
+        ) : (
+          <img
+            src={current}
+            alt={title ? `${title} - Photo ${index + 1}` : `Photo ${index + 1}`}
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+          />
+        )}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// Unified slider for any mix of images and videos. Each slide renders an
+// <img> or <video> based on the URL — a video in any slot no longer blocks
+// navigation to the next item (the previous implementation rendered a bare
+// <video> and dropped the carousel entirely when slot 0 was a video).
+// Click an image (or the expand button on a video) to open MediaLightbox.
+function MediaCarousel({ items, title, heightClass = 'h-64' }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+
+  if (!items || items.length === 0) {
     return (
-      <div className={`w-full ${className} bg-surface-container rounded-xl shadow-sm flex items-center justify-center border border-outline-variant/10`}>
+      <div className={`w-full ${heightClass} bg-surface-container rounded-xl shadow-sm flex items-center justify-center border border-outline-variant/10`}>
         <span className="material-symbols-outlined text-6xl text-outline-variant">image</span>
       </div>
     )
   }
 
+  const safeIndex = Math.min(currentIndex, items.length - 1)
+  const current = items[safeIndex]
+  const isVideo = isVideoUrl(current)
+
   const handlePrev = (e) => {
     e.stopPropagation()
-    setCurrentIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1))
+    setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1))
   }
 
   const handleNext = (e) => {
     e.stopPropagation()
-    setCurrentIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1))
+    setCurrentIndex((prev) => (prev === items.length - 1 ? 0 : prev + 1))
   }
 
   return (
-    <div className={`relative w-full ${className} rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden group bg-black/5`}>
-      <img
-        src={allImages[currentIndex]}
-        alt={`${title} - Photo ${currentIndex + 1}`}
-        className="w-full h-full object-cover transition-opacity duration-300"
-      />
-
-      {/* Navigation Arrows */}
-      {allImages.length > 1 && (
-        <>
+    <>
+      <div className={`relative w-full ${heightClass} rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden group bg-black/5`}>
+        {isVideo ? (
+          <>
+            {/* keyed by URL so React tears down the previous <video> when
+              the user navigates between slides — otherwise the element
+              keeps the old src queued and playback flickers. */}
+            <video
+              key={current}
+              src={current}
+              controls
+              playsInline
+              className="w-full h-full object-cover bg-black"
+            />
+            {/* Native video controls live at the bottom edge, so the
+              expand affordance sits top-right out of the way. */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
+              aria-label="Open in viewer"
+              className="absolute top-2 right-2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm cursor-pointer z-10"
+            >
+              <span className="material-symbols-outlined text-lg">open_in_full</span>
+            </button>
+          </>
+        ) : (
           <button
-            onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm hover:bg-black/60"
-            aria-label="Previous image"
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            aria-label={`Open ${title ? title + ' ' : ''}photo ${safeIndex + 1} in viewer`}
+            className="block w-full h-full cursor-zoom-in"
           >
-            <span className="material-symbols-outlined text-xl">chevron_left</span>
+            <img
+              src={current}
+              alt={`${title} - Photo ${safeIndex + 1}`}
+              className="w-full h-full object-cover transition-opacity duration-300"
+            />
           </button>
-          
-          <button
-            onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm hover:bg-black/60"
-            aria-label="Next image"
-          >
-            <span className="material-symbols-outlined text-xl">chevron_right</span>
-          </button>
+        )}
 
-          {/* Dots Indicator */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 rounded-full bg-black/20 backdrop-blur-sm">
-            {allImages.map((_, i) => (
-              <button
-                key={i}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setCurrentIndex(i)
-                }}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  currentIndex === i ? 'bg-white w-3' : 'bg-white/50 hover:bg-white/80'
-                }`}
-                aria-label={`Go to image ${i + 1}`}
-              />
-            ))}
-          </div>
-        </>
+        {items.length > 1 && (
+          <>
+            {/* Always visible — the previous hover-only treatment hid the
+              arrows on touch and was easy to miss with a mouse too. */}
+            <button
+              onClick={handlePrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-sm transition-colors z-10 shadow-md"
+              aria-label="Previous"
+            >
+              <span className="material-symbols-outlined text-xl">chevron_left</span>
+            </button>
+
+            <button
+              onClick={handleNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center backdrop-blur-sm transition-colors z-10 shadow-md"
+              aria-label="Next"
+            >
+              <span className="material-symbols-outlined text-xl">chevron_right</span>
+            </button>
+
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 rounded-full bg-black/20 backdrop-blur-sm z-10">
+              {items.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); setCurrentIndex(i) }}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${safeIndex === i ? 'bg-white w-3' : 'bg-white/50 hover:bg-white/80'}`}
+                  aria-label={`Go to media ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {lightboxOpen && (
+        <MediaLightbox
+          items={items}
+          startIndex={safeIndex}
+          title={title}
+          onClose={() => setLightboxOpen(false)}
+        />
       )}
-    </div>
+    </>
   )
 }
 
@@ -244,6 +400,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       const mappedUpdated = mapReport(updated)
       onVoteUpdate(mappedUpdated)
       onVoteChange(mappedUpdated.userVote ?? null)
+      // Vote cast/withdraw moves the caller's points. Invalidate eagerly so
+      // the caller's tab refreshes /leaderboard and the profile/navbar
+      // balance before the SSE event lands.
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      queryClient.invalidateQueries({ queryKey: currentUserKey })
     },
     onError: () => {
       setVoteError('Failed to submit vote. Please try again.')
@@ -265,6 +426,8 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
       onVoteUpdate(patched)
       queryClient.invalidateQueries({ queryKey: reportKeys.detail(report.id) })
       queryClient.invalidateQueries({ queryKey: reportKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
+      queryClient.invalidateQueries({ queryKey: currentUserKey })
     },
     onError: () => {
       setFixVoteError('Failed to vote on fix. Please try again.')
@@ -405,9 +568,27 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
   const saveEditDisabled =
     updateReportMutation.isPending || !editDescription.trim() || editDescriptionTooLong
 
+  // Schema.org JSON-LD describing this report as a Place — lets search engines
+  // and assistive tools surface its accessibility metadata. The url field
+  // mirrors the panel's deep-link (`/?report=<id>`) so the canonical resource
+  // matches what a crawler would land on.
+  const jsonLdString = reportJsonLdString(report, {
+    url: typeof window !== 'undefined'
+      ? `${window.location.origin}/?report=${report.id}`
+      : undefined,
+  })
+
 
   return (
     <>
+      {jsonLdString && (
+        <script
+          type="application/ld+json"
+          data-testid="report-jsonld"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: jsonLdString }}
+        />
+      )}
       <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end lg:flex-row lg:justify-end">
         <aside
           style={isMobileSheet
@@ -463,7 +644,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               )}
               <button
                 onClick={onClose}
-                className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow border border-outline-variant/20 shrink-0"
+                className="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors shrink-0"
                 aria-label="Close panel"
               >
                 <span className="material-symbols-outlined text-base">close</span>
@@ -500,16 +681,11 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
                 </div>
                 <div className="bg-white p-5 flex flex-col gap-4">
                   {activeFix.mediaUrls && activeFix.mediaUrls.length > 0 && (
-                    activeFix.mediaUrls.length === 1 && isVideoUrl(activeFix.mediaUrls[0]) ? (
-                      <video
-                        src={activeFix.mediaUrls[0]}
-                        controls
-                        playsInline
-                        className="w-full max-h-56 object-cover rounded-lg bg-black"
-                      />
-                    ) : (
-                      <ImageCarousel allImages={activeFix.mediaUrls.filter(u => !isVideoUrl(u))} title="Fix request evidence" className="max-h-56" />
-                    )
+                    <MediaCarousel
+                      items={activeFix.mediaUrls}
+                      title="Proposed fix"
+                      heightClass="h-56"
+                    />
                   )}
                   <div className="flex items-center gap-2 text-xs">
                     <div className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center">
@@ -587,21 +763,7 @@ function ReportPanel({ report, userVote, onVoteChange, onClose, onVoteUpdate, on
               const allMedia = report.media?.length > 0
                 ? report.media.map(m => m.url || m)
                 : (report.mediaUrls?.length > 0 ? report.mediaUrls : (report.image ? [report.image] : []))
-              // If the first attachment is a video, render it directly with
-              // <video> so MP4/MOV play inline. Otherwise use the multi-image
-              // carousel. Mixed lists fall through to image-only carousel —
-              // good enough for now since the upload UI accepts one file.
-              if (allMedia.length > 0 && isVideoUrl(allMedia[0])) {
-                return (
-                  <video
-                    className="w-full h-64 object-cover rounded-xl shadow-sm bg-black"
-                    src={allMedia[0]}
-                    controls
-                    playsInline
-                  />
-                )
-              }
-              return <ImageCarousel allImages={allMedia} title={report.title} />
+              return <MediaCarousel items={allMedia} title={report.title} />
             })()}
           </div>
 

@@ -1,5 +1,6 @@
 import { apiFetch } from './api.js'
 import { OBJECT_TYPE_MAP } from '../utils/objectTypeConfig.js'
+import { geoJsonPoint, reportLatLng } from '../utils/geojson.js'
 
 /**
  * Fetch all reports from the backend.
@@ -208,6 +209,11 @@ export function mapReport(r) {
       : `${labels.join(' & ')} Issue`
   })()
 
+  // Prefer the GeoJSON geometry the backend emits; fall back to the legacy
+  // scalar fields so older responses (and the still-deprecated mobile DTOs)
+  // keep working during the migration.
+  const coords = reportLatLng(r) ?? { lat: r.latitude, lng: r.longitude }
+
   return {
     id: r.reportId,
     title,
@@ -219,7 +225,10 @@ export function mapReport(r) {
         })
       : 'Unknown date',
     fixedAt: r.fixedAt || null,
-    location: formatReportLocation(r.latitude, r.longitude),
+    // Prefer the backend-provided label (reverse-geocoded once at create time);
+    // fall back to rounded coordinates for older rows where the column is null.
+    // Coords come from the GeoJSON helper so legacy scalars still work.
+    location: r.locationLabel || formatReportLocation(coords.lat, coords.lng),
     reportedBy: `User #${r.userId}`,
     ownerId: r.userId,
     agrees: r.agrees,
@@ -231,8 +240,9 @@ export function mapReport(r) {
     objects,
     image: r.mediaUrls && r.mediaUrls.length > 0 ? r.mediaUrls[0] : null,
     mediaUrls: r.mediaUrls ?? [],
-    latitude: r.latitude,
-    longitude: r.longitude,
+    latitude: coords.lat,
+    longitude: coords.lng,
+    geometry: r.geometry ?? geoJsonPoint(r.latitude, r.longitude),
     activeFixRequest: mapFixRequest(r.activeFixRequest),
     authorTopBadge: r.authorTopBadge ?? null,
   }
@@ -241,12 +251,21 @@ export function mapReport(r) {
 /**
  * Submit a new report.
  * POST /api/reports
+ *
+ * Sends location as a GeoJSON Point per RFC 7946 (coordinates in [lon, lat] order).
  */
 export async function createReport({ userId, latitude, longitude, description, reportType, environment, objects, token }) {
   return apiFetch('/api/reports', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ userId, latitude, longitude, description, reportType, environment, objects }),
+    body: JSON.stringify({
+      userId,
+      geometry: geoJsonPoint(latitude, longitude),
+      description,
+      reportType,
+      environment,
+      objects,
+    }),
   })
 }
 

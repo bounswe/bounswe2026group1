@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class AdminUserService {
 
     private final RegisteredUserRepository userRepository;
+    private final RegisteredUserService registeredUserService;
     private final PasswordEncoder passwordEncoder;
 
     public AdminUserResponse getUser(Long id) {
@@ -102,12 +103,7 @@ public class AdminUserService {
                     "Cannot delete the last admin");
         }
 
-        // Anonymize PII in-place so that FK references from reports/comments/verifications stay valid
-        target.setName("Deleted User");
-        target.setEmail("deleted_" + targetId + "@deleted.invalid");
-        target.setPassword("$DELETED$");
-        target.setStatus(UserStatus.BANNED);
-        userRepository.save(target);
+        registeredUserService.anonymizeUser(target);
     }
 
     private RegisteredUser findUser(Long id) {

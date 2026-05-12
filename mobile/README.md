@@ -6,6 +6,7 @@ A community-driven accessibility mapping app built with Flutter. Users can repor
 
 - [Requirements](#requirements)
 - [Setup](#setup)
+- [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Screens](#screens)
 - [Architecture](#architecture)
@@ -40,6 +41,24 @@ flutter run
 ```
 
 > **Note:** The app connects to `https://api.mapcess.live`. No local backend setup is required for development.
+
+---
+
+## Testing
+
+Automated tests live under `test/` and use [mocktail](https://pub.dev/packages/mocktail) for HTTP.
+
+**Unit / logic:** JSON parsing (`ReportModel`, `RoutingPreferences`, `FeedPage`, `NotificationModel`, `FixRequestModel`, `SseEvent`), `ObjectDraft.fromReportObject`, `ThemeService` persistence and brightness helpers, `NotificationService` (refresh, optimistic `markRead`, logout clearing), `AuthService`, and `ApiService` (auth, routes, reports, feed).
+
+**Widget:** `ReportCard`, `ObjectsSection` (add object, scroll, FEATURE-only ramp pool), `RoutingPreferencesScreen`, `ReportSuccessScreen`, and `ReportsScreen` (feed load + scroll pagination with mocked feed).
+
+Use explicit surface sizes in widget tests where layout constraints matter.
+
+From this directory:
+
+```bash
+flutter test
+```
 
 ---
 

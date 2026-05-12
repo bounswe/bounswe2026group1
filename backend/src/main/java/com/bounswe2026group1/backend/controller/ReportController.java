@@ -5,6 +5,7 @@ import com.bounswe2026group1.backend.dto.CreateReportRequest;
 import com.bounswe2026group1.backend.dto.ReportFeedQuery;
 import com.bounswe2026group1.backend.dto.ReportResponse;
 import com.bounswe2026group1.backend.dto.UpdateReportRequest;
+import com.bounswe2026group1.backend.dto.MeasurementContributionRequest;
 import com.bounswe2026group1.backend.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -115,6 +116,31 @@ public class ReportController {
                                                   @RequestBody UpdateReportRequest request,
                                                   @AuthenticationPrincipal String email) {
         return ResponseEntity.ok(reportService.update(id, request, email));
+    }
+
+    @PatchMapping("/{id}/objects/{objectId}/measurements")
+    @Operation(
+            summary = "Contribute missing measurements to a report object",
+            description = "Any signed-in user (not only the report's author) can fill in measurement " +
+                    "keys the original author left blank for a given object. Already-populated keys " +
+                    "are protected; supplying one yields `409 Conflict` listing the locked keys. The " +
+                    "merged values are validated against the object's measurement schema."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Updated report."),
+            @ApiResponse(responseCode = "400", description = "Empty payload or hard-limit validation failure."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "404", description = "No report or object with that id."),
+            @ApiResponse(responseCode = "409", description = "One or more keys are already set by the author.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<ReportResponse> contributeMeasurements(
+            @PathVariable Long id,
+            @PathVariable Long objectId,
+            @RequestBody MeasurementContributionRequest request,
+            @AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(
+                reportService.contributeMeasurements(id, objectId, request, email));
     }
 
     @DeleteMapping("/{id}")

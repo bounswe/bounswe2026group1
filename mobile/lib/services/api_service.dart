@@ -7,14 +7,17 @@ import '../models/fix_request_model.dart';
 import '../models/notification_model.dart';
 import '../models/report_model.dart';
 import '../models/routing_preferences.dart';
+import '../utils/geojson.dart';
 
 const _baseUrl = 'https://api.mapcess.live';
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
 
 class ApiService {
   final String? token;
+  final http.Client _client;
 
-  const ApiService({this.token});
+  ApiService({this.token, http.Client? httpClient})
+      : _client = httpClient ?? http.Client();
 
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
@@ -26,7 +29,7 @@ class ApiService {
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
   Future<void> register(String name, String email, String password) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/auth/register'),
           headers: _headers,
@@ -39,7 +42,7 @@ class ApiService {
   }
 
   Future<String> login(String email, String password) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/auth/login'),
           headers: _headers,
@@ -57,7 +60,7 @@ class ApiService {
   // ─── Users ─────────────────────────────────────────────────────────────────
 
   Future<String?> getUserName(int userId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/users/$userId'), headers: _headers)
         .timeout(const Duration(seconds: 6));
     if (response.statusCode == 200) {
@@ -68,7 +71,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getUserById(int userId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/users/$userId'), headers: _headers)
         .timeout(const Duration(seconds: 6));
     if (response.statusCode == 200) {
@@ -81,7 +84,7 @@ class ApiService {
   /// which `/api/users/{id}` redacts. Use this on the self profile screen;
   /// other-user profiles should keep using [getUserById].
   Future<Map<String, dynamic>?> getMyProfile() async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/users/me'), headers: _headers)
         .timeout(const Duration(seconds: 6));
     if (response.statusCode == 200) {
@@ -100,7 +103,7 @@ class ApiService {
       if (name != null) 'name': name,
       if (bio != null) 'bio': bio,
     };
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/users/$userId/profile'),
           headers: _headers,
@@ -134,7 +137,8 @@ class ApiService {
       contentType: MediaType.parse(mimeType),
     ));
 
-    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 60));
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -145,7 +149,7 @@ class ApiService {
   }
 
   Future<void> deleteAvatar(int userId) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/users/$userId/profile/avatar'),
           headers: _headers,
@@ -155,8 +159,35 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
-  Future<List<ReportModel>> getReportsByUser(int userId) async {
+  /// Case-insensitive substring search across name OR email. Backend caps
+  /// page size at 50 and rejects an empty query with 400 — callers should
+  /// only invoke this once the user has typed at least a couple of chars.
+  Future<FeedPage<Map<String, dynamic>>> searchUsers(
+    String query, {
+    int page = 0,
+    int size = 20,
+  }) async {
+    final params = <String, String>{
+      'q': query,
+      'page': '$page',
+      'size': '$size',
+    };
+    final uri = Uri.parse('$_baseUrl/api/users/search')
+        .replace(queryParameters: params);
     final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return FeedPage.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+        (m) => m,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<List<ReportModel>> getReportsByUser(int userId) async {
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports/user/$userId'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
@@ -171,7 +202,7 @@ class ApiService {
   // ─── Routing preferences ───────────────────────────────────────────────────
 
   Future<RoutingPreferences> getRoutingPreferences() async {
-    final response = await http
+    final response = await _client
         .get(
           Uri.parse('$_baseUrl/api/users/me/routing-preferences'),
           headers: _headers,
@@ -200,7 +231,7 @@ class ApiService {
       if (constraints != null) 'constraints': constraints.toList(),
       if (travelMode != null) 'preferredTravelMode': travelMode,
     };
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/users/me/routing-preferences'),
           headers: _headers,
@@ -218,7 +249,7 @@ class ApiService {
   // ─── Custom routing profiles ───────────────────────────────────────────────
 
   Future<List<CustomRoutingProfile>> listCustomRoutingProfiles() async {
-    final response = await http
+    final response = await _client
         .get(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles'),
           headers: _headers,
@@ -244,7 +275,7 @@ class ApiService {
       if (constraints != null) 'constraints': constraints.toList(),
       if (travelMode != null) 'preferredTravelMode': travelMode,
     };
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles'),
           headers: _headers,
@@ -270,7 +301,7 @@ class ApiService {
       if (constraints != null) 'constraints': constraints.toList(),
       if (travelMode != null) 'preferredTravelMode': travelMode,
     };
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id'),
           headers: _headers,
@@ -286,7 +317,7 @@ class ApiService {
   }
 
   Future<void> deleteCustomRoutingProfile(int id) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id'),
           headers: _headers,
@@ -299,7 +330,7 @@ class ApiService {
   /// Activates a custom profile and returns the updated routing-preferences
   /// snapshot — same shape as `getRoutingPreferences()`.
   Future<RoutingPreferences> activateCustomRoutingProfile(int id) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/users/me/routing-profiles/$id/activate'),
           headers: _headers,
@@ -316,7 +347,7 @@ class ApiService {
   // ─── Reports ───────────────────────────────────────────────────────────────
 
   Future<List<ReportModel>> getReports() async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports'), headers: _headers)
         .timeout(const Duration(seconds: 8));
 
@@ -356,7 +387,7 @@ class ApiService {
     }
     final uri = Uri.parse('$_baseUrl/api/reports/feed')
         .replace(queryParameters: params);
-    final response = await http
+    final response = await _client
         .get(uri, headers: _headers)
         .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
@@ -377,17 +408,19 @@ class ApiService {
     required ReportEnvironment environment,
     required List<ReportObject> objects,
   }) async {
+    // Location goes on the wire as a GeoJSON Point per RFC 7946. The backend
+    // still accepts the legacy `latitude` / `longitude` scalars during the
+    // migration but `geometry` is the canonical field.
     final body = {
       'userId': userId,
-      'latitude': latitude,
-      'longitude': longitude,
+      'geometry': geoJsonPoint(latitude, longitude),
       'description': description,
       'reportType': reportType.jsonValue,
       'environment': environment.jsonValue,
       'objects': objects.map((o) => o.toJson()).toList(),
     };
 
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/reports'),
           headers: _headers,
@@ -412,16 +445,21 @@ class ApiService {
     List<ReportObject>? objects,
     List<int>? mediaIdsToRemove,
   }) async {
+    // When the caller changes the pin, send the new location as a GeoJSON
+    // Point. The backend treats it as a partial update and only resets the
+    // stored location when `geometry` (or the legacy scalars) is present.
+    final geometry = (latitude != null && longitude != null)
+        ? geoJsonPoint(latitude, longitude)
+        : null;
     final body = <String, dynamic>{
       if (description != null) 'description': description,
       if (environment != null) 'environment': environment.jsonValue,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
+      if (geometry != null) 'geometry': geometry,
       if (objects != null) 'objects': objects.map((o) => o.toJson()).toList(),
       if (mediaIdsToRemove != null) 'mediaIdsToRemove': mediaIdsToRemove,
     };
 
-    final response = await http
+    final response = await _client
         .put(
           Uri.parse('$_baseUrl/api/reports/$reportId'),
           headers: _headers,
@@ -437,8 +475,34 @@ class ApiService {
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
+  /// Fills in measurement keys the original author left blank on a specific
+  /// report object. Any signed-in user may call this; the backend rejects
+  /// (`409`) any key already populated by the author. Numeric values should
+  /// be passed as `num` so server-side schema validation can run.
+  Future<ReportModel> contributeMeasurements({
+    required int reportId,
+    required int objectId,
+    required Map<String, Object> values,
+  }) async {
+    final response = await _client
+        .patch(
+          Uri.parse(
+              '$_baseUrl/api/reports/$reportId/objects/$objectId/measurements'),
+          headers: _headers,
+          body: jsonEncode({'values': values}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      return ReportModel.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
   Future<ReportModel> getReport(int id) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/reports/$id'), headers: _headers)
         .timeout(const Duration(seconds: 8));
 
@@ -451,7 +515,7 @@ class ApiService {
   }
 
   Future<void> deleteReport(int id) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/reports/$id'),
           headers: _headers,
@@ -462,7 +526,7 @@ class ApiService {
   }
 
   Future<void> verifyReport(int id) async {
-    final response = await http
+    final response = await _client
         .post(Uri.parse('$_baseUrl/api/reports/$id/verify'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200 || response.statusCode == 204) return;
@@ -470,7 +534,7 @@ class ApiService {
   }
 
   Future<void> unverifyReport(int id) async {
-    final response = await http
+    final response = await _client
         .post(Uri.parse('$_baseUrl/api/reports/$id/unverify'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200 || response.statusCode == 204) return;
@@ -489,15 +553,14 @@ class ApiService {
     // Pass an explicit `'WALKING'` / `'WHEELCHAIR'` only to override.
     String? mode,
   }) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/routes'),
           headers: _headers,
           body: jsonEncode({
-            'startLat': startLat,
-            'startLon': startLon,
-            'endLat': endLat,
-            'endLon': endLon,
+            // Start / end go on the wire as GeoJSON Points (RFC 7946).
+            'start': geoJsonPoint(startLat, startLon),
+            'end': geoJsonPoint(endLat, endLon),
             // Sent as `null` (not omitted) so the backend's deserializer
             // sees the field and falls back to the user's preference
             // rather than its global default.
@@ -514,36 +577,51 @@ class ApiService {
 
   // ─── Media ────────────────────────────────────────────────────────────────
 
-  Future<String> uploadMedia(int reportId, File file) async {
+  /// Uploads one or more files to a report in a single multipart request,
+  /// matching the backend's `POST /api/reports/{id}/media` contract (which
+  /// caps at 5 files per report and 15 MB per file). Returns the list of
+  /// `{id, url}` records the server created — callers need the ids if they
+  /// later want to detach a specific upload via `updateReport`.
+  Future<List<MediaItem>> uploadMediaFiles(
+    int reportId,
+    List<File> files,
+  ) async {
+    if (files.isEmpty) return const [];
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/api/reports/$reportId/media'),
     );
 
-    // Add all headers except Content-Type — multipart sets its own with boundary
+    // Add all headers except Content-Type — multipart sets its own with boundary.
     final headers = Map<String, String>.from(_headers)..remove('Content-Type');
     request.headers.addAll(headers);
 
-    final ext = file.path.split('.').last.toLowerCase();
-    final mimeType = switch (ext) {
-      'mp4'         => 'video/mp4',
-      'mov'         => 'video/quicktime',
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png'         => 'image/png',
-      _             => 'application/octet-stream',
-    };
-    request.files.add(await http.MultipartFile.fromPath(
-      'file',
-      file.path,
-      contentType: MediaType.parse(mimeType),
-    ));
+    for (final file in files) {
+      final ext = file.path.split('.').last.toLowerCase();
+      final mimeType = switch (ext) {
+        'mp4'           => 'video/mp4',
+        'mov'           => 'video/quicktime',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png'           => 'image/png',
+        _               => 'application/octet-stream',
+      };
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        file.path,
+        contentType: MediaType.parse(mimeType),
+      ));
+    }
 
-    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    // Allow more headroom — videos at 5×15 MB take a while on flaky cell.
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 120));
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['mediaUrl'] as String;
+      final raw = jsonDecode(response.body) as List<dynamic>;
+      return raw
+          .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
     }
     throw ApiException(response.statusCode, _extractMessage(response));
   }
@@ -552,9 +630,12 @@ class ApiService {
 
   Future<FixRequestModel> submitFixRequest({
     required int reportId,
-    required File file,
+    required List<File> files,
     String? description,
   }) async {
+    if (files.isEmpty) {
+      throw ApiException(400, 'At least one photo is required.');
+    }
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/api/reports/$reportId/fix-requests'),
@@ -564,23 +645,28 @@ class ApiService {
     final headers = Map<String, String>.from(_headers)..remove('Content-Type');
     request.headers.addAll(headers);
 
-    final ext = file.path.split('.').last.toLowerCase();
-    final mimeType = switch (ext) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png'           => 'image/png',
-      _               => 'application/octet-stream',
-    };
-    request.files.add(await http.MultipartFile.fromPath(
-      'files',
-      file.path,
-      contentType: MediaType.parse(mimeType),
-    ));
+    for (final file in files) {
+      final ext = file.path.split('.').last.toLowerCase();
+      final mimeType = switch (ext) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png'           => 'image/png',
+        _               => 'application/octet-stream',
+      };
+      request.files.add(await http.MultipartFile.fromPath(
+        'files',
+        file.path,
+        contentType: MediaType.parse(mimeType),
+      ));
+    }
     final trimmed = description?.trim();
     if (trimmed != null && trimmed.isNotEmpty) {
       request.fields['description'] = trimmed;
     }
 
-    final streamed = await request.send().timeout(const Duration(seconds: 30));
+    // Bumped to 120 s to match uploadMediaFiles — multi-photo uploads on flaky
+    // cellular take longer than the original 30 s allowed.
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 120));
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FixRequestModel.fromJson(
@@ -607,7 +693,7 @@ class ApiService {
     required int fixId,
     required String action,
   }) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse(
               '$_baseUrl/api/reports/$reportId/fix-requests/$fixId/$action'),
@@ -625,7 +711,7 @@ class ApiService {
   // ─── Notifications ─────────────────────────────────────────────────────────
 
   Future<List<NotificationModel>> getNotifications() async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/notifications'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
@@ -638,7 +724,7 @@ class ApiService {
   }
 
   Future<NotificationModel> markNotificationRead(int id) async {
-    final response = await http
+    final response = await _client
         .patch(
           Uri.parse('$_baseUrl/api/notifications/$id/read'),
           headers: _headers,
@@ -655,7 +741,7 @@ class ApiService {
   // ─── Follow ────────────────────────────────────────────────────────────────
 
   Future<bool> followReport(int reportId) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/reports/$reportId/follow'),
           headers: _headers,
@@ -668,7 +754,7 @@ class ApiService {
   }
 
   Future<bool> unfollowReport(int reportId) async {
-    final response = await http
+    final response = await _client
         .delete(
           Uri.parse('$_baseUrl/api/reports/$reportId/follow'),
           headers: _headers,
@@ -681,7 +767,7 @@ class ApiService {
   }
 
   Future<bool> isFollowingReport(int reportId) async {
-    final response = await http
+    final response = await _client
         .get(
           Uri.parse('$_baseUrl/api/reports/$reportId/follow/me'),
           headers: _headers,
@@ -709,7 +795,7 @@ class ApiService {
   // ─── Comments ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getComments(int reportId) async {
-    final response = await http
+    final response = await _client
         .get(Uri.parse('$_baseUrl/api/comments/report/$reportId'), headers: _headers)
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
@@ -728,7 +814,7 @@ class ApiService {
     required int userId,
     required String content,
   }) async {
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_baseUrl/api/comments'),
           headers: _headers,
@@ -740,6 +826,17 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200 || response.statusCode == 201) return;
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  Future<void> deleteComment(int commentId) async {
+    final response = await _client
+        .delete(
+          Uri.parse('$_baseUrl/api/comments/$commentId'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200 || response.statusCode == 204) return;
     throw ApiException(response.statusCode, _extractMessage(response));
   }
 
@@ -759,6 +856,52 @@ class ApiService {
     } catch (_) {
       return response.reasonPhrase ?? 'Unknown error';
     }
+  }
+
+  // ─── Gamification ──────────────────────────────────────────────────────────
+
+  /// Public top-N leaderboard. Token forwarded so the backend can populate
+  /// `callerRank` for authenticated viewers; anonymous callers get a null
+  /// callerRank slot. Returned shape:
+  ///   { entries: [{ rank, userId, name, avatarUrl, points }, ...],
+  ///     callerRank: { rank, points } | null }
+  Future<Map<String, dynamic>> getLeaderboard() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/leaderboard'), headers: _headers)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// Public — returns the list of badge enum names held by a user
+  /// (e.g. ['TRUSTED_REPORTER', 'TOP_10']).
+  Future<List<String>> getUserBadges(int userId) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/api/users/$userId/badges'), headers: _headers)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list.map((e) => e as String).toList();
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
+  }
+
+  /// Toggle the caller's leaderboard opt-out flag. Returns the updated profile
+  /// DTO so the screen can refresh its rank display from the same payload.
+  Future<Map<String, dynamic>> setLeaderboardVisibility(bool hidden) async {
+    final response = await http
+        .patch(
+          Uri.parse('$_baseUrl/api/users/me/leaderboard-visibility'),
+          headers: _headers,
+          body: jsonEncode({'leaderboardHidden': hidden}),
+        )
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw ApiException(response.statusCode, _extractMessage(response));
   }
 }
 
@@ -794,6 +937,21 @@ class FeedPage<T> {
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// A single `{ id, url }` record returned by `POST /api/reports/{id}/media`.
+/// Callers stash the id so they can detach the upload later via
+/// `updateReport(mediaIdsToRemove: …)`.
+class MediaItem {
+  final int id;
+  final String url;
+
+  const MediaItem({required this.id, required this.url});
+
+  factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
+        id: (json['id'] as num).toInt(),
+        url: json['url'] as String,
+      );
 }
 
 class ApiException implements Exception {

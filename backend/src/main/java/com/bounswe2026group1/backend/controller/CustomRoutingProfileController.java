@@ -6,7 +6,14 @@ import com.bounswe2026group1.backend.dto.routing.CustomRoutingProfileResponse;
 import com.bounswe2026group1.backend.dto.routing.RoutingPreferencesResponse;
 import com.bounswe2026group1.backend.dto.routing.UpdateCustomRoutingProfileRequest;
 import com.bounswe2026group1.backend.service.CustomRoutingProfileService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,11 +36,25 @@ import java.util.List;
 @RequestMapping("/api/users/me/routing-profiles")
 @RequiredArgsConstructor
 @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+@Tag(name = "Routing Preferences")
 public class CustomRoutingProfileController {
 
     private final CustomRoutingProfileService customRoutingProfileService;
 
     @GetMapping
+    @Operation(
+            summary = "List the caller's saved custom routing profiles",
+            description = "Returns every custom routing profile the authenticated user has saved, " +
+                    "ordered by creation time. Each user is capped at "
+                    + CustomRoutingProfileService.MAX_CUSTOM_PROFILES + " profiles."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List of saved custom routing profiles.",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = CustomRoutingProfileResponse.class)))),
+            @ApiResponse(responseCode = "401", description = "Authentication required.",
+                    content = @Content(schema = @Schema(type = "string",
+                            example = "Authentication required.")))
+    })
     public ResponseEntity<?> list() {
         String email = currentUserEmailOrNull();
         if (email == null) {
@@ -44,6 +65,20 @@ public class CustomRoutingProfileController {
     }
 
     @PostMapping
+    @Operation(
+            summary = "Create a custom routing profile",
+            description = "Save a new named bundle of routing constraints (and an optional preferred " +
+                    "travel mode). Names are trimmed, capped at 50 characters, and must be unique per user. " +
+                    "Each user is capped at "
+                    + CustomRoutingProfileService.MAX_CUSTOM_PROFILES + " custom profiles."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Profile created.",
+                    content = @Content(schema = @Schema(implementation = CustomRoutingProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Validation error (missing/blank name, name too long, missing body)."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "409", description = "Profile cap reached, or another profile with the same name already exists.")
+    })
     public ResponseEntity<?> create(@Valid @RequestBody CreateCustomRoutingProfileRequest request) {
         String email = currentUserEmailOrNull();
         if (email == null) {
@@ -54,6 +89,20 @@ public class CustomRoutingProfileController {
     }
 
     @PutMapping("/{id}")
+    @Operation(
+            summary = "Update a custom routing profile",
+            description = "Owner-only. Patch the profile's name, constraints, and/or preferred travel " +
+                    "mode. Fields left null are preserved. If the profile is currently active, " +
+                    "constraint and travel-mode changes are propagated onto the user's live preferences."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Updated profile.",
+                    content = @Content(schema = @Schema(implementation = CustomRoutingProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Validation error (blank name, name too long)."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "404", description = "No profile with that id for the authenticated user."),
+            @ApiResponse(responseCode = "409", description = "Another profile with the same name already exists.")
+    })
     public ResponseEntity<?> update(@PathVariable Long id,
                                     @Valid @RequestBody UpdateCustomRoutingProfileRequest request) {
         String email = currentUserEmailOrNull();
@@ -65,6 +114,16 @@ public class CustomRoutingProfileController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(
+            summary = "Delete a custom routing profile",
+            description = "Owner-only. Removes the profile. If it was the user's active profile, the " +
+                    "user's preset is reset to `NONE` and their live constraint set is cleared."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Deleted."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "404", description = "No profile with that id for the authenticated user.")
+    })
     public ResponseEntity<?> delete(@PathVariable Long id) {
         String email = currentUserEmailOrNull();
         if (email == null) {
@@ -75,6 +134,18 @@ public class CustomRoutingProfileController {
     }
 
     @PostMapping("/{id}/activate")
+    @Operation(
+            summary = "Activate a custom routing profile",
+            description = "Apply this profile's constraints (and travel mode, if set) to the caller's " +
+                    "live routing preferences and mark the profile as active. Sets the user's preset to " +
+                    "`CUSTOM`. Returns the resulting routing-preferences snapshot."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Profile activated; returns the updated preferences.",
+                    content = @Content(schema = @Schema(implementation = RoutingPreferencesResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "404", description = "No profile with that id for the authenticated user.")
+    })
     public ResponseEntity<?> activate(@PathVariable Long id) {
         String email = currentUserEmailOrNull();
         if (email == null) {

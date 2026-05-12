@@ -1,5 +1,6 @@
 package com.bounswe2026group1.backend.service;
 
+import com.bounswe2026group1.backend.dto.PointsChangedSseEvent;
 import com.bounswe2026group1.backend.dto.PublicSseEvent;
 import com.bounswe2026group1.backend.model.Media;
 import com.bounswe2026group1.backend.model.Report;
@@ -7,6 +8,8 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -193,6 +196,18 @@ public class PublicSseService {
         sendToAll("report-updated", event);
     }
 
+    /**
+     * Fired whenever a user's points balance moves (cast/withdraw vote, report
+     * verified bonus, etc.). Broadcast on the public channel because the
+     * leaderboard endpoint itself is public — anonymous tabs need to refresh
+     * top-N rankings, and authenticated tabs additionally refresh the caller's
+     * own profile when {@link PointsChangedSseEvent#userId()} matches.
+     */
+    public void broadcastPointsChanged(Long userId, Integer newPoints) {
+        if (userId == null) return;
+        sendToAll("points-changed", PointsChangedSseEvent.now(userId, newPoints));
+    }
+
     public void broadcastMediaAdded(Report report, Media media) {
         PublicSseEvent event = new PublicSseEvent(
                 "MEDIA_ADDED",
@@ -206,6 +221,28 @@ public class PublicSseService {
                 Instant.now()
         );
         sendToAll("media-added", event);
+    }
+
+    /**
+     * Defers {@code action} until the current Spring-managed transaction
+     * commits. Outside an active transaction the action runs immediately so
+     * the helper is safe to call from any context (background jobs, tests).
+     *
+     * <p>Centralised here because every caller of {@code broadcast*} on this
+     * service needs the same deferral: if a broadcast fires before commit
+     * and the transaction later rolls back, subscribers cache state that
+     * was never persisted. Worse, a subscriber refetching on the event can
+     * race the still-uncommitted write and read the pre-update row.
+     */
+    public static void broadcastAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() { action.run(); }
+        });
     }
 
     int activeEmitterCount() {
@@ -233,7 +270,7 @@ public class PublicSseService {
         });
     }
 
-    private void sendToAll(String eventName, PublicSseEvent event) {
+    private void sendToAll(String eventName, Object event) {
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event().name(eventName).data(event));

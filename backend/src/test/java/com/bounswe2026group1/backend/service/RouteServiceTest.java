@@ -41,7 +41,7 @@ class RouteServiceTest {
 
         // But the fastest route happens not to cross any of them
         when(obstacleService.findObstaclesOnPath(any(), any())).thenReturn(List.of());
-        when(obstacleService.findClosestRampInBoundingBox(any(), any())).thenReturn(null);
+        when(obstacleService.findRampOnPath(any())).thenReturn(null);
 
         RoutingDirectionsResult anyRoute = RoutingDirectionsResult.builder()
                 .distanceMeters(100.0)
@@ -67,7 +67,7 @@ class RouteServiceTest {
         Report ramp = new Report();
         ramp.setEntryPoint(new Location(41.0840, 29.0460));
         ramp.setExitPoint(new Location(41.0830, 29.0480));
-        when(obstacleService.findClosestRampInBoundingBox(any(), any())).thenReturn(ramp);
+        when(obstacleService.findRampOnPath(any())).thenReturn(ramp);
 
         // Avoid polygons exist so the WHEELCHAIR calls receive a non-null arg
         ObjectNode avoidPolygons = JsonMapper.builder().build().createObjectNode();
@@ -83,10 +83,21 @@ class RouteServiceTest {
         when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WHEELCHAIR), any()))
                 .thenReturn(wheelchairRoute);
 
-        // All WALKING calls fail — fetchOrNull catches and returns null. The one we care about
-        // is leg 2 (rampEntry → rampExit); the fastest/accessible WALKING calls also failing is
-        // incidental and doesn't affect what we assert.
+        // Fastest WALKING route must succeed so the ramp-on-path search is triggered.
+        // Geometry "_p~iG~psG_p~iG~psG" decodes to 2 points, satisfying pathPoints.size() >= 2.
+        RoutingDirectionsResult walkingRoute = RoutingDirectionsResult.builder()
+                .distanceMeters(100.0)
+                .durationSeconds(60.0)
+                .geometry("_p~iG~psG_p~iG~psG")
+                .steps(List.of())
+                .build();
+
+        // 1st call: Fastest Route (WALKING) -> succeeds
+        // 2nd call: Accessible Route (WALKING) -> succeeds
+        // 3rd call: Leg 2 of Wheelchair (WALKING) -> fails
         when(orsRoutingClient.fetchDirections(any(), any(), eq(TravelMode.WALKING), any()))
+                .thenReturn(walkingRoute)
+                .thenReturn(walkingRoute)
                 .thenThrow(new RuntimeException("ors down"));
 
         // Should not NPE on leg2.getDistanceMeters() inside the ramp branch
@@ -94,11 +105,11 @@ class RouteServiceTest {
                 routeService.getRouteOptions(
                         new RouteRequest(41.0850, 29.0450, 41.0820, 29.0500, TravelMode.WALKING)));
 
-        // The Ramp-Assisted Route should still be present (from the direct wheelchair candidate),
+        // The Wheelchair Route should still be present (from the direct wheelchair candidate),
         // proving the multi-leg candidate was dropped silently rather than crashing the request.
         boolean hasRampAssistedRoute = routes.stream()
-                .anyMatch(r -> "Ramp-Assisted Route".equals(r.getRouteLabel()));
+                .anyMatch(r -> "Wheelchair Route".equals(r.getRouteLabel()));
         assertTrue(hasRampAssistedRoute,
-                "Direct wheelchair Ramp-Assisted Route should remain when leg 2 fails. Routes: " + routes);
+                "Direct wheelchair Wheelchair Route should remain when leg 2 fails. Routes: " + routes);
     }
 }

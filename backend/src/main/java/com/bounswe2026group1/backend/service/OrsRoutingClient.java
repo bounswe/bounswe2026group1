@@ -98,7 +98,7 @@ public class OrsRoutingClient {
         root.put("units", "m");
         root.put("instructions", true);
         root.put("geometry", true);
-        root.put("preference", "recommended");
+        root.put("preference", "shortest");
 
         if (avoidPolygons != null) {
             ObjectNode options = objectMapper.createObjectNode();

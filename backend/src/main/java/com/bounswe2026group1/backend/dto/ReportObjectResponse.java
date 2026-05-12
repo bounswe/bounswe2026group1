@@ -17,6 +17,10 @@ import java.util.Set;
 @Schema(description = "Server-side view of a `ReportObjectRequest` after measurement validation has run.")
 public class ReportObjectResponse {
 
+    @Schema(description = "Stable id for this object, used to target measurement contributions.",
+            example = "42")
+    private Long id;
+
     @Schema(description = "Type of object.", example = "RAMP")
     private ObjectType objectType;
 
@@ -32,6 +36,7 @@ public class ReportObjectResponse {
 
     public static ReportObjectResponse fromEntity(ReportObject obj, List<MeasurementWarning> warnings) {
         return new ReportObjectResponse(
+                obj.getId(),
                 obj.getObjectType(),
                 obj.getIssues(),
                 obj.getMeasurements(),

@@ -115,23 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       errorText: _emailError,
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildLabel('Password'),
-                        GestureDetector(
-                          onTap: () {},
-                          child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildLabel('Password'),
                     const SizedBox(height: 6),
                     _buildTextField(
                       controller: _passwordController,

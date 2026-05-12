@@ -48,6 +48,7 @@ class GamificationServiceTest {
     @Mock private UserBadgeRepository userBadgeRepository;
     @Mock private LeaderboardService leaderboardService;
     @Mock private NotificationService notificationService;
+    @Mock private PublicSseService publicSseService;
 
     @InjectMocks
     private GamificationService gamificationService;
@@ -107,6 +108,30 @@ class GamificationServiceTest {
         gamificationService.awardOnReportSubmit(author, 100L);
 
         verify(leaderboardService).onPointsChanged(1L);
+    }
+
+    @Test
+    void applyDelta_broadcastsPointsChanged() {
+        // Connected SSE subscribers should hear about every points change so
+        // they can invalidate leaderboard / profile caches without waiting
+        // for staleTime to expire.
+        RegisteredUser author = newUser(1L, 0);
+
+        gamificationService.awardOnReportSubmit(author, 100L);
+
+        verify(publicSseService).broadcastPointsChanged(1L, 10);
+    }
+
+    @Test
+    void applyDelta_clampAbsorbingFullDelta_doesNotBroadcast() {
+        // When the requested delta would push the balance below zero and the
+        // clamp absorbs the entire change, no broadcast is needed — the
+        // balance didn't actually move.
+        RegisteredUser voter = newUser(2L, 0);
+
+        gamificationService.deductOnVoteWithdraw(voter, 100L);
+
+        verify(publicSseService, never()).broadcastPointsChanged(any(), any());
     }
 
     // ───────────────────────── awardOnVoteCast ──────────────────────────

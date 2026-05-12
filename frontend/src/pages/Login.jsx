@@ -9,9 +9,18 @@ import { useAuth } from '../context/AuthContext.jsx'
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  function validateEmail(value) {
+    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailError('Please enter a valid email address.')
+    } else {
+      setEmailError('')
+    }
+  }
 
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -20,6 +29,10 @@ function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Please enter a valid email address.')
+      return
+    }
     setIsLoading(true)
     try {
       const { token } = await loginUser({ email, password })
@@ -39,8 +52,8 @@ function Login() {
     <div className="bg-[#f6f6f6] font-body text-[#2d2f2f] antialiased hide-scrollbar md:h-screen min-h-screen md:overflow-hidden flex flex-col">
       <main className="flex flex-1 md:min-h-0">
         <AuthLeftPanel
-          headline="Empowering mobility for every neighbour."
-          description="Your reports help people with mobility challenges find accessible routes, ramps, and barrier-free paths in their neighbourhood."
+          headline={<>Empowering mobility<br />for every neighbour.</>}
+          description="Your reports help people with mobility challenges find accessible routes, ramps, and barrier‑free paths in their neighbourhood."
         />
 
         {/* Right Side */}
@@ -88,24 +101,23 @@ function Login() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); if (emailError) validateEmail(e.target.value) }}
+                  onBlur={(e) => validateEmail(e.target.value)}
                   required
                 />
+                {emailError && (
+                  <p className="text-xs text-red-600 px-1 mt-1">{emailError}</p>
+                )}
               </div>
 
               {/* Password */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-sm font-label font-bold text-[#5a5c5c]" htmlFor="password">
-                    Password
-                  </label>
-                  <a
-                    className="text-xs font-semibold text-[#176a21] hover:text-[#025d16] transition-colors"
-                    href="#"
-                  >
-                    Forgot password?
-                  </a>
-                </div>
+                <label
+                  className="block text-sm font-label font-bold text-[#5a5c5c] px-1"
+                  htmlFor="password"
+                >
+                  Password
+                </label>
                 <div className="relative">
                   <input
                     className="w-full px-5 py-4 bg-[#f0f1f1] border-none rounded-xl focus:ring-2 focus:ring-[#176a21]/40 text-[#2d2f2f] placeholder:text-[#767777]/70 transition-all outline-none pr-12"

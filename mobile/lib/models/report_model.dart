@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/geojson.dart';
 import 'fix_request_model.dart';
 
 // ─── Report-level enums ──────────────────────────────────────────────────────
@@ -600,7 +601,7 @@ enum ReportStatus {
         ReportStatus.pending => const Color(0xFF8B6A00),
         ReportStatus.verified => const Color(0xFF176a21),
         ReportStatus.rejected => const Color(0xFFB02500),
-        ReportStatus.fixed => const Color(0xFF2E7D32),
+        ReportStatus.fixed => const Color(0xFF1565C0),
       };
 }
 
@@ -622,12 +623,18 @@ class MeasurementWarning {
 // ─── Report object ───────────────────────────────────────────────────────────
 
 class ReportObject {
+  /// Backend-assigned id. Needed to target a specific object for measurement
+  /// contributions via `PATCH /api/reports/{id}/objects/{objectId}/measurements`.
+  /// Nullable so client-built drafts that haven't been persisted yet still
+  /// fit the shape.
+  final int? id;
   final ObjectType objectType;
   final List<IssueType> issues;
   final String? measurements;
   final List<MeasurementWarning> warnings;
 
   const ReportObject({
+    this.id,
     required this.objectType,
     required this.issues,
     this.measurements,
@@ -642,6 +649,7 @@ class ReportObject {
         .toList();
     final rawWarnings = (json['warnings'] as List<dynamic>?) ?? const [];
     return ReportObject(
+      id: (json['id'] as num?)?.toInt(),
       objectType: ObjectType.fromJson(json['objectType'] as String?),
       issues: issues,
       measurements: json['measurements'] as String?,
@@ -678,6 +686,11 @@ class ReportModel {
   final int agrees;
   final int disagrees;
   final String publishDate;
+
+  /// Parallel arrays — `mediaIds[i]` is the DB id of the media whose public
+  /// URL is `mediaUrls[i]`. The edit screen needs the ids to detach existing
+  /// media via PUT /api/reports/{id} `mediaIdsToRemove`.
+  final List<int> mediaIds;
   final List<String> mediaUrls;
 
   /// 'AGREE', 'DISAGREE', or null — the authenticated user's current vote.
@@ -695,6 +708,11 @@ class ReportModel {
   /// voting card without an extra fetch.
   final FixRequestModel? activeFixRequest;
 
+  /// Highest-tier badge held by the report author. Surfaced as a chip next
+  /// to the author's name on the detail screen. Null when the author has
+  /// no badges yet.
+  final String? authorTopBadge;
+
   const ReportModel({
     required this.reportId,
     required this.userId,
@@ -708,6 +726,7 @@ class ReportModel {
     required this.agrees,
     required this.disagrees,
     required this.publishDate,
+    this.mediaIds = const [],
     required this.mediaUrls,
     this.userVote,
     this.objects = const [],
@@ -717,16 +736,28 @@ class ReportModel {
     this.exitLongitude,
     this.lastEditedByUserId,
     this.activeFixRequest,
+    this.authorTopBadge,
   });
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     final rawObjects = (json['objects'] as List<dynamic>?) ?? const [];
+    // Prefer the GeoJSON `geometry` field (RFC 7946); fall back to the legacy
+    // scalar `latitude` / `longitude` for older responses still in flight.
+    final coords = extractLatLon(json);
+    final entry = extractOptionalLatLon(json,
+        geometryKey: 'entryGeometry',
+        latKey: 'entryLatitude',
+        lonKey: 'entryLongitude');
+    final exit = extractOptionalLatLon(json,
+        geometryKey: 'exitGeometry',
+        latKey: 'exitLatitude',
+        lonKey: 'exitLongitude');
     return ReportModel(
       reportId: (json['reportId'] as num).toInt(),
       userId: (json['userId'] as num).toInt(),
       username: json['username'] as String?,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      latitude: coords?.lat ?? double.nan,
+      longitude: coords?.lon ?? double.nan,
       description: json['description'] as String? ?? '',
       reportType: ReportType.fromJson(json['reportType'] as String?),
       environment: ReportEnvironment.fromJson(json['environment'] as String?),
@@ -734,22 +765,27 @@ class ReportModel {
       agrees: (json['agrees'] as num?)?.toInt() ?? 0,
       disagrees: (json['disagrees'] as num?)?.toInt() ?? 0,
       publishDate: json['publishDate'] as String? ?? '',
+      mediaIds: (json['mediaIds'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
       mediaUrls:
           (json['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
       userVote: json['userVote'] as String?,
       objects: rawObjects
           .map((e) => ReportObject.fromJson(e as Map<String, dynamic>))
           .toList(),
-      entryLatitude: (json['entryLatitude'] as num?)?.toDouble(),
-      entryLongitude: (json['entryLongitude'] as num?)?.toDouble(),
-      exitLatitude: (json['exitLatitude'] as num?)?.toDouble(),
-      exitLongitude: (json['exitLongitude'] as num?)?.toDouble(),
+      entryLatitude: entry?.lat,
+      entryLongitude: entry?.lon,
+      exitLatitude: exit?.lat,
+      exitLongitude: exit?.lon,
       lastEditedByUserId: (json['lastEditedByUserId'] as num?)?.toInt(),
       activeFixRequest: json['activeFixRequest'] is Map
           ? FixRequestModel.fromJson(
               Map<String, dynamic>.from(json['activeFixRequest'] as Map),
             )
           : null,
+      authorTopBadge: json['authorTopBadge'] as String?,
     );
   }
 
@@ -757,6 +793,7 @@ class ReportModel {
     int? agrees,
     int? disagrees,
     ReportStatus? status,
+    List<int>? mediaIds,
     List<String>? mediaUrls,
     Object? activeFixRequest = _kSentinel,
   }) {
@@ -773,6 +810,7 @@ class ReportModel {
       agrees: agrees ?? this.agrees,
       disagrees: disagrees ?? this.disagrees,
       publishDate: publishDate,
+      mediaIds: mediaIds ?? this.mediaIds,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       userVote: userVote,
       objects: objects,
@@ -786,6 +824,7 @@ class ReportModel {
       activeFixRequest: activeFixRequest == _kSentinel
           ? this.activeFixRequest
           : activeFixRequest as FixRequestModel?,
+      authorTopBadge: authorTopBadge,
     );
   }
 
