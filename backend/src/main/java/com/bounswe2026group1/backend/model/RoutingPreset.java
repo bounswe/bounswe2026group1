@@ -29,6 +29,7 @@ public enum RoutingPreset {
                     AVOID_NARROW_SIDEWALKS,
                     AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
                     REQUIRE_CURB_RAMPS,
+                    AVOID_SLIPPERY_SURFACES,
                     AVOID_INACCESSIBLE_CROSSINGS),
             TravelMode.WHEELCHAIR),
 
@@ -37,6 +38,7 @@ public enum RoutingPreset {
                     AVOID_LOW_CLEARANCE,
                     AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
                     AVOID_MISSING_TACTILE_PAVING,
+                    AVOID_UNSAFE_STAIRS,
                     AVOID_INACCESSIBLE_CROSSINGS),
             TravelMode.WALKING),
 
@@ -46,6 +48,7 @@ public enum RoutingPreset {
                     AVOID_UNSAFE_RAMPS,
                     AVOID_SLIPPERY_SURFACES,
                     REQUIRE_HANDRAILS,
+                    AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
                     AVOID_UNSAFE_STAIRS),
             TravelMode.WALKING),
 
