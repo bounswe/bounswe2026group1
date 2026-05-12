@@ -89,7 +89,7 @@ class RoutingPreferencesRouteIntegrationTest {
                 .geometry("")
                 .steps(List.of())
                 .build();
-        when(orsRoutingClient.fetchDirections(any(), any(), any(), any())).thenReturn(canned);
+        when(orsRoutingClient.fetchDirections(any(), any(), any(), any(), any())).thenReturn(canned);
         when(obstacleService.findClosestRampInBoundingBox(any(), any())).thenReturn(null);
         when(obstacleService.findObstaclesOnPath(any(), any())).thenReturn(List.of());
         when(obstacleService.buildAvoidPolygons(any())).thenReturn(null);

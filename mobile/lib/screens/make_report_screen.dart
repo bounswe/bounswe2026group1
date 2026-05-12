@@ -1452,8 +1452,15 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
   // ─── Bottom bar ───────────────────────────────────────────────────────────
 
   Widget _buildBottomBar() {
+    return SafeArea(
+      top: false,
+      child: _buildBottomBarContent(),
+    );
+  }
+
+  Widget _buildBottomBarContent() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest.withOpacity(0.95),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -1515,19 +1522,6 @@ class _MakeReportScreenState extends State<MakeReportScreen> {
                         ],
                       ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Icon(
-              Icons.bookmark_border,
-              color: AppColors.onSurfaceVariant,
             ),
           ),
         ],

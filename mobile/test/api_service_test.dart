@@ -650,6 +650,34 @@ void main() {
       expect(uri.queryParameters['environment'], 'OUTDOOR');
     });
 
+    test('getReportFeed serializes objectIssue pairs as repeated query params',
+        () async {
+      _stubGet(
+        client,
+        {
+          'content': <Map<String, dynamic>>[],
+          'number': 0,
+          'size': 20,
+          'last': true,
+          'totalPages': 1,
+        },
+        200,
+      );
+      final api = ApiService(httpClient: client);
+      await api.getReportFeed(
+        page: 0,
+        size: 20,
+        objectIssue: ['RAMP:MISSING', 'DOOR:HEAVY_DOOR'],
+      );
+      final captured = verify(
+        () => client.get(captureAny(), headers: any(named: 'headers')),
+      ).captured;
+      final uri = captured.single as Uri;
+      expect(uri.path, endsWith('/api/reports/feed'));
+      expect(uri.queryParametersAll['objectIssue'],
+          ['RAMP:MISSING', 'DOOR:HEAVY_DOOR']);
+    });
+
     test('getReportFeed throws on 500', () async {
       _stubGet(client, '{}', 500);
       final api = ApiService(httpClient: client);

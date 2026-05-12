@@ -9,7 +9,10 @@ import '../models/report_model.dart';
 import '../models/routing_preferences.dart';
 import '../utils/geojson.dart';
 
-const _baseUrl = 'https://api.mapcess.live';
+const _baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'https://api.mapcess.live',
+);
 const _apiKey = String.fromEnvironment('API_KEY', defaultValue: 'bounswe2026-local-api-key');
 
 class ApiService {
@@ -363,22 +366,47 @@ class ApiService {
   /// Paginated, filterable feed. Mirrors the web's `getReportFeed` and the
   /// backend's `GET /api/reports/feed` (Spring `Page<ReportResponse>`).
   /// When [latitude] and [longitude] are both provided, the backend orders
-  /// results by PostGIS distance and applies [radiusInKm] (defaults to 1.0
-  /// server-side when omitted).
+  /// results by PostGIS distance and applies [radiusInKm].
   Future<FeedPage<ReportModel>> getReportFeed({
     int page = 0,
     int size = 20,
     ReportType? reportType,
     ReportEnvironment? environment,
+    List<ReportStatus>? status,
+    String? sort,
+    String? q,
+    List<ObjectType>? objectType,
+    List<String>? objectIssue,
+    int? authorId,
+    String? publishedAfter,
+    String? publishedBefore,
+    int? minAgrees,
+    int? minDisagrees,
     double? latitude,
     double? longitude,
     double? radiusInKm,
   }) async {
-    final params = <String, String>{
+    final params = <String, dynamic>{
       'page': '$page',
       'size': '$size',
       if (reportType != null) 'reportType': reportType.jsonValue,
       if (environment != null) 'environment': environment.jsonValue,
+      if (sort != null) 'sort': sort,
+      if (q != null && q.isNotEmpty) 'q': q,
+      if (authorId != null) 'authorId': '$authorId',
+      if (publishedAfter != null) 'publishedAfter': publishedAfter,
+      if (publishedBefore != null) 'publishedBefore': publishedBefore,
+      if (minAgrees != null) 'minAgrees': '$minAgrees',
+      if (minDisagrees != null) 'minDisagrees': '$minDisagrees',
+      if (status != null && status.isNotEmpty)
+        'status': status.map((s) => s.jsonValue).toList(),
+      if (objectType != null && objectType.isNotEmpty)
+        'objectType': objectType.map((o) => o.jsonValue).toList(),
+      // `objectIssue` entries are scoped pairs in `OBJECT_TYPE:ISSUE_TYPE` form
+      // (e.g. `RAMP:MISSING`) — the backend requires both halves to live on the
+      // same object, unlike the legacy flat `issueType` filter.
+      if (objectIssue != null && objectIssue.isNotEmpty)
+        'objectIssue': List<String>.from(objectIssue),
     };
     if (latitude != null && longitude != null) {
       params['latitude'] = '$latitude';
@@ -913,6 +941,7 @@ class FeedPage<T> {
   final int size;
   final bool last;
   final int totalPages;
+  final int totalElements;
 
   const FeedPage({
     required this.content,
@@ -920,6 +949,7 @@ class FeedPage<T> {
     required this.size,
     required this.last,
     required this.totalPages,
+    required this.totalElements,
   });
 
   factory FeedPage.fromJson(
@@ -935,6 +965,8 @@ class FeedPage<T> {
       size: (json['size'] as num?)?.toInt() ?? raw.length,
       last: json['last'] as bool? ?? true,
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
+      totalElements:
+          (json['totalElements'] as num?)?.toInt() ?? raw.length,
     );
   }
 }

@@ -9,11 +9,9 @@ import com.bounswe2026group1.backend.model.NotificationType;
 import com.bounswe2026group1.backend.model.RegisteredUser;
 import com.bounswe2026group1.backend.model.Report;
 import com.bounswe2026group1.backend.model.ReportStatus;
-import com.bounswe2026group1.backend.repository.CommentRepository;
 import com.bounswe2026group1.backend.repository.NotificationRepository;
 import com.bounswe2026group1.backend.repository.RegisteredUserRepository;
 import com.bounswe2026group1.backend.repository.ReportSubscriptionRepository;
-import com.bounswe2026group1.backend.repository.ReportVerificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -38,8 +36,6 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final RegisteredUserRepository registeredUserRepository;
     private final NotificationSseService notificationSseService;
-    private final CommentRepository commentRepository;
-    private final ReportVerificationRepository verificationRepository;
     private final ReportSubscriptionRepository subscriptionRepository;
 
     /** Persists a notification for a single recipient and pushes it to their
@@ -72,9 +68,11 @@ public class NotificationService {
     }
 
     /** Trigger: report status transitioned to PENDING, VERIFIED, REJECTED, or FIXED.
-     *  Notifies the report author, anyone who commented or voted on the report,
-     *  and any explicit subscribers, minus the actor whose action triggered the
-     *  change. Caller must only invoke this when the status actually changed. */
+     *  Notifies every explicit subscriber of the report (author, voters,
+     *  commenters, and Follow-button subscribers all live in the same
+     *  {@code report_subscriptions} table), minus the actor whose action
+     *  triggered the change. Caller must only invoke this when the status
+     *  actually changed. */
     public void notifyStatusChange(Report report, Long actorUserId) {
         if (report == null || report.getCreatedBy() == null) return;
         ReportStatus status = report.getStatus();
@@ -86,7 +84,7 @@ public class NotificationService {
         Long reportId = report.getReportId();
         Long authorId = report.getCreatedBy().getId();
 
-        Set<Long> audience = resolveAudience(reportId, authorId, actorUserId);
+        Set<Long> audience = resolveAudience(reportId, actorUserId);
         Map<Long, RegisteredUser> recipientsById = loadRecipients(audience);
         for (Long recipientId : audience) {
             RegisteredUser recipient = recipientsById.get(recipientId);
@@ -111,8 +109,10 @@ public class NotificationService {
         };
     }
 
-    /** Trigger: someone commented on a report. Notifies the report author,
-     *  prior commenters, voters, and explicit subscribers, minus the commenter. */
+    /** Trigger: someone commented on a report. Notifies every subscriber of
+     *  the report — author, voters, commenters, and Follow-button subscribers
+     *  all live in the same {@code report_subscriptions} table — minus the
+     *  commenter themselves. */
     public void notifyNewComment(Comment comment) {
         if (comment == null || comment.getReport() == null) return;
         RegisteredUser reportAuthor = comment.getReport().getCreatedBy();
@@ -124,7 +124,7 @@ public class NotificationService {
         Long authorId = reportAuthor.getId();
         String commenterName = commenter == null ? "Someone" : commenter.getName();
 
-        Set<Long> audience = resolveAudience(reportId, authorId, actorUserId);
+        Set<Long> audience = resolveAudience(reportId, actorUserId);
         Map<Long, RegisteredUser> recipientsById = loadRecipients(audience);
         for (Long recipientId : audience) {
             RegisteredUser recipient = recipientsById.get(recipientId);
@@ -161,14 +161,14 @@ public class NotificationService {
         return NotificationResponse.fromEntity(notification);
     }
 
-    /** Author + commenters + voters + subscribers, deduped, minus the actor and any nulls.
-     *  Returns user ids only; callers hydrate the recipients via {@link #loadRecipients}. */
-    Set<Long> resolveAudience(Long reportId, Long authorId, Long actorUserId) {
-        LinkedHashSet<Long> audience = new LinkedHashSet<>();
-        if (authorId != null) audience.add(authorId);
-        audience.addAll(commentRepository.findCommenterUserIdsByReportId(reportId));
-        audience.addAll(verificationRepository.findVoterUserIdsByReportId(reportId));
-        audience.addAll(subscriptionRepository.findSubscriberUserIdsByReportId(reportId));
+    /** Subscribers of the report, deduped, minus the actor and any nulls.
+     *  {@code report_subscriptions} is the single source of truth — author,
+     *  voters, and commenters are inserted by their respective service-layer
+     *  triggers, so we no longer need separate cohort lookups here. Returns
+     *  user ids only; callers hydrate the recipients via {@link #loadRecipients}. */
+    Set<Long> resolveAudience(Long reportId, Long actorUserId) {
+        LinkedHashSet<Long> audience = new LinkedHashSet<>(
+                subscriptionRepository.findSubscriberUserIdsByReportId(reportId));
         audience.remove(null);
         if (actorUserId != null) audience.remove(actorUserId);
         return audience;

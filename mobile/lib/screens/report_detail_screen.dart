@@ -504,6 +504,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
       _commentController.clear();
       await _loadComments();
+      // Backend auto-subscribes the commenter. Mirror it locally so the
+      // Follow button flips immediately rather than only after a screen reopen.
+      if (mounted && _isFollowing != true) {
+        setState(() => _isFollowing = true);
+      }
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -604,6 +609,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         await api.unverifyReport(report.reportId);
       }
       await _refreshReport();
+      // Backend auto-subscribes voters (except on withdraw — _myVote becomes
+      // null then). Mirror it so the Follow button reflects the new state
+      // without waiting for the user to re-enter the screen.
+      if (mounted && _myVote != null && _isFollowing != true) {
+        setState(() => _isFollowing = true);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -735,11 +746,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               IconButton(
                 icon: Icon(Icons.edit_outlined, color: AppColors.primary),
                 onPressed: _openEdit,
-              ),
-            IconButton(
-              icon: Icon(Icons.search, color: AppColors.onSurface),
-              onPressed: () {},
-            ),
+              )
           ],
         ),
       ),

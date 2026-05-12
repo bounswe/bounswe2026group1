@@ -8,6 +8,8 @@ import com.bounswe2026group1.backend.model.ReportType;
 import com.bounswe2026group1.backend.model.UserRole;
 import com.bounswe2026group1.backend.support.AbstractPostgisIntegrationTest;
 import com.bounswe2026group1.backend.util.GeoUtils;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +33,9 @@ class ReportSubscriptionRepositoryTest extends AbstractPostgisIntegrationTest {
 
     @Autowired
     private ReportRepository reportRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private RegisteredUser alice;
     private RegisteredUser bob;
@@ -83,6 +88,29 @@ class ReportSubscriptionRepositoryTest extends AbstractPostgisIntegrationTest {
 
         assertEquals(1, ids.size());
         assertEquals(bob.getId(), ids.get(0));
+    }
+
+    @Test
+    void deletingReport_cascadesToSubscriptions() {
+        ReportSubscription sub = new ReportSubscription();
+        sub.setUser(bob);
+        sub.setReport(report);
+        subscriptionRepository.save(sub);
+
+        Long reportId = report.getReportId();
+
+        // Mirror production: ReportService.delete fetches the report fresh and
+        // cascade-loads its associations. Without clearing the persistence
+        // context, the orphaned sub sits in the session and trips a transient
+        // reference check at flush time.
+        entityManager.flush();
+        entityManager.clear();
+
+        Report reloaded = reportRepository.findById(reportId).orElseThrow();
+        reportRepository.delete(reloaded);
+        reportRepository.flush();
+
+        assertFalse(subscriptionRepository.existsByUserIdAndReportReportId(bob.getId(), reportId));
     }
 
     private RegisteredUser persistUser(String email, String name) {

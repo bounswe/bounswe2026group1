@@ -45,6 +45,7 @@ public class ReportService {
     private final PublicSseService publicSseService;
     private final NotificationService notificationService;
     private final GamificationService gamificationService;
+    private final ReportSubscriptionService subscriptionService;
     private final S3MediaService s3MediaService;
     private final MeasurementValidator measurementValidator;
     private final OverpassService overpassService;
@@ -125,6 +126,7 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "sort=DISTANCE requires latitude and longitude");
         }
+        validateObjectIssuePairs(query.getObjectIssue());
 
         int pageNumber = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.min(100, Math.max(1, pageable.getPageSize()));
@@ -225,6 +227,9 @@ public class ReportService {
         broadcastAfterCommit(() -> publicSseService.broadcastReportCreated(finalSaved));
 
         gamificationService.awardOnReportSubmit(user, saved.getReportId());
+        // Author goes into the notification audience as an explicit subscription
+        // row, so the Follow button reflects it and Unfollow really works.
+        subscriptionService.subscribeInternal(saved, user);
 
         ReportResponse response = ReportResponse.fromEntity(saved, null, buildObjectResponses(saved),
                 resolveActiveFixRequest(user.getId(), saved.getReportId()));
@@ -506,6 +511,13 @@ public class ReportService {
         } else if (withdrawn) {
             gamificationService.deductOnVoteWithdraw(user, saved.getReportId());
         }
+        // Voting puts the user in the notification audience. Subscribe on every
+        // path that ends with an active vote (fresh cast or flipped direction);
+        // skip on withdraw, where the user opted out. Idempotent if the row
+        // already exists from a prior action.
+        if (!withdrawn) {
+            subscriptionService.subscribeInternal(saved, user);
+        }
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
         if (newStatus != previousStatus) {
@@ -562,6 +574,9 @@ public class ReportService {
             gamificationService.awardOnVoteCast(user, saved.getReportId());
         } else if (withdrawn) {
             gamificationService.deductOnVoteWithdraw(user, saved.getReportId());
+        }
+        if (!withdrawn) {
+            subscriptionService.subscribeInternal(saved, user);
         }
         String op = switch (newStatus) { case VERIFIED -> "verify"; case REJECTED -> "reject"; default -> "pending"; };
         broadcastAfterCommit(() -> publicSseService.broadcastReportUpdated(saved, op));
@@ -809,4 +824,31 @@ public class ReportService {
         return result;
     }
 
+    /**
+     * Validates entries of the {@code objectIssue} feed filter. Each entry must be of the form
+     * {@code OBJECT_TYPE:ISSUE_TYPE} with both halves resolving to a known enum value. Null /
+     * empty list is a no-op. Throws 400 with the offending entry on failure.
+     */
+    private static void validateObjectIssuePairs(List<String> pairs) {
+        if (pairs == null || pairs.isEmpty()) return;
+        for (String raw : pairs) {
+            if (raw == null) continue;
+            String trimmed = raw.trim();
+            if (trimmed.isEmpty()) continue;
+            int sep = trimmed.indexOf(':');
+            if (sep <= 0 || sep == trimmed.length() - 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "objectIssue must be 'OBJECT_TYPE:ISSUE_TYPE' (got '" + raw + "')");
+            }
+            String otPart = trimmed.substring(0, sep);
+            String itPart = trimmed.substring(sep + 1);
+            try {
+                ObjectType.valueOf(otPart);
+                IssueType.valueOf(itPart);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "objectIssue references an unknown enum value: '" + raw + "'");
+            }
+        }
+    }
 }

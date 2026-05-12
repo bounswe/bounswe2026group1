@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import Navbar from '../components/Navbar.jsx'
@@ -131,17 +131,6 @@ function buildIssueGroups(selectedObjectTypes) {
     }))
 }
 
-/** All issue keys valid for the given object types (used to prune orphan selections). */
-function validIssueKeysFor(selectedObjectTypes) {
-  const keys = new Set()
-  for (const t of OBJECT_TYPES) {
-    if (selectedObjectTypes.includes(t.type)) {
-      for (const i of t.issues) keys.add(i.key)
-    }
-  }
-  return keys
-}
-
 export default function Feed() {
   const { resolved: themeResolved } = useTheme()
   const isDark = themeResolved === 'dark'
@@ -170,17 +159,20 @@ export default function Feed() {
   // Advanced filters live behind a toggle to keep the default bar uncluttered.
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [objectTypeFilter, setObjectTypeFilter] = useState(/** @type {string[]} */ ([]))
-  const [issueTypeFilter, setIssueTypeFilter] = useState(/** @type {string[]} */ ([]))
-  // Drop orphan issues whenever the user narrows or clears their object selection — an
+  // Scoped pairs in `OBJECT_TYPE:ISSUE_TYPE` form. Same shape the backend's `objectIssue`
+  // filter expects — toggling MISSING under RAMP stores `RAMP:MISSING`, leaving any
+  // DOOR-context selections untouched.
+  const [objectIssueFilter, setObjectIssueFilter] = useState(/** @type {string[]} */ ([]))
+  // Drop orphan pairs whenever the user narrows or clears their object selection — an
   // unrelated issue chip silently filtering the feed is confusing.
   useEffect(() => {
     if (objectTypeFilter.length === 0) {
-      setIssueTypeFilter((prev) => (prev.length === 0 ? prev : []))
+      setObjectIssueFilter((prev) => (prev.length === 0 ? prev : []))
       return
     }
-    const valid = validIssueKeysFor(objectTypeFilter)
-    setIssueTypeFilter((prev) => {
-      const filtered = prev.filter((k) => valid.has(k))
+    const selectedSet = new Set(objectTypeFilter)
+    setObjectIssueFilter((prev) => {
+      const filtered = prev.filter((pair) => selectedSet.has(pair.split(':')[0]))
       return filtered.length === prev.length ? prev : filtered
     })
   }, [objectTypeFilter])
@@ -228,7 +220,7 @@ export default function Feed() {
   // Serialize set-like filters into stable strings so the queryKey is referentially stable.
   const statusKey = statusFilter.join(',')
   const objectTypeKey = objectTypeFilter.join(',')
-  const issueTypeKey = issueTypeFilter.join(',')
+  const objectIssueKey = objectIssueFilter.join(',')
 
   const feedQueryKey = useMemo(
     () => [
@@ -244,7 +236,7 @@ export default function Feed() {
       minAgreesNum,
       minDisagreesNum,
       objectTypeKey,
-      issueTypeKey,
+      objectIssueKey,
       feedLat,
       feedLng,
       radiusKm,
@@ -262,7 +254,7 @@ export default function Feed() {
       minAgreesNum,
       minDisagreesNum,
       objectTypeKey,
-      issueTypeKey,
+      objectIssueKey,
       feedLat,
       feedLng,
       radiusKm,
@@ -309,7 +301,7 @@ export default function Feed() {
           minAgrees: minAgreesNum ?? undefined,
           minDisagrees: minDisagreesNum ?? undefined,
           objectType: objectTypeFilter.length ? objectTypeFilter : undefined,
-          issueType: issueTypeFilter.length ? issueTypeFilter : undefined,
+          objectIssue: objectIssueFilter.length ? objectIssueFilter : undefined,
           sort: sortFilter,
           latitude: hasLocation ? feedLat : undefined,
           longitude: hasLocation ? feedLng : undefined,
@@ -323,10 +315,30 @@ export default function Feed() {
     getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
   })
 
+  // Preserve scroll position across filter changes. `keepPreviousData` holds the old list
+  // visible during refetch, but once new data lands the infinite query resets to a single
+  // page worth of cards — the list collapses and the browser ends up at the top. We capture
+  // window.scrollY when the queryKey changes and restore it once the new data settles.
+  const pendingScrollRef = useRef(null)
+  const prevQueryKeyRef = useRef(feedQueryKey)
+  useLayoutEffect(() => {
+    if (prevQueryKeyRef.current === feedQueryKey) return
+    prevQueryKeyRef.current = feedQueryKey
+    pendingScrollRef.current = window.scrollY
+  }, [feedQueryKey])
+  useLayoutEffect(() => {
+    if (pendingScrollRef.current == null) return
+    if (isFetching || isPlaceholderData) return
+    window.scrollTo({ top: pendingScrollRef.current })
+    pendingScrollRef.current = null
+  }, [isFetching, isPlaceholderData])
+
   const reports = useMemo(() => {
     if (!data?.pages) return []
     return data.pages.flatMap((p) => (p.content || []).map(mapReport))
   }, [data])
+
+  const totalResults = data?.pages?.[0]?.totalElements ?? null
 
   /** Ensures chips match visible cards if the API ever returns extra rows (e.g. proximity + enum filters). */
   const reportsMatchingFilters = useMemo(() => {
@@ -386,7 +398,7 @@ export default function Feed() {
     minAgreesNum != null ||
     minDisagreesNum != null ||
     objectTypeFilter.length > 0 ||
-    issueTypeFilter.length > 0
+    objectIssueFilter.length > 0
 
   function resetAdvancedFilters() {
     setStatusFilter([])
@@ -394,7 +406,7 @@ export default function Feed() {
     setQDraft('')
     setQApplied('')
     setObjectTypeFilter([])
-    setIssueTypeFilter([])
+    setObjectIssueFilter([])
     setSelectedAuthor(null)
     setAuthorQuery('')
     setPublishedAfterInput('')
@@ -717,15 +729,16 @@ export default function Feed() {
                         </div>
                         <div className="flex flex-wrap gap-1.5 pl-4">
                           {group.issues.map((i) => {
-                            const selected = issueTypeFilter.includes(i.key)
+                            const pair = `${group.type}:${i.key}`
+                            const selected = objectIssueFilter.includes(pair)
                             return (
                               <button
-                                key={`${group.type}:${i.key}`}
+                                key={pair}
                                 type="button"
                                 aria-pressed={selected}
                                 aria-label={`${group.label} issue: ${i.label}`}
                                 onClick={() =>
-                                  setIssueTypeFilter((prev) => toggleInArray(prev, i.key))
+                                  setObjectIssueFilter((prev) => toggleInArray(prev, pair))
                                 }
                                 className={`${feedFilterChipClass(selected)} text-xs px-3 py-1.5`}
                                 style={
@@ -905,6 +918,16 @@ export default function Feed() {
         {isError && !feedBlockedReason && (
           <p role="alert" className="text-sm text-error font-medium">
             {error?.message || 'Could not load the feed.'}
+          </p>
+        )}
+
+        {totalResults != null && !feedBlockedReason && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-sm font-medium text-on-surface-variant"
+          >
+            {totalResults === 1 ? '1 result' : `${totalResults} results`}
           </p>
         )}
 

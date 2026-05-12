@@ -40,14 +40,15 @@ public enum RoutingConstraint {
 
     AVOID_UNSAFE_RAMPS(
             "Avoid unsafe ramps",
-            "Routes will avoid ramps reported as too steep, too narrow, missing handrails, missing landings, or slippery.",
+            "Routes will avoid ramps reported as too steep, too narrow, missing handrails, handrails too low, missing landings, or slippery.",
             Set.of(
                     new IssueHazard(RAMP, TOO_STEEP),
                     new IssueHazard(RAMP, TOO_NARROW),
                     new IssueHazard(RAMP, NO_LANDING),
                     new IssueHazard(RAMP, INSUFFICIENT_LANDING_AREA),
                     new IssueHazard(RAMP, SLIPPERY_SURFACE),
-                    new IssueHazard(RAMP, MISSING_HANDRAIL))),
+                    new IssueHazard(RAMP, MISSING_HANDRAIL),
+                    new IssueHazard(RAMP, HANDRAIL_TOO_LOW))),
 
     AVOID_NARROW_SIDEWALKS(
             "Avoid narrow sidewalks",
@@ -70,26 +71,31 @@ public enum RoutingConstraint {
 
     REQUIRE_HANDRAILS(
             "Require handrails on stairs and ramps",
-            "Routes will avoid stairs and ramps reported as missing handrails.",
+            "Routes will avoid stairs and ramps reported as missing handrails or having handrails mounted too low.",
             Set.of(
                     new IssueHazard(RAMP, MISSING_HANDRAIL),
+                    new IssueHazard(RAMP, HANDRAIL_TOO_LOW),
                     new IssueHazard(STAIR, MISSING_HANDRAIL))),
 
     AVOID_BLOCKED_OR_MISSING_SIDEWALKS(
-            "Avoid blocked or missing sidewalks",
-            "Routes will avoid sidewalk segments reported as blocked by obstacles or missing entirely.",
+            "Avoid blocked, missing, or damaged sidewalks",
+            "Routes will avoid sidewalk segments reported as blocked by obstacles, missing entirely, having uneven surfaces, or having unramped level differences.",
             Set.of(
                     new IssueHazard(SIDEWALK, BLOCKED),
-                    new IssueHazard(SIDEWALK, MISSING))),
+                    new IssueHazard(SIDEWALK, MISSING),
+                    new IssueHazard(SIDEWALK, UNEVEN_SURFACE),
+                    new IssueHazard(SIDEWALK, UNRAMPED_LEVEL_DIFFERENCE))),
 
     AVOID_UNSAFE_STAIRS(
             "Avoid unsafe stairs (when stairs are unavoidable)",
-            "Routes will avoid stairs reported with high risers, shallow treads, missing landings, or open risers.",
+            "Routes will avoid stairs reported with high risers, shallow treads, missing landings, open risers, irregular steps, or missing nosing strips.",
             Set.of(
                     new IssueHazard(STAIR, OPEN_RISERS),
                     new IssueHazard(STAIR, RISER_TOO_HIGH),
                     new IssueHazard(STAIR, TREAD_TOO_SHALLOW),
-                    new IssueHazard(STAIR, NO_LANDING))),
+                    new IssueHazard(STAIR, NO_LANDING),
+                    new IssueHazard(STAIR, IRREGULAR_STEPS),
+                    new IssueHazard(STAIR, MISSING_NOSING_STRIP))),
 
     AVOID_MISSING_TACTILE_PAVING(
             "Avoid sidewalks lacking tactile paving",
@@ -98,16 +104,17 @@ public enum RoutingConstraint {
 
     REQUIRE_CURB_RAMPS(
             "Prefer crossings with curb ramps",
-            "Routes will avoid crossings reported as missing curb ramps, having unsafe slopes, or with raised lips.",
+            "Routes will avoid crossings reported as missing curb ramps, having unsafe slopes, with raised lips, or lacking tactile warnings.",
             Set.of(
                     new IssueHazard(CURB_RAMP, MISSING),
                     new IssueHazard(CURB_RAMP, TOO_STEEP),
                     new IssueHazard(CURB_RAMP, TOO_NARROW),
-                    new IssueHazard(CURB_RAMP, RAISED_LIP))),
+                    new IssueHazard(CURB_RAMP, RAISED_LIP),
+                    new IssueHazard(CURB_RAMP, NO_TACTILE_WARNING))),
 
     AVOID_INACCESSIBLE_CROSSINGS(
             "Avoid inaccessible pedestrian crossings",
-            "Routes will avoid pedestrian crossings reported as missing, blocked, lacking dropped curbs, lacking tactile paving, or lacking audio signals.",
+            "Routes will avoid pedestrian crossings reported as missing, blocked, lacking dropped curbs, lacking tactile paving, lacking audio signals, or lacking pedestrian refuges.",
             Set.of(
                     new IssueHazard(PEDESTRIAN_CROSSING, MISSING),
                     new IssueHazard(PEDESTRIAN_CROSSING, BLOCKED),
@@ -115,7 +122,8 @@ public enum RoutingConstraint {
                     new IssueHazard(PEDESTRIAN_CROSSING, NO_TACTILE_PAVING),
                     new IssueHazard(PEDESTRIAN_CROSSING, NO_AUDIO_SIGNAL),
                     new IssueHazard(PEDESTRIAN_CROSSING, SIGNAL_TOO_SHORT),
-                    new IssueHazard(PEDESTRIAN_CROSSING, FADED_MARKINGS)));
+                    new IssueHazard(PEDESTRIAN_CROSSING, FADED_MARKINGS),
+                    new IssueHazard(PEDESTRIAN_CROSSING, NO_PEDESTRIAN_REFUGE)));
 
     private final String label;
     private final String description;

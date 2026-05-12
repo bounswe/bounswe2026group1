@@ -52,10 +52,17 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Reports actually shown on the map after applying the env + category +
   /// issue filters. Unfiltered (all three empty/null) returns the raw list
   /// unchanged.
+  ///
+  /// Categories that have no pair in `_issueFilter` ("uncovered") are not
+  /// narrowed by issue — every object of that type passes. Only categories
+  /// the user picked an issue under ("covered") require a matching pair.
+  /// Without that distinction, picking RAMP+DOOR plus RAMP:MISSING would
+  /// hide every DOOR-primary report just because no DOOR pair was selected.
   List<ReportModel> get _visibleReports {
     if (_envFilter == null && _typeFilter.isEmpty && _issueFilter.isEmpty) {
       return _reports;
     }
+    final coveredTypes = _issueFilter.map((p) => p.$1).toSet();
     return _reports.where((r) {
       if (_envFilter != null && r.environment != _envFilter) return false;
       if (_typeFilter.isNotEmpty) {
@@ -65,7 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_issueFilter.isNotEmpty) {
         final obj = r.primaryObject;
         if (obj == null) return false;
-        if (!obj.issues.any((i) => _issueFilter.contains((obj.objectType, i)))) {
+        if (coveredTypes.contains(obj.objectType) &&
+            !obj.issues.any((i) => _issueFilter.contains((obj.objectType, i)))) {
           return false;
         }
       }

@@ -63,6 +63,12 @@ public class ReportFeedQuery {
             example = "TOO_STEEP")
     private List<IssueType> issueType;
 
+    @Schema(description = "Filter by (objectType, issueType) pair. Format: `OBJECT_TYPE:ISSUE_TYPE` " +
+            "(e.g. `RAMP:MISSING`). Repeatable; matches reports that have at least one object whose " +
+            "type AND issue both match one of the supplied pairs.",
+            example = "RAMP:MISSING")
+    private List<String> objectIssue;
+
     @Schema(description = "Sort selection. Defaults to DISTANCE when coordinates are given, else NEWEST.",
             example = "NEWEST")
     private FeedSort sort;
