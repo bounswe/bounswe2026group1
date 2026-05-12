@@ -39,6 +39,8 @@ public enum RoutingPreset {
                     AVOID_BLOCKED_OR_MISSING_SIDEWALKS,
                     AVOID_MISSING_TACTILE_PAVING,
                     AVOID_UNSAFE_STAIRS,
+                    REQUIRE_HANDRAILS,
+                    AVOID_SLIPPERY_SURFACES,
                     AVOID_INACCESSIBLE_CROSSINGS),
             TravelMode.WALKING),
 
