@@ -1118,7 +1118,7 @@ class _AdvancedFiltersSheet extends StatefulWidget {
 
 class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
   late List<ObjectType> _objectTypes;
-  late List<IssueType> _issueTypes;
+  late Set<(ObjectType, IssueType)> _selectedIssueChips;
   int? _authorId;
   String? _authorName;
   late final TextEditingController _authorCtrl;
@@ -1134,7 +1134,11 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
   void initState() {
     super.initState();
     _objectTypes = List.from(widget.objectTypes);
-    _issueTypes = List.from(widget.issueTypes);
+    _selectedIssueChips = widget.issueTypes
+        .expand((i) => widget.objectTypes
+            .where((o) => i.isValidFor(o))
+            .map((o) => (o, i)))
+        .toSet();
     _authorId = widget.authorId;
     _authorName = widget.authorName;
     _authorCtrl = TextEditingController(text: widget.authorName ?? '');
@@ -1159,20 +1163,20 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
     setState(() {
       if (_objectTypes.contains(t)) {
         _objectTypes.remove(t);
-        _issueTypes.removeWhere(
-            (i) => !_objectTypes.any((o) => i.isValidFor(o)));
+        _selectedIssueChips.removeWhere((e) => e.$1 == t);
       } else {
         _objectTypes.add(t);
       }
     });
   }
 
-  void _toggleIssueType(IssueType i) {
+  void _toggleIssueType(ObjectType type, IssueType i) {
     setState(() {
-      if (_issueTypes.contains(i)) {
-        _issueTypes.remove(i);
+      final pair = (type, i);
+      if (_selectedIssueChips.contains(pair)) {
+        _selectedIssueChips.remove(pair);
       } else {
-        _issueTypes.add(i);
+        _selectedIssueChips.add(pair);
       }
     });
   }
@@ -1251,7 +1255,7 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
     _minDisagreesCtrl.clear();
     setState(() {
       _objectTypes.clear();
-      _issueTypes.clear();
+      _selectedIssueChips.clear();
       _authorId = null;
       _authorName = null;
       _authorResults = [];
@@ -1267,7 +1271,7 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
       context,
       _AdvancedFilterResult(
         objectTypes: List.from(_objectTypes),
-        issueTypes: List.from(_issueTypes),
+        issueTypes: _selectedIssueChips.map((e) => e.$2).toSet().toList(),
         authorId: _authorId,
         authorName: _authorName,
         publishedAfter: _publishedAfter,
@@ -1452,11 +1456,11 @@ class _AdvancedFiltersSheetState extends State<_AdvancedFiltersSheet> {
             spacing: 6,
             runSpacing: 6,
             children: issues.map((i) {
-              final selected = _issueTypes.contains(i);
+              final selected = _selectedIssueChips.contains((type, i));
               return FilterChip(
                 label: Text(i.label),
                 selected: selected,
-                onSelected: (_) => _toggleIssueType(i),
+                onSelected: (_) => _toggleIssueType(type, i),
                 selectedColor: type.color.withValues(alpha: 0.15),
                 checkmarkColor: type.color,
                 side: BorderSide(
