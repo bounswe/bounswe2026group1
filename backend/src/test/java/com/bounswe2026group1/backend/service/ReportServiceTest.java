@@ -50,6 +50,7 @@ class ReportServiceTest {
     @Mock private NominatimReverseGeocoder reverseGeocoder;
     @Mock private NotificationService notificationService;
     @Mock private GamificationService gamificationService;
+    @Mock private ReportSubscriptionService subscriptionService;
     @Mock private UserBadgeRepository userBadgeRepository;
 
     @InjectMocks
@@ -763,6 +764,16 @@ class ReportServiceTest {
     }
 
     @Test
+    void create_autoSubscribesAuthorToReport() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(reportRepository.save(any(Report.class))).thenReturn(testReport);
+
+        reportService.create(testRequest);
+
+        verify(subscriptionService).subscribeInternal(eq(testReport), eq(testUser));
+    }
+
+    @Test
     void verifyReport_freshCast_awardsVoteCastPoints() {
         ReflectionTestUtils.setField(reportService, "verificationThreshold", 5);
         testUser.setEmail("user@test.com");
@@ -776,6 +787,8 @@ class ReportServiceTest {
 
         verify(gamificationService).awardOnVoteCast(eq(testUser), any());
         verify(gamificationService, never()).deductOnVoteWithdraw(any(), any());
+        // Voter joins the notification audience as a subscription row.
+        verify(subscriptionService).subscribeInternal(eq(testReport), eq(testUser));
     }
 
     @Test
@@ -794,6 +807,8 @@ class ReportServiceTest {
 
         verify(gamificationService).deductOnVoteWithdraw(eq(testUser), any());
         verify(gamificationService, never()).awardOnVoteCast(any(), any());
+        // Vote withdraw — do not re-subscribe; the user is actively backing off.
+        verify(subscriptionService, never()).subscribeInternal(any(), any());
     }
 
     @Test
