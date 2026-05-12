@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +7,9 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/sse_service.dart';
 import '../models/report_model.dart';
+import '../models/sse_event.dart';
 import '../widgets/badge_chip.dart';
 import '../main.dart' show AuthShell;
 import 'avatar_crop_screen.dart';
@@ -38,17 +41,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   File? _pickedAvatar;
 
+  // ── SSE refresh ────────────────────────────────────────────────────────────
+  StreamSubscription<SseEvent>? _sseSub;
+  // Coalesce bursts (e.g. a report verify pays out multiple users at once,
+  // some of which may be us via voter-alignment payouts) into one refetch.
+  Timer? _refetchDebounce;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _sseSub = context.read<SseService>().events.listen(_onSseEvent);
   }
 
   @override
   void dispose() {
+    _sseSub?.cancel();
+    _refetchDebounce?.cancel();
     _nameController.dispose();
     _bioController.dispose();
     super.dispose();
+  }
+
+  void _onSseEvent(SseEvent event) {
+    if (event.eventType != 'POINTS_CHANGED') return;
+    final myId = context.read<AuthService>().userId;
+    // Only the current user's balance is shown on this screen, so ignore
+    // events for other users. Stays in sync with the leaderboard screen,
+    // which listens to every POINTS_CHANGED.
+    if (event.userId == null || event.userId != myId) return;
+    _refetchDebounce?.cancel();
+    _refetchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted && !_editMode) _loadData();
+    });
   }
 
   Future<void> _loadData() async {
