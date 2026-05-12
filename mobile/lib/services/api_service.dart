@@ -363,22 +363,44 @@ class ApiService {
   /// Paginated, filterable feed. Mirrors the web's `getReportFeed` and the
   /// backend's `GET /api/reports/feed` (Spring `Page<ReportResponse>`).
   /// When [latitude] and [longitude] are both provided, the backend orders
-  /// results by PostGIS distance and applies [radiusInKm] (defaults to 1.0
-  /// server-side when omitted).
+  /// results by PostGIS distance and applies [radiusInKm].
   Future<FeedPage<ReportModel>> getReportFeed({
     int page = 0,
     int size = 20,
     ReportType? reportType,
     ReportEnvironment? environment,
+    List<ReportStatus>? status,
+    String? sort,
+    String? q,
+    List<ObjectType>? objectType,
+    List<IssueType>? issueType,
+    int? authorId,
+    String? publishedAfter,
+    String? publishedBefore,
+    int? minAgrees,
+    int? minDisagrees,
     double? latitude,
     double? longitude,
     double? radiusInKm,
   }) async {
-    final params = <String, String>{
+    final params = <String, dynamic>{
       'page': '$page',
       'size': '$size',
       if (reportType != null) 'reportType': reportType.jsonValue,
       if (environment != null) 'environment': environment.jsonValue,
+      if (sort != null) 'sort': sort,
+      if (q != null && q.isNotEmpty) 'q': q,
+      if (authorId != null) 'authorId': '$authorId',
+      if (publishedAfter != null) 'publishedAfter': publishedAfter,
+      if (publishedBefore != null) 'publishedBefore': publishedBefore,
+      if (minAgrees != null) 'minAgrees': '$minAgrees',
+      if (minDisagrees != null) 'minDisagrees': '$minDisagrees',
+      if (status != null && status.isNotEmpty)
+        'status': status.map((s) => s.jsonValue).toList(),
+      if (objectType != null && objectType.isNotEmpty)
+        'objectType': objectType.map((o) => o.jsonValue).toList(),
+      if (issueType != null && issueType.isNotEmpty)
+        'issueType': issueType.map((i) => i.jsonValue).toList(),
     };
     if (latitude != null && longitude != null) {
       params['latitude'] = '$latitude';
