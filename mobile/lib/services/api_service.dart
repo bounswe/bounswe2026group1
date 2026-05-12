@@ -935,6 +935,7 @@ class FeedPage<T> {
   final int size;
   final bool last;
   final int totalPages;
+  final int totalElements;
 
   const FeedPage({
     required this.content,
@@ -942,6 +943,7 @@ class FeedPage<T> {
     required this.size,
     required this.last,
     required this.totalPages,
+    required this.totalElements,
   });
 
   factory FeedPage.fromJson(
@@ -957,6 +959,8 @@ class FeedPage<T> {
       size: (json['size'] as num?)?.toInt() ?? raw.length,
       last: json['last'] as bool? ?? true,
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
+      totalElements:
+          (json['totalElements'] as num?)?.toInt() ?? raw.length,
     );
   }
 }

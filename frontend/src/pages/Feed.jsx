@@ -328,6 +328,8 @@ export default function Feed() {
     return data.pages.flatMap((p) => (p.content || []).map(mapReport))
   }, [data])
 
+  const totalResults = data?.pages?.[0]?.totalElements ?? null
+
   /** Ensures chips match visible cards if the API ever returns extra rows (e.g. proximity + enum filters). */
   const reportsMatchingFilters = useMemo(() => {
     return reports.filter((r) => {
@@ -905,6 +907,16 @@ export default function Feed() {
         {isError && !feedBlockedReason && (
           <p role="alert" className="text-sm text-error font-medium">
             {error?.message || 'Could not load the feed.'}
+          </p>
+        )}
+
+        {totalResults != null && !feedBlockedReason && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-sm font-medium text-on-surface-variant"
+          >
+            {totalResults === 1 ? '1 result' : `${totalResults} results`}
           </p>
         )}
 
