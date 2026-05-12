@@ -48,7 +48,9 @@ export async function apiFetch(path, options = {}) {
     }
     const error = await res.json().catch(() => ({ message: res.statusText }))
     const msg = pickErrorMessage(error, res.statusText)
-    throw new Error(msg)
+    const err = new Error(msg)
+    err.status = res.status
+    throw err
   }
 
   if (res.status === 204) return null

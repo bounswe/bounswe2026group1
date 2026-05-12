@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.DispatcherType;
 import java.util.List;
 
 @Slf4j
@@ -54,6 +55,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // SSE controllers commit the response on the initial REQUEST
+                        // dispatch; on async/error re-dispatches the SecurityContext is
+                        // empty, so Spring Security 6's AuthorizationFilter (which runs
+                        // on every dispatch type by default) would otherwise reject the
+                        // already-committed response and log a spurious warning.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(ROUTING_AND_AUTH_PUBLIC).permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
