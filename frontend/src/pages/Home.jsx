@@ -121,7 +121,7 @@ function ZoomControls({ userLocation, onLocationError }) {
     map.locate({ setView: true, maxZoom: 16 })
   }
   return (
-    <div className="absolute right-3 sm:right-10 top-24 sm:top-1/3 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
+    <div className="absolute right-3 sm:right-10 top-16 sm:top-1/4 sm:-translate-y-1/2 flex flex-col gap-2 z-[1000]">
       <button
         onClick={() => map.zoomIn()}
         className="w-10 h-10 sm:w-12 sm:h-12 bg-surface-container-lowest/80 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg hover:bg-surface-container-lowest text-secondary hover:text-primary transition-colors"
@@ -366,6 +366,7 @@ function Home() {
   }, [searchParams, selectedReport])
 
   const [routeNotice, setRouteNotice] = useState('')
+  const [pulseCollapsed, setPulseCollapsed] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
   const [routeOriginLabel, setRouteOriginLabel] = useState('')
   const [routeDestLabel, setRouteDestLabel] = useState('')
@@ -720,44 +721,59 @@ function Home() {
 
           {/* Community Pulse card + FAB */}
           <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 z-[1000] flex flex-col items-end gap-3 sm:gap-4">
-            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl p-5 w-80 shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
-                <span className="material-symbols-outlined text-primary">analytics</span>
+            <div className="hidden lg:block bg-surface-container-lowest/80 backdrop-blur-md rounded-3xl shadow-[0_10px_40px_-4px_rgba(45,47,47,0.12)] border border-outline-variant/20 overflow-hidden transition-all duration-300 w-72">
+              <div className={`flex justify-between items-center ${pulseCollapsed ? 'p-3.5' : 'p-4 pb-3'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">analytics</span>
+                  <h3 className="font-headline font-bold text-on-surface">Community Pulse</h3>
+                </div>
+                <button
+                  onClick={() => setPulseCollapsed((v) => !v)}
+                  aria-label={pulseCollapsed ? 'Expand Community Pulse' : 'Collapse Community Pulse'}
+                  className="p-1 rounded-lg hover:bg-primary/10 text-on-surface-variant hover:text-primary transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg leading-none">
+                    {pulseCollapsed ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-2xl bg-primary-container/30 p-3.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>flag</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Active</span>
+              {!pulseCollapsed && (
+                <div className="px-4 pb-4">
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="rounded-2xl bg-primary-container/30 p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>flag</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Active</span>
+                      </div>
+                      <p className="text-xl font-headline font-extrabold text-on-surface leading-none">{pulseStats.active}</p>
+                      <p className="text-[11px] text-on-surface-variant mt-1">unresolved obstacles</p>
+                    </div>
+                    <div className="rounded-2xl bg-surface-container-low p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="material-symbols-outlined text-primary" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Fixed</span>
+                      </div>
+                      <p className="text-xl font-headline font-extrabold text-on-surface leading-none">{pulseStats.fixed}</p>
+                      <p className="text-[11px] text-on-surface-variant mt-1">by the community</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-headline font-extrabold text-on-surface leading-none">{pulseStats.active}</p>
-                  <p className="text-[11px] text-on-surface-variant mt-1">unresolved obstacles</p>
-                </div>
-                <div className="rounded-2xl bg-surface-container-low p-3.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>task_alt</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Fixed</span>
+                  <div className="bg-primary/5 rounded-2xl p-3">
+                    <div className="flex justify-between items-baseline text-[11px] font-bold mb-1.5">
+                      <span className="text-on-surface">Resolution rate</span>
+                      <span className="text-primary text-sm font-headline">{pulseStats.resolutionPct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-[width] duration-500"
+                        style={{ width: `${pulseStats.resolutionPct}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-on-surface-variant mt-1.5 leading-relaxed">
+                      {pulseStats.fixed} of {pulseStats.fixed + pulseStats.active} confirmed issues resolved
+                    </p>
                   </div>
-                  <p className="text-2xl font-headline font-extrabold text-on-surface leading-none">{pulseStats.fixed}</p>
-                  <p className="text-[11px] text-on-surface-variant mt-1">by the community</p>
                 </div>
-              </div>
-              <div className="bg-primary/5 rounded-2xl p-3.5">
-                <div className="flex justify-between items-baseline text-[11px] font-bold mb-2">
-                  <span className="text-on-surface">Resolution rate</span>
-                  <span className="text-primary text-base font-headline">{pulseStats.resolutionPct}%</span>
-                </div>
-                <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-[width] duration-500"
-                    style={{ width: `${pulseStats.resolutionPct}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-on-surface-variant mt-2 leading-relaxed">
-                  {pulseStats.fixed} of {pulseStats.fixed + pulseStats.active} confirmed issues resolved
-                </p>
-              </div>
+              )}
             </div>
 
             <button
