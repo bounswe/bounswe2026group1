@@ -3,7 +3,11 @@ package com.bounswe2026group1.backend.service;
 import com.bounswe2026group1.backend.dto.routing.RoutingDirectionsResult;
 import com.bounswe2026group1.backend.exception.RoutingException;
 import com.bounswe2026group1.backend.model.Location;
+import com.bounswe2026group1.backend.model.RoutingConstraint;
 import com.bounswe2026group1.backend.model.TravelMode;
+
+import java.util.EnumSet;
+import java.util.Set;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +78,77 @@ class OrsRoutingClientTest {
         JsonNode body = objectMapper.readTree(bodyCaptor.getValue());
         JsonNode avoid = body.path("options").path("avoid_polygons");
         assertEquals("MultiPolygon", avoid.path("type").stringValue());
+    }
+
+    @Test
+    void fetchDirections_avoidStairsConstraint_addsAvoidFeaturesSteps() throws Exception {
+        when(orsHttpClient.postDirections(eq("foot-walking"), anyString()))
+                .thenReturn(minimalOrsSuccessJson());
+
+        client.fetchDirections(START, END, TravelMode.WALKING, null,
+                EnumSet.of(RoutingConstraint.AVOID_STAIRS));
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(orsHttpClient).postDirections(eq("foot-walking"), bodyCaptor.capture());
+
+        JsonNode body = objectMapper.readTree(bodyCaptor.getValue());
+        JsonNode features = body.path("options").path("avoid_features");
+        assertTrue(features.isArray(), "options.avoid_features must be an array");
+        assertEquals(1, features.size());
+        assertEquals("steps", features.get(0).stringValue());
+    }
+
+    @Test
+    void fetchDirections_constraintsWithoutAvoidStairs_omitAvoidFeatures() throws Exception {
+        when(orsHttpClient.postDirections(eq("foot-walking"), anyString()))
+                .thenReturn(minimalOrsSuccessJson());
+
+        client.fetchDirections(START, END, TravelMode.WALKING, null,
+                EnumSet.of(RoutingConstraint.AVOID_NARROW_SIDEWALKS,
+                           RoutingConstraint.REQUIRE_HANDRAILS));
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(orsHttpClient).postDirections(eq("foot-walking"), bodyCaptor.capture());
+
+        JsonNode body = objectMapper.readTree(bodyCaptor.getValue());
+        // No AVOID_STAIRS → no ORS-native feature filter, and since no polygons either,
+        // the options object should not appear at all.
+        assertTrue(body.path("options").isMissingNode() || body.path("options").isEmpty(),
+                "request body must not carry avoid_features when AVOID_STAIRS is absent");
+    }
+
+    @Test
+    void fetchDirections_avoidStairsAndPolygons_attachesBothUnderOptions() throws Exception {
+        when(orsHttpClient.postDirections(eq("wheelchair"), anyString()))
+                .thenReturn(minimalOrsSuccessJson());
+
+        var polygons = objectMapper.createObjectNode();
+        polygons.put("type", "MultiPolygon");
+        polygons.set("coordinates", objectMapper.createArrayNode());
+
+        client.fetchDirections(START, END, TravelMode.WHEELCHAIR, polygons,
+                EnumSet.of(RoutingConstraint.AVOID_STAIRS));
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(orsHttpClient).postDirections(eq("wheelchair"), bodyCaptor.capture());
+
+        JsonNode options = objectMapper.readTree(bodyCaptor.getValue()).path("options");
+        assertEquals("MultiPolygon", options.path("avoid_polygons").path("type").stringValue());
+        assertEquals("steps", options.path("avoid_features").get(0).stringValue());
+    }
+
+    @Test
+    void fetchDirections_nullConstraintsOverload_behavesLikeEmptyConstraintSet() throws Exception {
+        when(orsHttpClient.postDirections(eq("foot-walking"), anyString()))
+                .thenReturn(minimalOrsSuccessJson());
+
+        // 5-arg form with null constraints — should not throw and should not add avoid_features.
+        client.fetchDirections(START, END, TravelMode.WALKING, null, (Set<RoutingConstraint>) null);
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(orsHttpClient).postDirections(eq("foot-walking"), bodyCaptor.capture());
+        JsonNode body = objectMapper.readTree(bodyCaptor.getValue());
+        assertTrue(body.path("options").isMissingNode() || body.path("options").isEmpty());
     }
 
     @Test
