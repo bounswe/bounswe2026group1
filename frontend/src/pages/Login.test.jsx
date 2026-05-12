@@ -183,7 +183,7 @@ describe('Login page', () => {
     })
 
     it('shows an error message on failed login', async () => {
-      authService.loginUser.mockRejectedValue(new Error('Unauthorized'))
+      authService.loginUser.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }))
       const user = userEvent.setup()
       renderLogin()
 
@@ -197,7 +197,7 @@ describe('Login page', () => {
     })
 
     it('does not navigate on failed login', async () => {
-      authService.loginUser.mockRejectedValue(new Error('Unauthorized'))
+      authService.loginUser.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }))
       const user = userEvent.setup()
       renderLogin()
 
@@ -210,7 +210,7 @@ describe('Login page', () => {
 
     it('clears a previous error when resubmitting', async () => {
       authService.loginUser
-        .mockRejectedValueOnce(new Error('Unauthorized'))
+        .mockRejectedValueOnce(Object.assign(new Error('Unauthorized'), { status: 401 }))
         .mockResolvedValue({ token: 'tok' })
       const user = userEvent.setup()
       renderLogin()

@@ -40,9 +40,14 @@ function Login() {
       const from = location.state?.from?.pathname ?? '/'
       navigate(from, { replace: true })
     } catch (err) {
-      // Always show a generic message regardless of the actual error to avoid
-      // leaking whether the email exists in the system.
-      setError('Invalid email or password.')
+      // Generic message on 401 to avoid leaking whether the email exists;
+      // for network/5xx errors, surface the real cause so a transient backend
+      // failure isn't misread as bad credentials.
+      if (err?.status === 401) {
+        setError('Invalid email or password.')
+      } else {
+        setError(err?.message || 'Could not reach the server. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
