@@ -94,8 +94,8 @@ public class RouteService {
 
         List<RouteResponse> routes = new ArrayList<>();
 
-        // 1. Fastest walking route — no obstacle avoidance
-        RoutingDirectionsResult fastestResult = fetchOrNull(start, end, TravelMode.WALKING, null);
+        // 1. Fastest walking route — no obstacle avoidance, no ORS feature filters
+        RoutingDirectionsResult fastestResult = fetchOrNull(start, end, TravelMode.WALKING, null, Set.of());
         boolean hasObstacles = false;
 
         if (fastestResult != null) {
@@ -122,7 +122,7 @@ public class RouteService {
         // Wheelchair callers' accessible alternative IS the wheelchair-mode
         // route below; emitting a walking Accessible Route to them is noise.
         if (avoidPolygons != null && includeWalkingAccessibleAlternative) {
-            RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons);
+            RoutingDirectionsResult accessibleResult = fetchOrNull(start, end, TravelMode.WALKING, avoidPolygons, constraints);
 
             if (accessibleResult != null) {
                 routes.add(RouteResponse.builder()
@@ -149,7 +149,7 @@ public class RouteService {
         if (includeWheelchairAlternative) {
             // Candidate A: direct wheelchair route with obstacle avoidance
             RoutingDirectionsResult wheelchairResult =
-                    fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons);
+                    fetchOrNull(start, end, TravelMode.WHEELCHAIR, avoidPolygons, constraints);
             if (wheelchairResult != null) {
                 bestWheelchair = RouteResponse.builder()
                         .routeLabel(wheelchairLabel)
@@ -182,9 +182,10 @@ public class RouteService {
             Location rampEntry = indexA <= indexB ? rampA : rampB;
             Location rampExit  = indexA <= indexB ? rampB : rampA;
 
-            RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons);
-            RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null);
-            RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons);
+            RoutingDirectionsResult leg1 = fetchOrNull(start, rampEntry, TravelMode.WHEELCHAIR, avoidPolygons, constraints);
+            // leg 2 traverses the selected ramp itself — feature filters would defeat the purpose
+            RoutingDirectionsResult leg2 = fetchOrNull(rampEntry, rampExit, TravelMode.WALKING, null, Set.of());
+            RoutingDirectionsResult leg3 = fetchOrNull(rampExit, end, TravelMode.WHEELCHAIR, avoidPolygons, constraints);
 
                 if (leg1 != null && leg2 != null && leg3 != null) {
                     double totalDistance = leg1.getDistanceMeters() + leg2.getDistanceMeters() + leg3.getDistanceMeters();
@@ -271,9 +272,10 @@ public class RouteService {
         return 2 * R * Math.asin(Math.sqrt(h));
     }
 
-    private RoutingDirectionsResult fetchOrNull(Location start, Location end, TravelMode mode, ObjectNode polygons) {
+    private RoutingDirectionsResult fetchOrNull(Location start, Location end, TravelMode mode,
+                                                ObjectNode polygons, Set<RoutingConstraint> constraints) {
         try {
-            return orsRoutingClient.fetchDirections(start, end, mode, polygons);
+            return orsRoutingClient.fetchDirections(start, end, mode, polygons, constraints);
         } catch (Exception e) {
             log.warn("Failed to fetch {} route: {}", mode, e.getMessage());
             return null;
