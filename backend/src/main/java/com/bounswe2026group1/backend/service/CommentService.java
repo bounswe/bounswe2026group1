@@ -23,6 +23,7 @@ public class CommentService {
     private final ReportRepository reportRepository;
     private final RegisteredUserRepository registeredUserRepository;
     private final NotificationService notificationService;
+    private final ReportSubscriptionService subscriptionService;
 
     public List<CommentResponse> getAll() {
         return commentRepository.findAll().stream().map(CommentResponse::fromEntity).toList();
@@ -57,6 +58,9 @@ public class CommentService {
         comment.setReport(reportRepository.getReferenceById(req.report().reportId()));
         comment.setAuthor(registeredUserRepository.getReferenceById(req.author().id()));
         Comment saved = commentRepository.save(comment);
+        // Commenter joins the notification audience as an explicit subscription
+        // row so the Follow button reflects it.
+        subscriptionService.subscribeInternal(saved.getReport(), saved.getAuthor());
         notificationService.notifyNewComment(saved);
         return CommentResponse.fromEntity(saved);
     }

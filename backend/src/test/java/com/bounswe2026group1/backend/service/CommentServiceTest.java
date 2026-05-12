@@ -33,6 +33,7 @@ class CommentServiceTest {
     @Mock private ReportRepository reportRepository;
     @Mock private RegisteredUserRepository registeredUserRepository;
     @Mock private NotificationService notificationService;
+    @Mock private ReportSubscriptionService subscriptionService;
 
     @InjectMocks
     private CommentService commentService;
@@ -77,6 +78,9 @@ class CommentServiceTest {
         assertEquals(99L, out.id());
         verify(notificationService).notifyNewComment(any(Comment.class));
         verify(commentRepository).save(any(Comment.class));
+        // Commenter is auto-added to the notification audience so the Follow
+        // button reflects it.
+        verify(subscriptionService).subscribeInternal(report, author);
     }
 
     @Test
