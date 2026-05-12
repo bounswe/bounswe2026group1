@@ -411,6 +411,62 @@ class ReportRepositoryImplTest extends AbstractPostgisIntegrationTest {
     }
 
     @Test
+    void findFeedRecent_mergesObjectTypeAndObjectIssue_asOrAcrossCoveredAndUncoveredTypes() {
+        RegisteredUser user = persistUser("merge-or@test.com");
+
+        // RAMP is "covered" by the RAMP:MISSING pair — only RAMP-with-MISSING should match.
+        Report rampMissing = persistReportWithObject(user, ObjectType.RAMP,
+                EnumSet.of(IssueType.MISSING));
+        Report rampSteep = persistReportWithObject(user, ObjectType.RAMP,
+                EnumSet.of(IssueType.TOO_STEEP));
+
+        // DOOR is "uncovered" (no pair) — any DOOR report should still pass.
+        Report doorHeavy = persistReportWithObject(user, ObjectType.DOOR,
+                EnumSet.of(IssueType.HEAVY_DOOR));
+        Report doorAnotherIssue = persistReportWithObject(user, ObjectType.DOOR,
+                EnumSet.of(IssueType.STEP_AT_ENTRANCE));
+
+        Report unrelatedStair = persistReportWithObject(user, ObjectType.STAIR,
+                EnumSet.of(IssueType.MISSING_HANDRAIL));
+
+        ReportFeedQuery q = new ReportFeedQuery();
+        q.setObjectType(List.of(ObjectType.RAMP, ObjectType.DOOR));
+        q.setObjectIssue(List.of("RAMP:MISSING"));
+        Page<Report> page = reportRepository.findFeedRecent(q, PageRequest.of(0, 10));
+
+        List<Long> ids = page.getContent().stream().map(Report::getReportId).toList();
+        assertTrue(ids.contains(rampMissing.getReportId()), "covered RAMP+MISSING must match");
+        assertFalse(ids.contains(rampSteep.getReportId()),
+                "covered RAMP must narrow to the picked issue");
+        assertTrue(ids.contains(doorHeavy.getReportId()), "uncovered DOOR must match any issue");
+        assertTrue(ids.contains(doorAnotherIssue.getReportId()),
+                "uncovered DOOR must match any issue");
+        assertFalse(ids.contains(unrelatedStair.getReportId()),
+                "STAIR isn't selected — must be excluded");
+        assertEquals(3L, page.getTotalElements());
+    }
+
+    @Test
+    void findFeedRecent_uncoveredObjectType_matchesObjectWithNoIssues() {
+        RegisteredUser user = persistUser("merge-or-no-issues@test.com");
+
+        // RAMP with an empty issues set — INNER JOIN on issues would have skipped it,
+        // breaking the "any RAMP" semantics for an uncovered type chip.
+        Report rampNoIssues = persistReportWithObject(user, ObjectType.RAMP, EnumSet.noneOf(IssueType.class));
+        Report doorMissing = persistReportWithObject(user, ObjectType.DOOR, EnumSet.of(IssueType.MISSING));
+
+        ReportFeedQuery q = new ReportFeedQuery();
+        q.setObjectType(List.of(ObjectType.RAMP));
+        Page<Report> page = reportRepository.findFeedRecent(q, PageRequest.of(0, 10));
+
+        List<Long> ids = page.getContent().stream().map(Report::getReportId).toList();
+        assertTrue(ids.contains(rampNoIssues.getReportId()),
+                "uncovered RAMP must match a RAMP object even when it has no issues");
+        assertFalse(ids.contains(doorMissing.getReportId()));
+        assertEquals(1L, page.getTotalElements());
+    }
+
+    @Test
     void findFeedRecent_sortMostAgreed_ordersByAgreesDesc() {
         RegisteredUser user = persistUser("sort-agreed@test.com");
         Report mid = persistReportWithVotes(user, 5, 0);
