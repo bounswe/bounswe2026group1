@@ -50,7 +50,7 @@ public class ReportController {
                     "(`minAgrees`, `minDisagrees`, `minNetScore`), attached objectType / issueType, and " +
                     "proximity. When `latitude` and `longitude` are supplied, results default to " +
                     "PostGIS distance ordering; an explicit `sort` parameter overrides this " +
-                    "(`NEWEST`, `OLDEST`, `MOST_AGREED`, `MOST_CONTROVERSIAL`, `DISTANCE`)."
+                    "(`NEWEST`, `OLDEST`, `MOST_AGREED`, `MOST_VOTED`, `DISTANCE`)."
     )
     public Page<ReportResponse> feed(
             @ParameterObject ReportFeedQuery query,

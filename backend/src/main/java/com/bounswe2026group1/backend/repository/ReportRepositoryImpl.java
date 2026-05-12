@@ -236,7 +236,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             case DISTANCE -> " ORDER BY ST_Distance(r.location::geography, ref.g) ASC";
             case OLDEST -> " ORDER BY r.publish_date ASC";
             case MOST_AGREED -> " ORDER BY r.agrees DESC, r.publish_date DESC";
-            case MOST_CONTROVERSIAL -> " ORDER BY (r.agrees + r.disagrees) DESC, r.publish_date DESC";
+            case MOST_VOTED -> " ORDER BY (r.agrees + r.disagrees) DESC, r.publish_date DESC";
             case NEWEST -> " ORDER BY r.publish_date DESC";
         };
     }
@@ -245,7 +245,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
         return switch (sort) {
             case OLDEST -> " ORDER BY r.publishDate ASC";
             case MOST_AGREED -> " ORDER BY r.agrees DESC, r.publishDate DESC";
-            case MOST_CONTROVERSIAL -> " ORDER BY (r.agrees + r.disagrees) DESC, r.publishDate DESC";
+            case MOST_VOTED -> " ORDER BY (r.agrees + r.disagrees) DESC, r.publishDate DESC";
             // DISTANCE only makes sense in the proximity branch; fall through to NEWEST as a guard.
             case DISTANCE, NEWEST -> " ORDER BY r.publishDate DESC";
         };

@@ -8,6 +8,6 @@ public enum FeedSort {
     NEWEST,
     OLDEST,
     MOST_AGREED,
-    MOST_CONTROVERSIAL,
+    MOST_VOTED,
     DISTANCE
 }
