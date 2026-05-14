@@ -1,6 +1,7 @@
 package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.dto.LeaderboardVisibilityRequest;
+import com.bounswe2026group1.backend.dto.VoiceCommandsRequest;
 import com.bounswe2026group1.backend.dto.PointEventResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
@@ -602,5 +603,37 @@ class RegisteredUserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LeaderboardVisibilityRequest(true))))
                 .andExpect(status().isNotFound());
+    }
+
+    // ───── PATCH /me/voice-commands (1.1.3.8) ─────────────────────────────────
+
+    @Test
+    @WithMockUser(username = OWNER_EMAIL)
+    void setVoiceCommands_authenticated_returns200() throws Exception {
+        when(registeredUserService.getProfileByEmail(OWNER_EMAIL)).thenReturn(ownerProfile);
+        UserProfileDTO updated = UserProfileDTO.builder()
+                .id(OWNER_ID).name("Owner").email(OWNER_EMAIL).role("USER")
+                .contributionStats(UserProfileDTO.ContributionStatsDTO.builder().build())
+                .voiceCommandsEnabled(true)
+                .build();
+        when(registeredUserService.setVoiceCommandsEnabled(OWNER_ID, true)).thenReturn(updated);
+
+        mockMvc.perform(patch("/api/users/me/voice-commands")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new VoiceCommandsRequest(true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voiceCommandsEnabled").value(true));
+    }
+
+    @Test
+    void setVoiceCommands_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(patch("/api/users/me/voice-commands")
+                        .header("Mapcess-Key", validApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new VoiceCommandsRequest(false))))
+                .andExpect(status().isUnauthorized());
+
+        verify(registeredUserService, never()).setVoiceCommandsEnabled(any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 }

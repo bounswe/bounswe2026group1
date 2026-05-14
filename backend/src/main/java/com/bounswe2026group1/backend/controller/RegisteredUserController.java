@@ -2,6 +2,7 @@ package com.bounswe2026group1.backend.controller;
 
 import com.bounswe2026group1.backend.config.OpenApiConfig;
 import com.bounswe2026group1.backend.dto.LeaderboardVisibilityRequest;
+import com.bounswe2026group1.backend.dto.VoiceCommandsRequest;
 import com.bounswe2026group1.backend.dto.PointEventResponse;
 import com.bounswe2026group1.backend.dto.UpdateProfileRequest;
 import com.bounswe2026group1.backend.dto.UserProfileDTO;
@@ -307,6 +308,35 @@ public class RegisteredUserController {
             return ResponseEntity.ok(page);
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/me/voice-commands")
+    @Operation(
+            summary = "Toggle the caller's voice-command accessibility mode (1.1.3.8)",
+            description = "Enables or disables voice-command mode for the authenticated user. " +
+                    "The web app reads this on login and shows the mic toggle / listening indicator when enabled."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Updated profile."),
+            @ApiResponse(responseCode = "400", description = "Body missing the voiceCommandsEnabled flag."),
+            @ApiResponse(responseCode = "401", description = "Authentication required."),
+            @ApiResponse(responseCode = "404", description = "Authenticated user no longer exists.")
+    })
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    public ResponseEntity<Object> setVoiceCommands(
+            @RequestBody @Valid VoiceCommandsRequest request) {
+        String email = currentUserEmailOrNull();
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication required.");
+        }
+        try {
+            UserProfileDTO me = registeredUserService.getProfileByEmail(email);
+            UserProfileDTO updated = registeredUserService.setVoiceCommandsEnabled(
+                    me.getId(), request.voiceCommandsEnabled());
+            return ResponseEntity.ok(updated);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }

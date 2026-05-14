@@ -277,6 +277,16 @@ public class RegisteredUserService {
         return toProfileDTO(saved, true);
     }
 
+    /** Toggles the user's voice-command accessibility mode (1.1.3.8). Persisted
+     *  per user so the web app can restore the choice on every login. */
+    public UserProfileDTO setVoiceCommandsEnabled(Long id, boolean enabled) {
+        RegisteredUser user = registeredUserRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + id));
+        user.setVoiceCommandsEnabled(enabled);
+        RegisteredUser saved = registeredUserRepository.save(user);
+        return toProfileDTO(saved, true);
+    }
+
     /** All badges currently held by a user — exposed as its own endpoint so
      *  the public profile page can fetch badges without going through the
      *  full profile DTO. */
@@ -336,6 +346,7 @@ public class RegisteredUserService {
                 .badges(badges)
                 .topBadge(Badge.pickHighestTier(badges))
                 .leaderboardHidden(user.isLeaderboardHidden())
+                .voiceCommandsEnabled(user.isVoiceCommandsEnabled())
                 .build();
     }
 }

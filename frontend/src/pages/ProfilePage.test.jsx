@@ -17,6 +17,7 @@ vi.mock('../hooks/useProfile.js', () => ({
 }))
 vi.mock('../hooks/useGamification.js', () => ({
   useSetLeaderboardVisibility: vi.fn(),
+  useSetVoiceCommandsEnabled: vi.fn(),
 }))
 vi.mock('../hooks/useUserReports.js', () => ({
   useUserReports: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock('../components/RoutingPreferencesSection.jsx', () => ({
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 import { useDeleteAvatar, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile.js'
-import { useSetLeaderboardVisibility } from '../hooks/useGamification.js'
+import { useSetLeaderboardVisibility, useSetVoiceCommandsEnabled } from '../hooks/useGamification.js'
 import { useDeleteReport, useUpdateReport, useUserReports } from '../hooks/useUserReports.js'
 
 function LocationProbe() {
@@ -109,6 +110,7 @@ describe('ProfilePage', () => {
     useUploadAvatar.mockReturnValue({ mutateAsync: uploadAvatarMutate, isPending: false })
     useDeleteAvatar.mockReturnValue({ mutateAsync: deleteAvatarMutate, isPending: false })
     useSetLeaderboardVisibility.mockReturnValue({ mutateAsync: setVisibilityMutate, isPending: false })
+    useSetVoiceCommandsEnabled.mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
     useUserReports.mockReturnValue({ data: [SAMPLE_REPORT], isPending: false, isError: false })
     useUpdateReport.mockReturnValue({ mutateAsync: updateReportMutate, isPending: false })
     useDeleteReport.mockReturnValue({ mutateAsync: deleteReportMutate, isPending: false })

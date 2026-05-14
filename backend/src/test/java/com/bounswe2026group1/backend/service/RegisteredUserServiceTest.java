@@ -536,6 +536,28 @@ class RegisteredUserServiceTest {
     }
 
     @Test
+    void setVoiceCommandsEnabled_persistsFlag() {
+        when(registeredUserRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(registeredUserRepository.save(any(RegisteredUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UserProfileDTO dto = registeredUserService.setVoiceCommandsEnabled(1L, true);
+
+        ArgumentCaptor<RegisteredUser> captor = ArgumentCaptor.forClass(RegisteredUser.class);
+        verify(registeredUserRepository).save(captor.capture());
+        assertTrue(captor.getValue().isVoiceCommandsEnabled());
+        assertTrue(dto.isVoiceCommandsEnabled());
+    }
+
+    @Test
+    void setVoiceCommandsEnabled_unknownUserThrows() {
+        when(registeredUserRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> registeredUserService.setVoiceCommandsEnabled(99L, true));
+        verify(registeredUserRepository, never()).save(any());
+    }
+
+    @Test
     void listPointEvents_unknownUserThrows() {
         when(registeredUserRepository.existsById(99L)).thenReturn(false);
 
